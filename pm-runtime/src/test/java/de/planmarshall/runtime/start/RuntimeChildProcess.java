@@ -331,8 +331,9 @@ final class RuntimeChildProcess {
 
     /**
      * The step of the mode {@value #SWEEP}, also used by the run of the next instance: it removes, in the order of
-     * their names, the fixture records whose modification time lies before the instant it is given, one at a time,
-     * and runs the hook after each removal. A younger record is never removed.
+     * their names, the fixture records that carry no {@code .keep} sibling (the evidence that the record is residue
+     * of a removal a stop cut off), one at a time, and runs the hook after each removal. A record with its
+     * {@code .keep} sibling is open and is never removed.
      *
      * @param base         the base directory of the runtime
      * @param afterRemoval runs after each removal
@@ -347,11 +348,15 @@ final class RuntimeChildProcess {
             }
 
             @Override
-            public RecoveryStep.Outcome run(String projectId, Instant olderThan) {
+            public RecoveryStep.Outcome run(String projectId, Instant at) {
                 try (var listing = Files.list(pendingRecords(base))) {
                     var removed = 0;
                     for (var pendingRecord : listing.sorted().toList()) {
-                        if (Files.getLastModifiedTime(pendingRecord).toInstant().isBefore(olderThan)) {
+                        // Fixture evidence only: a record with its `.keep` sibling is open here; the real step,
+                        // PendingEntryRecordsSweep, decides on the entry's verified stores instead.
+                        if (!pendingRecord.getFileName().toString().endsWith(".keep")
+                                && !Files.exists(pendingRecord.resolveSibling(
+                                        pendingRecord.getFileName() + ".keep"))) {
                             Files.delete(pendingRecord);
                             removed++;
                             afterRemoval.run();

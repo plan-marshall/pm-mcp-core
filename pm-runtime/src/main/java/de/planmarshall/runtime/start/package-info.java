@@ -86,11 +86,12 @@
  * ({@link de.planmarshall.runtime.start.PeriodicSweep#INTERVAL}, 3600 seconds) over the enrolled projects whose
  * recovery has finished; a project still recovering is taken up by the next run. Its steps
  * ({@link de.planmarshall.runtime.start.SweepStep}) remove the technical residue; today that is
- * {@link de.planmarshall.runtime.start.PendingEntryRecordsSweep}, which removes the pending entry records older than
- * {@link de.planmarshall.runtime.start.PeriodicSweep#PENDING_ENTRY_MAX_AGE} (86400 seconds) in one transaction of the
- * workspace scope, one owed {@code pending_entry_removed} audit record per record, each under a
- * {@code transaction_id} of its own. The assembly registers the steps. The duration is a compiled constant, not
- * configuration. A failing step is logged and does not stop the run; the drain stops the schedule.
+ * {@link de.planmarshall.runtime.start.PendingEntryRecordsSweep}, which removes the directory of a pending entry whose
+ * removal a stop cut off, by the evidence of its absent record and never by its age (an open entry never expires), in
+ * one transaction of the workspace scope with one owed {@code pending_entry_removed} audit record per directory, each
+ * under a {@code transaction_id} of its own; the directories are deleted after the commit. The assembly registers the
+ * steps. The duration is a compiled constant, not configuration. A failing step is logged and does not stop the run;
+ * the drain stops the schedule.
  * <p>
  * The stalled-scope detection ({@link de.planmarshall.runtime.start.StalledScopeDetector}) decides on read whether a
  * plan or an epic is held {@code stalled}: it awaits no event and has made no transition and no task progress for at

@@ -30,9 +30,9 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 /**
  * The periodic sweep of the runtime over the enrolled projects
  * (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Per-Project Recovery): every {@link #INTERVAL} it
- * runs each {@link SweepStep} for each project of {@link EnrolledProjects}, with the pending entry records older than
- * {@link #PENDING_ENTRY_MAX_AGE} as the ones to remove ({@link PendingEntryRecordsSweep}). The duration is a compiled
- * constant and not configurable.
+ * runs each {@link SweepStep} for each project of {@link EnrolledProjects}, with the instant of the run as the first
+ * argument of the step ({@link PendingEntryRecordsSweep}). The duration is a compiled constant and not configurable.
+ * Nothing is removed by time: a step's evidence decides, never an age.
  * <p>
  * A project whose recovery has not finished is skipped in a run and taken up by the next; a project whose recovery
  * failed is skipped as well, because its stores wait for the integrity breach to be resolved. A failing step, one
@@ -48,9 +48,6 @@ public final class PeriodicSweep {
 
     /** The interval of the sweep. */
     public static final Duration INTERVAL = Duration.ofSeconds(3600);
-
-    /** The age from which a pending entry record is removed. */
-    public static final Duration PENDING_ENTRY_MAX_AGE = Duration.ofSeconds(86400);
 
     private final EnrolledProjects enrolled;
     private final Predicate<String> recovered;
@@ -124,11 +121,11 @@ public final class PeriodicSweep {
     /**
      * Runs every step for every enrolled project whose recovery has finished.
      *
-     * @param now the instant of the run
+     * @param now the instant of the run, which a step's records carry
      * @return the counts of the run
      */
     public Summary runOnce(Instant now) {
-        var olderThan = now.minus(PENDING_ENTRY_MAX_AGE);
+        Objects.requireNonNull(now, "now");
         var swept = 0;
         var skipped = 0;
         var failed = 0;
@@ -136,7 +133,7 @@ public final class PeriodicSweep {
             if (!recovered.test(projectId)) {
                 LOGGER.debug("Periodic sweep skips project '%s': its recovery has not finished", projectId);
                 skipped++;
-            } else if (sweep(projectId, olderThan)) {
+            } else if (sweep(projectId, now)) {
                 swept++;
             } else {
                 failed++;
@@ -147,13 +144,13 @@ public final class PeriodicSweep {
     }
 
     /** @return whether every step ran for the project without a failure */
-    private boolean sweep(String projectId, Instant olderThan) {
+    private boolean sweep(String projectId, Instant at) {
         var clean = true;
         for (var step : steps) {
             // The step runs on the calling thread; whatever it throws, a store refusal, an I/O failure or a broken
             // contract, reaches the future's handler and becomes a failed outcome of this step alone
             RecoveryStep.Outcome outcome = CompletableFuture
-                    .supplyAsync(() -> step.run(projectId, olderThan), Runnable::run)
+                    .supplyAsync(() -> step.run(projectId, at), Runnable::run)
                     .exceptionally(thrown -> new RecoveryStep.Outcome.Failed("the step threw " + cause(thrown)))
                     .join();
             if (outcome instanceof RecoveryStep.Outcome.Failed(var reason)) {

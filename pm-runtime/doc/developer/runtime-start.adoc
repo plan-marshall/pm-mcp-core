@@ -18,8 +18,9 @@ periodic sweep of the runtime (<<_start_drain_and_recovery>>). It holds no Quark
 constructs the types and calls them from its `StartupEvent` observer, its signal handlers and its requests. This guide
 also covers:
 
-* the step of the periodic sweep, `PendingEntryRecordsSweep`, which removes the pending entry records of the workspace
-  scope older than the pending entry record maximum age (<<_the_pending_record_step>>);
+* the step of the periodic sweep, `PendingEntryRecordsSweep`, which removes the directory of a pending entry whose
+  removal a stop cut off, by the evidence of its absent record and never by its age
+  (<<_the_pending_record_step>>);
 * the stalled-scope detection (<<_the_stalled_scope_detection>>);
 * the audit chain seam of the bounded verification, whose broken outcome carries a reason and the first broken line
   (<<_the_audit_chain_seam>>);
@@ -32,12 +33,11 @@ The periodic sweep has no seam factory: the steps are real classes, and the call
 when it builds the `PeriodicSweep` (<<_registering_the_steps>>,
 link:../adr/runtime-start/002-sweep-seam-factory-removed.adoc[ADR 002]).
 
-The removal by age diverges from the specification: a pending entry has no maximum age and never expires, and the
-periodic sweep removes only the directory of an entry already started or abandoned whose removal a stop cut off, by
-that evidence and never by its age
+The sweep removes residue by evidence, never by time: an entry has no maximum age and never expires, and the periodic
+sweep removes only the directory of an entry already started or abandoned whose removal a stop cut off
 (link:{spec}/timeouts/02-runtime-leases-operator-web.adoc#pending-entry-max-age[Timeouts § Pending Entry],
-link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Lifecycle § Periodic Sweep]).
-`PendingEntryRecordsSweep` and `PENDING_ENTRY_MAX_AGE` describe the code as it is; the specification is the target.
+link:{spec}/runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Lifecycle § Periodic Sweep],
+link:../adr/runtime-start/016-the-sweep-removes-pending-entry-residue-by-evidence.adoc[ADR 016]).
 
 == Core Types
 
@@ -45,10 +45,10 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
 [horizontal]
 `PeriodicSweep`:: Runs every step for every enrolled project whose recovery has finished, once per `INTERVAL` (3600
-seconds), handing each step the instant `PENDING_ENTRY_MAX_AGE` (86400 seconds) before the run. The duration is a
-compiled constant. A failed step is logged at WARN as `PM_RUNTIME-115` (`PERIODIC_SWEEP_STEP_FAILED`) and stops neither
-the other steps nor the other projects.
-`SweepStep`:: The contract of a step: its `Name` and `run(projectId, olderThan)`, which reports a
+seconds), handing each step the instant of the run, which its records carry. The duration is a compiled constant. A
+failed step is logged at WARN as `PM_RUNTIME-115` (`PERIODIC_SWEEP_STEP_FAILED`) and stops neither the other steps nor
+the other projects.
+`SweepStep`:: The contract of a step: its `Name` and `run(projectId, at)`, which reports a
 `RecoveryStep.Outcome` (`Done` with a report, or `Failed` with a reason it can name), never an exception for a failure
 it can name.
 `SweepStep.Name`:: The closed set of steps: `PENDING_ENTRY_RECORDS`.
@@ -58,16 +58,19 @@ it can name.
 
 [source]
 ----
-PeriodicSweep.runOnce(now)            olderThan = now - PENDING_ENTRY_MAX_AGE
+PeriodicSweep.runOnce(now)
   for each enrolled, recovered project:
-    ├─ PendingEntryRecordsSweep.run(projectId, olderThan)
+    ├─ PendingEntryRecordsSweep.run(projectId, now)
     │    PendingEntryStore.entryIds()                      (lock-free, only names that parse as entry ids)
+    │    read each entry's record                          (absent = residue of a cut-off removal)
     │    workspace lock ─► ScopeTransaction of the workspace
-    │      for each record created before olderThan:
-    │        PendingEntryStore.remove(transaction, id)     (delete target)
-    │        transaction.owe(pending_entry_removed)        (one audit record per record)
+    │      for each candidate, re-read under the lock:
+    │        a record that exists now keeps its entry      (an entry opened since the listing)
+    │        PendingEntryStore.remove(transaction, id)     (the four stores as delete targets)
+    │        transaction.owe(pending_entry_removed)        (one audit record per directory)
     │      commit (journal, apply, digests, close: owed records handed over)
-    │    ──► Done("removed N pending entry records") | Failed(unreadable records kept, or the write failed)
+    │    PendingEntryStore.discard(id)                     (the directory, last)
+    │    ──► Done("removed N pending entry directories") | Failed(unreadable entries kept, or the write failed)
     │
     └─ (the further steps the target adds, in their order)
 ----
@@ -77,27 +80,30 @@ PeriodicSweep.runOnce(now)            olderThan = now - PENDING_ENTRY_MAX_AGE
 
 _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-10[PM-ARCH-10], link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
-The only evidence that nobody will come back for a pending entry record is its age, the creation instant the record
-states. The step lists the candidates without a lock, then opens one lock transaction on the workspace lock and one
-`ScopeTransaction` of the workspace, and decides on each record as it reads it under that lock, so a record created or
-replaced meanwhile is judged as it is now.
+The evidence that nobody will come back for a pending entry is the end of the entry, never its age: the creation of the
+scope and the abandoning of the entry delete the entry's stores in one transaction of the workspace and the directory
+last, so an entry whose record `entry.json` exists is open and an entry whose record is gone left only its directory
+behind. The step lists the entries without a lock, reads each record, then opens one lock transaction on the workspace
+lock and one `ScopeTransaction` of the workspace, and re-reads every candidate's record under that lock before it
+removes it, so an entry opened between the listing and the lock is kept.
 
-* A record created before the instant is removed as a delete target of that transaction, and the transaction owes one
-  `pending_entry_removed` record (category `store`, details `entry_id`, `store`, `created_at` and `transaction_id`)
-  for it (link:../adr/runtime-start/001-pending-entry-sweep-through-a-workspace-delete-transaction.adoc[ADR 001]). The
+* A directory whose record is absent is removed: its four stores again as delete targets of that transaction (they are
+  absent), and the transaction owes one `pending_entry_removed` record (category `store`, details `entry_id`, `store`
+  and `removed_at`) for it
+  (link:../adr/runtime-start/016-the-sweep-removes-pending-entry-residue-by-evidence.adoc[ADR 016]). The
   `transaction_id` is the record's own, issued by `ScopeTransaction.recordId()`, never the id of the transaction: two
-  records removed in one run carry two ids, and a record handed over again after a stop keeps its id, the key by which
-  the reader of the audit log drops the duplicate
+  directories removed in one run carry two ids, and a record handed over again after a stop keeps its id, the key by
+  which the reader of the audit log drops the duplicate
   (link:../../../pm-core/doc/adr/core-store/025-one-transaction-id-per-audit-record.adoc[`core-store` ADR 025]).
-* A younger record is kept, and so is one created exactly at the instant.
+* The directories themselves are deleted after the commit, each as the last act, so a stop before it leaves the residue
+  for the next run.
+* An entry whose record exists is kept, however old it is: nothing expires.
 * A file of `pending/` whose name does not parse as an entry id is never listed, so it is never selected.
-* A record that cannot be read states no age: it is kept, and the step reports a failure naming it after the readable
-  old records were removed.
-* All removals of a run are one transaction, committed only if a record is removed. A stopped removal is completed by
-  the recovery of the workspace, which hands the owed records over again.
+* A record that cannot be read is kept, and the step reports a failure naming it after the readable residue was
+  removed, so a tampered entry is held for its operator instead of being swept.
+* All removals of a run are one transaction, committed only if a directory is removed. A stopped removal is completed
+  by the recovery of the workspace, which hands the owed records over again.
 * A workspace whose journal still waits for its recovery cannot be written: the step fails and removes nothing.
-
-A run that removed records logs `PM_RUNTIME-23` (`PENDING_ENTRY_RECORDS_SWEPT`) with the count and the project.
 
 [#_the_stalled_scope_detection]
 == The Stalled-Scope Detection
@@ -456,8 +462,8 @@ with what was applied so far, and the remaining reconcilers do not run.
 
 |`PeriodicSweep`
 |The periodic sweep: `start(executor)` schedules a run every `INTERVAL` (3600 seconds), `runOnce(now)` runs every
-`SweepStep` for every enrolled project that `recovered` accepts with `olderThan = now − PENDING_ENTRY_MAX_AGE` (86400
-seconds) and answers a `Summary` (swept, skipped, failed), and `stop()` cancels the schedule for the drain.
+`SweepStep` for every enrolled project that `recovered` accepts with the instant of the run and answers a `Summary`
+(swept, skipped, failed), and `stop()` cancels the schedule for the drain.
 
 |`RelayVersionCheck`
 |`observe(relayVersion)` with the value of the `PM-MCP-Relay-Version` header (`HEADER`) of every relayed request, and
@@ -466,7 +472,7 @@ alone (link:{docs}/user/operator.adoc#relay-version-mismatch[User Guide § Relay
 |===
 
 Every log message of the package is a `LogRecord` of `RuntimeLogMessages` (prefix `PM_RUNTIME`): `PM_RUNTIME-12` to
-`PM_RUNTIME-18`, `PM_RUNTIME-23`, `PM_RUNTIME-29`, `PM_RUNTIME-32` to `PM_RUNTIME-34`, `PM_RUNTIME-108` to
+`PM_RUNTIME-18`, `PM_RUNTIME-29`, `PM_RUNTIME-32` to `PM_RUNTIME-34`, `PM_RUNTIME-108` to
 `PM_RUNTIME-115`, `PM_RUNTIME-121`, `PM_RUNTIME-135`, `PM_RUNTIME-136` and `PM_RUNTIME-203` to `PM_RUNTIME-205`
 (link:../../../doc/LogMessages.adoc[Log Messages]). The one exception is the DEBUG line of `PeriodicSweep` for a
 skipped project.
@@ -574,11 +580,11 @@ The tests run on the JVM over a test base with the file lock manager of the runt
 `AuditSinkDoubles` in `de.planmarshall.runtime.test`; no test double replaces a store.
 
 [horizontal]
-link:{test}/PendingEntryRecordsSweepTest.java[`PendingEntryRecordsSweepTest`]:: An old record removed with its audit
-record and the INFO record of the run, a young one and one created at the instant kept, a name that is no entry id
-never touched however old, an unreadable record kept and reported as a failure, a workspace journal still to
-recover reported as a failure with nothing removed, and two records removed in one run owing two records with two
-distinct `transaction_id` values.
+link:{test}/PendingEntryRecordsSweepTest.java[`PendingEntryRecordsSweepTest`]:: The residue of a cut-off removal
+removed with its audit record, an open entry kept however old, a name that is no entry id never touched, a tampered
+record kept and reported as a failure, an unreadable record kept and reported, a workspace journal still to recover
+reported as a failure with nothing removed, and two directories removed in one run owing two records with two distinct
+`transaction_id` values.
 link:{test}/StartupSequenceTest.java[`StartupSequenceTest`]:: The broken-chain cases: a `link_broken` record with its
 `reason`, `first_broken_line` and `os_principal` details, the log naming the file the first broken line is counted in
 (current log, audit index, rotated file) while the record names none, one case per other reason without a line, and
@@ -620,12 +626,12 @@ link:{test}/ProjectRecoveryTest.java[`ProjectRecoveryTest`]:: The jobs step plac
 
 _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-7[PM-ARCH-7]
 
-1. **Age is the only evidence**: never select a record because its name does not parse or its content is odd; an
-   unreadable record is kept and reported. A name that is no entry id is not an entry.
-2. **Decide under the lock**: the lock-free listing names candidates only; the age is read again under the workspace
-   lock before a record is removed.
+1. **The end is the only evidence**: never select a directory because its name parses or its content is odd; an
+   unreadable or tampered record is kept and reported. A name that is no entry id is not an entry.
+2. **Decide under the lock**: the lock-free listing names candidates only; each candidate's stores are verified under
+   the workspace lock, and only an `Absent` verdict removes the directory.
 3. **Remove through the journal**: a record removed outside the workspace transaction leaves its sidecar entry behind
-   and is reported as tampered; the delete target drops both together.
+   and is verified as tampered, so the sweep keeps it; the delete target drops both together.
 4. **One audit record per removed record, owed by the transaction**: append nothing to the audit log after the commit;
    the owed record is handed over at least once, also after a crash. Give it `transaction.recordId()`, never
    `transaction.transactionId()`.

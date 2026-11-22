@@ -15,7 +15,7 @@ This guide covers the stores of a scope that `pm-core` adds on top of the store 
   `de.planmarshall.core.spi` through which the workflow engine of `pm-workflow` causes and observes what lies outside
   that store. Every run state of a plan, an epic or the workspace lives in the status document, so a killed run resumes
   where it stopped;
-* the delete mode of the transaction journal, and on it the pending entry record `pending/<entry_id>.json` of the
+* the delete mode of the transaction journal, and on it the pending entry directory `pending/<entry_id>/` of the
   workspace scope, kept for the start; a generation belongs to a worker and is its job id, issued with its job token;
 * the machine's audit log `logs/audit.jsonl` as a hash chain, the formats of its head and its index, the seam through
   which the runtime anchors it, and the production audit sink; every audit record a scope transaction owes carries a
@@ -434,60 +434,6 @@ written and the transaction left open, two transactions of one lock transaction 
 commits, the second is refused, the first content stays).
 
 [#_pending_entry_record]
-== The Pending Entry Record
-_Requirements: link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7]_
-
-A client opens an entry for a plan or an epic that does not exist yet, and the server records what the client named in
-a pending entry record `pending/<entry_id>.json` of the workspace scope. The record is the state store of that entry's
-bootstrap until a terminal of the bootstrap, or the pending-record sweep, removes it.
-
-[horizontal]
-`EntryId`:: `ent-` and 8 to 32 lower-case hexadecimal digits; a new id has 16 random digits. `ofFileName` parses the
-name of a record; a name that does not parse is never an entry id.
-`PendingEntryRecord`:: The typed envelope: id, kind (`plan` or `epic`), `requested_id` and `hint` as given, the parent
-epic of a server-started plan, and the creation and update instants. `createdBefore(instant)` is the age the sweep
-compares.
-`PendingEntryRecord.Bootstrap`:: The bootstrap state. The members the engine owns are typed in the shapes of the
-workflow state store: the state, the call frames and the condition overlay, and the reason of the last refused
-re-check. `facts`, `source` and `options` are kept as the raw JSON text they were read with
-(link:../adr/core-store/008-pending-entry-record-engine-owned-members-typed.adoc[ADR 008]).
-`PendingEntryCodec`:: Reads and writes the record over `StrictJson` in `format_version` 1; the raw members are written
-back byte for byte. It reuses the call-frame, condition and raw-member helpers of `WorkflowStatusCodec`.
-`PendingEntryStore`:: The records of one workspace scope: `allocate`, `create`, `replace` and `remove` as targets of
-the caller's workspace `ScopeTransaction`, `read` and `entryIds` without a lock.
-
-=== Invariants
-
-* *Journaled under the workspace lock*: a record is created or replaced as a replace target and removed as a delete
-  target (<<_delete_mode>>), so it is covered by the workspace's digest sidecar and a removed record verifies `Absent`.
-* *A fresh id per entry*: `allocate` draws an id and redraws while it names a record present or a record the same
-  transaction already writes; the caller creates the record in that transaction under the same lock, so two
-  concurrent entries never share a record.
-* *Only entry ids are entries*: `entryIds()` lists the regular files of `pending/` whose name parses as
-  `<entry_id>.json`; a staged file, a foreign file or a link is never listed, and no sweep selects it.
-* *`create` and `replace` know the record*: `create` refuses an id whose record exists, `replace` one whose record does
-  not; `remove` of an absent record is no error and reports that it was absent.
-
-=== Failure Modes
-
-[cols="2,3"]
-|===
-|Failure |Behaviour
-
-|A record is unreadable or of another format version
-|`read` throws a `StoreRefusal` naming the file; the record is not touched.
-
-|The directory `pending/` does not exist
-|`entryIds()` is empty.
-
-|A transaction of another scope
-|Every writing method throws `IllegalArgumentException`; nothing is added.
-|===
-
-Tested by `PendingEntryCodecTest` (round trip with byte-identical raw members, refusals), `PendingEntryStoreTest`
-(create, replace, read and remove, the removal of an absent record, two concurrent entries with two distinct records,
-names that do not parse never listed) and `PendingEntrySchemaParityTest`.
-
 [#_audit_log]
 == The Audit Log
 _Requirements: link:{docs}/Requirements.adoc#PM-SEC-6[PM-SEC-6], link:{docs}/Requirements.adoc#PM-IMPL-7[PM-IMPL-7], link:{docs}/Requirements.adoc#PM-IMPL-2[PM-IMPL-2]_
@@ -1119,8 +1065,8 @@ transaction of the new scope, and the delete of the entry's log to the transacti
 transaction writes only the stores of its scope, so the move is two transactions held by one caller: the new scope is
 committed first, then the workspace. A stop between the two commits leaves the entry's log in place, and repeating the
 move is refused by the create target instead of appending the lines twice; a torn tail is not moved
-(link:../adr/core-store/036-entry-question-file-moved-by-the-store.adoc[ADR 036]). `PendingEntryStore` is unchanged:
-the record `pending/<entry_id>.json` stays a flat file beside the directory of the entry's log.
+(link:../adr/core-store/036-entry-question-file-moved-by-the-store.adoc[ADR 036]). The record is the entry's
+`entry.json` in the same directory (link:../adr/core-store/082-the-pending-entry-is-a-directory.adoc[ADR 082]).
 
 [#_project_store]
 === The Per-Project Machine Store
@@ -2553,8 +2499,9 @@ locks.
 _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4], link:{docs}/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]_
 
 The ports are interfaces in `core.spi`. No class of `pm-core` implements them. In `pm-runtime`,
-`SubprocessJobRunner` implements `JobStarter` and `QuestionLogRecordReader` implements `QuestionRecordReader`; no
-production class of this repository implements `QueueTaskCreator`, `WorkflowClock` or `PendingEntryReader`, and the tests of `pm-workflow`
+`SubprocessJobRunner` implements `JobStarter`, `QuestionLogRecordReader` implements `QuestionRecordReader` and
+`PendingEntryDirectoryReader` implements `PendingEntryReader`; no
+production class of this repository implements `QueueTaskCreator` or `WorkflowClock`, and the tests of `pm-workflow`
 use recording doubles. `WorkflowEngine` of `pm-workflow` takes `JobStarter`, `QueueTaskCreator`,
 `QuestionRecordReader` and `WorkflowClock` together as `WorkflowEngine.Ports`, beside the random source `ids` of the
 command and correlation ids and the optional `bindingContext`, `composition` and `units`; `PendingEntryReader` is taken
@@ -2568,13 +2515,16 @@ here.
 `QueueTaskCreator`:: Creates one queue task of a role for one entity of a `job llm` state; the result carries the
 `queue_task_id` of the grammar `^qt-[0-9a-f]{16}$`. A role that cannot take the task is not refused here: the queue
 closes such a task `lost`.
-`QuestionRecordReader`:: Reads a question record (`^Q-[0-9]{3,6}$`) of a scope. The read is tri-state: `Open`,
-`Resolved(outcome)`, or `Unreadable(reason)`; a record that cannot be read is never taken for an open one.
+`QuestionRecordReader`:: Reads a question record (`^Q-[0-9]{3,6}$`) of a scope: a plan, an epic, the workspace
+(`null`) or a pending entry, addressed by `ReadRequest(scopeId, questionId)` or typed by
+`ReadRequest.ofEntry(EntryId, questionId)`. The read is tri-state: `Open`, `Resolved(outcome)`, or
+`Unreadable(reason)`; a record that cannot be read is never taken for an open one.
 `WorkflowClock`:: The one source of every instant the engine writes (`updated_at`, `pushed_at`, `raised_at`, a job's
 `started_at`), so persisted state never depends on the engine's memory and tests drive time deterministically.
-`PendingEntryReader`:: Reads the pending entry record `pending/<entry_id>.json` of the project's workspace scope for a
-`ReadRequest(entryId)` with the typed `EntryId`. The read is tri-state: `Live(kind)`, `Deleted` for a record that is gone,
-or `Unreadable(reason)`; a record that cannot be read is never taken for a live one.
+`PendingEntryReader`:: Reads the pending entry `pending/<entry_id>/entry.json` of the project's workspace scope for a
+`ReadRequest(entryId)` with the typed `EntryId`. The read is tri-state: `Live(kind)`, `Deleted` for an entry that is
+gone, or `Unreadable(reason)`; a record that cannot be read is never taken for a live one, and the read judges the
+record's shape, never its digest (link:../../../pm-runtime/doc/developer/runtime-entry.adoc[Pending Entry Reader]).
 
 `EnginePortsTest` guards the identifier grammars and the tri-state read.
 
@@ -2749,6 +2699,9 @@ read and the aggregate carries its coverage.
   frames, and a frame carries no caller phase.
 * link:../adr/core-store/080-the-reason-is-an-optional-member-of-the-left-line.adoc[ADR 080]: the reason of a routed
   result is an optional member of the `left` history line, omitted when absent, in format version 1.
+* link:../adr/core-store/082-the-pending-entry-is-a-directory.adoc[ADR 082]: the pending entry is the directory
+  `pending/<entry_id>/` with its record, source manifest, question and decision stores and chat transcript, created,
+  verified and discarded per entry; it supersedes ADR 036 for the record's form.
 * link:../adr/core-store/081-the-decision-log-rename-reads-no-old-name.adoc[ADR 081]: the renames of #427 read no old
   name, the clarified request heads the role's calls "Role's Calls", and `repairs` keeps no bound.
 
@@ -2902,4 +2855,58 @@ invalid input, an exhausted revision and an exhausted day count, `mostUsed`/`rec
 `ExplorerCodecTest` states the reader's refusals: content after the document, another format version as outdated or newer,
 a root that is no object, a missing member, a negative revision, a repeated or invalid favourite, a day that is no date or
 named twice, and a count below one.
+
+== The Pending Entry
+
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-10[PM-WF-10], link:{docs}/Requirements.adoc#PM-CLIENT-1[PM-CLIENT-1]_
+
+A start of a plan or an epic is an entry until its scope exists
+({spec}/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry]). The entry is
+a directory `pending/<entry_id>/` of the workspace scope, and `PendingEntryStore` is its one writer: the record
+`entry.json` (`PendingEntryRecord`, read and written by `PendingEntryCodec` against
+`pending-entry.schema.json`), the source directory `sources/` with its manifest (`SourceManifest`,
+`SourceManifestCodec`), the entry's question store `questions.jsonl`, its decision store `decision-log.jsonl`, and the
+transcript `chat/` (link:../adr/core-store/082-the-pending-entry-is-a-directory.adoc[ADR 082]).
+
+`EntryId` is the name of the directory: `ent-` and 8 to 32 lower-case hexadecimal digits, with `ofDirectoryName` as the
+one reader of a name of `pending/`. A fresh id is drawn at random and checked against the directories present and the
+stores the transaction already writes, under the workspace lock, so two concurrent entries never share a directory
+(PM-WATCH-STORE-42).
+
+*Opening*: `create` adds the record, an empty manifest and the two empty JSONL stores as create targets of one
+workspace transaction, and the entry's directories exist before the commit as the directory of every store does. Every
+bootstrap transition replaces the record; a source unit replaces the manifest with one more `Source`; nothing else is
+written through the store. A file of `pending/` that is no entry directory (a staged file of a transaction included) is
+never an entry, and a name that is not an id is never listed.
+
+*Never expires*: an entry has no time limit, so no sweep reads its age. The periodic sweep removes only the directory
+of an entry whose record is gone: the removal its creation or its abandoning began deletes the entry's stores in one
+workspace transaction and the directory last, and a stop between the two leaves the directory behind with no record
+(link:../../../pm-runtime/doc/developer/runtime-start.adoc[Runtime Start Developer Guide]).
+
+*Integrity*: `verify` reads the entry's four stores against the workspace digest sidecar under the lock and answers
+`Verified`, `Absent` or `Tampered` with the store that differs. A tampered entry therefore holds that entry alone: the
+operator's `accept-edit` re-baselines the store through `ScopeIntegrity.rebaseline`, and abandoning the entry deletes
+its directory. Neither another entry nor the workspace workflow is affected.
+
+*Creation*: `PendingEntryCreation.move` is the store-level part of `start.create-scope`: it copies the source files
+(after verifying each against the size and SHA-256 of the manifest) and the manifest into the new scope's
+`sources/`, copies the transcript into its `chat/`, copies the decision store and deletes the entry's, moves the
+question log through `QuestionLog.moveEntryQuestions`, and composes `request.md` from the description texts and a
+reference to every other source; it creates the directories of the new scope first, because a transaction writes
+stores and not directories, and it refuses an entry that does not exist. The workspace transaction deletes the entry's
+record last; the caller commits the new scope first and the workspace second, so a stop before the workspace's commit
+leaves the record in place and a repeated move is refused by the create targets of the new scope's stores (the operator
+ends that entry by abandoning it), a stop after both commits leaves the record gone and the directory behind, the sweep
+removes that directory, and `finish` deletes the entry's directory as the last act.
+
+*Failure modes*: a record of another `format_version`, an unreadable record, or a record that states another
+`entry_id` than its directory is a `StoreRefusal` naming the file; a stored file whose size or digest differs from its
+manifest entry refuses the move; an entry of another scope's transaction is refused; removing an entry that does not
+exist is no error.
+
+Tested by `PendingEntryStoreTest` (creation, replacement, the manifest, removal and discard, the per-entry integrity
+verdict and its re-baseline, the listing, the id grammar), `PendingEntryCodecTest` and `PendingEntrySchemaParityTest`
+(the record and its schema), `SourceManifestCodecTest` (the manifest and its refusals), and `PendingEntryCreationTest`
+(the move, the composed request, the refused digest and the refused repeated move).
 

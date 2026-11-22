@@ -311,21 +311,6 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
-         * Logged when the pending-record step of the periodic sweep has removed the pending entry records of a
-         * project created before the pending entry record maximum age, all in one transaction of the workspace scope;
-         * names how many records it removed and the project. Each removed record has one
-         * {@code pending_entry_removed} audit record, owed by that transaction. Not logged for a run that removed
-         * nothing.
-         * <p>
-         * The component is {@code PendingEntryRecordsSweep}.
-         */
-        public static final LogRecord PENDING_ENTRY_RECORDS_SWEPT = LogRecordModel.builder()
-                .prefix(PREFIX)
-                .identifier(23)
-                .template("Periodic sweep removed %s pending entry records of project '%s'")
-                .build();
-
-        /**
          * Logged when the audit log was rotated under the audit lock: closed by its {@code checkpoint} record, named
          * by an entry of the audit index {@code logs/audit-index.jsonl} and renamed; names the rotated file
          * {@code audit-<first_event_id>.jsonl} and its number of records, the checkpoint included. Also logged when

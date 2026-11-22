@@ -456,7 +456,10 @@ public final class ScopeTransaction {
                 }
                 case DELETE -> Files.deleteIfExists(store);
             }
-            directories.add(store.getParent());
+            var parent = store.getParent();
+            if (Files.isDirectory(parent)) {
+                directories.add(parent);
+            }
             hook.after(Step.APPLY, index++);
         }
         for (var directory : directories) {

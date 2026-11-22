@@ -70,10 +70,11 @@ Implementation (the scope identifier a primitive is handed with every execution,
 
 Verified by (the scope identifier of a primitive): link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveContractTest.java[PrimitiveContractTest]
 
-Implementation (the engine side of the entity identifier of bullets 2 and 5, as far as the library modules carry it and not yet bound to `pm_state` and `pm_do`: an entity is addressed together with its scope, `NO_PLAN` naming the workspace scope, and resolved from persisted state within that scope only, a pending plan or epic bootstrap by its `entry_id` through the pending entry record; an entity of another scope or a consumed entry is `scope_not_found`. Not implemented yet: the request handling and the runtime's reader of the pending entry record): link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/EntityAddress.java[EntityAddress],
+Implementation (the engine side of the entity identifier of bullets 2 and 5, as far as the library modules carry it and not yet bound to `pm_state` and `pm_do`: an entity is addressed together with its scope, `NO_PLAN` naming the workspace scope, and resolved from persisted state within that scope only, a pending plan or epic bootstrap by its `entry_id` through the pending entry's record, whose runtime reader is `PendingEntryDirectoryReader`; an entity of another scope or a consumed entry is `scope_not_found`. Not implemented yet: the request handling): link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/EntityAddress.java[EntityAddress],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/EntityAddressResolver.java[EntityAddressResolver],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/AddressResolution.java[AddressResolution],
-link:../pm-core/src/main/java/de/planmarshall/core/spi/PendingEntryReader.java[PendingEntryReader]
+link:../pm-core/src/main/java/de/planmarshall/core/spi/PendingEntryReader.java[PendingEntryReader],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/entry/PendingEntryDirectoryReader.java[PendingEntryDirectoryReader]
 
 Verified by (the entity addressing): link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EntityAddressingTest.java[EntityAddressingTest],
 link:../pm-core/src/test/java/de/planmarshall/core/spi/EnginePortsTest.java[EnginePortsTest]
@@ -121,7 +122,7 @@ link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7]
 
-Implementation (as far as the library module `pm-runtime` carries it, and, apart from the start steps, not yet wired into the runtime `pm-mcpd`: the start at login through the per-user OS service manager, with the unit file rendered, written, replaced and removed, the unit in force kept beside it and restored when a new unit does not load, and loaded and unloaded through `launchctl` and `systemctl --user`; the start steps from the singleton lock to the runtime token, which `pm-mcpd` runs before its bind, with the bounded verification of the audit chain through a seam (the verification is the one of `PM-SEC-6`, which `pm-mcpd` does not pass yet: it runs the start with `AuditChainVerification.NONE`); the drain in its order, with the drain timeout, the removal of the runtime record, the token and the socket, and the release of the singleton lock, where workers, the LSP pool and the web listener join through a seam and the jobs through their participant (below); the runtime side of the version comparison on relay connection; the per-project recovery after bind with its two triggers, the bounded wait answered `runtime_recovering`, the step order, the orphan marking of leases with release on positive evidence only, the roll-forward of interrupted journals, and the cross-scope reconciliation, and the periodic sweep with its residue-removal step, which removes the old pending entry records, where the settlement of workers and the other recovery steps are named seams and the settlement of jobs is the step below. Not implemented yet: the API request and the operator verbs `pm-operator runtime install|uninstall`, the bind and the ready step, the version notice of `pm-operator status` and of the clients, the verification of workflow definitions at start, the first four bullets apart from the start at login, and the operator's lifecycle acts of the last bullet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java[ServiceUnitFile],
+Implementation (as far as the library module `pm-runtime` carries it, and, apart from the start steps, not yet wired into the runtime `pm-mcpd`: the start at login through the per-user OS service manager, with the unit file rendered, written, replaced and removed, the unit in force kept beside it and restored when a new unit does not load, and loaded and unloaded through `launchctl` and `systemctl --user`; the start steps from the singleton lock to the runtime token, which `pm-mcpd` runs before its bind, with the bounded verification of the audit chain through a seam (the verification is the one of `PM-SEC-6`, which `pm-mcpd` does not pass yet: it runs the start with `AuditChainVerification.NONE`); the drain in its order, with the drain timeout, the removal of the runtime record, the token and the socket, and the release of the singleton lock, where workers, the LSP pool and the web listener join through a seam and the jobs through their participant (below); the runtime side of the version comparison on relay connection; the per-project recovery after bind with its two triggers, the bounded wait answered `runtime_recovering`, the step order, the orphan marking of leases with release on positive evidence only, the roll-forward of interrupted journals, and the cross-scope reconciliation, and the periodic sweep with its residue-removal step, which removes the directory of a pending entry whose removal a stop cut off, by the evidence of its absent record and never by its age, where the settlement of workers and the other recovery steps are named seams and the settlement of jobs is the step below. Not implemented yet: the API request and the operator verbs `pm-operator runtime install|uninstall`, the bind and the ready step, the version notice of `pm-operator status` and of the clients, the verification of workflow definitions at start, the first four bullets apart from the start at login, and the operator's lifecycle acts of the last bullet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java[ServiceUnitFile],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceManager.java[ServiceManager],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitInstaller.java[ServiceUnitInstaller],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/StartupSequence.java[StartupSequence],
@@ -242,14 +243,14 @@ link:../pm-runtime/doc/adr/runtime-worker/009-transport-notifications-and-the-pr
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-10[PM-ARCH-10]
 
 Implementation (of the fourth bullet, the pass of the periodic sweep of the running runtime; the residue kinds it
-removes and the cleanup of the first three bullets are not traced here. The removal of pending entry records older than
-a maximum age that `PendingEntryRecordsSweep` performs diverges from the specification, which discards no pending entry
-by time (link:specification/timeouts/02-runtime-leases-operator-web.adoc#pending-entry-max-age[Timeouts & Budgets
-Specification, Pending Entry]), and is therefore not listed as implemented): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java[PeriodicSweep]
+removes and the cleanup of the first three bullets are not traced here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java[PeriodicSweep],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java[PendingEntryRecordsSweep]
 
-Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepTest.java[PeriodicSweepTest]
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepTest.java[PeriodicSweepTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PendingEntryRecordsSweepTest.java[PendingEntryRecordsSweepTest]
 
-Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_start_drain_and_recovery[Runtime Start Developer Guide § The Start Sequence, the Drain and the Recovery]
+Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_start_drain_and_recovery[Runtime Start Developer Guide § The Start Sequence, the Drain and the Recovery],
+link:../pm-runtime/doc/adr/runtime-start/016-the-sweep-removes-pending-entry-residue-by-evidence.adoc[ADR runtime-start/016]
 
 [#PM-ARCH-11]
 === PM-ARCH-11: The Operator's Two Clients & Their Contract
@@ -470,14 +471,29 @@ link:../pm-workflow/doc/adr/workflow-engine/012-model-waits-selected-from-the-co
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10]
 
-Implementation (the pending entry of a start in the workspace scope with a freshly allocated `entry_id`, so concurrent entries never share a record, created, replaced and removed in workspace transactions; its directory form with the entry's sources, questions, decisions, and chat, its opening from the clients over the local API, and its consumption by the start are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/store/PendingEntryRecord.java[PendingEntryRecord],
+Implementation (the pending entry of a start in the workspace scope with a freshly allocated `entry_id`, so concurrent
+entries never share a directory, created, replaced, verified and removed in workspace transactions; its directory form
+with the entry's record, source manifest, question and decision stores and chat transcript, its creation into the new
+scope, and the sweep of the residue a cut-off removal left; the client's opening over the local API and the `/api/v1`
+entry routes are not traced here, they are `pm-mcp-server` classes): link:../pm-core/src/main/java/de/planmarshall/core/store/PendingEntryRecord.java[PendingEntryRecord],
 link:../pm-core/src/main/java/de/planmarshall/core/store/PendingEntryStore.java[PendingEntryStore],
-link:../pm-core/src/main/java/de/planmarshall/core/store/EntryId.java[EntryId]
+link:../pm-core/src/main/java/de/planmarshall/core/store/EntryId.java[EntryId],
+link:../pm-core/src/main/java/de/planmarshall/core/store/SourceManifest.java[SourceManifest],
+link:../pm-core/src/main/java/de/planmarshall/core/store/PendingEntryCreation.java[PendingEntryCreation],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/entry/PendingEntryDirectoryReader.java[PendingEntryDirectoryReader],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java[PendingEntryRecordsSweep]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntryStoreTest.java[PendingEntryStoreTest],
-link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntrySchemaParityTest.java[PendingEntrySchemaParityTest]
+link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntryCodecTest.java[PendingEntryCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntrySchemaParityTest.java[PendingEntrySchemaParityTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/SourceManifestCodecTest.java[SourceManifestCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntryCreationTest.java[PendingEntryCreationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/entry/PendingEntryDirectoryReaderTest.java[PendingEntryDirectoryReaderTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PendingEntryRecordsSweepTest.java[PendingEntryRecordsSweepTest]
 
-Documentation: link:../pm-core/doc/developer/core-store.adoc[Scope Stores Developer Guide]
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_the_pending_entry[Scope Stores Developer Guide § The
+Pending Entry], link:../pm-runtime/doc/developer/runtime-entry.adoc[Pending Entry Reader Developer Guide],
+link:../pm-core/doc/adr/core-store/082-the-pending-entry-is-a-directory.adoc[ADR core-store/082]
 
 [#PM-WF-11]
 === PM-WF-11: Q-Gate Validation Loop, Change-Type & Unplanned-Change Recording

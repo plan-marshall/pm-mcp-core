@@ -11,8 +11,10 @@
  * The adapter through which the daemon hands the engine the question record a {@code question} state waits on
  * (PM-ARCH-4, PM-IMPL-5): {@link de.planmarshall.runtime.question.QuestionLogRecordReader} implements the engine port
  * {@link de.planmarshall.core.spi.QuestionRecordReader} over the question log
- * {@link de.planmarshall.core.store.QuestionLog} of {@code core.store} — the {@code questions.jsonl} of a plan, an epic
- * or the workspace scope (ADR {@code core-store/032}).
+ * {@link de.planmarshall.core.store.QuestionLog} of {@code core.store} — the {@code questions.jsonl} of a plan, an epic,
+ * a pending entry or the workspace scope (ADR {@code core-store/032}). The scope of the request is the plan, epic or
+ * entry id it names, or the workspace for no id; an entry id reads the {@code questions.jsonl} of
+ * {@code pending/<entry_id>/}.
  * <p>
  * The read is tri-state: {@code Open}, {@code Resolved} with the closed resolution outcome, or {@code Unreadable}. The
  * log is judged as a whole, so an absent log, a refused line, a torn tail and an unreadable store are never taken for an

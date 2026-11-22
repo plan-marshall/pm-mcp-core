@@ -2,13 +2,16 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://cuioss.de/plan-marshall-mcp/schemas/pending-entry.json",
   "title": "PendingEntryRecord",
+  "description": "The record pending/<entry_id>/entry.json of a pending entry (filesystem-layout/03, The Per-Project Machine Store; store-schemas/01, Pending Entry).",
   "type": "object",
-  "required": ["format_version", "entry_id", "kind", "from_epic", "created_at", "updated_at", "bootstrap"],
+  "required": ["format_version", "entry_id", "kind", "requested_id", "hint", "from_epic", "created_at", "updated_at", "bootstrap"],
   "additionalProperties": false,
   "properties": {
     "format_version": { "type": "integer", "const": 1 },
     "entry_id": { "type": "string", "pattern": "^ent-[0-9a-f]{8,32}$", "description": "Identifier of the entry, answered by the entry endpoint, and the entity id of the bootstrap (identifiers.adoc, entry_id)." },
     "kind": { "type": "string", "enum": ["plan", "epic"], "description": "Selects the bootstrap unit: bootstrap-plan or bootstrap-epic." },
+    "requested_id": { "type": ["string", "null"], "maxLength": 64, "description": "The id the client named when it opened the entry, as given; validated only by the bootstrap. Null when none." },
+    "hint": { "type": ["string", "null"], "maxLength": 4000, "description": "The user's words the client relayed when it opened the entry, as given. Null when none." },
     "from_epic": {
       "type": ["string", "null"],
       "pattern": "^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$",
