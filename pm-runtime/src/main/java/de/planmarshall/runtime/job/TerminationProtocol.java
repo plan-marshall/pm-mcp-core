@@ -154,8 +154,11 @@ public final class TerminationProtocol {
          */
         public Report {
             Objects.requireNonNull(ending, "ending");
-            if ((errno != null) != (ending == Ending.SIGNAL_REFUSED)) {
-                throw new IllegalArgumentException("An errno belongs to a refused signal only: " + ending);
+            if (ending == Ending.SIGNAL_REFUSED && errno == null) {
+                throw new IllegalArgumentException("A signal_refused report is refused without the errno");
+            }
+            if (ending != Ending.SIGNAL_REFUSED && errno != null) {
+                throw new IllegalArgumentException("An errno is refused for the ending " + ending);
             }
         }
     }

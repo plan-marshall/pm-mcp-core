@@ -323,9 +323,9 @@ class TerminationProtocolTest {
                     () -> new Report(Ending.SIGNAL_REFUSED, false, null), "a refusal without an errno is refused");
             // the reason text is the contract of the constructor's refusal
             assertAll(
-                    () -> assertEquals("An errno belongs to a refused signal only: GROUP_KILLED",
+                    () -> assertEquals("An errno is refused for the ending GROUP_KILLED",
                             errnoWithoutRefusal.getMessage(), "the refusal names the ending without refusal"),
-                    () -> assertEquals("An errno belongs to a refused signal only: SIGNAL_REFUSED",
+                    () -> assertEquals("A signal_refused report is refused without the errno",
                             refusalWithoutErrno.getMessage(), "the refusal names the refusal without errno"),
                     () -> assertEquals(someErrno, new Report(Ending.SIGNAL_REFUSED, false, someErrno).errno(),
                             "a refused signal keeps its errno"),
