@@ -24,9 +24,9 @@ import org.jspecify.annotations.Nullable;
  * characters without an angle bracket or a line break (CR, LF, U+0085, U+2028, U+2029), an email of at most 254
  * characters of the form
  * {@code local@domain} without an angle bracket or white space, and neither with an unpaired surrogate, which has no
- * UTF-8 encoding. The schema of the key is stricter than this rule: its patterns refuse every C0 and C1 control as
- * well, so a stored NUL or ESC never reaches the trailer line. The trailer is resolved per half from the operator's
- * local value, then the machine's
+ * UTF-8 encoding. The store's schema is stricter than this rule: its patterns refuse every C0 and C1 control as well, so
+ * a value that passes the schema check carries no NUL or ESC; the code applies the textual rule alone. The trailer is
+ * resolved per half from the operator's local value, then the machine's
  * value, then the compiled default {@code plan-marshall <noreply@cuioss.de>}; a stored value that breaks a constraint
  * is ignored, never an exception.
  * <p>

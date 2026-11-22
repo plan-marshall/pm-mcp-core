@@ -9,6 +9,7 @@
  */
 package de.planmarshall.provider.git.primitive;
 
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,6 +31,7 @@ import de.planmarshall.core.spi.validation.ContentViolation;
 import de.planmarshall.provider.git.GitOperations;
 import de.planmarshall.provider.git.GitOperations.CommitInput;
 import de.planmarshall.provider.git.GitOperations.Identity;
+import de.planmarshall.provider.git.GitOutcome;
 import de.planmarshall.provider.git.GitResult;
 import de.planmarshall.provider.git.primitive.CommitMessages.Appended;
 import de.planmarshall.provider.git.primitive.CommitMessages.Refused;
@@ -64,10 +66,12 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
  * The message reaches the repository in memory through the contract; no command line is built from a value. The
  * outcome of the contract maps to exactly one outcome: {@code OK} to {@code committed}, {@code NOTHING_TO_COMMIT} to
  * {@code nothing_to_commit}, every other, {@code CAPABILITY_MISSING} of the native variant among them, to
- * {@code failed} with the reason {@code commit_failed}. Hooks run only in the CLI variant, so only its hook refusal
- * returns {@code hook_failed}; the native variant never does. A {@code committed} result also carries the provenance of
- * the resolved trailer as the fact {@value #TRAILER_SOURCE_FACT}, for the commit's audit record; no other outcome
- * carries it.
+ * {@code failed} with the reason {@code commit_failed}. The {@value #DETAIL_FACT} of that failure is the contract's
+ * detail with the checkout's absolute root made repository-relative, the code of the git outcome for a host path
+ * outside the checkout, so no absolute path of the server reaches a fact. Hooks run only in the CLI variant, so only
+ * its hook refusal returns {@code hook_failed}; the native variant never does. A {@code committed} result also carries
+ * the provenance of the resolved trailer as the fact {@value #TRAILER_SOURCE_FACT}, for the commit's audit record; no
+ * other outcome carries it.
  * <p>
  * The primitive ends a cycle through its state by an attempt cap ({@link CycleMeasure#ATTEMPT_CAP}) whose exhaustion
  * outcome is {@code attempts_exhausted}; the engine is to count the attempts and return that outcome at the cap, the
@@ -111,7 +115,10 @@ public final class GitStageAndCommitPrimitive
     /** The fact of {@code commit_failed}: the outcome of the contract. */
     public static final String GIT_OUTCOME_FACT = "git_outcome";
 
-    /** The fact of {@code commit_failed}: the detail of the contract's outcome. */
+    /**
+     * The fact of {@code commit_failed}: the detail of the failure — the contract's outcome made repository-relative,
+     * the code of the git outcome for a host path outside the checkout, or the primitive's own detail.
+     */
     public static final String DETAIL_FACT = "detail";
 
     /** The detail of a call whose staging set is not empty but whose message was never resolved. */
@@ -227,7 +234,7 @@ public final class GitStageAndCommitPrimitive
         var committer = site.agentIdentity(context).orElse(COMPILED_COMMITTER);
         var input = CommitInput.builder().root(worktree).message(message).author(author.get()).committer(committer)
                 .paths(paths).build();
-        return map(git.commit(input));
+        return map(git.commit(input), worktree);
     }
 
     /**
@@ -245,15 +252,51 @@ public final class GitStageAndCommitPrimitive
 
     /**
      * Maps an outcome of the contract to exactly one outcome of the primitive.
+     *
+     * @param result   the outcome of the contract
+     * @param worktree the root of the checkout, against which the detail of a failure is made repository-relative
      */
-    static PrimitiveResult<Outcome> map(GitResult<GitOperations.CommitInfo> result) {
+    static PrimitiveResult<Outcome> map(GitResult<GitOperations.CommitInfo> result, Path worktree) {
         return switch (result.outcome()) {
             case OK -> result(Outcome.COMMITTED,
                     Map.of(COMMIT_FACT, Objects.requireNonNull(result.value(), "the commit of OK").id()));
             case NOTHING_TO_COMMIT -> result(Outcome.NOTHING_TO_COMMIT, Map.of());
             default -> failed(Reason.COMMIT_FAILED,
-                    Map.of(GIT_OUTCOME_FACT, result.outcome().name(), DETAIL_FACT, result.detail()));
+                    Map.of(GIT_OUTCOME_FACT, result.outcome().name(), DETAIL_FACT,
+                            modelDetail(result.outcome(), result.detail(), worktree)));
         };
+    }
+
+    /**
+     * The detail of a failed commit as the model-facing fact carries it. The contract's detail names the checkout in
+     * some of its outcomes, so every occurrence of the absolute root is made the repository-relative root {@code .};
+     * an absolute path outside the checkout is replaced by the code of the git outcome, because the primitive cannot
+     * tell whether a host path of the server is safe to render; and a contract that states no detail is carried as that
+     * code. The factual root therefore never reaches a fact.
+     */
+    static String modelDetail(GitOutcome outcome, @Nullable String detail, Path worktree) {
+        if (detail == null || detail.isBlank()) {
+            return outcome.name();
+        }
+        var root = worktree.toAbsolutePath().normalize();
+        Path named;
+        try {
+            named = Path.of(detail);
+        } catch (InvalidPathException _) {
+            return outcome.name();
+        }
+        if (named.isAbsolute()) {
+            var normal = named.normalize();
+            if (normal.equals(root)) {
+                return ".";
+            }
+            if (normal.startsWith(root)) {
+                return root.relativize(normal).toString();
+            }
+            return outcome.name();
+        }
+        var absoluteRoot = root.toString();
+        return detail.contains(absoluteRoot) ? detail.replace(absoluteRoot, ".") : detail;
     }
 
     private static PrimitiveResult<Outcome> messageRefused(ContentViolation violation) {

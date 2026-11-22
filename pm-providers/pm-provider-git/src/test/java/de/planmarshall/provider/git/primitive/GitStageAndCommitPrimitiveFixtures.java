@@ -12,6 +12,7 @@ package de.planmarshall.provider.git.primitive;
 import static org.easymock.EasyMock.createMock;
 import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.replay;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -138,9 +139,10 @@ abstract class GitStageAndCommitPrimitiveFixtures {
     }
 
     static void assertFailed(PrimitiveResult<Outcome> result, Reason reason, Map<String, Object> facts) {
-        assertEquals(Outcome.FAILED, result.outcome(), "the commit is refused as failed");
-        assertEquals(reason, result.reason(), "the reason names the refusal");
-        assertEquals(facts, result.updatedFacts(), "the facts name what was refused");
+        assertAll("failed " + reason.wireName(),
+                () -> assertEquals(Outcome.FAILED, result.outcome(), "the commit is refused as failed"),
+                () -> assertEquals(reason, result.reason(), "the reason names the refusal"),
+                () -> assertEquals(facts, result.updatedFacts(), "the facts name what was refused"));
     }
 
     CommitInfo head(String commit) {

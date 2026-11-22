@@ -25,9 +25,13 @@ import de.planmarshall.core.SchemaResource;
 /**
  * The {@code commit_trailer} patterns of the operator's local configuration against the code that reads them. The
  * patterns refuse what the trailer refuses — an angle bracket and the Unicode line separators for the name, an angle
- * bracket and white space for the email — and, stricter than the code, also every C0 and C1 control, so a stored NUL or
- * ESC never reaches the trailer line. The unpaired surrogate is the one rule no ECMA-262 pattern expresses; the prose
- * of the specification states it beside the schema.
+ * bracket and white space for the email — and, stricter than the code, also every C0 and C1 control, so a value that
+ * passes the store's schema check carries no NUL or ESC. The unpaired surrogate is the one rule no ECMA-262 pattern
+ * expresses; the prose of the specification states it beside the schema.
+ * <p>
+ * The patterns are compiled here with the regex engine of the platform, as a JSON-schema validator on the JVM compiles
+ * them, not with ECMA-262's; the two differ in {@code \s}, which is why the email pattern names U+0085 and the Unicode
+ * white space explicitly, so the asserted code points answer the same in either dialect.
  */
 @EnableGeneratorController
 @DisplayName("CommitTrailer schema parity")

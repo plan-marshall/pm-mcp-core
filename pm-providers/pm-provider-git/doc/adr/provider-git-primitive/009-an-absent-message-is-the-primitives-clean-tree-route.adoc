@@ -13,9 +13,11 @@ Accepted
 
 `git.resolve-message` answers `ready` with no `message` fact for `none_assert_clean` on a clean checkout, because there
 is nothing to commit, and the state catalogue routes `ready` unconditionally to `git.stage-and-commit`. That primitive
-required a message (`Params.message` was `requireNonNull`), and the specification did not say where a clean tree goes
-after `ready`. Nothing in this repository binds a call's inputs — the assembly implements the binder — so a required
-message could not be shown to be supplied on that route (landing of PLAN-V2-20, L3-1).
+required a message (`Params.message` was `requireNonNull`). The engine binds a call's inputs (`WorkflowEngine.resolve`),
+and the sub-workflow's fixture declares `message` as an optional input (`commit_message[1..2000]?`), so an absent
+`message` binds as an absent optional input and reaches the primitive as a null parameter: the primitive, not the
+binder, decided whether that was legal, and the specification did not say where a clean tree goes after `ready` (landing
+of PLAN-V2-20, L3-1).
 
 == Decision
 

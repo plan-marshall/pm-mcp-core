@@ -47,7 +47,7 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
         var detail = Generators.letterStrings(1, 30).next();
         var info = commitInfo();
         var result = GitStageAndCommitPrimitive.map(gitOutcome == GitOutcome.OK ? GitResult.ok(info)
-                : GitResult.of(gitOutcome, detail));
+                : GitResult.of(gitOutcome, detail), repo);
 
         // the native variant runs no hook: CAPABILITY_MISSING is commit_failed like every other refusal
         var expected = switch (gitOutcome) {
@@ -74,7 +74,7 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
     void capabilityMissingIsCommitFailed() {
         var detail = Generators.letterStrings(1, 30).next();
 
-        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.CAPABILITY_MISSING, detail));
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.CAPABILITY_MISSING, detail), repo);
 
         assertAll("capability missing",
                 () -> assertEquals(Outcome.FAILED, result.outcome(), "the missing capability fails the commit"),
@@ -83,6 +83,40 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
                 () -> assertEquals("CAPABILITY_MISSING",
                         result.updatedFacts().get(GitStageAndCommitPrimitive.GIT_OUTCOME_FACT),
                         "the facts name the git outcome"));
+    }
+
+    @Test
+    @DisplayName("a detail that names the checkout root is carried as the repository-relative root")
+    void checkoutRootDetailIsRelative() {
+        var root = repo.toAbsolutePath().normalize().toString();
+
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.NOT_A_REPOSITORY, root), repo);
+
+        assertEquals(".",
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "The checkout root is carried as the relative root");
+    }
+
+    @Test
+    @DisplayName("a detail below the checkout keeps its repository-relative name")
+    void detailBelowTheCheckoutIsRelative() {
+        var absolute = repo.resolve("src/Main.java").toAbsolutePath().toString();
+
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.PATH_REFUSED, absolute), repo);
+
+        assertEquals("src/Main.java",
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "The path below the checkout is carried relatively");
+    }
+
+    @Test
+    @DisplayName("an absolute host path outside the checkout is carried as the outcome's code")
+    void hostPathOutsideTheCheckoutIsACode() {
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.NOT_A_REPOSITORY, "/etc/passwd"), repo);
+
+        assertEquals("NOT_A_REPOSITORY",
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "A host path outside the checkout becomes a code");
     }
 
     @Test

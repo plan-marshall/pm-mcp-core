@@ -77,8 +77,9 @@ checkout), its `ScopeType` and the epic's archive flag.
 read with `--untracked-files=all`, so every untracked file is listed by its own path and an untracked directory is
 expanded to the files below it, where the plain porcelain status would collapse it to `newdir/`. Two entries are the
 exceptions and are listed by their directory: an embedded repository, which git does not descend into, and a modified
-submodule. A rename is listed by both sides, the old path and the new one. The git contract has no `status` operation,
-so the site answers it.
+submodule. A rename is listed by both sides, the old path and the new one. The list is unquoted (NUL-separated, `-z`, or
+`core.quotePath=false`), so a name outside ASCII arrives as that name, not as a backslash escape; the staging set's
+textual rule refuses a backslash. The git contract has no `status` operation, so the site answers it.
 `localTrailer`, `machineTrailer`:: The stored `commit_trailer` of the project and of the machine, each a
 `CommitTrailer.Stored` whose halves may be absent or invalid; empty when the level stores none.
 `commitIdentity`, `agentIdentity`:: The operator's `commit_identity`, the author, and the agent identity resolved from the
@@ -117,8 +118,8 @@ U+2028 and U+2029, the same code points `CommitMessages` treats as line ends, ch
 `UNSPLIT_TERMINATORS`; an email of at most 254 characters of the form `local@domain` without `<`, `>` or white space,
 which already covers the three separators; neither with an unpaired surrogate, which has no UTF-8 encoding, while a
 surrogate pair, one supplementary character, is allowed; the lengths counted in code points) is passed over as absent.
-The schema of the key is stricter: its patterns also refuse every C0 and C1 control, so a stored NUL or ESC never
-reaches the trailer line (`CommitTrailerSchemaParityTest`). Each half reports its `TrailerSource`:
+The store's schema is stricter: its patterns also refuse every C0 and C1 control, so a value that passes the schema
+check carries none (`CommitTrailerSchemaParityTest`); the code applies the textual rule alone. Each half reports its `TrailerSource`:
 `configured`, `default`, or `invalid_ignored` when a stored value was refused and none later was used. The source is for
 the commit's audit record and is never rendered in facts: `git.stage-and-commit` returns it on `committed` as the fact
 `trailer_source`, the map `{name, email}` of the two source wire names (`CommitTrailer.Resolution.sourceFact()`), which
@@ -246,7 +247,9 @@ The reasons of `failed` are the closed enum `GitStageAndCommitPrimitive.Reason`
 
 |`footprint_violation` |`footprint_violation` |`offending_files` (at most 50), `offending_count`
 |`message_refused` |none |`rule`, `line` (0 for the whole message)
-|`commit_failed` |none |`git_outcome`, `detail`; or `detail` alone when no `commit_identity` is configured
+|`commit_failed` |none |`git_outcome`, `detail`, where the detail is the contract's with the checkout's absolute root
+made repository-relative and a host path outside it replaced by the code of the git outcome; or `detail` alone when no
+`commit_identity` is configured or no message is resolved
 |===
 
 Every `GitOutcome` maps to exactly one outcome: `OK` to `committed`, `NOTHING_TO_COMMIT` to `nothing_to_commit`, every

@@ -26,7 +26,8 @@ it stood:
   as its detail.
 * Whether the commit would be empty is read from the worktree and the index before anything is staged: git's status over
   the listed paths (or over the whole worktree for an empty path list) decides whether staging them would change
-  `HEAD`. No change is `GitOutcome.NOTHING_TO_COMMIT` with the detail `no changes`, and it leaves the index as it was.
+  `HEAD`. No change is `GitOutcome.NOTHING_TO_COMMIT` with the detail `no changes`, and a call the status finds unchanged
+  stages nothing.
 * `CommitInput` fills an empty path list when its builder omits `paths`, so a caller that never sets the member keeps the
   "every change" semantics instead of a `NullPointerException`.
 
@@ -42,7 +43,7 @@ it stood:
 
 * A directory and a magic pathspec are refused before the index is touched, so a refused commit leaves the worktree as
   it was; a name carrying `*`, `?` or `[` is admitted since the amendment below, and the emptiness read that precedes
-  staging leaves the index untouched on `NOTHING_TO_COMMIT` (`JGitOperationsTest`,
+  staging stages nothing when the status finds no change (`JGitOperationsTest`,
   `nothingToCommitLeavesTheIndexUntouched`).
 * The three construction sites that build a `CommitInput` without `paths` keep their expectation and no longer can fail
   with a `NullPointerException`.
@@ -71,6 +72,15 @@ link as well. A real directory is still refused. Three further rules close the g
   commits and then removed from the worktree is refused; only the head-tree check needs `HEAD`.
 
 The first bullet of the decision and the first consequence above are read with this amendment.
+
+== Amendment (2026-11-22): The Emptiness Read Precedes Staging
+
+`PLAN-V2-169` moved the emptiness read before the staging step. The status over the listed paths, or over the whole
+worktree for an empty path list, decides whether staging would change `HEAD`; a call the status finds unchanged stages
+nothing and the listed entries keep the stat data they had. `JGitOperationsTest`
+(`nothingToCommitLeavesTheIndexUntouched`) pins it, and a path whose nearest existing ancestor is a dangling link has its
+own refusal test (`JGitOperationsPathTest`, `refusesAPathBelowADanglingAncestor`). The second bullet of the decision and
+the first consequence above are read with this amendment.
 
 == Source
 
