@@ -168,7 +168,9 @@ class JobLogTest {
         void masksAKeyBlockWindow() throws Exception {
             append(report + "\n-----END RSA PRIVATE KEY-----\nnext line\n");
 
-            var lines = assertInstanceOf(Lines.class, log.readLines(0), "the read answers lines");
+            // the scenario is a resumed read: its offset lies inside the key body, so the tail rule applies
+            var lines = assertInstanceOf(Lines.class, log.readLines((report + "\n").length()),
+                    "the read answers lines");
 
             var text = String.join("\n", lines.lines());
             assertAll(
@@ -184,7 +186,9 @@ class JobLogTest {
             // U+200B inside PRIVATE: the window's invisible characters are removed before the marker is searched
             append(report + "\n-----END PRI\u200BVATE KEY-----\nnext line\n");
 
-            var lines = assertInstanceOf(Lines.class, log.readLines(0), "the read answers lines");
+            // the scenario is a resumed read: its offset lies inside the key body, so the tail rule applies
+            var lines = assertInstanceOf(Lines.class, log.readLines((report + "\n").length()),
+                    "the read answers lines");
 
             var text = String.join("\n", lines.lines());
             assertAll(
@@ -320,6 +324,32 @@ class JobLogTest {
         }
 
         @Test
+        @DisplayName("a lone END in a whole read keeps the text before it")
+        void aLoneEndKeepsTheTextBeforeIt() throws Exception {
+            var before = "build output " + line();
+            Files.writeString(path, before + "\n-----END PRIVATE KEY-----\n", StandardCharsets.UTF_8);
+
+            var whole = assertInstanceOf(Complete.class, log.readWhole(0), "the log is complete");
+            var reading = assertInstanceOf(LaunchReport.Unreported.class, whole.reading(),
+                    "a lone END is no launch report");
+
+            assertTrue(reading.jobOutput().contains(before),
+                    "a read from the file start keeps the text before the lone END");
+        }
+
+        @Test
+        @DisplayName("a lone END in readLines from the file start keeps the lines before it")
+        void aLoneEndInLinesFromTheStartKeepsTheTextBeforeIt() throws Exception {
+            var before = "build output " + line();
+            Files.writeString(path, before + "\n-----END PRIVATE KEY-----\n", StandardCharsets.UTF_8);
+
+            var lines = assertInstanceOf(JobLog.Lines.class, log.readLines(0), "the lines are read");
+
+            assertTrue(String.join("\n", lines.lines()).contains(before),
+                    "a line read from the file start keeps the text before the lone END");
+        }
+
+        @Test
         @DisplayName("over the cap with a first line past the head bound: the long first line is not kept")
         void firstLinePastTheHeadBoundIsNotKept() throws Exception {
             var head = "z".repeat(JobLog.FIRST_LINE_MAX_BYTES + 1);
@@ -350,6 +380,22 @@ class JobLogTest {
                     () -> assertEquals(pid, reading.report().pid(), "the first line is the report"),
                     () -> assertEquals("x".repeat(JobLog.MAX_BYTES - 1) + "\n", reading.jobOutput(),
                             "the whole window follows the report"));
+        }
+
+        @Test
+        @DisplayName("over the cap by less than the report: the report is kept, the window follows it")
+        void reportLongerThanTheOvershootIsKept() throws Exception {
+            // the contract of the boundary: an overshoot of report.length - 2 bytes, shorter than the report itself
+            Files.writeString(path, report + "\n" + "x".repeat(JobLog.MAX_BYTES - 4) + "\n", StandardCharsets.UTF_8);
+
+            var whole = assertInstanceOf(Complete.class, log.readWhole(0), "an over-cap log is complete");
+            var reading = assertInstanceOf(LaunchReport.Reported.class, whole.reading(),
+                    "the report longer than the overshoot survives the cut");
+
+            assertAll(
+                    () -> assertEquals(pid, reading.report().pid(), "the first line is the report"),
+                    () -> assertEquals("x".repeat(JobLog.MAX_BYTES - 4) + "\n", reading.jobOutput(),
+                            "the window after the report is kept whole"));
         }
 
         @Test

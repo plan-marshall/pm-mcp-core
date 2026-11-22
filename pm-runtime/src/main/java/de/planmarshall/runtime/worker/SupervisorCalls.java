@@ -376,6 +376,7 @@ public final class SupervisorCalls implements WorkerCalls {
     private void firstCall(WorkerGeneration generation, LossDetection detection, Instant at) {
         detection.firstCall(at);
         supervisor.environment().startGuard().firstCall(generation.role(), generation.harness());
+        supervisor.environment().spacing().firstCall(generation.harness());
         if (generation.form() != RoleForm.FRESH) {
             detection.acknowledged(at);
         }

@@ -289,14 +289,31 @@ public final class WorkerSupervisor {
             environment.slots().release(slot.get());
             return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
         }
-        var started = startWorker(role, block, launch, slot.get());
+        var started = startAfterSpacing(role, block, launch, slot.get());
         if (started.isEmpty()) {
+            environment.spacing().ended(role.harness());
             environment.slots().release(slot.get());
             return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
         }
         var generation = register(role, request, launch, started.get(), slot.get());
         LOGGER.info(INFO.WORKER_GENERATION_STARTED, generation.generationId(), generation.role(), generation.harness());
         return new StartOutcome.Started(generation);
+    }
+
+    /**
+     * Waits for the harness's start spacing and then starts the composed worker: the workers of one harness start one
+     * after another on the machine, so a start waits until the previous worker of that harness made its first call or
+     * ended, at most the spacing's bound. The spacing only ever delays a start and never refuses one, so an interrupted
+     * wait proceeds at once with the thread's flag restored.
+     */
+    private Optional<JobId> startAfterSpacing(EffectiveRole role, HeadlessBlock block, WorkerLaunch launch,
+            ModelSlots.Lease lease) {
+        try {
+            environment.spacing().awaitTurn(role.harness());
+        } catch (InterruptedException _) {
+            Thread.currentThread().interrupt();
+        }
+        return startWorker(role, block, launch, lease);
     }
 
     /**

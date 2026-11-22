@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -37,6 +38,8 @@ import de.planmarshall.core.role.RoleForm;
  */
 @DisplayName("Worker supervisor start failure")
 class WorkerSupervisorStartFailureTest {
+
+    private static final SupervisorEnvironment.StartGuard OPEN_GUARD = SupervisorEnvironment.StartGuard.open();
 
     private static final SupervisorEnvironment.EligibilityGate OPEN_GATE =
             SupervisorEnvironment.EligibilityGate.open();
@@ -87,6 +90,26 @@ class WorkerSupervisorStartFailureTest {
         assertAll(
                 () -> assertEquals(3, fixture.refusals.size(), "every refused launch is recorded"),
                 () -> assertTrue(held, "the third refused launch holds the guard"));
+    }
+
+    @Test
+    @DisplayName("a start waits for the harness's pending start, at most the spacing bound")
+    void aStartWaitsForThePendingStartOfItsHarness() {
+        var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 2);
+        fixture.spacing = new HarnessStartSpacing(Duration.ofMillis(200));
+        var supervisor = new WorkerSupervisor(fixture.environment(OPEN_GUARD, OPEN_GATE));
+        supervisor.start(List.of(fixture.freshRequest(role)));
+
+        var started = System.nanoTime();
+        supervisor.start(List.of(fixture.freshRequest(role)));
+        var waited = Duration.ofNanos(System.nanoTime() - started);
+
+        assertAll(
+                () -> assertEquals(2, fixture.starts.size(), "both starts spawn a worker"),
+                () -> assertTrue(waited.compareTo(Duration.ofMillis(150)) >= 0,
+                        "the second start waits the spacing bound"),
+                () -> assertTrue(waited.compareTo(Duration.ofSeconds(5)) < 0,
+                        "the wait is the fixture's bound, not the compiled one"));
     }
 
     @Test
