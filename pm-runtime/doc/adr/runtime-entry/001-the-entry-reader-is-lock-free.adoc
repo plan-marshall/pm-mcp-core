@@ -1,0 +1,58 @@
+= ADR 001: The Entry Reader Is Lock-Free and Judges the Record Alone
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-22
+
+== Context
+
+The engine addresses a pending entry of a start as a workspace-scope entity by its `entry_id` and resolves it from its
+persisted record, never from the memory of a running engine (PM-ARCH-4). The record is `entry.json` of the entry's
+directory, written only through the workspace transaction journal. The engine's read path takes no lock, so it may see a
+transaction in flight, and the entry's integrity is decided under the workspace lock.
+
+== Decision
+
+`PendingEntryDirectoryReader` implements `PendingEntryReader` over `PendingEntryStore` and reads the record alone:
+
+* The record is replaced by an atomic rename under the workspace lock, so a lock-free read sees one complete version of
+  it. A torn record is evidence of an edit outside a transaction and is `Unreadable` with the codec's refusal.
+* The reader judges the record only, never the entry's source directory, question or decision store, or its transcript.
+* The reader does not verify the digest sidecar. A lock-free read cannot decide an edit: `ScopeIntegrity.snapshot`
+  reports `digest_unverified` while a journal exists and never decides. Integrity is decided by
+  `PendingEntryStore.verify` under the workspace lock, whose `Tampered` answer names the entry and the store it holds.
+* An absent record is `Deleted`: the creation of the scope removed it, the operator abandoned the entry, or a removal a
+  stop cut off already deleted it. The directory left behind is the sweep's residue (ADR `runtime-start/016`).
+* The path is `pending/<entry_id>/entry.json` below the project's store root, and the id's type has checked its grammar.
+
+== Alternatives Considered
+
+1. *Take the workspace lock for the read.*
+_Not taken_: the engine's read path is lock-free and a lock would couple every entry read to the workspace's writers;
+the atomic rename already gives the read one complete version.
+2. *Decide integrity in the reader.*
+_Not taken_: a lock-free read sees a transaction in flight as a difference, so a decision would report a tampering that
+is no tampering; the locked verification is the one decider.
+3. *Return `Unreadable` for a tampered record.*
+_Not taken_: the specification holds the tampered entry with its own integrity hold, which the runtime raises from the
+locked verification, not from a read that cannot see the sidecar consistently.
+
+== Consequences
+
+* A reader never removes residue and never repairs a store; the sweep and the recovery do.
+* The runtime maps `Tampered` of the locked `verify` onto the entry's hold, and the reader's `Unreadable` onto the
+  entry's refused addressing.
+* A symbolic link below the path base is followed by the read; it is an out-of-band change the locked verification
+  reports, not a decision of the reader.
+
+== Source
+
+* Plan `PLAN-V2-22` of the epic `pm-mcp-core-m2-m4-v2`, deliverable 13
+* link:../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc#store-digest-verification[Store
+  Schemas § Store Digest Verification]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/entry/PendingEntryDirectoryReader.java`

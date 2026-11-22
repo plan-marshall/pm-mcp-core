@@ -470,14 +470,29 @@ link:../pm-workflow/doc/adr/workflow-engine/012-model-waits-selected-from-the-co
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10]
 
-Implementation (the pending entry of a start in the workspace scope with a freshly allocated `entry_id`, so concurrent entries never share a record, created, replaced and removed in workspace transactions; its directory form with the entry's sources, questions, decisions, and chat, its opening from the clients over the local API, and its consumption by the start are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/store/PendingEntryRecord.java[PendingEntryRecord],
+Implementation (the pending entry of a start in the workspace scope with a freshly allocated `entry_id`, so concurrent
+entries never share a directory, created, replaced, verified and removed in workspace transactions; its directory form
+with the entry's record, source manifest, question and decision stores and chat transcript, its creation into the new
+scope, and the sweep of the residue a cut-off removal left; the client's opening over the local API and the `/api/v1`
+entry routes are not traced here, they are `pm-mcp-server` classes): link:../pm-core/src/main/java/de/planmarshall/core/store/PendingEntryRecord.java[PendingEntryRecord],
 link:../pm-core/src/main/java/de/planmarshall/core/store/PendingEntryStore.java[PendingEntryStore],
-link:../pm-core/src/main/java/de/planmarshall/core/store/EntryId.java[EntryId]
+link:../pm-core/src/main/java/de/planmarshall/core/store/EntryId.java[EntryId],
+link:../pm-core/src/main/java/de/planmarshall/core/store/SourceManifest.java[SourceManifest],
+link:../pm-core/src/main/java/de/planmarshall/core/store/PendingEntryCreation.java[PendingEntryCreation],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/entry/PendingEntryDirectoryReader.java[PendingEntryDirectoryReader],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java[PendingEntryRecordsSweep]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntryStoreTest.java[PendingEntryStoreTest],
-link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntrySchemaParityTest.java[PendingEntrySchemaParityTest]
+link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntryCodecTest.java[PendingEntryCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntrySchemaParityTest.java[PendingEntrySchemaParityTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/SourceManifestCodecTest.java[SourceManifestCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntryCreationTest.java[PendingEntryCreationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/entry/PendingEntryDirectoryReaderTest.java[PendingEntryDirectoryReaderTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PendingEntryRecordsSweepTest.java[PendingEntryRecordsSweepTest]
 
-Documentation: link:../pm-core/doc/developer/core-store.adoc[Scope Stores Developer Guide]
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_the_pending_entry[Scope Stores Developer Guide § The
+Pending Entry], link:../pm-runtime/doc/developer/runtime-entry.adoc[Pending Entry Reader Developer Guide],
+link:../pm-core/doc/adr/core-store/082-the-pending-entry-is-a-directory.adoc[ADR core-store/082]
 
 [#PM-WF-11]
 === PM-WF-11: Q-Gate Validation Loop, Change-Type & Unplanned-Change Recording
