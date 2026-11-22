@@ -1,0 +1,59 @@
+= ADR provider-git-primitive 008: The Staging Set Refuses What the Commit Refuses
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-22
+
+== Context
+
+The staging set of a scope accepted a dirty name that the commit refuses with `PATH_REFUSED`: a name that begins with
+`:`, contains a backslash, a control character or a newline, or is a directory entry such as an embedded repository or a
+modified submodule (`git status` lists both by their directory, `dir/`). The commit then failed closed as `failed` with
+the reason `commit_failed` and the git detail `PATH_REFUSED` before anything was staged, so one odd file name blocked the
+whole plan commit — an availability defect, not an integrity one. The textual rule of a commit path existed only in
+`JGitOperations`, so the staging set had no way to agree with it (landing of PLAN-V2-20, L3-2, L3-7, L3-8).
+
+== Decision
+
+* `CommitPaths.isRefusedText` is the one textual rule of a commit path: it is not empty, does not begin with `:` or `/`,
+  holds no backslash and no control character (a newline among them, and the NUL that is one), and has no empty, `.` or
+  `..` segment. A directory entry fails it through its empty segment.
+* `JGitOperations.commit` refuses a path that fails the rule with `PATH_REFUSED` before anything is staged, and
+  `StagingSets.derive` puts it in the `outside` set of the staging set. The footprint check therefore refuses it with
+  `footprint_violation` and names it, a typed answer of the primitive instead of a git detail surfaced through
+  `commit_failed`.
+* The dirty paths of the site list an embedded repository and a modified submodule by their directory and a rename by
+  both sides, the old path and the new one; the staging set reads them as they come, so an embedded repository is a
+  footprint violation and a rename is staged on both sides.
+* The commit's own refusal stays: a bound `files` path is refused at the bind (`path.staging`), and a path that reaches
+  the commit anyway is refused there instead of being read as a pathspec.
+
+== Alternatives Considered
+
+* *Keep the failure at the commit.* Not taken: a single odd file name blocks the whole plan commit, and the operator
+  sees a git detail where the footprint check has a named violation and a remedy.
+* *A second copy of the textual rule in `StagingSets`.* Not taken: two copies of one rule are how the two diverged;
+  the rule is text, so it needs neither the file system nor the variant of the contract.
+* *Confine the whole path and follow its last name in the staging set.* Not taken: the site's dirty list is the answer
+  to which names the checkout holds, and a symbolic link is a legal commit entry that following would refuse.
+
+== Consequences
+
+* A dirty name no commit can stage reaches the operator as `footprint_violation` naming it; the condition's remedy
+  (revert or remove the entry) applies as for any other breach.
+* `CommitPathsTest` pins the rule, `StagingSetsTest` the `outside` answer per refused class, and `JGitOperationsTest`
+  the commit's unchanged refusal.
+* A new textual refusal is added to `CommitPaths` once and reaches both the commit and the staging set.
+
+== Source
+
+* Spec of `PLAN-V2-169` (`git-commit-primitives-closeout`), deliverable 1
+* link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 4)
+* link:../../../../../doc/specification/state-catalogue/05-git-commit-and-push.adoc#state-git.stage-and-commit[State Catalogue § `git.stage-and-commit`]
+* Landing of `PLAN-V2-20` (`git-commit-primitives`), L3-2, L3-7 and L3-8
+* link:003-the-staging-set-is-derived-from-the-scope.adoc[ADR provider-git-primitive 003]

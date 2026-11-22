@@ -41,6 +41,9 @@ the diff summary and the two footprint breaches the site observes (<<_the_commit
 |link:{src}/CommitMessages.java[`CommitMessages`]
 |The validation of a commit message and the one writer of the `Co-Authored-By:` line.
 
+|link:../src/main/java/de/planmarshall/provider/git/CommitPaths.java[`CommitPaths`]
+|The textual rule a commit path must satisfy, shared by the commit and the staging set of a scope.
+
 |link:{src}/StagingSets.java[`StagingSets`]
 |The staging set of a scope, every dirty path either staged or outside.
 
@@ -71,9 +74,11 @@ assembly resolves each answer per call from the scope id and one stateless insta
 `worktreeRoot`, `scopeType`, `archiving`:: The target checkout (the plan's worktree, the shared epic worktree or the main
 checkout), its `ScopeType` and the epic's archive flag.
 `dirtyPaths`:: The porcelain list of the checkout, repository-relative, with `.marshall/local/**` left out. The status is
-read with `--untracked-files=all`, so every untracked file is listed by its own path and no entry is a directory: the
-site expands an untracked directory to the files below it, where the plain porcelain status would collapse it to
-`newdir/`. The git contract has no `status` operation, so the site answers it.
+read with `--untracked-files=all`, so every untracked file is listed by its own path and an untracked directory is
+expanded to the files below it, where the plain porcelain status would collapse it to `newdir/`. Two entries are the
+exceptions and are listed by their directory: an embedded repository, which git does not descend into, and a modified
+submodule. A rename is listed by both sides, the old path and the new one. The git contract has no `status` operation,
+so the site answers it.
 `localTrailer`, `machineTrailer`:: The stored `commit_trailer` of the project and of the machine, each a
 `CommitTrailer.Stored` whose halves may be absent or invalid; empty when the level stores none.
 `commitIdentity`, `agentIdentity`:: The operator's `commit_identity`, the author, and the agent identity resolved from the
@@ -122,17 +127,15 @@ holds no value of the trailer and which no state names in a `facts` clause
 == The Staging Set and the Footprint Check
 
 `StagingSets.derive(scope, worktree, dirtyPaths, archiving)` puts every dirty path into `staged` or `outside`
-(link:{adr}/003-the-staging-set-is-derived-from-the-scope.adoc[ADR 003]). A path is staged only when it is relative and
-in normal form (no `.` or `..` segment), `PathConfinement.confine` admits the directory that holds it with the checkout
-as the one root, and it belongs to its scope's set. The last name is not followed: git records a symbolic link as a
-link, so a dirty link to outside the checkout or a dangling link is staged like any other file and never blocks the
-commit of the rest of the scope, while a path that runs through a link to outside stays outside. A directory entry is no
-legal entry of the dirty paths: the commit refuses a directory
-(link:../adr/provider-git/004-a-directory-is-refused-and-emptiness-is-typed.adoc[ADR provider-git 004]), so a
-`newdir/` in the staging set would fail the commit with `commit_failed` and hide the files below it, `newdir/.env`
-among them, from a review that matches paths by name. A derived path that begins with `:`, for which `derive` has no
-rule, is refused by the git contract at the commit as `PATH_REFUSED`, before anything is staged, and
-`git.stage-and-commit` returns it as `failed` with the reason `commit_failed` and the `git_outcome` `PATH_REFUSED`. The
+(link:{adr}/003-the-staging-set-is-derived-from-the-scope.adoc[ADR 003]). A path is staged only when it satisfies the
+textual rule of a commit path (`CommitPaths.isRefusedText`: no pathspec magic, no backslash, no control character, no
+empty segment), is relative and in normal form (no `.` or `..` segment), `PathConfinement.confine` admits the directory
+that holds it with the checkout as the one root, and it belongs to its scope's set. A name the commit cannot stage is
+`outside`, where the footprint check refuses it with `footprint_violation` and names it instead of letting the whole
+commit fail on it: a colon-led name, a backslash, a control character or a newline, and a directory entry, which is how
+the site lists an embedded repository and a modified submodule (`newdir/`). The last name is not followed: git records a
+symbolic link as a link, so a dirty link to outside the checkout or a dangling link is staged like any other file and
+never blocks the commit of the rest of the scope, while a path that runs through a link to outside stays outside. The
 site is the one that expands an untracked directory to its files (<<_the_commit_site>>); this package expands none:
 
 [cols="1,3",options="header"]
@@ -282,9 +285,14 @@ as `configured`, and without one the compiled default is used as `invalid_ignore
 U+2029 is invalid while a plain name and one with a supplementary character stay valid, an email with one is refused as
 white space, and a stored name with one is passed over in the same way while the email half stays `configured`.
 link:{test}/StagingSetsTest.java[`StagingSetsTest`]:: The staging set per scope with a path outside, `..`, an absolute
-path, a non-normal name, on Linux and macOS a path through a symbolic link that leads out of the worktree (outside), a
-dirty link to outside and a dangling link (both staged with the rest of the scope), a name shaped like a link target,
-which is staged as a plain name, and `.marshall/archived-epics/x` with and without archiving.
+path, a non-normal name, the names the commit refuses (a colon-led name, a backslash, a control character, a newline and
+a directory entry, an embedded repository among them) as `outside`, on Linux and macOS a path through a symbolic link
+that leads out of the worktree (outside), a dirty link to outside and a dangling link (both staged with the rest of the
+scope), a name shaped like a link target, which is staged as a plain name, and `.marshall/archived-epics/x` with and
+without archiving.
+link:{test}/CommitPathsTest.java[`CommitPathsTest`]:: The textual rule the commit and the staging set share: a
+pathspec magic, a backslash, a control character, a non-normal segment and a directory entry are refused, while a glob
+character, an option-shaped name and a plain relative name are literal commit paths.
 link:{test}/FootprintBoundaryTest.java[`FootprintBoundaryTest`]:: The three checks and the bound of the offending files.
 link:{test}/GitResolveMessagePrimitiveTest.java[`GitResolveMessagePrimitiveTest`]:: A case per mode and per presence of
 `message`, the fixed message of every call site and its variants, and a call site without its input; every `ready`
@@ -321,4 +329,5 @@ link:{adr}/004-the-trailer-is-appended-by-commit-messages-alone.adoc[ADR 004],
 link:{adr}/005-one-failed-outcome-with-a-closed-reason.adoc[ADR 005],
 link:{adr}/006-the-primitive-checks-the-boundary-half.adoc[ADR 006],
 link:{adr}/007-the-template-message-renders-from-facts.adoc[ADR 007],
+link:{adr}/008-the-staging-set-refuses-what-the-commit-refuses.adoc[ADR 008],
 link:../../../../pm-workflow/doc/adr/workflow-verify/043-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify 043]

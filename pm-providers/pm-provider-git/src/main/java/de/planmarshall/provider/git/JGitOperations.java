@@ -483,14 +483,9 @@ public final class JGitOperations implements GitOperations {
         return Optional.empty();
     }
 
-    /** The textual refusals: empty, pathspec magic, absolute, a backslash, a control character, a non-normal segment. */
+    /** The textual refusals, the rule the commit shares with the staging set of a scope ({@link CommitPaths}). */
     private static boolean isRefusedPathText(String path) {
-        if (path.isEmpty() || path.startsWith(":") || path.startsWith("/") || path.indexOf('\\') >= 0
-                || path.chars().anyMatch(Character::isISOControl)) {
-            return true;
-        }
-        return Arrays.stream(path.split("/", -1))
-                .anyMatch(segment -> segment.isEmpty() || ".".equals(segment) || "..".equals(segment));
+        return CommitPaths.isRefusedText(path);
     }
 
     /**

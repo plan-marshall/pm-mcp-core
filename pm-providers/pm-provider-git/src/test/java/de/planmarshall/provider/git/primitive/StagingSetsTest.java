@@ -154,6 +154,38 @@ class StagingSetsTest {
     }
 
     @Nested
+    @DisplayName("names the commit refuses")
+    class CommitRefusedNames {
+
+        // the commit's textual refusals: pathspec magic, a backslash, a control character, a newline, a directory entry
+        @ParameterizedTest
+        @ValueSource(strings = {":magic.txt", "a\\b.txt", "a\u0001b.txt", "a\nb.txt", "embedded/"})
+        @DisplayName("a dirty name the commit cannot stage is outside the staging set")
+        void refusedNameIsOutside(String path) {
+            var inside = names.next() + ".txt";
+
+            var set = StagingSets.derive(ScopeType.PLAN, worktree, List.of(path, inside), false);
+
+            assertAll("refused name",
+                    () -> assertEquals(Set.of(path), set.outside(), "The refused name is reported outside"),
+                    () -> assertEquals(Set.of(inside), set.staged(), "The inside path is still staged"));
+        }
+
+        @Test
+        @DisplayName("an embedded repository listed by its directory is outside")
+        void embeddedRepositoryIsOutside() {
+            var embedded = names.next() + "/";
+            var inside = names.next() + ".txt";
+
+            var set = StagingSets.derive(ScopeType.PLAN, worktree, List.of(embedded, inside), false);
+
+            assertAll("embedded repository",
+                    () -> assertEquals(Set.of(embedded), set.outside(), "The embedded repository is outside"),
+                    () -> assertEquals(Set.of(inside), set.staged(), "The inside path is still staged"));
+        }
+    }
+
+    @Nested
     @DisplayName("epic scope")
     class EpicScope {
 
