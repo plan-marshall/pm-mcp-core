@@ -47,14 +47,11 @@ public sealed interface TestCounts {
      * @param total    the collected count, {@code passed + failed + skipped}
      * @param byRunner the executed count per test runner that contributed, or {@code null} when the parser attributed
      *                 none or a parallel build makes the attribution unreliable
-     * @param tailOnly whether the counts are those of a log's tail alone, because the read cut a log longer than
-     *                 {@link BuildLogText#MAX_BYTES} and a block in the lost head is not in them (ADR
-     *                 {@code core-build/011})
      * @since 0.1
      */
     @Builder
-    record Measured(int passed, int failed, int skipped, int total, @Nullable Map<String, Integer> byRunner,
-    boolean tailOnly) implements TestCounts {
+    record Measured(int passed, int failed, int skipped, int total, @Nullable Map<String, Integer> byRunner)
+            implements TestCounts {
 
         /**
          * Validates the counts and copies the per-runner map.
@@ -79,20 +76,6 @@ public sealed interface TestCounts {
             }
         }
 
-        /**
-         * The counts of a whole log, which the read did not cut.
-         *
-         * @param passed   the tests that ran and passed
-         * @param failed   the tests that ran and failed
-         * @param skipped  the tests the runner declined to run
-         * @param total    the collected count
-         * @param byRunner the executed count per test runner, or {@code null}
-         * @throws IllegalArgumentException as the canonical constructor does
-         */
-        public Measured(int passed, int failed, int skipped, int total, @Nullable Map<String, Integer> byRunner) {
-            this(passed, failed, skipped, total, byRunner, false);
-        }
-
         @Override
         public TestsPopulation population() {
             return TestsPopulation.MEASURED;
@@ -112,7 +95,9 @@ public sealed interface TestCounts {
     /**
      * The explicit absence of a test count: the parser could not aggregate the summaries of the run.
      * <p>
-     * The state carries no number by construction.
+     * The state carries no number by construction. A run whose log the read cut is unmeasured too: the summary
+     * blocks of the modules in the lost head are not in it, so the tail's figure is no count of the whole run (ADR
+     * {@code core-build/011}).
      *
      * @since 0.1
      */
@@ -150,22 +135,6 @@ public sealed interface TestCounts {
      * @return the measured counts of a whole log, or {@link Unmeasured#INSTANCE}
      */
     public static TestCounts from(long passed, long failed, long skipped, @Nullable Map<String, Integer> byRunner) {
-        return from(passed, failed, skipped, byRunner, false);
-    }
-
-    /**
-     * Builds a measurement as {@link #from(long, long, long, Map)} does, marked as the counts of a log's tail alone when
-     * the read cut the log.
-     *
-     * @param passed   the tests that passed
-     * @param failed   the tests that failed
-     * @param skipped  the tests the runner declined to run
-     * @param byRunner the executed count per runner, or {@code null}
-     * @param tailOnly whether the read cut the log, so the counts are its tail's alone
-     * @return the measured counts, or {@link Unmeasured#INSTANCE}
-     */
-    public static TestCounts from(long passed, long failed, long skipped, @Nullable Map<String, Integer> byRunner,
-            boolean tailOnly) {
         long total = passed + failed + skipped;
         boolean representable = passed >= 0 && passed <= Integer.MAX_VALUE
                 && failed >= 0 && failed <= Integer.MAX_VALUE
@@ -175,6 +144,6 @@ public sealed interface TestCounts {
         if (!representable) {
             return Unmeasured.INSTANCE;
         }
-        return new Measured((int) passed, (int) failed, (int) skipped, (int) total, byRunner, tailOnly);
+        return new Measured((int) passed, (int) failed, (int) skipped, (int) total, byRunner);
     }
 }

@@ -116,10 +116,10 @@ public class MavenOutputParser {
      * The runner an execution header names, empty when the line carries none.
      * <p>
      * The answer is the ported expression's: the leftmost {@link #EXECUTION_HEADER_HEAD} whose rest of the line, up to
-     * the first line terminator {@code .} does not match, holds an {@code @} followed by {@code ---}. The scan is linear
-     * in the line's length, also for a line of repeated {@code --- a:b:c @} text: one pass from the line's end records,
-     * for every position, the next {@code @} and the last {@code ---} before the next terminator, so each head is
-     * decided by two array reads instead of a scan of its rest.
+     * the first line terminator {@code .} does not match, holds an {@code @} followed by {@code ---}. The scan is
+     * linear in the line's length, also for a line of repeated {@code --- a:b:c @} text: one pass from the line's end
+     * records, for every position, the next {@code @} and the last {@code ---} before the next terminator, so each head
+     * is decided by two array reads instead of a scan of its rest.
      *
      * @param line the line to inspect
      * @return the runner named by the header, or empty when the line is no execution header
@@ -185,9 +185,9 @@ public class MavenOutputParser {
     /**
      * Reads and parses a Maven build log.
      * <p>
-     * A log the read cuts ({@link BuildLogText#readLog(Path)}) reports a measured count as the tail's alone
-     * ({@link TestCounts.Measured#tailOnly()}): a summary block of a module in the lost head is not in it, so the figure
-     * is no count of the whole run (ADR {@code core-build/011}).
+     * A log the read cuts ({@link BuildLogText#readLog(Path)}) reports {@link TestCounts.Unmeasured}: a summary
+     * block of a module in the lost head is not in it, so the tail's figure is no count of the whole run, and a cut
+     * log never claims that no test ran (ADR {@code core-build/011}).
      *
      * @param logFile the file to read
      * @return the parsed build
@@ -349,6 +349,9 @@ public class MavenOutputParser {
         }
 
         Optional<TestCounts> result(String logText, boolean cut) {
+            if (cut) {
+                return Optional.of(TestCounts.unmeasured());
+            }
             if (summaryLines.isEmpty() && ambiguousLines.isEmpty() && perClassLines.isEmpty()) {
                 return Optional.empty();
             }
@@ -365,8 +368,7 @@ public class MavenOutputParser {
                     || logText.contains(PARALLEL_BUILD_BANNER)
                     ? Optional.empty()
                     : runnerCounts();
-            return Optional.of(
-                    TestCounts.from(total - failed - skipped, failed, skipped, byRunner.orElse(null), cut));
+            return Optional.of(TestCounts.from(total - failed - skipped, failed, skipped, byRunner.orElse(null)));
         }
 
         private Optional<Map<String, Integer>> runnerCounts() {

@@ -51,9 +51,8 @@ The location is absent component-wise (`@Nullable`), and its compact constructor
 location and a line without a file.
 
 |link:{src}/TestCounts.java[`TestCounts`]
-|A sealed interface of `Measured` (passed, failed, skipped, total, the executed count per runner and `tailOnly`, set
-when the counts are those of a cut log's tail) and `Unmeasured`. The unmeasured state has no count accessor, so it
-cannot be read as a zero.
+|A sealed interface of `Measured` (passed, failed, skipped, total and the executed count per runner) and `Unmeasured`.
+The unmeasured state has no count accessor, so it cannot be read as a zero, and a log the read cut reports it.
 
 |link:{src}/JvmCategoryPatterns.java[`JvmCategoryPatterns`]
 |The compiled category table of the JVM parsers, `maven()` and `gradle()`. A pattern carrying a regular-expression
@@ -188,10 +187,11 @@ carries the executed count (total minus skipped) per runner; an execution header
 so an interleaved build under-counts — which is why a log with the `MultiThreadedBuilder` banner keeps the summed total and
 omits `byRunner`.
 
-A log the read cut (`MavenOutputParser.parse(Path)` over a log above `BuildLogText.MAX_BYTES`) reports a measured count
-with `tailOnly` set: the summary blocks of the modules in the lost head are not in it, so the figure is the tail's
-alone (link:../adr/core-build/011-a-cut-build-log-reports-tail-only.adoc[ADR `core-build/011`]). The `String` overload
-never sets it.
+A log the read cut (`MavenOutputParser.parse(Path)` over a log above `BuildLogText.MAX_BYTES`) reports
+`TestCounts.Unmeasured`: the summary blocks of the modules in the lost head are not in it, so the tail's figure is no
+count of the whole run, and a cut log never reads as "no tests ran"
+(link:../adr/core-build/011-a-cut-build-log-reports-tail-only.adoc[ADR `core-build/011`]). The `String` overload reads
+no file and is never cut.
 
 === Gradle
 

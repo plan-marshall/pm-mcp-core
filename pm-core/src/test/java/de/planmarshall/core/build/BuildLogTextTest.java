@@ -13,6 +13,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -209,8 +210,8 @@ class BuildLogTextTest {
             """;
 
     @Test
-    @DisplayName("a cut Maven log reports its count as the tail's alone")
-    void cutMavenLogReportsTailOnly(@TempDir Path directory) throws Exception {
+    @DisplayName("a cut Maven log reports its count as unmeasured")
+    void cutMavenLogReportsUnmeasured(@TempDir Path directory) throws Exception {
         var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
         var head = "[INFO] Results:\n[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0\n";
         Path log = directory.resolve("cut-maven.log");
@@ -219,22 +220,22 @@ class BuildLogTextTest {
 
         var counts = MavenOutputParser.parse(log).testCounts();
 
-        var measured = assertInstanceOf(TestCounts.Measured.class, counts, "the tail's block is a measurement");
         assertAll(
-                () -> assertTrue(measured.tailOnly(), "a cut log's count is reported as tail only"),
-                () -> assertEquals(3, measured.passed(), "only the tail's summary block is counted"));
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, counts, "a cut log's count is unmeasured"),
+                () -> assertEquals(TestsPopulation.UNMEASURED, counts.population(),
+                        "the cut log's population is unmeasured"));
     }
 
     @Test
     @DisplayName("a whole Maven log reports its count as the whole run's")
-    void wholeMavenLogReportsNoTailOnly(@TempDir Path directory) throws Exception {
+    void wholeMavenLogReportsTheWholeRun(@TempDir Path directory) throws Exception {
         Path log = directory.resolve("whole-maven.log");
         Files.writeString(log, MAVEN_TAIL, StandardCharsets.UTF_8);
 
         var counts = MavenOutputParser.parse(log).testCounts();
 
         var measured = assertInstanceOf(TestCounts.Measured.class, counts, "the summary block is a measurement");
-        assertFalse(measured.tailOnly(), "a whole log's count is not tail only");
+        assertEquals(3, measured.passed(), "a whole log counts its summary block");
     }
 
     @Test
