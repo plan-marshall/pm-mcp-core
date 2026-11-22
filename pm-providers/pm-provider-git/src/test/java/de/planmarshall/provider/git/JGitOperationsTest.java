@@ -27,11 +27,15 @@ import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
 import java.nio.file.attribute.PosixFilePermissions;
+import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.dircache.DirCacheEntry;
 import org.eclipse.jgit.lib.FileMode;
 import org.eclipse.jgit.lib.StoredConfig;
 import org.eclipse.jgit.transport.URIish;
@@ -236,6 +240,48 @@ class JGitOperationsTest {
                     () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
                             "a subset without a change commits nothing"),
                     () -> assertEquals("no changes", result.detail(), "the refusal names the empty change set"));
+        }
+
+        @Test
+        @DisplayName("a listed path without a change leaves the index untouched")
+        void nothingToCommitLeavesTheIndexUntouched() throws Exception {
+            // the content equals HEAD, and only the stat moves, so an add would refresh the index entry and stage it
+            Files.setLastModifiedTime(repo.resolve("README.md"),
+                    FileTime.from(Instant.parse("2020-01-02T03:04:05Z")));
+            var before = indexEntry("README.md").getLastModifiedInstant();
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("README.md")));
+
+            assertAll("index untouched",
+                    () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
+                            "the unchanged path commits nothing"),
+                    () -> assertEquals(before, indexEntry("README.md").getLastModifiedInstant(),
+                            "the refused commit stages no listed path"));
+        }
+
+        private DirCacheEntry indexEntry(String path) throws IOException {
+            try (var jgit = Git.open(repo.toFile())) {
+                return Objects.requireNonNull(jgit.getRepository().readDirCache().getEntry(path), "the entry");
+            }
+        }
+
+        @Test
+        @EnabledOnOs({OS.LINUX, OS.MAC})
+        @DisplayName("refuses a path whose nearest existing ancestor is a dangling link")
+        void refusesAPathBelowADanglingAncestor() throws Exception {
+            var ancestor = names.next();
+            var below = ancestor + "/" + file();
+            write(below, text());
+            Files.delete(repo.resolve(below));
+            Files.delete(repo.resolve(ancestor));
+            Files.createSymbolicLink(repo.resolve(ancestor), Path.of(names.next()));
+
+            var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(below)));
+
+            assertAll("dangling ancestor",
+                    () -> assertEquals(GitOutcome.PATH_REFUSED, result.outcome(),
+                            "a dangling ancestor is no confined parent"),
+                    () -> assertEquals(below, result.detail(), "the refusal names the path below it"));
         }
 
         @Test

@@ -30,7 +30,6 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.InvalidRemoteException;
 import org.eclipse.jgit.api.errors.JGitInternalException;
 import org.eclipse.jgit.dircache.DirCacheCheckout;
-import org.eclipse.jgit.dircache.DirCacheEntry;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.errors.TransportException;
 import org.eclipse.jgit.lib.Constants;
@@ -377,6 +376,9 @@ public final class JGitOperations implements GitOperations {
                     .setCommitter(new PersonIdent(input.committer().name(), input.committer().email()))
                     .setSign(Boolean.FALSE)
                     .setAllowEmpty(false);
+            if (!hasWorktreeChanges(git, paths)) {
+                return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, "no changes");
+            }
             if (paths.isEmpty()) {
                 git.add().addFilepattern(".").call();
                 git.add().addFilepattern(".").setUpdate(true).call();
@@ -386,9 +388,6 @@ public final class JGitOperations implements GitOperations {
                     git.add().addFilepattern(path).setUpdate(true).call();
                     command.setOnly(path);
                 }
-            }
-            if (!hasChanges(repository, paths)) {
-                return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, "no changes");
             }
             RevCommit commit = command.call();
             return GitResult.ok(toInfo(commit));
@@ -406,53 +405,21 @@ public final class JGitOperations implements GitOperations {
     }
 
     /**
-     * Whether the staged state differs from {@code HEAD}, so the commit would not be empty. JGit reports an empty commit
-     * with a translated message on a generic exception, so the condition is read here, from the typed index and tree
-     * instead of from that text.
+     * Whether staging the listed paths would make a change against {@code HEAD}, read from the worktree and the index
+     * before anything is staged, so a call with nothing to commit leaves the index untouched. A path whose content is
+     * unchanged and one whose change is already staged are both no change of the commit, and an untracked file is one.
      *
-     * @param repository the repository
-     * @param paths      the listed paths; empty means the whole index
-     * @return whether a commit would carry a change
-     * @throws IOException when the index or the head tree cannot be read
+     * @param git   the repository's git
+     * @param paths the listed paths; empty means the whole worktree
+     * @return whether a commit of the listed paths would carry a change
+     * @throws GitAPIException when the status cannot be read
      */
-    private static boolean hasChanges(Repository repository, List<String> paths) throws IOException {
-        var headId = repository.resolve(Constants.HEAD + "^{commit}");
-        if (headId == null) {
-            return true;
+    private static boolean hasWorktreeChanges(Git git, List<String> paths) throws GitAPIException {
+        var status = git.status();
+        for (var path : paths) {
+            status.addPath(path);
         }
-        try (RevWalk walk = new RevWalk(repository)) {
-            var headTree = walk.parseCommit(headId).getTree();
-            if (paths.isEmpty()) {
-                var inserter = repository.newObjectInserter();
-                try {
-                    return !repository.readDirCache().writeTree(inserter).equals(headTree);
-                } finally {
-                    inserter.close();
-                }
-            }
-            var index = repository.readDirCache();
-            for (var path : paths) {
-                var entry = index.getEntry(path);
-                try (TreeWalk treeWalk = TreeWalk.forPath(repository, path, headTree)) {
-                    if (!sameEntry(entry, treeWalk)) {
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-    }
-
-    /**
-     * Compares a staged entry with the entry of the head tree: the object id and the file mode, so a change of the
-     * executable bit alone is a change.
-     */
-    private static boolean sameEntry(@Nullable DirCacheEntry entry, @Nullable TreeWalk head) {
-        if (entry == null || head == null || head.getObjectId(0) == null) {
-            return entry == null && head == null;
-        }
-        return entry.getObjectId().equals(head.getObjectId(0))
-                && entry.getFileMode() == head.getFileMode(0);
+        return !status.call().isClean();
     }
 
     /**
