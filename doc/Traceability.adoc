@@ -864,7 +864,7 @@ link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/
 link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitResolveMessagePrimitiveTest.java[GitResolveMessagePrimitiveTest],
 link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitTemplateMessagePrimitiveTest.java[GitTemplateMessagePrimitiveTest],
 link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/CommitMessageEvaluatePrimitiveTest.java[CommitMessageEvaluatePrimitiveTest],
-link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitiveTest.java[GitStageAndCommitPrimitiveTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitiveMessageTest.java[GitStageAndCommitPrimitiveMessageTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/RegistriesAndRecordsTest.java[RegistriesAndRecordsTest]
 
 Documentation (the commit stages 3 and 4):
@@ -1434,7 +1434,7 @@ link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/
 link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitMessages.java[CommitMessages]
 
 Verified by (the commit message in memory):
-link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitiveTest.java[GitStageAndCommitPrimitiveTest]
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitiveMessageTest.java[GitStageAndCommitPrimitiveMessageTest]
 (the commit through the real `JGitOperations`, its message, trailer, author and committer read back from the history)
 
 Documentation (the commit message in memory):

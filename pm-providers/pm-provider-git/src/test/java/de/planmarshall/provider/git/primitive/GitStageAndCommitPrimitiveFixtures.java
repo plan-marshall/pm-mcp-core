@@ -106,7 +106,11 @@ abstract class GitStageAndCommitPrimitiveFixtures {
     }
 
     void expectScope(ScopeType scope, boolean archiving, List<String> dirty) {
-        expect(site.worktreeRoot(context)).andReturn(repo).anyTimes();
+        expectScope(repo, scope, archiving, dirty);
+    }
+
+    void expectScope(Path root, ScopeType scope, boolean archiving, List<String> dirty) {
+        expect(site.worktreeRoot(context)).andReturn(root).anyTimes();
         expect(site.scopeType(context)).andReturn(scope).anyTimes();
         expect(site.archiving(context)).andReturn(archiving).anyTimes();
         expect(site.dirtyPaths(context)).andReturn(dirty).anyTimes();

@@ -248,8 +248,8 @@ The reasons of `failed` are the closed enum `GitStageAndCommitPrimitive.Reason`
 |`footprint_violation` |`footprint_violation` |`offending_files` (at most 50), `offending_count`
 |`message_refused` |none |`rule`, `line` (0 for the whole message)
 |`commit_failed` |none |`git_outcome`, `detail`, where the detail is the contract's with the checkout's absolute root
-made repository-relative and a host path outside it replaced by the code of the git outcome; or `detail` alone when no
-`commit_identity` is configured or no message is resolved
+made repository-relative, or the code of the git outcome where the contract states no detail or a detail that still
+names an absolute path; or `detail` alone when no `commit_identity` is configured or no message is resolved
 |===
 
 Every `GitOutcome` maps to exactly one outcome: `OK` to `committed`, `NOTHING_TO_COMMIT` to `nothing_to_commit`, every
@@ -313,10 +313,9 @@ pathspec magic, a backslash, a control character, a non-normal segment and a dir
 character, an option-shaped name and a plain relative name are literal commit paths.
 link:{test}/FootprintBoundaryTest.java[`FootprintBoundaryTest`]:: The three checks and the bound of the offending files.
 link:{test}/GitResolveMessagePrimitiveTest.java[`GitResolveMessagePrimitiveTest`]:: A case per mode and per presence of
-`message`, the clean-tree route, and a call site without its input; every `ready` message passes
-`CommitMessages.validate`.
+`message` and the clean-tree route; every `ready` message passes `CommitMessages.validate`.
 link:{test}/GitResolveMessagePrimitiveCallSiteTest.java[`GitResolveMessagePrimitiveCallSiteTest`]:: The fixed message of
-every call site, its variants and the name of the state it carries.
+every call site, its variants, a call site without its input and the name of the state it carries.
 link:{test}/GitTemplateMessagePrimitiveTest.java[`GitTemplateMessagePrimitiveTest`]:: The type priority over a
 generator-driven set of summaries.
 link:{test}/CommitMessageEvaluatePrimitiveTest.java[`CommitMessageEvaluatePrimitiveTest`]:: The outcome `valid` with the

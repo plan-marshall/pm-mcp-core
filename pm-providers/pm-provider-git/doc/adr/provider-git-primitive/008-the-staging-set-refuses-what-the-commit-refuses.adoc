@@ -46,8 +46,8 @@ whole plan commit — an availability defect, not an integrity one. The textual 
 
 * A dirty name no commit can stage reaches the operator as `footprint_violation` naming it; the condition's remedy
   (revert or remove the entry) applies as for any other breach.
-* `CommitPathsTest` pins the rule, `StagingSetsTest` the `outside` answer per refused class, and `JGitOperationsTest`
-  the commit's unchanged refusal.
+* `CommitPathsTest` pins the rule, `StagingSetsTest` the `outside` answer per refused class, and
+  `JGitOperationsPathTest` the commit's unchanged refusal.
 * A new textual refusal is added to `CommitPaths` once and reaches both the commit and the staging set.
 
 == Source

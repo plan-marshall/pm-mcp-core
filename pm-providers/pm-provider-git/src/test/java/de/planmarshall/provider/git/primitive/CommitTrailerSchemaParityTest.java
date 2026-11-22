@@ -105,7 +105,7 @@ class CommitTrailerSchemaParityTest {
         @DisplayName("the pattern and the code refuse an angle bracket and white space")
         void refusesWhatTheCodeRefuses() {
             var pattern = pattern("email");
-            var refused = new char[] {'<', '>', ' ', '\r', '\n', NEL, LINE_SEPARATOR, PARAGRAPH_SEPARATOR,
+            var refused = new char[]{'<', '>', ' ', '\r', '\n', NEL, LINE_SEPARATOR, PARAGRAPH_SEPARATOR,
                     NO_BREAK_SPACE};
 
             for (var codePoint : refused) {

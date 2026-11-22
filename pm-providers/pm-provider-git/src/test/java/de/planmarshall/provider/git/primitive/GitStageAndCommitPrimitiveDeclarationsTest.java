@@ -9,12 +9,14 @@
  */
 package de.planmarshall.provider.git.primitive;
 
+import static org.easymock.EasyMock.expect;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -27,9 +29,11 @@ import org.junit.jupiter.params.provider.EnumSource;
 import de.planmarshall.core.spi.CycleMeasure;
 import de.planmarshall.core.spi.OutcomeClass;
 import de.planmarshall.core.spi.PrimitiveRegistry;
+import de.planmarshall.core.store.ScopeType;
 import de.planmarshall.provider.git.GitOutcome;
 import de.planmarshall.provider.git.GitResult;
 import de.planmarshall.provider.git.primitive.GitStageAndCommitPrimitive.Outcome;
+import de.planmarshall.provider.git.primitive.GitStageAndCommitPrimitive.Params;
 import de.planmarshall.provider.git.primitive.GitStageAndCommitPrimitive.Reason;
 
 /**
@@ -117,6 +121,63 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
         assertEquals("NOT_A_REPOSITORY",
                 result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
                 "A host path outside the checkout becomes a code");
+    }
+
+    @Test
+    @DisplayName("a message that still names a host path is carried as the outcome's code")
+    void embeddedHostPathIsACode() {
+        // the shape of JGitOperations.failure(e): an exception message beside an absolute path outside the checkout
+        var message = "java.io.IOException: /srv/git/worktrees/plan";
+
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
+
+        assertEquals("FAILED",
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "A message naming a host path is carried as the code");
+    }
+
+    @Test
+    @DisplayName("the checkout's root inside a message is made the relative root")
+    void embeddedCheckoutRootIsRelative() {
+        var root = repo.toAbsolutePath().normalize().toString();
+
+        var result = GitStageAndCommitPrimitive.map(
+                GitResult.of(GitOutcome.FAILED, "java.io.IOException: " + root + "/x"), repo);
+
+        assertEquals("java.io.IOException: ./x",
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "The root inside a message becomes the relative root");
+    }
+
+    @Test
+    @DisplayName("a detail without text is carried as the outcome's code")
+    void blankDetailIsACode() {
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, " "), repo);
+
+        assertEquals("FAILED",
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "A blank detail becomes the code");
+    }
+
+    @Test
+    @DisplayName("a checkout that is no repository carries its root as the relative root")
+    void repositorylessCheckoutIsRelative() throws Exception {
+        var plain = Files.createDirectories(temp.resolve(names.next()));
+        expectScope(plain, ScopeType.PLAN, false, List.of("x.txt"));
+        expect(site.commitIdentity(context)).andReturn(Optional.of(operator)).anyTimes();
+        expect(site.agentIdentity(context)).andReturn(Optional.of(agent)).anyTimes();
+        expectTrailers();
+
+        var result = run(new GitStageAndCommitPrimitive(git, site), new Params(messages.next(), null));
+
+        assertAll("repositoryless checkout",
+                () -> assertEquals(Outcome.FAILED, result.outcome(), "The commit of a plain tree fails"),
+                () -> assertEquals(Reason.COMMIT_FAILED, result.reason(), "The reason is commit_failed"),
+                () -> assertEquals("NOT_A_REPOSITORY",
+                        result.updatedFacts().get(GitStageAndCommitPrimitive.GIT_OUTCOME_FACT),
+                        "The facts name the git outcome"),
+                () -> assertEquals(".", result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                        "The absolute root is carried relatively"));
     }
 
     @Test

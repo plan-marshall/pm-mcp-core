@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.spi.AwaitedEvent;
@@ -67,11 +68,11 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
  * outcome of the contract maps to exactly one outcome: {@code OK} to {@code committed}, {@code NOTHING_TO_COMMIT} to
  * {@code nothing_to_commit}, every other, {@code CAPABILITY_MISSING} of the native variant among them, to
  * {@code failed} with the reason {@code commit_failed}. The {@value #DETAIL_FACT} of that failure is the contract's
- * detail with the checkout's absolute root made repository-relative, the code of the git outcome for a host path
- * outside the checkout, so no absolute path of the server reaches a fact. Hooks run only in the CLI variant, so only
- * its hook refusal returns {@code hook_failed}; the native variant never does. A {@code committed} result also carries
- * the provenance of the resolved trailer as the fact {@value #TRAILER_SOURCE_FACT}, for the commit's audit record; no
- * other outcome carries it.
+ * detail with the checkout's absolute root made repository-relative, or the code of the git outcome where the contract
+ * states no detail or a detail that still names an absolute path, so no absolute path of the server reaches a fact.
+ * Hooks run only in the CLI variant, so only its hook refusal returns {@code hook_failed}; the native variant never does.
+ * A {@code committed} result also carries the provenance of the resolved trailer as the fact
+ * {@value #TRAILER_SOURCE_FACT}, for the commit's audit record; no other outcome carries it.
  * <p>
  * The primitive ends a cycle through its state by an attempt cap ({@link CycleMeasure#ATTEMPT_CAP}) whose exhaustion
  * outcome is {@code attempts_exhausted}; the engine is to count the attempts and return that outcome at the cap, the
@@ -123,6 +124,9 @@ public final class GitStageAndCommitPrimitive
 
     /** The detail of a call whose staging set is not empty but whose message was never resolved. */
     static final String NO_MESSAGE_DETAIL = "no commit message is resolved";
+
+    /** An absolute-path token inside a detail text: a separator at a token boundary, up to the next blank. */
+    private static final Pattern ABSOLUTE_PATH = Pattern.compile("(^|[\\s:(\"'])/[^\\s)\"']*");
 
     /** The committer while no agent identity resolves. */
     static final Identity COMPILED_COMMITTER = new Identity("plan-marshall-mcp", "noreply@cuioss.de");
@@ -269,10 +273,10 @@ public final class GitStageAndCommitPrimitive
 
     /**
      * The detail of a failed commit as the model-facing fact carries it. The contract's detail names the checkout in
-     * some of its outcomes, so every occurrence of the absolute root is made the repository-relative root {@code .};
-     * an absolute path outside the checkout is replaced by the code of the git outcome, because the primitive cannot
-     * tell whether a host path of the server is safe to render; and a contract that states no detail is carried as that
-     * code. The factual root therefore never reaches a fact.
+     * some of its outcomes, so every occurrence of the absolute root is made the repository-relative root {@code .}; an
+     * absolute path outside the checkout, and a detail that still names one after that replacement, is replaced by the
+     * code of the git outcome, because the primitive cannot tell whether a host path of the server is safe to render;
+     * and a contract that states no detail is carried as that code. No absolute path therefore reaches a fact.
      */
     static String modelDetail(GitOutcome outcome, @Nullable String detail, Path worktree) {
         if (detail == null || detail.isBlank()) {
@@ -296,7 +300,8 @@ public final class GitStageAndCommitPrimitive
             return outcome.name();
         }
         var absoluteRoot = root.toString();
-        return detail.contains(absoluteRoot) ? detail.replace(absoluteRoot, ".") : detail;
+        var scrubbed = detail.contains(absoluteRoot) ? detail.replace(absoluteRoot, ".") : detail;
+        return ABSOLUTE_PATH.matcher(scrubbed).find() ? outcome.name() : scrubbed;
     }
 
     private static PrimitiveResult<Outcome> messageRefused(ContentViolation violation) {
