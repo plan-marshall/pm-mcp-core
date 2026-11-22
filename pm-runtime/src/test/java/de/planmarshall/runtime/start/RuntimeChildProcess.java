@@ -356,7 +356,7 @@ final class RuntimeChildProcess {
                         // PendingEntryRecordsSweep, decides on the entry's verified stores instead.
                         if (!pendingRecord.getFileName().toString().endsWith(".keep")
                                 && !Files.exists(pendingRecord.resolveSibling(
-                                        pendingRecord.getFileName() + ".keep"))) {
+                                pendingRecord.getFileName() + ".keep"))) {
                             Files.delete(pendingRecord);
                             removed++;
                             afterRemoval.run();

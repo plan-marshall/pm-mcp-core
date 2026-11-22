@@ -142,7 +142,7 @@ class PendingEntryDirectoryReaderTest {
 
     @Test
     @DisplayName("a record that does not parse is unreadable, never live")
-    void unreadable() throws IOException {
+    void unreadable() throws Exception {
         create(entry(entryId, Kind.PLAN));
         Files.writeString(store.store(entryId), "{\"format_version\":1,");
 
@@ -152,7 +152,7 @@ class PendingEntryDirectoryReaderTest {
 
     @Test
     @DisplayName("a record that states another entry_id than its directory is unreadable")
-    void mismatchingEntryId() throws IOException {
+    void mismatchingEntryId() throws Exception {
         var stated = new EntryId("ent-" + Generators.strings("0123456789abcdef", 16, 16).next());
         create(entry(entryId, Kind.PLAN));
         Files.write(store.store(entryId), PendingEntryCodec.write(entry(stated, Kind.PLAN)));
@@ -166,7 +166,7 @@ class PendingEntryDirectoryReaderTest {
 
     @Test
     @DisplayName("a tampered record still reads live: a lock-free read never decides an edit")
-    void tamperedStillLive() throws IOException {
+    void tamperedStillLive() throws Exception {
         create(entry(entryId, Kind.PLAN));
         Files.write(store.store(entryId), PendingEntryCodec.write(entry(entryId, Kind.EPIC).toBuilder()
                 .updatedAt(Instant.EPOCH.plusSeconds(1)).build()));

@@ -9,6 +9,8 @@
  */
 package de.planmarshall.core.store;
 
+import com.fasterxml.jackson.core.JsonToken;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
@@ -157,14 +159,14 @@ public record PendingEntryRecord(EntryId entryId, Kind kind, @Nullable String re
                 throw new IllegalArgumentException("'%s' must be a JSON object: %s".formatted(name, raw));
             }
             try (var parser = StrictJson.factory().createParser(text)) {
-                if (parser.nextToken() != com.fasterxml.jackson.core.JsonToken.START_OBJECT) {
+                if (parser.nextToken() != JsonToken.START_OBJECT) {
                     throw new IllegalArgumentException("'%s' must be a JSON object: %s".formatted(name, raw));
                 }
                 parser.skipChildren();
                 if (parser.nextToken() != null) {
                     throw new IllegalArgumentException("'%s' has content after its object: %s".formatted(name, raw));
                 }
-            } catch (java.io.IOException _) {
+            } catch (IOException _) {
                 throw new IllegalArgumentException("'%s' is not JSON: %s".formatted(name, raw));
             }
         }

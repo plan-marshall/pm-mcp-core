@@ -21,6 +21,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import lombok.Builder;
 
 import de.planmarshall.core.store.SourceManifest.Kind;
@@ -211,10 +213,10 @@ public final class PendingEntryCreation {
             throw new UncheckedIOException("The transcript of %s cannot be read".formatted(entryId), e);
         }
         for (var file : files) {
-            var relative = java.util.stream.StreamSupport
+            var relative = StreamSupport
                     .stream(directory.relativize(file).spliterator(), false)
                     .map(Path::toString)
-                    .collect(java.util.stream.Collectors.joining(String.valueOf('/')));
+                    .collect(Collectors.joining(String.valueOf('/')));
             put(target, CHAT_DIRECTORY + "/" + relative, read(file));
         }
         return files.size();
