@@ -62,15 +62,18 @@ PeriodicSweep.runOnce(now)
   for each enrolled, recovered project:
     ├─ PendingEntryRecordsSweep.run(projectId, now)
     │    PendingEntryStore.entryIds()                      (lock-free, only names that parse as entry ids)
-    │    read each entry's record                          (absent = residue of a cut-off removal)
+    │    read each entry's record                          (absent = candidate of a cut-off removal)
     │    workspace lock ─► ScopeTransaction of the workspace
-    │      for each candidate, re-read under the lock:
-    │        a record that exists now keeps its entry      (an entry opened since the listing)
-    │        PendingEntryStore.remove(transaction, id)     (the four stores as delete targets)
-    │        transaction.owe(pending_entry_removed)        (one audit record per directory)
+    │      for each candidate, verify under the lock:
+    │        PendingEntryStore.verify                       (absent record AND absent sidecar = residue)
+    │        a record that exists now keeps its entry        (an entry opened since the listing)
+    │        a tampered entry is kept and reported
+    │        a store path through a symbolic link holds that entry and is reported
+    │        PendingEntryStore.remove(transaction, id)       (the four stores as delete targets)
+    │        transaction.owe(pending_entry_removed)          (one audit record per directory)
     │      commit (journal, apply, digests, close: owed records handed over)
-    │    PendingEntryStore.discard(id)                     (the directory, last)
-    │    ──► Done("removed N pending entry directories") | Failed(unreadable entries kept, or the write failed)
+    │    PendingEntryStore.discard(id)                       (the directory, last)
+    │    ──► Done("removed N pending entry directories") | Failed(unreadable or held entries kept, or the write failed)
     │
     └─ (the further steps the target adds, in their order)
 ----
@@ -82,12 +85,18 @@ _Requirements:_ link:{req}/01-architecture.adoc#PM-ARCH-10[PM-ARCH-10], link:{re
 
 The evidence that nobody will come back for a pending entry is the end of the entry, never its age: the creation of the
 scope and the abandoning of the entry delete the entry's stores in one transaction of the workspace and the directory
-last, so an entry whose record `entry.json` exists is open and an entry whose record is gone left only its directory
+last, so an entry whose record `entry.json` exists is open and an entry whose stores are gone left only its directory
 behind. The step lists the entries without a lock, reads each record, then opens one lock transaction on the workspace
-lock and one `ScopeTransaction` of the workspace, and re-reads every candidate's record under that lock before it
-removes it, so an entry opened between the listing and the lock is kept.
+lock and one `ScopeTransaction` of the workspace, and verifies every candidate under that lock before it removes it, so
+an entry opened between the listing and the lock is kept.
 
-* A directory whose record is absent is removed: its four stores again as delete targets of that transaction (they are
+The evidence is `PendingEntryStore.verify`'s `Absent` and nothing weaker: the entry's four stores are absent from the
+workspace's digest sidecar *and* from the filesystem, re-judged under the workspace lock. That is the state a removal a
+stop cut off leaves, and it is also the state a crash before the creating transaction committed leaves — the entry's
+directories exist because they are created before the stores are staged, and no store was ever written — so the step
+sweeps both.
+
+* A directory whose stores are absent is removed: its four stores again as delete targets of that transaction (they are
   absent), and the transaction owes one `pending_entry_removed` record (category `store`, details `entry_id`, `store`
   and `removed_at`) for it
   (link:../adr/runtime-start/016-the-sweep-removes-pending-entry-residue-by-evidence.adoc[ADR 016]). The
@@ -101,6 +110,9 @@ removes it, so an entry opened between the listing and the lock is kept.
 * A file of `pending/` whose name does not parse as an entry id is never listed, so it is never selected.
 * A record that cannot be read is kept, and the step reports a failure naming it after the readable residue was
   removed, so a tampered entry is held for its operator instead of being swept.
+* A store path that passes through a symbolic link is refused by the verification with an `IllegalArgumentException`;
+  that entry alone is kept and reported as `(held: …)`, and the other residue is still removed
+  (link:../adr/runtime-start/017-one-entries-symbolic-link-holds-that-entry.adoc[ADR 017]).
 * All removals of a run are one transaction, committed only if a directory is removed. A stopped removal is completed
   by the recovery of the workspace, which hands the owed records over again.
 * A workspace whose journal still waits for its recovery cannot be written: the step fails and removes nothing.
@@ -582,9 +594,13 @@ The tests run on the JVM over a test base with the file lock manager of the runt
 [horizontal]
 link:{test}/PendingEntryRecordsSweepTest.java[`PendingEntryRecordsSweepTest`]:: The residue of a cut-off removal
 removed with its audit record, an open entry kept however old, a name that is no entry id never touched, a tampered
-record kept and reported as a failure, an unreadable record kept and reported, a workspace journal still to recover
-reported as a failure with nothing removed, and two directories removed in one run owing two records with two distinct
-`transaction_id` values.
+record kept and reported as a failure, an unreadable record kept and reported, a store path through a symbolic link held
+and reported while the other residue is still removed, a workspace journal still to recover reported as a failure with
+nothing removed, and two directories removed in one run owing two records with two distinct `transaction_id` values.
+link:{test}/PeriodicSweepKilledRuntimeIT.java[`PeriodicSweepKilledRuntimeIT`]:: A runtime child killed with `SIGKILL`
+inside the real `PendingEntryRecordsSweep`, after its removal transaction applied and recorded its stores and while its
+owed audit record is handed over; the next instance completes the workspace journal and removes the directory the killed
+run left, with an open entry modelled by its real `entry.json`.
 link:{test}/StartupSequenceTest.java[`StartupSequenceTest`]:: The broken-chain cases: a `link_broken` record with its
 `reason`, `first_broken_line` and `os_principal` details, the log naming the file the first broken line is counted in
 (current log, audit index, rotated file) while the record names none, one case per other reason without a line, and

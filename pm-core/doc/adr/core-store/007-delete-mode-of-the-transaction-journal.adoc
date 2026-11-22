@@ -12,10 +12,13 @@ Accepted
 == Context
 
 A target of the transaction journal could replace a store or append to a JSONL store; nothing could remove a store.
-The work package `session-log-and-generations` needs a removal: a terminal of a bootstrap deletes its pending entry
-record `pending/<entry_id>.json`, and the periodic sweep removes the records older than the pending entry record
-maximum age. The record lies in the workspace scope and is covered by its digest sidecar, so a removal outside the
-journal would leave a sidecar entry without its file: the next integrity check would report the store as tampered.
+The work package `session-log-and-generations` needs a removal: a terminal of a bootstrap deletes its pending entry's
+stores, and the periodic sweep removes the stores a stopped removal left behind. The entry is the directory
+`pending/<entry_id>/` (ADR link:082-the-pending-entry-is-a-directory.adoc[082]); its stores are its record
+`entry.json`, its manifest `sources/sources.json`, its question store `questions.jsonl` and its decision store
+`decision-log.jsonl`, and its directory is deleted after them. The stores lie in the workspace scope and are covered by
+its digest sidecar, so a removal outside the journal would leave a sidecar entry without its file: the next integrity
+check would report the store as tampered.
 
 The default reading of the package left the delete out (the stores only, the sweep wiring later). The journal document
 has a closed shape and a `format_version`; a new target shape changes it.
@@ -54,8 +57,11 @@ The operator decided to add the delete mode now (refine, question q1):
 
 == Consequences
 
-* Every store of a scope can be removed with the guarantees of every other write; the pending entry record
-  (`PendingEntryStore.remove`) is the first user.
+* Every store of a scope can be removed with the guarantees of every other write; the pending entry's four stores
+  (`PendingEntryStore.remove`) are the first user.
+* The pending entry is never removed by age: the sweep removes the directory of an entry whose removal a stop cut off,
+  on the evidence of an absent record and an absent sidecar, never on the entry's age (ADR
+  `runtime-start/016`, PLAN-V2-22). The flat record this decision was written for no longer exists.
 * The journal has one shape, `format_version` 1. The earlier work packages that raised the constant to version 2
   (`PLAN-06`, #26) and version 3 (`PLAN-12`, #51) are reset by the plan that carries this ADR: the constant, its
   Javadoc, the developer guide, the specification part and the tests state version 1, and an earlier version is the
