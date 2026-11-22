@@ -56,7 +56,9 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
  * instance in this JVM, completes the workspace journal and removes the directory the killed run left.
  * <p>
  * The project, the instants and the entry ids are generated; the record's state and the audit record's name are the
- * specified contract.
+ * specified contract. The one residue carries two removal records after the next run — the killed run's, handed over
+ * by the recovery of the workspace, and that run's own — each under its own `transaction_id`, so the test shows the
+ * interrupted handoff was replayed and not merely replaced.
  */
 @EnableGeneratorController
 @Timeout(value = 120, unit = TimeUnit.SECONDS)
@@ -165,6 +167,10 @@ class PeriodicSweepKilledRuntimeIT {
 
         var removals = auditEvents.getValues().stream()
                 .filter(event -> PENDING_ENTRY_REMOVED.equals(event.event())).toList();
+        var forResidue = removals.stream()
+                .filter(removal -> residue.value().equals(removal.details().get("entry_id"))).toList();
+        var transactionIds = forResidue.stream()
+                .map(removal -> String.valueOf(removal.details().get("transaction_id"))).distinct().toList();
         assertAll(
                 () -> assertFalse(Files.exists(store.entryDirectory(residue)),
                         "the next run must remove the residue's directory"),
@@ -175,10 +181,13 @@ class PeriodicSweepKilledRuntimeIT {
                         "the next run must close the workspace journal"),
                 () -> assertEquals(new PeriodicSweep.Summary(1, 0, 0), summary,
                         "the next run must sweep the one project"),
-                () -> assertTrue(removals.stream().anyMatch(removal ->
-                                residue.value().equals(removal.details().get("entry_id"))
-                                        && ("pending/" + residue.value()).equals(removal.details().get("store"))),
-                        "a removal record must name the residue's directory"),
+                () -> assertEquals(2, forResidue.size(),
+                        "the killed run's record and the next run's must both be owed"),
+                () -> assertEquals(2, transactionIds.size(),
+                        "each of the two records must carry its own transaction id"),
+                () -> assertTrue(forResidue.stream().allMatch(removal ->
+                                ("pending/" + residue.value()).equals(removal.details().get("store"))),
+                        "both removal records must name the residue's directory"),
                 () -> assertTrue(removals.stream().noneMatch(removal ->
                                 removal.details().containsValue(openEntry.value())),
                         "no removal record must name the open entry"));
