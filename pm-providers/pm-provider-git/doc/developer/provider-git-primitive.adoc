@@ -285,12 +285,15 @@ module's generator artifact.
 link:{test}/CommitMessagesTest.java[`CommitMessagesTest`]:: A message without type, a blank one, one of 2001 characters, a
 lone surrogate, a control character and a trailer line in any case and position, also one ended by U+0085, U+2028 or
 U+2029, are refused naming the line; the result holds exactly one trailer.
-link:{test}/CommitTrailerTest.java[`CommitTrailerTest`]:: The three trailer sources per half and `invalid_ignored` for an
-angle bracket, a line break and an empty value; an unpaired high or low surrogate in a name or an email is invalid, a
-surrogate pair stays valid, and a stored value with an unpaired surrogate is passed over: a valid machine value is used
-as `configured`, and without one the compiled default is used as `invalid_ignored`; a name with U+0085, U+2028 or
-U+2029 is invalid while a plain name and one with a supplementary character stay valid, an email with one is refused as
-white space, and a stored name with one is passed over in the same way while the email half stays `configured`.
+link:{test}/CommitTrailerTest.java[`CommitTrailerTest`]:: The constraints of the two halves and the three trailer sources
+per half with `invalid_ignored` for an angle bracket, a line break and an empty value, the local-over-machine order and
+the per-half resolution.
+link:{test}/CommitTrailerUnicodeTest.java[`CommitTrailerUnicodeTest`]:: An unpaired high or low surrogate in a name or an
+email is invalid, a surrogate pair stays valid, and a stored value with an unpaired surrogate is passed over: a valid
+machine value is used as `configured`, and without one the compiled default is used as `invalid_ignored`; a name with
+U+0085, U+2028 or U+2029 is invalid while a plain name and one with a supplementary character stay valid, an email with
+one is refused as white space, and a stored name with one is passed over in the same way while the email half stays
+`configured`.
 link:{test}/StagingSetsTest.java[`StagingSetsTest`]:: The staging set per scope with a path outside, `..`, an absolute
 path, a non-normal name, the names the commit refuses (a colon-led name, a backslash, a control character, a newline and
 a directory entry, an embedded repository among them) as `outside`, on Linux and macOS a path through a symbolic link
@@ -302,8 +305,10 @@ pathspec magic, a backslash, a control character, a non-normal segment and a dir
 character, an option-shaped name and a plain relative name are literal commit paths.
 link:{test}/FootprintBoundaryTest.java[`FootprintBoundaryTest`]:: The three checks and the bound of the offending files.
 link:{test}/GitResolveMessagePrimitiveTest.java[`GitResolveMessagePrimitiveTest`]:: A case per mode and per presence of
-`message`, the fixed message of every call site and its variants, and a call site without its input; every `ready`
-message passes `CommitMessages.validate`.
+`message`, the clean-tree route, and a call site without its input; every `ready` message passes
+`CommitMessages.validate`.
+link:{test}/GitResolveMessagePrimitiveCallSiteTest.java[`GitResolveMessagePrimitiveCallSiteTest`]:: The fixed message of
+every call site, its variants and the name of the state it carries.
 link:{test}/GitTemplateMessagePrimitiveTest.java[`GitTemplateMessagePrimitiveTest`]:: The type priority over a
 generator-driven set of summaries.
 link:{test}/CommitMessageEvaluatePrimitiveTest.java[`CommitMessageEvaluatePrimitiveTest`]:: The outcome `valid` with the
@@ -311,11 +316,17 @@ submitted message.
 link:{test}/GitStageAndCommitPrimitiveTest.java[`GitStageAndCommitPrimitiveTest`]:: Against the real `JGitOperations` on a
 temporary repository: a plan commits exactly the listed files and leaves an unrelated dirty file, a path outside the
 worktree is a footprint violation before any staging, an epic stages `.marshall/archived-epics/**` only while it
-archives, exactly one trailer with author and committer read back through `GitOperations.log`, a trailer line and a
-header without type are `message_refused`, nothing staged is `nothing_to_commit`, `committed` carries `trailer_source`
-for a local, a machine and no stored trailer and for a refused name (`invalid_ignored`), without a value of the trailer,
-and no other outcome carries it, and every `GitOutcome` is mapped with
-its facts by a test derived from `GitOutcome.values()` at run time, `CAPABILITY_MISSING` to `commit_failed`.
+archives, a bound path outside the staging set is dropped, a clean tree is `nothing_to_commit` before a message is read
+and a non-empty set without one is `commit_failed`.
+link:{test}/GitStageAndCommitPrimitiveMessageTest.java[`GitStageAndCommitPrimitiveMessageTest`]:: Exactly one trailer with
+author and committer read back through `GitOperations.log`, a trailer line and a header without type are
+`message_refused`, and a missing commit identity is `commit_failed`.
+link:{test}/GitStageAndCommitPrimitiveTrailerSourceTest.java[`GitStageAndCommitPrimitiveTrailerSourceTest`]:: `committed`
+carries `trailer_source` for a local, a machine and no stored trailer and for a refused name (`invalid_ignored`), without
+a value of the trailer, and no other outcome carries it.
+link:{test}/GitStageAndCommitPrimitiveDeclarationsTest.java[`GitStageAndCommitPrimitiveDeclarationsTest`]:: Every
+`GitOutcome` is mapped with its facts by a test derived from `GitOutcome.values()` at run time, `CAPABILITY_MISSING` to
+`commit_failed`, and the registration with the attempt cap and the conditions of the reason set.
 link:{test}/CoAuthoredBySourceScanTest.java[`CoAuthoredBySourceScanTest`]:: The trailer key in no production source but
 `CommitMessages.java`, with the control that the scan sees the one occurrence there.
 
