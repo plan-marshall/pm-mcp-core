@@ -77,15 +77,18 @@ existing construction sites keep; a non-empty `paths` is the narrowed set the ca
 the same pattern and `setUpdate(true)`) and passes `CommitCommand.setOnly(path)` for every listed path, so an entry some
 other process staged earlier is not carried into the commit. A directory never arrives twice over: the caller's bind admits
 only files of its staging set (link:../../../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer
-Guide]), and the provider refuses a directory, a git pathspec magic and a glob before it stages anything, because a JGit
-pathspec is prefix-based and would expand a directory to everything below it. The empty commit is read from the typed index
+Guide]), and the provider refuses a directory and a git pathspec magic before it stages anything, because a JGit pathspec
+is prefix-based and would expand a directory to everything below it. A path whose name carries `*`, `?` or `[` is admitted
+and staged under that literal name, which `JGitOperationsTest` pins
+(link:../../../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR workflow-input/006]).
+The empty commit is read from the typed index
 and head tree, never from the translated JGit message, which a locale would change
 (link:../adr/provider-git/004-a-directory-is-refused-and-emptiness-is-typed.adoc[ADR 004]). The commit set stays a subset
 of the staging set (link:../adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR 003]).
 
 Tested by `JGitOperationsTest`: a subset with an unrelated pre-staged file and an unrelated dirty file left out, a
-deletion, a commit with an empty `paths` that still takes every change, a refused directory and a refused pathspec magic,
-and a builder that omits `paths` and commits every change.
+deletion, a commit with an empty `paths` that still takes every change, a refused directory and a refused pathspec magic, a
+commit of a glob-named path under its literal name, and a builder that omits `paths` and commits every change.
 
 [#cache-repository-operations]
 == Cache Repository Operations

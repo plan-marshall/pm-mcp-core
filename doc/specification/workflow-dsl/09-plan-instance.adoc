@@ -21,7 +21,7 @@ Every plan executes its own *plan instance*: real DSL units that the server comp
 * the lane's route: the phase calls the lane does not make are pruned calls, and the states of the sources the plan cannot take are absent;
 * the bound variant of each plan behaviour axis, the variants not chosen pruned with the reason `plan_default` (<<plan-axes>>);
 * the pruned template elements (phase calls, steps, states, links, and policy actions), each with its prune reason and source fact in the header;
-* the policy calls with their effective bound arguments; the header names each argument's source (the template's call argument, a composition rule, or the `raise` waiver id), and a call of a composed unit carries the unit that holds it (`in_unit`), the plan unit's own calls without one;
+* the policy calls with their effective bound arguments; the header names each argument's source (the template's call argument, a composition rule, or the `raise` waiver id), and a call of a composed unit carries the unit that holds it (`in_unit`), the plan unit's own calls without one. An argument value is a JSON string for an enum value, a number for an integer, an array for an enum list, and a typed object `{"slot":"<name>"}` for a slot reference, so no value's kind depends on its text (link:../../../pm-workflow/doc/adr/workflow-dsl/017-a-slot-reference-is-typed-in-the-header.adoc[ADR workflow-dsl/017]);
 * the gates marked waived, with the waiver id;
 * the header with the digests and levels of every input (template units of every level, sub-units, composition rule file, effective configuration, the plan's overrides, plan facts).
 

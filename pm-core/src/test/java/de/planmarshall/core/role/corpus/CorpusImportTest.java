@@ -255,6 +255,24 @@ class CorpusImportTest {
         }
 
         @Test
+        @DisplayName("writes the item of a slug at its bound of 250 as a file name of 255 bytes")
+        void slugAtItsBound() throws Exception {
+            var slug = "b".repeat(250);
+            writeSource(alphaManifest(ALPHA_FILE, CSV), new SourceOverlay("alpha", ALPHA_FILE, "question_id",
+                    CREATED, List.of(closedRow("q-1", "{question}", "aaaaa", slug))));
+
+            var result = run();
+
+            var written = "aaaaa/" + slug + ".json";
+            assertAll(
+                    () -> assertEquals(Verdict.COMPLETE, result.verdict(), "the slug at its bound imports"),
+                    () -> assertEquals(Set.of(written, BETA_D2), itemFiles(), "the item of the slug is written"),
+                    () -> assertEquals(255, Path.of(written).getFileName().toString().length(),
+                            "the file name has 255 characters"),
+                    () -> assertEquals("aaaaa/" + slug, item(written).id(), "the item keeps the composed id"));
+        }
+
+        @Test
         @DisplayName("generates a valid item from the plain file, naming its row")
         void plainFileItem() throws Exception {
             run();
@@ -701,6 +719,45 @@ class CorpusImportTest {
                     () -> assertTrue(result.missed().getFirst().detail().contains("generates the item"),
                             "the detail names the item generated twice"),
                     () -> assertEquals(Set.of(BETA_D2), itemFiles(), "only the beta item remains written"));
+        }
+
+        @Test
+        @DisplayName("a row whose topic and slug compose an id over 256 misses its source only")
+        void overLongComposedId() throws Exception {
+            var overlay = new String(SourceOverlayCodec.write(new SourceOverlay("alpha", ALPHA_FILE, "question_id",
+                    CREATED, List.of(closedRow("q-1", "{question}", "aaaaa", "b".repeat(250))))), UTF_8)
+                    .replace("\"topic\" : \"aaaaa\"", "\"topic\" : \"aaaaaa\"");
+            writeSource("alpha", SourceManifestCodec.write(alphaManifest(ALPHA_FILE, CSV)), overlay.getBytes(UTF_8));
+
+            var result = run();
+
+            assertAll(
+                    () -> assertMalformed(result, "alpha", null,
+                            "'topic' and 'id' compose an item id of 257 characters, longer than 256"),
+                    () -> assertEquals(List.of("beta"), result.covered().stream().map(CoveredSource::name).toList(),
+                            "the other source is still covered"),
+                    () -> assertEquals(Set.of(BETA_D2), itemFiles(), "only the beta item is written"));
+        }
+
+        @Test
+        @DisplayName("a key matching no row is echoed cut to its first 256 characters")
+        void echoedKeyIsCut() throws Exception {
+            var key = "k".repeat(300);
+            var row = new Row(key, "q-1", "screening/alpha", "screening", "closed question", List.of("imported"),
+                    null, "{question}", "Subject: {subject}", List.of("{option_a}", "{option_b}"), ANSWER_SCHEMA,
+                    new Target("{option_a}", "the first option holds", List.of(), List.of(), false),
+                    new Grading(GradingMethod.EXACT_CHOICE, null, null),
+                    new Review(ReviewStatus.DRAFT, null, null, null), null);
+            writeSource(alphaManifest(ALPHA_FILE, CSV),
+                    new SourceOverlay("alpha", ALPHA_FILE, "question_id", CREATED, List.of(row)));
+
+            var result = run();
+
+            var detail = result.missed().getFirst().detail();
+            assertAll(
+                    () -> assertMalformed(result, "alpha", ALPHA_FILE, "the file has 0 rows whose field 'question_id'"),
+                    () -> assertTrue(detail.contains("k".repeat(256)), "the echo keeps the first 256 characters"),
+                    () -> assertFalse(detail.contains("k".repeat(257)), "the echo holds no more than 256 characters"));
         }
 
         @Test

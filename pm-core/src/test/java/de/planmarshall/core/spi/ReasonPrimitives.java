@@ -125,8 +125,28 @@ class ReasonPrimitives {
                                 UnmappableConditionReasonOutcome.FAILED)),
                 new TestPrimitives.Refusal(Reason.UNMAPPABLE_REASON_CONDITION,
                         "a null condition kind",
-                        fixed("test.reason-null-condition", NullConditionReasonOutcome.class,
-                                NullConditionReasonOutcome.FAILED)));
+                        noOptionalCondition()),
+                new TestPrimitives.Refusal(Reason.UNMAPPABLE_REASON_CONDITION,
+                        "a condition kind whose payload is no string",
+                        nonStringCondition()));
+    }
+
+    /**
+     * @return a primitive whose reason answers a {@code null} condition kind, so the registry's branch for a
+     *         condition kind that is no {@code Optional} decides the refusal
+     */
+    static Primitive<?, ?> noOptionalCondition() {
+        return fixed("test.reason-null-condition", NullConditionReasonOutcome.class,
+                NullConditionReasonOutcome.FAILED);
+    }
+
+    /**
+     * @return a primitive whose reason answers an {@code Optional} that holds a number, so the registry's branch for a
+     *         condition kind that is no string decides the refusal
+     */
+    static Primitive<?, ?> nonStringCondition() {
+        return fixed("test.reason-number-condition", NumberConditionReasonOutcome.class,
+                NumberConditionReasonOutcome.FAILED);
     }
 
     /**
@@ -292,6 +312,28 @@ class ReasonPrimitives {
         @Override
         public Optional<String> conditionKind() {
             return null;
+        }
+    }
+
+    enum NumberConditionReason implements OutcomeReason {
+        NUMBER_KIND("number_kind");
+
+        private final String wireName;
+
+        NumberConditionReason(String wireName) {
+            this.wireName = wireName;
+        }
+
+        @Override
+        public String wireName() {
+            return wireName;
+        }
+
+        /** Hands a number out as the condition kind, the way code compiled against a raw {@link OutcomeReason} can. */
+        @Override
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        public Optional<String> conditionKind() {
+            return (Optional) Optional.of(42);
         }
     }
 
@@ -628,6 +670,25 @@ class ReasonPrimitives {
         @Override
         public Optional<Class<? extends OutcomeReason>> reasonType() {
             return Optional.of(NullConditionReason.class);
+        }
+    }
+
+    enum NumberConditionReasonOutcome implements PrimitiveOutcome {
+        FAILED;
+
+        @Override
+        public String wireName() {
+            return "failed";
+        }
+
+        @Override
+        public OutcomeClass outcomeClass() {
+            return OutcomeClass.FAILURE;
+        }
+
+        @Override
+        public Optional<Class<? extends OutcomeReason>> reasonType() {
+            return Optional.of(NumberConditionReason.class);
         }
     }
 

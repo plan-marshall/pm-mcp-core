@@ -10,14 +10,12 @@ Status, milestone and dependencies:: in the link:README.adoc#packages[index], th
 
 == Tasks
 
-A rename only: no behaviour changes. Every record written with the old names stays readable: a reader accepts the old member name or value where the new one is absent, writes only the new one, and refuses a record that carries both member names.
+A rename only: no behaviour changes beyond the names. A record written with an old name or value is refused, not read: the readers accept only the new names, and no reader maps an old one (no backward-compatibility shim before 1.0; link:../../pm-core/doc/adr/core-store/081-the-decision-log-rename-reads-no-old-name.adoc[ADR core-store/081]). The intent record's `choices[]` and the one decider kind with `role` in place of `model`, `BuilderCheck` included, were delivered by #427 (`f3c0dd2d`).
 
-. *Intent record `choices[]`*: the member `decisions` of `intent.json` becomes `choices` in `IntentRecord`, `IntentCodec` and `ClarifiedRequestRenderer` (link:../specification/phase-workflows/01-planning-phases-1-2.adoc#intent-record[Phase Workflows § Intent Record], link:../specification/store-schemas/06-task-and-references.adoc#intent-record-store[Store Schemas § Intent Record]); the item identifier stays `DC-<n>`, so amendments that name `DC` items and the history of earlier revisions keep resolving. An `intent.json` and a history entry with `decisions` are read.
-. *One decider kind*: `IntentRecord.Decider` becomes the one enum of decider kinds (`operator`, `quorum`, `role`, `server_rule`, `fact`; link:../specification/store-schemas/18-decision-records.adoc#decider-kind[Store Schemas § Decider Kind]) in `core.store`, used by the intent record's choices with the subset its schema lists; the value `model` of a stored choice reads as `role`. `BuilderCheck` records a `minor` answer with decider `role`.
-. *Amendment source*: the `source` of an intent amendment (`amendments[]` of `status.json`, link:../specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]) takes the decider kinds `operator`, `role`, `quorum`, `fact`; where the code reads it, the stored values `user`, `model` and `refutation` read as `operator`, `role` and `fact`.
+. *Amendment source*: the `source` of an intent amendment (`amendments[]` of `status.json`, link:../specification/store-schemas/02-workflow-state-store.adoc[Store Schemas § Workflow State Store]) takes the decider kinds `operator`, `role`, `quorum`, `fact` (link:../specification/store-schemas/18-decision-records.adoc#decider-kind[Store Schemas § Decider Kind]); where the code reads it, the stored values `user`, `model` and `refutation` are refused, naming the value.
 . *Decision log*: no code of the decision log exists yet; the package that builds it (link:decision-quorum-and-calibration.adoc[`decision-quorum-and-calibration`] and link:decision-engine.adoc[`decision-engine`]) writes `decision-log.jsonl`, the resource `pm://plan/{plan_id}/decision-log` and the decider kinds of this package from the start. Nothing named `decisions.jsonl` is written.
 . *Integrity hold*: no code of this repository names `integrity_pause`; the hold reason `integrity_hold` and the refusal `integrity_held` (link:../specification/state-catalogue/01-conventions-generic-conditions.adoc#condition-integrity_breach[State Catalogue, `integrity_breach`]) are written with these names by the package that builds the hold.
-. *Module documents*: the developer documents of `core.store` name `choices` and the decider kinds; the ADRs stay as written.
+. *Module documents*: the developer documents of the packages the remaining tasks change name the decider kinds; the ADRs stay as written.
 
 == Trace
 
@@ -29,4 +27,4 @@ The starting set of the trace matrix of the project skill `traced-implementation
 
 == Done When
 
-* Tests: an `intent.json` with `decisions` and decider `model`, and a `status.json` with amendment sources `user`, `model` and `refutation`, read as before (a matched positive control with the new names and a negative control with both member names); `IntentRecordTest`, `BuilderCheckTest` and the parity tests of the changed schema blocks pass against the specification; `verify`, `verify -Ppre-commit` and `verify -Pcoverage` green in every module touched.
+* Tests: a `status.json` with an amendment source `user`, `model` or `refutation` is refused, naming the value, with a matched positive control that carries the new decider kinds; the parity tests of the changed schema blocks pass against the specification; `verify`, `verify -Ppre-commit` and `verify -Pcoverage` green in every module touched.

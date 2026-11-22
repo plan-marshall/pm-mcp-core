@@ -29,7 +29,7 @@ import de.planmarshall.core.store.IntentRecord.Decision;
  * The server checks what it can decide: a question that names a constraint {@code CN-<n>} or two criteria is always the
  * operator's, because whether the two items can both hold and whether a default the operator accepted permits what the
  * constraint rules out are the operator's judgment, never the builder's. A {@code minor} answer is the builder's own
- * call and becomes a decision of decider {@code model}, marked as the builder check's, in a new revision.
+ * call and becomes a choice of decider {@code role}, marked as the builder check's, in a new revision.
  * <p>
  * The facts of the check carry the intent record only: no member of {@code request.md}'s original input or
  * clarifications and no earlier submission reaches the task.
@@ -165,7 +165,7 @@ public final class BuilderCheck {
     private static final String INTENT_RECORD = "intentRecord";
 
     /**
-     * Checks a submission against the record, adding the builder's own calls as model decisions.
+     * Checks a submission against the record, adding the builder's own calls as choices of decider {@code role}.
      *
      * @param submission   the check's submission
      * @param intentRecord the record the plan will carry

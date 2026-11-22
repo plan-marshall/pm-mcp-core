@@ -173,6 +173,52 @@ class PlanOverridesCodecTest {
     }
 
     @Test
+    @DisplayName("a length bound counts code points, so an astral model at the bound is admitted")
+    void lengthCountsCodePoints() {
+        // U+1F600 is one code point and two UTF-16 units: the schema's maxLength counts it once.
+        var astral = "😀";
+        var atBound = astral.repeat(PlanOverridesCodec.MODEL_MAX_LENGTH);
+        var overBound = astral.repeat(PlanOverridesCodec.MODEL_MAX_LENGTH + 1);
+        var admitted = overridesWithRole(new Role(null, atBound, null));
+        var refused = overridesWithRole(new Role(null, overBound, null));
+
+        var read = PlanOverridesCodec.read(file(), PlanOverridesCodec.write(admitted));
+
+        assertAll(
+                () -> assertEquals(atBound, read.roles().get(role).model(), "a model at the bound round-trips"),
+                () -> {
+                    var refusal = assertThrows(IllegalArgumentException.class,
+                            () -> PlanOverridesCodec.write(refused), "a model over the bound is refused");
+                    assertTrue(refusal.getMessage().endsWith(": " + (PlanOverridesCodec.MODEL_MAX_LENGTH + 1)),
+                            "the refusal counts the code points");
+                });
+    }
+
+    @Test
+    @DisplayName("a harness is checked as a harness id and an integration as an integration name")
+    void namesCheckedByTheirOwnGrammar() {
+        var text = new String(PlanOverridesCodec.write(overrides()), UTF_8);
+        var upperHarness = overridesWithRole(new Role("Claude", model, effort));
+        var upperIntegration = text.replace("\"github\":\"cli\"", "\"Github\":\"cli\"").getBytes(UTF_8);
+        var documentFile = file();
+
+        assertAll(
+                () -> {
+                    var refusal = assertThrows(IllegalArgumentException.class,
+                            () -> PlanOverridesCodec.write(upperHarness), "a harness outside its grammar is refused");
+                    assertEquals("Not a harness id of the document: Claude", refusal.getMessage(),
+                            "the refusal names the harness grammar");
+                },
+                () -> {
+                    var refusal = assertThrows(StoreRefusal.class,
+                            () -> PlanOverridesCodec.read(documentFile, upperIntegration),
+                            "an integration outside its grammar is refused");
+                    assertTrue(refusal.getMessage().contains("not an integration name of the document: Github"),
+                            "the refusal names the integration grammar");
+                });
+    }
+
+    @Test
     @DisplayName("a written document is at revision 1 or more and carries its stamp")
     void stampRequired() {
         var unstamped = overrides().toBuilder().updatedAt(null).build();
@@ -188,5 +234,9 @@ class PlanOverridesCodecTest {
 
     private PlanOverrides overridesWithAxes(Map<Axis, String> axes) {
         return overrides().toBuilder().axes(axes).build();
+    }
+
+    private PlanOverrides overridesWithRole(Role value) {
+        return overrides().toBuilder().roles(Map.of(role, value)).build();
     }
 }

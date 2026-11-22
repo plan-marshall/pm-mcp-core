@@ -1,0 +1,83 @@
+= ADR workflow-engine 028: The Bind Validates the Arguments, the Assembly Binds a Link's Parameters
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+Rule 6 refuses a call binding that names an input the callee does not declare, and a call that omits a required input, at
+build time (`SUBWORKFLOW_CALL_CONTRACT`). The bind of `WorkflowEngine.call` therefore saw only the bindings a verified unit
+can carry and validated the *values* of the declared inputs, not the *names* of the arguments. Two shapes still reached it:
+a plan unit of the version in force, which `Ports.units` supplies and the verifier never sees, and a unit a caller composes
+or hands in as the tree to run. Both bound an undeclared argument silently — the loop over the callee's inputs simply
+never looked at it — and reported a required input no source supplied with the reason `input_unbound`, the word the bind
+uses for a slot it read and found absent or consumed. Two causes shared one word, and one of them did not name the port
+whose absence caused it: an engine without an `InputBindingContext` skipped the `input_fallback` read and reported the
+input as unbound.
+
+The other half of the same carried item is the engine's `ParameterBinder`. `WorkflowEngine` hands an operator act's
+submitted parameters to `bind(primitive, status, parameters)`; the default implementation refuses a non-empty map with
+`UnsupportedOperationException`, and only the assembly implements a parameter-aware binder. PLAN-V2-25 keeps that shape, so
+the question the specification leaves open is which side owns what: the engine's validation of the arguments, or the
+assembly's construction of the parameter record.
+
+== Decision
+
+* `WorkflowEngine.call` validates the arguments before it resolves any declared input. A binding whose name the callee
+  does not declare raises the condition `precondition_unmet` with `facts.reason = undeclared_param` and
+  `facts.input = <callee id>.input.<name>`.
+* A required input for which no source applies — no call-site value, no configuration value, no compiled default and no
+  optional form — raises the same condition with `facts.reason = missing_param` and the same `facts.input` shape.
+* `input_unbound` stays reserved for the one case it names: the call site bound a `slot.<name>` reference and the slot is
+  absent or was consumed by an earlier call. The two failures stay distinguishable in the store.
+* A required input that declares an `input_fallback` key while the engine carries no `InputBindingContext` is refused with
+  `input_refused` and the rule `input.no-context`: the bind names the port it lacks, rather than reporting a value as
+  absent that nothing could read. The refusal is scoped to an input no other source can supply — not optional and without
+  a compiled default — so an input with a default keeps resolving to it and an optional input keeps reading as absent.
+* *Which side owns what.* The engine owns the validation of the arguments — their names, their requiredness and the
+  refusal vocabulary — because that judgement follows from the grammar and the callee's interface, which the engine
+  holds. The assembly owns the binding of a link's free parameters into the primitive's parameter record: only it knows
+  the content validators (`OutlineValidator`, `AsciiDocValidator`, `ConventionalCommitValidator`) a deployment attaches to
+  a parameter. The engine's default `ParameterBinder` keeps refusing any submitted free parameter, fail-closed, when no
+  parameter-aware binder is installed of a primitive that declares none: a parameter silently dropped is worse than an
+  act refused, because the primitive would run with a record that never carried the operator's value. That refusal is the
+  operator's answer of 2026-11-21 to the R07 question of Deliverable 1 ("refuse, fail closed").
+* The `ParameterBinder` interface and the `Ports` shapes are unchanged (PLAN-V2-25).
+
+== Alternatives Considered
+
+* *Bind free parameters in the engine.* Refused: the parameter record is the assembly's type, its `@FreeParam` components
+  carry bounds only, and the content validation of a submitted text is a deployment decision. An engine-side reflective
+  binder would move a deployment contract into the engine and still could not run the validators.
+* *Let the default binder ignore an unhandled parameter.* Refused: the act would report `submitted` while the primitive
+  ran with a record that never carried the value, which is the silent drop the watch item DSL-41 guards against.
+* *Keep `input_unbound` for a missing required input.* Refused: one word for two causes, and the test of a consumed slot
+  could no longer tell a consumed slot from a call site that never bound the input.
+* *Refuse only in the verifier and trust it.* Refused: the version in force is supplied through a port and is not verified
+  by the engine's constructor, so the bind is the layer that still holds.
+
+== Consequences
+
+* The reason row of `precondition_unmet` in the state catalogue names `undeclared_param` and `missing_param` beside
+  `input_refused` and `input_unbound`, with the two fact shapes above.
+* `InputBindingTest` pins both refusals at the bind (over a version in force the verifier never saw) with a matched
+  control, the missing-required-input case of the resolution order, and the absent binding context; the static Rule 6
+  keeps refusing the same two shapes earlier for a unit the verifier sees.
+* A unit that a merge composes into a running version now fails at its first call with a named reason instead of binding
+  an argument nobody declared.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static
+  AST Verification Rules], Rule 6
+* link:../../../../doc/specification/workflow-dsl/05-primitives.adoc#independent-transition-validation[Workflow DSL §
+  Independent Server-Side Transition & Parameter Validation]
+* link:../../../../doc/specification/state-catalogue/01-conventions-generic-conditions.adoc#condition-precondition_unmet[State
+  Catalogue § Condition precondition_unmet]
+* `PLAN-V2-164` Deliverable 1; carried item 1 of `PLAN-V2-15`

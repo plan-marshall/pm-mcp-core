@@ -304,6 +304,64 @@ class JobLogTest {
         }
 
         @Test
+        @DisplayName("over the cap with a first line longer than the cap: the tail is kept, the head is not")
+        void headWithoutLineEndKeepsTheTail() throws Exception {
+            var marker = "tail marker " + line();
+            Files.writeString(path, "y".repeat(JobLog.MAX_BYTES + Generators.integers(1, 64).next()) + "\n" + marker
+                    + "\n", StandardCharsets.UTF_8);
+
+            var whole = assertInstanceOf(Complete.class, log.readWhole(0), "an over-cap log is complete");
+            var reading = assertInstanceOf(LaunchReport.Unreported.class, whole.reading(),
+                    "a first line over the cap is no report");
+
+            assertAll(
+                    () -> assertEquals(marker + "\n", reading.jobOutput(), "the tail of the log is answered"),
+                    () -> assertEquals(Files.size(path), whole.length(), "the length is the real file length"));
+        }
+
+        @Test
+        @DisplayName("over the cap with a first line past the head bound: the long first line is not kept")
+        void firstLinePastTheHeadBoundIsNotKept() throws Exception {
+            var head = "z".repeat(JobLog.FIRST_LINE_MAX_BYTES + 1);
+            var marker = "tail marker " + line();
+            Files.writeString(path, head + "\n" + "x".repeat(JobLog.MAX_BYTES) + "\n" + marker + "\n",
+                    StandardCharsets.UTF_8);
+
+            var whole = assertInstanceOf(Complete.class, log.readWhole(0), "an over-cap log is complete");
+            var reading = assertInstanceOf(LaunchReport.Unreported.class, whole.reading(),
+                    "a first line that is not kept is no report");
+
+            assertAll(
+                    () -> assertFalse(reading.jobOutput().contains("z".repeat(64)), "the long first line is not read"),
+                    () -> assertEquals(marker + "\n", reading.jobOutput(), "the tail alone is answered"));
+        }
+
+        @Test
+        @DisplayName("over the cap with the window's only line end at its last byte: the window is kept")
+        void windowEndingInItsOnlyLineEndIsKept() throws Exception {
+            Files.writeString(path, report + "\n" + "x".repeat(JobLog.MAX_BYTES + Generators.integers(1, 64).next())
+                    + "\n", StandardCharsets.UTF_8);
+
+            var whole = assertInstanceOf(Complete.class, log.readWhole(0), "an over-cap log is complete");
+            var reading = assertInstanceOf(LaunchReport.Reported.class, whole.reading(),
+                    "the report survives the cut");
+
+            assertAll(
+                    () -> assertEquals(pid, reading.report().pid(), "the first line is the report"),
+                    () -> assertEquals("x".repeat(JobLog.MAX_BYTES - 1) + "\n", reading.jobOutput(),
+                            "the whole window follows the report"));
+        }
+
+        @Test
+        @DisplayName("a window whose only line end is its last byte is kept whole")
+        void fromLineStartKeepsAWindowEndingInItsOnlyLineEnd() {
+            var window = (line() + "\n").getBytes(StandardCharsets.UTF_8);
+
+            assertEquals(new String(window, StandardCharsets.UTF_8),
+                    new String(JobLog.fromLineStart(window), StandardCharsets.UTF_8), "the window is not emptied");
+        }
+
+        @Test
         @DisplayName("the cap is read from the module's limits resource")
         void capIsReadFromTheLimitsResource() {
             assertEquals(JobLog.MAX_BYTES, LimitProperties.read(JobLog.LIMITS, JobLog.MAX_BYTES_KEY),

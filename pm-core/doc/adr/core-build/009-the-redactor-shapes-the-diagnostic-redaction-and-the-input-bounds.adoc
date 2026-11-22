@@ -71,7 +71,8 @@ numbered `Decision` sections below.
 * *R5: Every stored diagnostic message is redacted before its cut.* `DiagnosticCollector.stored` redacts the message
    through `SecretRedactor` and then cuts it to the stored length, so every parser that files a diagnostic — TAP, Jest,
    ESLint, TypeScript, Maven, Gradle, pyproject and npm — is covered by one seam, and a cut value cannot keep a prefix
-   the redactor would have matched whole. `OpenRewriteLogParser` files its own `RewriteFinding` records rather than a
+   the redactor would have matched whole. The deduplication key of `DiagnosticCollector` is computed from that redacted
+   message, by design: two lines that differ only in a redacted value file one diagnostic. `OpenRewriteLogParser` files its own `RewriteFinding` records rather than a
    diagnostic, so its message does not pass through this seam; its path and message are redacted in the `RewriteFinding`
    constructor instead (PLAN-V2-151). `NpmErrorParser` keeps its own `storedRedacted`, which is idempotent
    beside the seam. `Diagnostic` redacts its file and its collected `stackTrace` in its constructor and cuts the stack
@@ -204,13 +205,15 @@ being copied.
 A top-level plan line `1..N` announces the test points the run will print. `TapOutputParser` checks the plan per run:
 a run starts at every line that starts with `TAP version`, and the lines before the first such line, or the whole log
 when it carries none, are one run. Per run it sums the counts of the run's own top-level plan lines and compares the
-sum with the run's own number of top-level test points (the TAP point shape: `ok` or `not ok`, followed by a space or
-the line end, so a numbered point, a bare point and a description or directive all count); when they differ, the
-run did not finish its plan — the evidence class of `Bail out!` — and the passing summary is no marker, even with
-exit 0. A prose line that merely starts with the word `ok` is no point. The log finished its plan only when every run did,
-so a later run of concatenated runs
-(`npm test --workspaces`) cannot supply the point an earlier run is missing. The counts stay as the summary measured them, summed
-over all runs. An indented (subtest) plan line or test point is not read, a matching plan changes nothing, and a run
+sum with the run's own number of top-level test points (the shape `^(?:not )?ok(?![^ \t])`: `ok` or `not ok` at the
+start of a line, followed by a space, a tab or the line end, so a numbered point, a bare point and a description or
+directive all count); when they differ, the run did not finish its plan — the evidence class of `Bail out!` — and the
+passing summary is no marker, even with exit 0. The shape requires no number: a line whose `ok` runs into another
+character (`ok,`, `okay`) is no point, but a prose line whose `ok` is followed by a blank (`ok then proceed`) is one,
+because the shape cannot tell it from a point with a description; the regex is kept, and this sentence corrects the
+earlier claim that a prose line starting with `ok` is never a point (PLAN-V2-163, item 24(a)). The log finished its
+plan only when every run did, so a later run of concatenated runs (`npm test --workspaces`) cannot supply the point an
+earlier run is missing. The counts stay as the summary measured them, summed over all runs. An indented (subtest) plan line or test point is not read, a matching plan changes nothing, and a run
 without a top-level plan line announced no plan. A plan count too large for a `long`, or plan counts whose sum
 overflows a `long`, leave the run unfinished (no passing summary): the sum is added with `Math.addExact` and never
 wraps, because an announced plan that cannot be verified must never read as finished. The counter of test points needs

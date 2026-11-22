@@ -7,7 +7,7 @@ Accepted
 
 == Date
 
-2026-11-15
+2026-11-16
 
 == Context
 
@@ -66,6 +66,7 @@ linked, with a `WrongMethodTypeException`. A reader must not count on the build 
 
 == Source
 
-* Plan PLAN-V2-67, deliverable 2
-* Standing rule R16 (4) of the epic `pm-mcp-core-m2-m4-v2`
+* Plan PLAN-V2-67, deliverable 2, merged as pull request #445 (2026-11-16)
+* link:../../../../doc/specification/credentials-and-enrolment/01-provider-credentials.adoc#credential-store-choice[Credentials
+  & Enrolment § Credential Store as an Operator Choice] (the macOS Keychain store this class backs)
 * `pm-runtime/src/main/java/de/planmarshall/runtime/credentials/MacSecurity.java`

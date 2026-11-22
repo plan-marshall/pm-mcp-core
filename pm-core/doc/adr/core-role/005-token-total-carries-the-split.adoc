@@ -4,7 +4,8 @@
 == Status
 
 Superseded in part by link:006-grading-records-persist-the-total-only.adoc[ADR 006] (the qualification and judge-check
-records persist the total only); its decision for the decision calibration record stands.
+records persist the total only); its decision for the decision calibration record stands. The body below states only
+the part that stands; what this ADR decided for the qualification and judge-check records is ADR 006's.
 
 == Date
 
@@ -12,27 +13,29 @@ records persist the total only); its decision for the decision calibration recor
 
 == Context
 
-The qualification and judge-check records carry `total_tokens` (Store Schemas § Role Qualification Record, § Judge Check
-Record). The operator must see tokens with the split beside the total, and never a cost or a priced figure (Client
-Profiles § Tokens, Not Money).
+The decision calibration record carries `tokens_in` and `tokens_out` beside its total (Store Schemas § Decision
+Calibration Record). The operator must see tokens with the split beside the total, and never a cost or a priced figure
+(Client Profiles § Tokens, Not Money).
 
 == Decision
 
 `TokenTotal` carries `tokens_in` and `tokens_out` beside `total_tokens`. The split is a measured pair that sums to the
 total, or `unmeasured` at both when it is unknown; an unmeasured total carries no split. `plus` sums the split only when
-both addends have one. `QualificationRecordCodec` and `JudgeCheckCodec` write and read the two members.
+both addends have one. The split is kept in the value for the decision calibration record, whose schema requires the two
+members; the qualification and judge-check records persist the total alone and their codecs refuse a total that carries
+a split (ADR 006).
 
 == Alternatives Considered
 
-Deriving the split from the total was rejected: a total is never split into parts it did not measure, and the split is measured beside it. Storing only the total was rejected because the operator view would lose
-the split.
+Deriving the split from the total was rejected: a total is never split into parts it did not measure, and the split is
+measured beside it.
 
 == Consequences
 
-A record written without a measured split stays readable and shows its total alone. The format version stays 1
-(R13): the members replace the shape in place.
+The decision calibration record's codec, owed with the package that builds it, writes and reads the two members from
+`TokenTotal`. The format version of the grading records stays 1 (R13).
 
 == Source
 
-Work package `token-usage` (closed; its package file is deleted); Store Schemas § Role Qualification Record, § Decision Calibration Record, §
-Judge Check Record; Model Work § Post-Completion Integrity Invariants.
+Work package `token-usage` (closed; its package file is deleted); Store Schemas § Role Qualification Record, § Decision
+Calibration Record, § Judge Check Record; Model Work § Post-Completion Integrity Invariants.

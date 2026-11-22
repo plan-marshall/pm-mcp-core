@@ -36,8 +36,8 @@ import de.planmarshall.core.SchemaResource;
  * ({@code harness_id} in the file, {@code client_id} in the validator, owned by the staged harness-rename packages);
  * {@code headless.inline_settings} and {@code headless.loaded} (owned by the {@code client-profile-measured-values}
  * package), {@code headless.readable_paths} (owned by the
- * {@code job-confinement-and-environment} package); and {@code headless.usage.model} and
- * {@code headless.usage.accumulation} (owned by PLAN-V2-135). The comparison is structural: the file's relative
+ * {@code job-confinement-and-environment} package); {@code headless.usage.model} (owned by PLAN-V2-135); and
+ * {@code headless.usage.accumulation} (owned by PLAN-V2-147). The comparison is structural: the file's relative
  * {@code $ref} to
  * {@code endpoint-profile.json} is not resolved here, and the validator's demand for each required member is the generic
  * required check, not a per-member case. The file also requires the three members the validator does not implement, so

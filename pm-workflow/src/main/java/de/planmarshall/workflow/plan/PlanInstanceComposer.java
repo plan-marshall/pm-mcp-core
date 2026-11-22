@@ -69,9 +69,12 @@ import org.jspecify.annotations.Nullable;
  * revision, the header as its {@code instance} line, the template's frontmatter with the type {@code instance}, and the
  * template's start state.
  * <p>
- * A caller that names what the project provides has its bound landing variant validated before anything is composed
- * ({@link LandingVariantValidation}), and a variant that does not fit the project is refused with the reason; a caller
- * with no project known composes without that check.
+ * A caller that names what the project provides has the bound landing variant of the {@code start} composition
+ * validated before anything is composed ({@link LandingVariantValidation}), and a variant that does not fit the project
+ * is refused with the reason; a caller with no project known composes without that check. The check belongs to the
+ * start of a plan only: every later composition of the plan, whatever its event, keeps the variant the start admitted,
+ * so a project that changed since, such as a base branch protected after the plan began, refuses none of them (ADR
+ * {@code workflow-plan/021}).
  * <p>
  * The version is kept only if it passes every check, and is otherwise refused as a {@link CompositionResult.Refused}
  * value, the version in force staying:
@@ -141,7 +144,7 @@ public final class PlanInstanceComposer {
 
     private static @Nullable String landingViolation(PlanFacts facts, LandingVariantValidation.@Nullable Project project,
             CompositionEvent event) {
-        if (project == null || event == CompositionEvent.FALLBACK || event == CompositionEvent.EMPTY_HARVEST) {
+        if (project == null || event != CompositionEvent.START) {
             return null;
         }
         var landing = facts.bound(PlanFacts.Axis.LANDING).variant();
@@ -168,12 +171,13 @@ public final class PlanInstanceComposer {
     }
 
     /**
-     * Composes and verifies the version the request asks for, validating the bound landing variant against the project
-     * where one is known (Workflow DSL § Plan Behaviour Axes, item 3).
+     * Composes and verifies the version the request asks for, validating the bound landing variant of a {@code start}
+     * composition against the project where one is known (Workflow DSL § Plan Behaviour Axes, item 3); a composition of
+     * any other event is not landing-checked.
      *
      * @param request what the composition reads
-     * @param project what the project provides for the landing check; {@code null} where no project is known, which
-     *                composes without the check
+     * @param project what the project provides for the landing check of the {@code start} composition; {@code null}
+     *                where no project is known, which composes without the check
      * @return the composed version, or its refusal
      * @throws NullPointerException if the request is {@code null}
      */

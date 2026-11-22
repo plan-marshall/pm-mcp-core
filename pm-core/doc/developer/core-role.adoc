@@ -66,9 +66,9 @@ adds a role the lower sets do not define. An artifact of a higher set that fails
 `RoleSetLoader` removes the lower artifact rather than falling back to it, because the specification says an invalid
 role counts as undefined.
 
-The loader reads the sets afresh at every call. The specification requires an edited artifact or a changed assignment to
-apply at every composition, every task creation and every offer, so `RoleCatalog` creates the set per resolution rather
-than caching it.
+An edited artifact or a changed assignment applies at every composition, every task creation and every offer: the
+loader reads the sets afresh at every call, and `RoleCatalog` creates the set per resolution rather than caching it. This
+guide is where the rule is stated; `model-work/01` points here for it.
 
 == The Effective Configuration
 
@@ -158,8 +158,9 @@ fails:
 |===
 |Reason |Checked against
 
-|`schema_invalid` |`RoleArtifactValidator`: the closed schema, the name against the file name, `recycling` for `warm`,
-`questions`/`off_track` not on `zero_tool`, an `off_track` threshold above the compiled value or below its floor
+|`schema_invalid` |`RoleArtifactValidator`: the closed schema, the name against the file name and the reserved
+keywords of the workflow language, `recycling` for `warm`, `questions`/`off_track` not on `zero_tool`, an `off_track`
+threshold above the compiled value or below its floor
 |`harness_unknown` |`RoleEnvironment.profile` and `.enrolledHarness`
 |`harness_not_eligible` |`worker.eligible`
 |`harness_class_not_runnable` |`headless.classes.<class>` non-null
@@ -180,9 +181,9 @@ value broke a rule, and a detail. `RoleCatalog` turns a refusal into `RoleResolu
 == Role Qualification
 
 Package `de.planmarshall.core.role.qualification` holds the measurements of a grading and the rules that decide whether
-they qualify a role (Model Work § Role Qualification; Store Schemas § Role Qualification Record). It knows nothing about
-workers: a grading offers its items through the `GradingHarness` port and its rubric answers through the `JudgeScorer`
-port, and the run that uses them is
+they qualify a role (Model Work § Role Qualification; Store Schemas § Role Qualification Record). It knows nothing
+about workers: a grading offers its items through the `GradingHarness` port and its rubric answers through the
+`JudgeScorer` port, and the run that uses them is
 link:../../../pm-workflow/doc/developer/workflow-model.adoc[`workflow.model`'s `RoleGrader`].
 
 `QualificationRecord` is the value of one grading: the role, the qualification digest it is bound to, the graded
@@ -234,11 +235,11 @@ percent of the graded items whose reference is that key, the largest being the b
 denominator and never in a numerator. `Scoring` scores a closed item against its reference and accepted alternatives (a
 control is right only when it reports nothing) and decides whether a rubric score reaches the item's pass threshold.
 `JudgeInstrumentCheck` runs the judge twice per judge-topic item — oracle and blind, with the reference withheld from
-the blind prompt — and records the two accuracies and the baseline; `JudgeCheck.Verdict.of` passes only when the oracle
-exceeds the baseline and the blind accuracy by the margin and nothing is unscored. The check blocks no grading: the role
-grading records its result (`JudgeCheckResult.PASSED` or `FAILED`) in the qualification record and runs either way, and
-a corpus without a `judge/` item records no result at all. The conformance harness keeps its own `judge_unchecked`
-refusal.
+the blind prompt — and records the two accuracies and the baseline; `JudgeCheck.Verdict.of` passes only when the
+oracle exceeds the baseline and the blind accuracy by the margin and nothing is unscored. The check blocks no grading:
+the role grading records its result (`JudgeCheckResult.PASSED` or `FAILED`) in the qualification record and runs either
+way, and a corpus without a `judge/` item records no result at all, so `GradingOutcome.Refused` declares no refusal on
+the check. The conformance harness keeps its own `judge_unchecked` refusal.
 
 == Invariants and Failure Modes
 
@@ -252,6 +253,10 @@ refusal.
 * `RoleEnvironment` is the only way out of the package. A new external fact is a new port method, not a file read.
 * The shipped reader skips `default-assignment.json` and every subdirectory. A new reserved file in `classpath:/roles/`
   needs the same treatment, or the build test fails with "not named by a role name".
+* A role is never named by a reserved keyword of the workflow language: `RoleArtifactValidator` refuses it as
+  `schema_invalid` and `ShippedRoles` refuses the file, as the workflow verifier refuses it where a state names a role.
+  The keyword set is a copy of the verifier's, because `pm-core` cannot read `pm-workflow`; a keyword added there is
+  added in `RoleArtifactValidator` too.
 
 == Tests
 
@@ -275,12 +280,15 @@ The split is a measured pair that sums to the total, or `unmeasured` at both whe
 carries no split, and `plus` sums the split only when both addends have one. The qualification and judge-check records
 persist `total_tokens` alone (`store-schemas/16`); a view derives the split on read
 (link:../adr/core-store/048-token-split-derived-on-read-and-the-coverage-aggregate.adoc[ADR core-store/048]), and a
-document that carries either member is refused as undeclared. The decision calibration record's schema requires the two
+document that carries either member is refused as undeclared. The two writers refuse a `TokenTotal` that carries a split
+with an `IllegalArgumentException` rather than drop it: no producer of a grading builds one, so a split there is an
+internal fault. The decision calibration record's schema requires the two
 members, and `TokenTotal` keeps the split for it until the codec owed with the package that builds it exists. The cost
 is never part of a grading record. A total of `0` is refused (the lower bound is `1`), and a split that does not sum to
 the total is refused at construction.
 
-`QualificationRecordCodecTest` covers the split of `TokenTotal` and asserts that a record is written without it;
+`QualificationRecordCodecTest` covers the split of `TokenTotal` and asserts that a written total that carries one is
+refused;
 `QualificationSchemaParityTest` reads the two schema files and validates the written documents against their schemas:
 the judge-check record as written, and the qualification record with its topic mark and its optional judge check.
 

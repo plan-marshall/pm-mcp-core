@@ -13,6 +13,7 @@ import static de.planmarshall.core.role.corpus.SourceManifest.COMMIT_MAX_LENGTH;
 import static de.planmarshall.core.role.corpus.SourceManifest.COMMIT_PATTERN;
 import static de.planmarshall.core.role.corpus.SourceManifest.RELATIVE_PATH;
 import static de.planmarshall.core.role.corpus.SourceManifest.RELATIVE_PATH_MAX_LENGTH;
+import static de.planmarshall.core.role.corpus.SourceManifest.fragment;
 import static de.planmarshall.core.role.corpus.SourceManifest.require;
 import static de.planmarshall.core.role.corpus.SourceManifest.requireRepository;
 
@@ -80,8 +81,12 @@ public record ImportedItem(String id, String topic, String role, String title, L
     /** The slug of an item: the file name below its topic, without {@code .json}. */
     public static final Pattern SLUG_PATTERN = PythonRegex.compile("^[a-z0-9][a-z0-9-]*$");
 
-    /** The longest slug of an item, in characters: the pattern bounds no length, so the ceiling is stated. */
-    public static final int SLUG_MAX_LENGTH = 256;
+    /**
+     * The longest slug of an item, in characters: the pattern bounds no length, so the ceiling is stated. The import
+     * writes an item as {@code <slug>.json}, so 250 characters and the five of the suffix stay within the 255 bytes of
+     * a file name the common file systems allow (the operator's decision of 2026-11-14).
+     */
+    public static final int SLUG_MAX_LENGTH = 250;
 
     /** The longest title, in characters. */
     public static final int TITLE_MAX_LENGTH = 120;
@@ -377,12 +382,13 @@ public record ImportedItem(String id, String topic, String role, String title, L
      *
      * @param value the value; {@code null} if not given
      * @param field the name of the member, named by a refusal
-     * @throws IllegalArgumentException if a present value holds no character other than a line feed
+     * @throws IllegalArgumentException if a present value holds no character other than a line feed; the refusal
+     *                                  echoes the value cut by {@link SourceManifest#fragment(String)}
      */
     static void requireText(@Nullable String value, String field) {
         if (value != null && !TEXT_PATTERN.matcher(value).find()) {
             throw new IllegalArgumentException(
-                    "'%s' must hold a character other than a line feed: %s".formatted(field, value));
+                    "'%s' must hold a character other than a line feed: %s".formatted(field, fragment(value)));
         }
     }
 }

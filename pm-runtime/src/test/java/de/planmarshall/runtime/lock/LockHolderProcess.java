@@ -31,17 +31,18 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
  * standard input ends.
  * <p>
  * Its arguments are the base directory of the runtime, the project id, the plan id and optionally a {@link Mode}: none
- * for the plan key, or {@link #LEAF}, {@link #MAILBOX}, {@link #REPAIR}, {@link #READ} and {@link #JOURNAL}. In a leaf
- * mode it runs one store operation after acquiring the key, because a store write or read is what opens and closes a
- * channel on the guarded file; {@link #JOURNAL} takes the queue task id as a fifth argument. The lines it writes to its
+ * for the plan key, or {@link #LEAF}, {@link #MAILBOX}, {@link #REPAIR}, {@link #SNAPSHOT} and {@link #JOURNAL}. In a
+ * leaf mode it runs one store operation after acquiring the key, because a store write or read is what opens and closes
+ * a channel on the guarded file; {@link #JOURNAL} takes the queue task id as a fifth argument. The lines it writes to its
  * standard output are the protocol with the process that started it and not log messages, so they go to the file
- * descriptor itself: the {@link #READ} mode first reports how many complete lines it found ({@link #LINES_PREFIX}), and
+ * descriptor itself: the {@link #SNAPSHOT} mode first reports how many complete lines its whole-store snapshot
+ * ({@code JsonlStoreFile.read(transaction)}) found ({@link #LINES_PREFIX}), and
  * every mode then writes {@link #HELD}. Standard input ends when the starting process closes it, and also when that
  * process dies, so this process does not outlive it. It then releases the lock and ends with exit code 0; every failure
  * ends it with an exception and another exit code.
  * <p>
  * Every datum of this class is a contract: the protocol lines {@link #HELD}, {@link #LEAF}, {@link #MAILBOX},
- * {@link #REPAIR}, {@link #READ}, {@link #JOURNAL} and {@link #LINES_PREFIX} are the protocol with the starting
+ * {@link #REPAIR}, {@link #SNAPSHOT}, {@link #JOURNAL} and {@link #LINES_PREFIX} are the protocol with the starting
  * process, and the project, plan and task ids arrive as arguments from the test that drew them.
  */
 final class LockHolderProcess {
@@ -58,13 +59,13 @@ final class LockHolderProcess {
     /** The argument that selects the audit leaf key and repairs a torn tail of its store. */
     static final String REPAIR = Mode.REPAIR.argument();
 
-    /** The argument that selects the audit leaf key and reads the last line of its store. */
-    static final String READ = Mode.READ.argument();
+    /** The argument that selects the audit leaf key and reads a whole-store snapshot of its store. */
+    static final String SNAPSHOT = Mode.SNAPSHOT.argument();
 
     /** The argument that selects a journal-shaped leaf key and appends one line through its store. */
     static final String JOURNAL = Mode.JOURNAL.argument();
 
-    /** The prefix of the line that reports how many complete lines a {@link #READ} found. */
+    /** The prefix of the line that reports how many complete lines a {@link #SNAPSHOT} found. */
     static final String LINES_PREFIX = "lines:";
 
     /** The index of the mode among the arguments; the queue task id of {@link #JOURNAL} follows it. */
@@ -96,8 +97,8 @@ final class LockHolderProcess {
         /** The audit leaf key, with a torn-tail repair. */
         REPAIR,
 
-        /** The audit leaf key, with a read of the store. */
-        READ,
+        /** The audit leaf key, with a whole-store snapshot of the store. */
+        SNAPSHOT,
 
         /** A journal-shaped leaf key, with one append. */
         JOURNAL;
@@ -144,7 +145,7 @@ final class LockHolderProcess {
     private static LockKey key(Path base, String[] args, Mode mode) {
         return switch (mode) {
             case PLAN -> LockKey.plan(base, args[1], args[2]);
-            case LEAF, REPAIR, READ -> LockKey.auditLog(base);
+            case LEAF, REPAIR, SNAPSHOT -> LockKey.auditLog(base);
             case MAILBOX -> LockKey.mailbox(base, args[1], args[2]);
             case JOURNAL -> {
                 var taskId = args[MODE_ARGUMENT + 1];
@@ -172,7 +173,7 @@ final class LockHolderProcess {
                 store.repairTail(transaction, AuditSinkDoubles.capturing());
                 yield Optional.empty();
             }
-            case READ -> Optional.of(LINES_PREFIX + store.read(transaction).lines().size());
+            case SNAPSHOT -> Optional.of(LINES_PREFIX + store.read(transaction).lines().size());
         };
     }
 }

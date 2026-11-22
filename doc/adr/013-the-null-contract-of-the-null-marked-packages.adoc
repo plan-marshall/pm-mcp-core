@@ -60,7 +60,9 @@ method whose contract permits null, a `CompletableFuture<Void>` completion) carr
 `@SuppressWarnings("java:S2637")` with the reason beside it, never `NOSONAR`, and each such site is listed in the
 pull request body. Behaviour does not change except where class (c) changes a signature; a public method that
 refuses null keeps refusing it with the same exception and message, either as an `@Nullable` parameter (b) or as
-the `Optional` return (c).
+the `Optional` return (c). One refusal is new rather than kept: `PrimitiveResult` of `pm-core` refuses a `null`
+reason type at its constructor with an `IllegalArgumentException`, where a `null` was read before as the absence of
+a reason (PLAN-V2-67, #445; link:../../pm-core/doc/developer/core-spi.adoc[`core.spi` Developer Guide]).
 
 The decision is carried by `org.jspecify.annotations.Nullable` in the production and test sources of `pm-core`,
 `pm-workflow`, `pm-runtime` and the providers, by `Optional` returns in `StrictJson` and the codec readers, and by

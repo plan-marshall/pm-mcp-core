@@ -65,8 +65,8 @@ class PmExecLauncherRecordsTest {
         var builder = PmExecLauncher.Launch.builder()
                 .argv(argv).environment(environment).log(log).confinement(JobConfinement.none());
         var refusal = assertThrows(NullPointerException.class, builder::build,
-                "the builder names the missing work dir");
+                "the builder refuses a missing workingDirectory");
 
-        assertEquals("workingDirectory", refusal.getMessage(), "the refusal names the working directory");
+        assertEquals("workingDirectory", refusal.getMessage(), "the refusal names component workingDirectory");
     }
 }

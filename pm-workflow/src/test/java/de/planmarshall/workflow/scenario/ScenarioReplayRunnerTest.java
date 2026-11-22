@@ -13,12 +13,12 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -47,8 +47,6 @@ import de.planmarshall.core.queue.QueueTaskRecord.Status;
 import de.planmarshall.core.spi.QueueTaskCreator;
 import de.planmarshall.core.store.JournalScopeType;
 import de.planmarshall.core.store.WorkflowStatusStore;
-import de.planmarshall.workflow.consult.ConsultationService;
-import de.planmarshall.workflow.consult.SubmitValidation;
 import de.planmarshall.workflow.scenario.ScenarioReplayRunner.ScenarioFailure;
 import de.planmarshall.workflow.task.WaitAnswer;
 import de.planmarshall.workflow.task.WaitRequest;
@@ -1065,9 +1063,14 @@ class ScenarioReplayRunnerTest {
                 worker_do author submit:change {}
                 """;
 
-        private static final String ANSWERED = """
-                scenario consultation-answered
+        /**
+         * Regression scenario 14, its accepted half: the asker's submit names the consultation id the replay's counter
+         * hands out, {@code qt-c000000000000001}, a wire value of the replay and the contract of the script.
+         */
+        private static final String ACCEPTED = """
+                scenario consultation-accepted
                 start plan scenario-ask
+                assert_state execute.review
                 worker_wait author
                 worker_do author ack {}
                 worker_do author consult:reviewer {"question":"is the change safe?"}
@@ -1075,10 +1078,24 @@ class ScenarioReplayRunnerTest {
                 worker_do reviewer ack {}
                 worker_do reviewer submit:answer {"answer":"yes"}
                 worker_wait author
+                worker_do author ack {}
+                worker_do author submit:change {"consultation_ids":"qt-c000000000000001"}
+                assert_task_outcome author submitted
+                assert_state completed
+                assert_outcome merged
                 """;
+
+        /** The consultation id of the scenario: the first the fixtures' counter hands out. */
+        private static final String CONSULTATION_ID = "qt-c000000000000001";
 
         private ScenarioReplayRunner consultRunner() {
             return new ScenarioReplayRunner(ScenarioFixtures.consultUnit(), directory);
+        }
+
+        private ScenarioReplayRunner replayedIn(Path base) throws IOException {
+            var runner = new ScenarioReplayRunner(ScenarioFixtures.consultUnit(), Files.createDirectories(base));
+            runner.run(ScenarioScript.read(ACCEPTED));
+            return runner;
         }
 
         @Test
@@ -1099,32 +1116,33 @@ class ScenarioReplayRunnerTest {
 
         @Test
         @DisplayName("Should re-offer the task at the asker's next wait and accept the submit that names the reference")
-        void shouldAcceptTheSubmitThatNamesTheReference() {
-            var runner = consultRunner();
+        void shouldAcceptTheSubmitThatNamesTheReference() throws Exception {
+            var runner = replayedIn(directory.resolve("accepted"));
 
-            runner.run(ScenarioScript.read(ANSWERED));
-
-            var queue = runner.fixtures().queue;
-            var asker = queue.records().stream()
+            var asker = runner.fixtures().queue.records().stream()
                     .filter(task -> task.kind() == QueueTaskRecord.Kind.WORK).findFirst().orElseThrow();
             var consultation = asker.consultations().getFirst();
-            var service = new ConsultationService(queue);
             assertAll(
+                    () -> assertEquals(CONSULTATION_ID, consultation.consultationId(),
+                            "the consultation has the scripted id"),
                     () -> assertEquals(QueueTaskRecord.ConsultationStatus.ANSWERED, consultation.status(),
                             "the consultation is answered"),
                     () -> assertEquals(QueueTaskRecord.DeliveredTo.WAIT, consultation.deliveredTo(),
                             "the answer is delivered to the asker's wait"),
-                    () -> assertEquals(Status.OFFERED, asker.status(),
-                            "the asker's next wait re-offers the task"),
-                    () -> assertEquals("l-0000000000000001",
-                            asker.lease() == null ? null : asker.lease().generationId(),
-                            "the task stays leased to the asking generation"),
-                    () -> assertInstanceOf(SubmitValidation.Accepted.class,
-                            service.validateSubmit(asker.queueTaskId(), List.of(consultation.consultationId())),
-                            "the submit that names the reference is accepted"),
-                    () -> assertInstanceOf(SubmitValidation.Refused.class,
-                            service.validateSubmit(asker.queueTaskId(), List.of()),
-                            "the submit that omits the reference is refused"));
+                    () -> assertEquals(Outcome.SUBMITTED, asker.outcome(),
+                            "the submit naming the reference closed it"));
+        }
+
+        @Test
+        @DisplayName("Should replay the accepted consultation twice to byte-identical stores")
+        void shouldReplayTheAcceptedConsultationByteIdentically() throws Exception {
+            var first = replayedIn(directory.resolve("first"));
+            var second = replayedIn(directory.resolve("second"));
+
+            assertAll(
+                    () -> assertFalse(first.snapshots().isEmpty(), "the replay kept a snapshot per step"),
+                    () -> assertEquals(first.snapshots(), second.snapshots(),
+                            "both replays wrote the same bytes per step"));
         }
     }
 }

@@ -53,7 +53,17 @@ public record PlanHistoryLine(int formatVersion, long seq, Event event, String n
     /** The most frames a plan's call stack can have, so the most entries a line's call path can carry. */
     public static final int MAX_CALL_PATH = 5;
 
-    static final Pattern OUTCOME_PATTERN = Pattern.compile("^[a-z][a-z0-9_]*$");
+    /**
+     * The grammar of an outcome: a lower-case letter, then lower-case letters, digits, {@code _} or {@code -}, so every
+     * outcome wire name the primitive registry admits is written (ADR {@code core-spi/013}).
+     */
+    static final Pattern OUTCOME_PATTERN = Pattern.compile("^[a-z][a-z0-9_-]*$");
+
+    /**
+     * The grammar of a reason: a lower-case letter, then lower-case letters, digits or {@code _}; no hyphen, as the
+     * registry's reason wire names have none.
+     */
+    static final Pattern REASON_PATTERN = Pattern.compile("^[a-z][a-z0-9_]*$");
 
     /**
      * Refuses a line that does not fit the schema. A {@code null} phase or outcome is a value, not a missing component.
@@ -124,7 +134,7 @@ public record PlanHistoryLine(int formatVersion, long seq, Event event, String n
     }
 
     private static void requireReason(Event event, @Nullable String outcome, String reason) {
-        if (!OUTCOME_PATTERN.matcher(reason).matches()) {
+        if (!REASON_PATTERN.matcher(reason).matches()) {
             throw new IllegalArgumentException("the history line reason '%s' is not a lowercase identifier"
                     .formatted(reason));
         }

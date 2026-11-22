@@ -1,0 +1,50 @@
+= ADR workflow-verify 041: The Reserved Words Are One Set
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+Two classes held a reserved-word set: `WorkflowParser` for the grammar and `WorkflowValidator` for the role names of a
+`job llm` state and its `consult` clauses. The verifier's set carried three words the parser's did not — `decide`, `phase`
+and `inherit` — so the verifier refused a role name the parser accepted. The drift was found by the analysis of
+`PLAN-V2-157`, whose spec called the verifier's set unused; it is used, once, by the role-name check.
+
+The specification settles which set is right: its reserved-keyword list (`Workflow DSL § Reserved Keywords`) omits all
+three and says explicitly that `decide` and `quorum` are positional vocabularies, not reserved, because they occur only
+where the grammar expects them.
+
+== Decision
+
+* One holder, `ast.ReservedKeywords.ALL`, carries the set, and the parser, the verifier and the frontmatter reader all read
+  it — the last through the parser's `RESERVED_KEYWORDS` alias, so no copy exists.
+* The set is the specification's: `decide`, `phase` and `inherit` are not reserved. A role named `decide` verifies, and a
+  state-id segment `phase` stays legal, as the specification's list requires.
+* A word is added to the set only by amending the specification first; the class is the code's copy of that list, not a
+  second source.
+
+== Alternatives Considered
+
+* *Keep two sets and record why.* Refused: the difference had no reason, and it refused a name the grammar admits — a
+  false refusal the operator would have to work around.
+* *Move the set into `dsl` and have `verify` import it.* Refused: `ast` is the type model both packages already depend on,
+  and the keyword list describes the language, not one package's use of it.
+
+== Consequences
+
+* `WorkflowValidatorTest § Reserved words` pins that a role named `decide`, `phase`, `inherit` or `entry` verifies; the
+  parser's own refusal fixtures (`WorkflowParserRefusalTest`) keep pinning the words that are reserved; and
+  `ReservedKeywordsSpecificationParityTest` compares `ALL` with the specification's reserved-keyword bullet, so a word the
+  specification adds or drops without the code fails the build.
+* A plan-marshall unit that names a role `phase` or `inherit` no longer fails verification; no compiled unit does.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#dsl-reserved-keywords[Workflow DSL § Reserved Keywords]
+* `PLAN-V2-164` Deliverable 3

@@ -21,7 +21,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
-import de.planmarshall.runtime.job.ProcessGroupSignals;
 import de.planmarshall.runtime.job.ProcessTreeTracker;
 import de.planmarshall.runtime.launch.HarnessEnrolment;
 import de.planmarshall.runtime.launch.HarnessVerifier;
@@ -62,7 +61,6 @@ public final class AgentStartedDetector {
     private final ProcessExecutables executables;
     private final Supplier<List<HarnessEnrolment>> enrolments;
     private final WorkerEnding ending;
-    private final ProcessGroupSignals signals;
     private final Path operator;
     private final Map<String, ProcessTreeTracker> trees = new HashMap<>();
     private final Set<String> reported = new HashSet<>();
@@ -77,24 +75,10 @@ public final class AgentStartedDetector {
      */
     public AgentStartedDetector(SupervisorEnvironment environment, ProcessExecutables executables,
             Supplier<List<HarnessEnrolment>> enrolments, WorkerEnding ending) {
-        this(environment, executables, enrolments, ending, ProcessGroupSignals.system());
-    }
-
-    /**
-     * @param environment the collaborators of the project
-     * @param executables where a process's executable and digest are read
-     * @param enrolments  every enrolled harness executable, read at each pass
-     * @param ending      the one end path of a generation
-     * @param signals     the signalling primitive the tree tracker is built with
-     * @throws NullPointerException if an argument is {@code null}
-     */
-    AgentStartedDetector(SupervisorEnvironment environment, ProcessExecutables executables,
-            Supplier<List<HarnessEnrolment>> enrolments, WorkerEnding ending, ProcessGroupSignals signals) {
         this.environment = Objects.requireNonNull(environment, "environment");
         this.executables = Objects.requireNonNull(executables, "executables");
         this.enrolments = Objects.requireNonNull(enrolments, "enrolments");
         this.ending = Objects.requireNonNull(ending, "ending");
-        this.signals = Objects.requireNonNull(signals, "signals");
         operator = environment.runtimeHome().resolve(OPERATOR_BINARY);
     }
 
@@ -116,7 +100,7 @@ public final class AgentStartedDetector {
         if (reported.contains(generationId)) {
             return Optional.empty();
         }
-        var tree = trees.computeIfAbsent(generationId, id -> new ProcessTreeTracker(rootPid, signals));
+        var tree = trees.computeIfAbsent(generationId, id -> new ProcessTreeTracker(rootPid));
         tree.refresh();
         var operatorPath = realPath(operator);
         var enrolled = enrolments.get().stream()

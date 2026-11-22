@@ -166,6 +166,14 @@ class PlanInstanceHeaderTest {
                 List.of(new WaivedGate("ci_check:build", "W-2")));
     }
 
+    /** A header with the given policy-call arguments and nothing else in the policy calls. */
+    static PlanInstanceHeader headerWithArgs(Map<String, BoundArgument> args) {
+        return new PlanInstanceHeader("plan-24", 1, CompositionEvent.WAIVER, COMPOSED_AT,
+                new CompositionInputs(DIGEST_A, List.of(), List.of(), "r7", DIGEST_A, DIGEST_B, null, null, null),
+                null, null, new PlanInstanceHeader.Steps(List.of(), List.of()), List.of(),
+                List.of(PolicyCall.of("finalize.remediate-ci", "remediation.ci-failure", args)), List.of());
+    }
+
     private static byte[] sha256(String text) {
         try {
             return MessageDigest.getInstance("SHA-256").digest(text.getBytes(StandardCharsets.UTF_8));
@@ -273,6 +281,24 @@ class PlanInstanceHeaderTest {
             var header = PlanInstanceHeaderTest.minimalHeader();
 
             assertEquals(header, HeaderJson.read(HeaderJson.write(header)), "the minimal header reads back equal");
+        }
+
+        @Test
+        @DisplayName("a slot reference is a typed object, so an enum value of the same text stays one")
+        void slotReferenceIsTyped() {
+            var header = headerWithArgs(Map.of(
+                    "message", BoundArgument.fromTemplate(new CallValue.SlotRef("commit"), "git.pmwf"),
+                    "mode", BoundArgument.fromTemplate(new CallValue.EnumValue("slot.commit"), "git.pmwf")));
+
+            var read = HeaderJson.read(HeaderJson.write(header));
+            var readArgs = read.policyCalls().getFirst().args();
+
+            assertAll(
+                    () -> assertEquals(header, read, "the header with a slot reference reads back equal"),
+                    () -> assertEquals(new CallValue.SlotRef("commit"), readArgs.get("message").value(),
+                            "the slot reference reads back as one"),
+                    () -> assertEquals(new CallValue.EnumValue("slot.commit"), readArgs.get("mode").value(),
+                            "an enum value of the same text is no reference"));
         }
 
         @Test

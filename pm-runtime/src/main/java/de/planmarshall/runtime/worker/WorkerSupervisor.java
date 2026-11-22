@@ -299,10 +299,13 @@ public final class WorkerSupervisor {
 
     /**
      * Starts the composed worker and returns its slot on every path that started none: a runner that throws has already
-     * settled or left no job, so the slot is released. A successful start keeps the slot for the generation.
+     * settled or left no job, so the slot is released and the failure passes on. A start that returns, started or
+     * refused, leaves the slot to the caller: a started worker keeps it for the generation. The release runs in a
+     * {@code finally} guarded by whether the start returned, so no failure of the start needs to be caught.
      */
     private Optional<JobId> startWorker(EffectiveRole role, HeadlessBlock block, WorkerLaunch launch,
             ModelSlots.Lease lease) {
+        var returned = false;
         try {
             var result = environment.starter().startWorker(WorkerStart.builder()
                     .launch(launch)
@@ -314,17 +317,15 @@ public final class WorkerSupervisor {
                     .writablePaths(block.writablePaths(environment.home()))
                     .egressProxy(null)
                     .build());
+            returned = true;
             return switch (result) {
                 case JobRunner.StartResult.Started(var jobId) -> Optional.of(jobId);
                 case JobRunner.StartResult.Refused _ -> Optional.empty();
             };
-            // Deliberately RuntimeException: the landed start may fail with any runtime exception (an illegal worker
-            // id, an unwritable record, an unreadable store), and the slot must be released on every one of them, so
-            // narrowing the catch would leak the slot. Owner: runtime supervision.
-            // cui-rewrite:disable InvalidExceptionUsageRecipe
-        } catch (RuntimeException failure) {
-            environment.slots().release(lease);
-            throw failure;
+        } finally {
+            if (!returned) {
+                environment.slots().release(lease);
+            }
         }
     }
 

@@ -212,11 +212,12 @@ public final class JobSettlement {
      * propagates so the runner's last-resort path can retry the record write; a store fault the fate step names is a
      * {@code Failed} step and the record stays for the recovery.
      * <p>
-     * The catch is the last-resort handler the specification names (Job Runtime § Outcome Derivation, Write order at
-     * job end): the fate may already be durable, and a later step's fault must not hide the record from the settlement
-     * wait. It is a {@code RuntimeException} rather than {@code Throwable}: an {@code Error} is not contained.
+     * The catch is this class's last-resort handler, not one the specification names: the specification fixes the
+     * write order at job end (Job Runtime § Outcome Derivation, Write order at job end), under which the fate may
+     * already be durable, and a later step's fault must not hide the record from the settlement wait. It is a
+     * {@code RuntimeException} rather than {@code Throwable}: an {@code Error} is not contained, so no
+     * {@code java:S1181} suppression is needed.
      */
-    @SuppressWarnings("java:S1181")
     private static Outcome run(SettlementStep step, Settled settled) {
         try {
             return Objects.requireNonNull(step.run(settled), "outcome");

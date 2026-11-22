@@ -39,10 +39,10 @@ import de.planmarshall.core.build.BuildLogText;
  * <li>a PEM private-key block or a PGP private-key block ({@code -----BEGIN PGP PRIVATE KEY BLOCK-----}) whose
  * {@code BEGIN} line is carried inside the text.</li>
  * </ul>
- * Each non-assignment shape is anchored to its own form — a URL needs its {@code scheme://} and {@code @}, a flag needs
- * its leading {@code --} and a following space, a key block needs its {@code BEGIN} marker — so prose cannot match. A
- * hash, a commit id, a path and a prose sentence that merely contains the word {@code token} or {@code PRIVATE KEY} are
- * not secrets and stay readable.
+ * Each non-assignment shape is anchored to its own form — a URL needs its {@code scheme://} and {@code @}, a flag
+ * needs its leading {@code --} and a following space, a key block needs its {@code BEGIN} marker — so prose cannot
+ * match. A hash, a commit id, a path and a prose sentence that merely contains the word {@code token} or
+ * {@code PRIVATE KEY} are not secrets and stay readable.
  * <p>
  * The label, separator, URL and credential-flag patterns are Unicode-aware: their {@code \s}, {@code \S}, {@code \w} and
  * {@code \b} match their Unicode forms, so a no-break space cannot separate a label from its value, and a quoted
@@ -222,10 +222,10 @@ public class SecretRedactor {
      * {@code --password-file notes.txt} is a different flag and stays readable, and a flag outside the list
      * ({@code --key value}, an operator decision) stays readable as well. The quoted forms are matched first: a quoted
      * value runs to the first unescaped closing quote, also across one line end to its closing quote on the next line
-     * (never further; the line end may be escaped by a backslash, a shell line continuation, and still counts as the one
-     * line end), and a quote that does not close on its own line or the next masks the rest of its line (an
-     * escaped quote is no close, so {@code --password "abc\"def} masks {@code abc\"def}); an
-     * unquoted value runs to the next whitespace and may carry a comma, a {@code ;} or a quote.
+     * (never further; the line end may be escaped by a backslash, a shell line continuation, and still counts as the
+     * one line end), and a quote that does not close on its own line or the next masks the rest of its line (an escaped
+     * quote is no close, so {@code --password "abc\"def} masks {@code abc\"def}); an unquoted value runs to the next
+     * whitespace and may carry a comma, a {@code ;} or a quote.
      * <p>
      * The false-positive cost: the word after a listed flag is read as its value, so usage text such as
      * {@code --token <token>} masks the placeholder {@code <token>}.

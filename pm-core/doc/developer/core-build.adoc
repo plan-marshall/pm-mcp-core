@@ -51,8 +51,9 @@ The location is absent component-wise (`@Nullable`), and its compact constructor
 location and a line without a file.
 
 |link:{src}/TestCounts.java[`TestCounts`]
-|A sealed interface of `Measured` (passed, failed, skipped, total and the executed count per runner) and `Unmeasured`.
-The unmeasured state has no count accessor, so it cannot be read as a zero.
+|A sealed interface of `Measured` (passed, failed, skipped, total, the executed count per runner and `tailOnly`, set
+when the counts are those of a cut log's tail) and `Unmeasured`. The unmeasured state has no count accessor, so it
+cannot be read as a zero.
 
 |link:{src}/JvmCategoryPatterns.java[`JvmCategoryPatterns`]
 |The compiled category table of the JVM parsers, `maven()` and `gradle()`. A pattern carrying a regular-expression
@@ -65,8 +66,8 @@ first matching category in definition order wins.
 
 |link:{src}/BuildLogText.java[`BuildLogText`]
 |Reads a log and strips its ANSI escape sequences in one step, so no parser can match a colour-coded line against a
-plain-text pattern. Above the cap of its limits resource it reads the log's tail, and `boundLines` cuts every line at the
-per-line bound of the same resource.
+plain-text pattern. Above the cap of its limits resource it reads the log's tail, `readLog` says whether it cut the log
+(`LogRead.cut`), and `boundLines` cuts every line at the per-line bound of the same resource.
 
 |link:{src}/MavenOutputParser.java[`MavenOutputParser`]
 |The Maven scanner: `[ERROR]`/`[WARNING]` lines, the failure trailer, deduplication, the Surefire and Failsafe summaries
@@ -187,6 +188,11 @@ carries the executed count (total minus skipped) per runner; an execution header
 so an interleaved build under-counts — which is why a log with the `MultiThreadedBuilder` banner keeps the summed total and
 omits `byRunner`.
 
+A log the read cut (`MavenOutputParser.parse(Path)` over a log above `BuildLogText.MAX_BYTES`) reports a measured count
+with `tailOnly` set: the summary blocks of the modules in the lost head are not in it, so the figure is the tail's
+alone (link:../adr/core-build/011-a-cut-build-log-reports-tail-only.adoc[ADR `core-build/011`]). The `String` overload
+never sets it.
+
 === Gradle
 
 `GradleOutputParser.parse(String)` skips the stack frames, the continuation lines (`->`, `>`) and every line whose text
@@ -243,9 +249,10 @@ link:../../../pm-runtime/doc/adr/runtime-job/016-the-npm-passing-summary-is-the-
   block supplies the counts. The plan is checked per run: a run starts at every line that starts with `TAP version`, and
   the lines before the first such line, or the whole log when it carries none, are one run. A run's top-level plan
   lines `1..N` (their counts summed) are compared with that run's own number of top-level test points (the TAP point
-  shape: `ok` or `not ok`, followed by a space or the line end); when they differ, the run did not finish the plan it
-  announced — the evidence class of `Bail out!` — and the passing summary is no marker, even with exit 0. A prose line
-  that merely starts with the word `ok` is no point. The log finished its plan only when every run
+  shape: `ok` or `not ok` at the start of a line, followed by a space, a tab or the line end; no number is required);
+  when they differ, the run did not finish the plan it announced — the evidence class of `Bail out!` — and the passing
+  summary is no marker, even with exit 0. A line whose `ok` runs into another character (`ok,`, `okay`) is no point,
+  while a prose line whose `ok` is followed by a blank (`ok then proceed`) is one. The log finished its plan only when every run
   did, so in a log of concatenated runs (`npm test --workspaces`) a later run cannot supply the point an earlier run is
   missing; the counts stay as the summary measured them, summed over all runs. A plan count too large for a `long`, or
   plan counts whose sum overflows a `long`, leave the run unfinished (no passing summary): the sum is added with
@@ -347,9 +354,11 @@ an item, naming its `filename`. A method whose `line-rate` is zero contributes i
 is not a plain decimal number within `0..1` is refused.
 
 Cobertura's `class` elements carry no `lines-valid` or `branches-valid`, so the zero rule is decided at the root. A root
-`lines-valid="0"` refuses the report (`no lines measured`). A root `branches-valid` of `0`, or none, measured no branch,
-so the overall branch metric and the branch rate of every class are `null`; under a root that measured branches, a
-`branch-rate="0"` is a measured `0.0`.
+`lines-valid="0"` refuses the report (`no lines measured`). A root `branch-rate="0"` (or none) with a `branches-valid`
+of `0` (or none) measured no branch, so the overall branch metric and the branch rate of every class are `null`. A root
+whose `branches-valid` is above `0`, or whose `branch-rate` is above `0` with or without a `branches-valid`, measured
+branches: its rate is kept, and a `branch-rate="0"` under it is a measured `0.0`
+(link:../adr/core-build/008-the-coverage-parsers-read-with-dtd-off-and-bounded.adoc[ADR `core-build/008`] Decision 5).
 
 === LCOV
 
@@ -404,7 +413,8 @@ A coverage report is read as a stream, never whole: the `parse(Path)` overloads 
 `CoverageReportStream`, a counting stream that refuses the read once more than the cap of the module's coverage limits
 resource has been read, naming the cap. The XML parsers hand that stream to `CoverageXmlReader.parse(InputStream)`, which
 honours the document's own encoding declaration and byte-order mark; LCOV reads it as UTF-8 through a `BufferedReader`,
-and Istanbul through Jackson.
+and Istanbul through Jackson. Each `parse(Path)` delegates to a package-private `parse(Path, long limit)`, the seam
+through which a test passes a small limit and proves, per parser, that the file is read through the stream.
 
 include::../../src/main/resources/de/planmarshall/core/build/coverage-limits.properties[tag=coverage-max-bytes]
 
@@ -423,9 +433,10 @@ only (`CoverageRefusals`): a file-system failure carries the full path in its me
 through.
 
 A refusal echoes report content — a counter type, a counter value, an `SF:` name — and that echo is bounded at the one
-seam every refusal passes, `CoverageRefusals.of`: the reason keeps the format prefix and at most the first 256
-characters of the detail (`CoverageRefusals.MAX_DETAIL_LENGTH`), never splitting a surrogate pair. The echo sites of the
-parsers stay as they are.
+seam every refusal passes, `CoverageRefusals.of`: the reason keeps the format prefix and at most 256 characters of
+detail (`CoverageRefusals.MAX_DETAIL_LENGTH`), never splitting a surrogate pair; for a file-system failure the file name
+is cut so that the name and its failure kind together stay within those 256. The echo sites of the parsers stay as they
+are.
 
 == The Bounds of a Read and of a Parse
 
@@ -460,17 +471,27 @@ dispatcher; each asserts the result of a fixed input, never a wall-clock run.
 include::../../src/main/resources/de/planmarshall/core/build/build-limits.properties[tag=max-line-length]
 
 Three patterns are rewritten on top of the cut, each held to the ported expression's result by a differential test over
-generated lines (`BuildLogBoundsTest`): the Maven execution header and the OpenRewrite finding line are asked a
-necessary-condition pre-test first (a header needs an `@`, a finding line needs both its identifier prefix and ` by `),
-and the pytest summary line is answered in two steps — the earliest verdict word, then the `in <seconds>s` tail after it —
-for every line without a line terminator, while a line that carries one is answered by the ported expression. A
-pre-test bounds the shapes the analyses named; a line that carries the token it tests still backtracks inside the
-expression, bounded by the line cut. The pytest exception and section patterns measured linear and are left as they are.
+generated lines (`BuildLogBoundsTest`), and each is linear in the line's length, also for a line that carries the token
+it tests: the Maven execution header is a possessive head (`--- group:plugin:goal `) after an `@` pre-test, whose
+`@ … ---` tail is decided by two index arrays built in one pass; the OpenRewrite finding line is asked its pre-test
+(identifier prefix and ` by `) and then runs its template once, at the first head after the line's last terminator,
+with a tempered path that stops where the location begins; and the pytest summary line is answered in two steps — the
+earliest verdict word, then the `in <seconds>s` tail after it — and, for a line that carries a line terminator, in one
+pass over the whitespace run that holds it. The pytest exception and section patterns measured linear and are left as
+they are.
 A test that bounds a pattern names its input length and its bound, and uses a preemptive timeout; it never compares two
 wall-clock runs.
 
 Both values are data: editing the properties resource changes the bound, and the class that names it reads the value when
 it initialises. There is no literal in the code and no runtime override.
+
+The unparsed evidence (<<_the_unparsed_evidence>>) copies the whole log twice — the escape strip and the
+carriage-return reduction — before it keeps fifty lines, and that cost was measured rather than assumed: on a 16 MiB
+log at the read's cap, every line coloured and carrying a carriage-return frame, `UnparsedEvidence.of` allocated
+83,219,096 bytes (4.96 times the log) in 0.44 s (2026-11-21). The cost is linear in the log's length and bounded by the
+cap, so the class was not changed (ADR `core-build/007`, "measured, no change").
+`BuildLogBoundsTest.boundsTheUnparsedEvidenceCopyOfALogAtTheCap` repeats the measurement and asserts the allocation
+against eight times the log's length under a preemptive timeout.
 
 == Adding a Parser
 

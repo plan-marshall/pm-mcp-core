@@ -2,10 +2,10 @@
   "id": "PLAN-V2-164",
   "slug": "call-bind-closeout",
   "workstream": "WS-01",
-  "status": "staged",
-  "lane": "plan-marshall",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "status": "shipped",
+  "lane": "runbook",
+  "plan_marshall_plan_id": "rb-v2-164-call-bind-closeout",
+  "pr": "#551",
+  "landing": "landings/PLAN-V2-164.md",
   "seq": 152
 }
