@@ -15,7 +15,10 @@ owns nothing else and depends on nothing of the product: every store, the queue,
 
 The package holds the one definition of the short lower-case name grammar: two to 32 characters, a lower-case
 letter first, then lower-case letters, digits or `-`. The specification states that text under two registry entries —
-`id-role-name` and `id-harness-id`. It also holds the two random identifiers of an engine advance, `CommandId` and
+`id-role-name` and `id-harness-id` — and the plan overrides key their integration variants by a name of the same text.
+The refactor that made the definition one replaced twenty-three classes and twenty-five literals; with
+`IntegrationName` twenty-four classes carry the grammar, and the text is one literal
+(link:../adr/core-id/001-one-definition-of-the-name-grammar.adoc[ADR `core-id/001`]). It also holds the two random identifiers of an engine advance, `CommandId` and
 `CorrelationId`. The grammar is specified in
 link:{spec}/identifiers.adoc[Identifiers] and, entry by entry, in
 link:{spec}/identifiers/01-general-rules-and-registry.adoc[General Rules & Registry] and
@@ -25,7 +28,7 @@ link:{spec}/identifiers/02-registry-stores-to-web.adoc[Registry (Stores, Surface
 
 `ShortName`::
 The one place the text is written, package-private: `TEXT = "^[a-z][a-z0-9-]{1,31}$"`. Nothing outside the package
-reads it; it exists so the two public types cannot drift apart.
+reads it; it exists so the three public types cannot drift apart.
 
 `RoleName`::
 The role name. `RoleName.PATTERN` is the compiled grammar and `RoleName.matches(String)` is the full match. The
@@ -35,6 +38,11 @@ names.
 `HarnessId`::
 The harness id, the identifier of an enrolled harness. It has the same shape as `RoleName` and reads the same
 `ShortName.TEXT`, but it is a type of its own.
+
+`IntegrationName`::
+The name of a git or provider integration (`git`, `github`, `gitlab`, `forgejo`, `sonar`) that a plan's overrides key
+their variant by. It reads the same `ShortName.TEXT` and is held apart from `RoleName` and `HarnessId`, so
+`PlanOverridesCodec` never validates an integration as a role or a harness.
 
 `CommandId`::
 The `command_id` of a call frame, `^cmd-[0-9a-f]{16}$`: one per pushed call frame, drawn by the engine from the `ids`
@@ -46,7 +54,7 @@ reference, never a secret, unique within the scope that owns the status.
 The `correlation_id` of an engine advance, `^cor-[0-9a-f]{16}$`: drawn once per advance and shared by every frame the
 advance pushes. Its API is `CommandId`'s.
 
-Both patterns are anchored. Only `WorkflowStatus.requireMatch` prints the name-grammar pattern in its refusal message,
+The name-grammar patterns are anchored. Only `WorkflowStatus.requireMatch` prints the name-grammar pattern in its refusal message,
 so the anchored text keeps that message byte-identical; every other caller matches through `Matcher.matches()`, which
 anchors either way.
 
@@ -56,7 +64,8 @@ The registry gives a role name and a harness id the same grammar today, under tw
 independently: a harness id is the name of an enrolled harness (`harness_id` of its harness profile), a role name is the
 name of a role artifact. A single type would make the compiler unable to tell a place that names a harness from one that
 names a role, and a later change of one grammar would silently change the other. So the text lives once in `ShortName`
-and the two public types carry their own registry entry.
+and the two public types carry their own registry entry. `IntegrationName` is a third name for the same text on the
+same reasoning: an integration is neither a role nor a harness.
 
 == How a Caller Uses Them
 
@@ -83,6 +92,13 @@ line and the two classes of this package. Only `core/id/ShortName.java` is exclu
 grammars that stay local (below) do not match the 2-to-32 text and need none, and the guard has no entry that could go
 stale.
 
+The guard reads every JSON file below a `src/main/resources` of the reactor as well: each JSON string that carries a
+spelling of the grammar must equal `RoleName.PATTERN` once its escapes are decoded, so a schema that restates the grammar
+unanchored, with an escaped hyphen or a reordered class fails naming the file and the line. A schema cannot point at
+the definition, so the schemas keep the text and the scan keeps them equal to it. A string that carries the grammar
+inside a larger pattern of another kind cannot be compared; the test records each with its reason (`NOT_COMPARABLE`:
+today the skill URI pattern of `domain-descriptor-v1.schema.json`) and fails when a recorded one is no longer found.
+
 The limit is a source scan of string literals: a grammar composed at run time (two literals concatenated, a constant
 read from a configuration file) and a hand-written character loop are not found; a reordered character class
 (`[a-z][0-9a-z-]{1,31}`) is not one of the three spellings and is not found either. A text block whose content carries
@@ -104,8 +120,9 @@ carry:
 * `QuestionRecord.BRANCH_KEY` and `AnswerFact.BRANCH` (`[a-z][a-z0-9_]{1,31}`), which carry `_` and not `-`.
 
 Other lower-case identifier grammars of the reactor (`ProjectEnrolment.VERB` and `LANGUAGE_ID`, `Finding.BOT_KIND`,
-`CompositionRules.RULE_ID`, `UnitFrontmatterReader.IDENTIFIER`) are not this text either and keep their own constants;
-the guard reports none of them.
+`CompositionRules.RULE_ID`, `UnitFrontmatterReader.IDENTIFIER` and `ICON_ID`, `SourceManifest.NAME_PATTERN`,
+`PrimitiveRegistry.IDENTIFIER`, `WorkflowParser.SEGMENT` and `PARAM_NAME`, `HeaderSchemaCheck.PHASE_6_STEP`) are not
+this text either and keep their own constants; the guard reports none of them.
 
 The `harness_id` grammar itself is stated as 2 to 32 in the registry and the store schemas and as 1 to 32 in the harness
 profile and role artifact schemas. The two forms are reported as a specification inconsistency; the code keeps each

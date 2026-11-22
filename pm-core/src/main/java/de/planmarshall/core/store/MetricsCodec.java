@@ -55,6 +55,10 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
  * The reader is as strict as every store of the runtime: exactly the current {@code format_version}, only declared
  * fields, each at most once, every required field, and a {@code total_tokens} that equals the sum of the five token
  * components it is derived from. Anything else is unreadable, never an empty store, and the refusal names the file.
+ * <p>
+ * A member that PLAN-V2-129 deleted is undeclared like any other: a task row written before that plan (2026-11-12)
+ * carries {@code "attempt_end"} and the whole file is refused, the refusal naming the member. No tolerant reader and
+ * no migration exist (pre-1.0; ADR {@code core-store/049}).
  *
  * @since 0.1
  */
@@ -526,7 +530,7 @@ public class MetricsCodec {
     /** The usage fields read so far; the row is accepted only when every one of them was read. */
     private static final class UsageState {
 
-        private OptionalLong totalTokens = OptionalLong.empty();
+        private @Nullable Long totalTokens;
         private Measurement inputTokens;
         private Measurement outputTokens;
         private Measurement cacheReadInputTokens;
@@ -538,7 +542,10 @@ public class MetricsCodec {
 
         void read(JsonParser parser, String field) throws IOException {
             switch (field) {
-                case FIELD_TOTAL_TOKENS -> totalTokens = readTotal(parser, field);
+                case FIELD_TOTAL_TOKENS -> {
+                    var total = readTotal(parser, field);
+                    totalTokens = total.isPresent() ? total.getAsLong() : null;
+                }
                 case FIELD_INPUT_TOKENS -> inputTokens = measurement(parser, field);
                 case FIELD_OUTPUT_TOKENS -> outputTokens = measurement(parser, field);
                 case FIELD_CACHE_READ -> cacheReadInputTokens = measurement(parser, field);
@@ -634,12 +641,13 @@ public class MetricsCodec {
 
         /**
          * The total is derived from the five components, never parsed, so a stored total that does not equal the sum
-         * of the components it was written from is a corrupt row and not a figure to trust.
+         * of the components it was written from is a corrupt row and not a figure to trust. A {@code null} stored total
+         * is the stored {@code unmeasured}.
          */
-        private static void requireDerivedTotal(OptionalLong stored, HarnessUsage usage) {
+        private static void requireDerivedTotal(@Nullable Long stored, HarnessUsage usage) {
             var derived = usage.totalTokens();
-            if (stored.isPresent() != derived.isPresent()
-                    || stored.isPresent() && stored.getAsLong() != derived.getAsLong()) {
+            if ((stored == null) != derived.isEmpty()
+                    || stored != null && stored != derived.getAsLong()) {
                 throw unreadable("'%s' does not equal the sum of the token components".formatted(FIELD_TOTAL_TOKENS));
             }
         }

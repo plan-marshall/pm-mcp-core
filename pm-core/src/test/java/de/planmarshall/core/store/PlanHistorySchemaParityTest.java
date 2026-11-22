@@ -185,6 +185,9 @@ class PlanHistorySchemaParityTest {
         var refusedReason = PlanHistoryLine.builder().formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(seqMin)
                 .event(Event.LEFT).node(word).callPath(List.of()).outcome(word).reason(notWord)
                 .instanceVersion(versionMin).at(Instant.EPOCH);
+        var hyphenatedReason = PlanHistoryLine.builder().formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(seqMin)
+                .event(Event.LEFT).node(word).callPath(List.of()).outcome(word).reason("a-b")
+                .instanceVersion(versionMin).at(Instant.EPOCH);
 
         assertAll(
                 () -> assertEquals(PlanHistoryLine.MAX_CALL_PATH, callPathMax,
@@ -222,7 +225,7 @@ class PlanHistorySchemaParityTest {
                         "The codec refuses what the pattern refuses"),
                 () -> assertEquals(outcomePattern.pattern(), PlanHistoryLine.OUTCOME_PATTERN.pattern(),
                         "The codec's outcome pattern is the schema's"),
-                () -> assertEquals(reasonPattern, PlanHistoryLine.OUTCOME_PATTERN.pattern(),
+                () -> assertEquals(reasonPattern, PlanHistoryLine.REASON_PATTERN.pattern(),
                         "The record's reason pattern is the schema's"),
                 () -> assertThrows(IllegalArgumentException.class, refusedReason::build,
                         "The record refuses a reason the pattern refuses"),
@@ -230,17 +233,22 @@ class PlanHistorySchemaParityTest {
                         "A digit-first outcome is refused by the codec"),
                 () -> assertFalse(PlanHistoryLine.OUTCOME_PATTERN.matcher("_x").matches(),
                         "An underscore-first outcome is refused by the codec"),
-                () -> assertFalse(PlanHistoryLine.OUTCOME_PATTERN.matcher("a-b").matches(),
-                        "A hyphenated outcome is refused by the codec"),
+                // A hyphenated outcome is an outcome wire name the primitive registry admits.
+                () -> assertTrue(outcomePattern.matcher("a-b").matches(),
+                        "The schema outcome pattern accepts a hyphen"),
+                () -> assertDoesNotThrow(() -> build(seqMin, versionMin, callPathMax, "a-b"),
+                        "The codec accepts a hyphenated outcome"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> build(seqMin, versionMin, callPathMax, "1a"),
                         "The codec refuses a digit-first outcome"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> build(seqMin, versionMin, callPathMax, "_x"),
                         "The codec refuses an underscore-first outcome"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> build(seqMin, versionMin, callPathMax, "a-b"),
-                        "The codec refuses a hyphenated outcome"));
+                // A reason keeps the hyphen-free grammar of the registry's reason wire names.
+                () -> assertFalse(Pattern.compile(reasonPattern).matcher("a-b").matches(),
+                        "The schema reason pattern refuses a hyphen"),
+                () -> assertThrows(IllegalArgumentException.class, hyphenatedReason::build,
+                        "The record refuses a hyphenated reason"));
     }
 
     private static PlanHistoryLine buildNode(int nodeLength) {

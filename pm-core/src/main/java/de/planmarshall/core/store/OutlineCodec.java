@@ -59,6 +59,10 @@ import de.planmarshall.core.store.OutlineStore.Revision;
  * The reader accepts exactly one shape: the current format version, only the declared fields, each at most once,
  * every required field, and a record whose rules hold. Anything else is unreadable, never an empty store, and the
  * refusal names the file.
+ * <p>
+ * A member that PLAN-V2-129 deleted is undeclared like any other: an outline written before that plan (2026-11-12)
+ * carries {@code "interfaces"} and {@code "key_links"} on every deliverable and is refused whole, the refusal naming
+ * the member. No tolerant reader and no migration exist (pre-1.0; ADR {@code core-store/049}).
  *
  * @since 0.1
  */
