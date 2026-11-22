@@ -31,8 +31,10 @@ change its media type between fetches.
 - **The source is `https`.** The caller's source URL must be an absolute `https` URL with a host, free of whitespace and
   at most `2048` characters, refused as `icon_source_url_invalid`. The profile validator applies the same rule to a
   profile's `icon.source`; the store states it again because it takes the value from a caller.
-- **The staged file is forced** to its medium before the move; the directory is not forced, so the durability of the
-  rename itself is the filesystem's. The match check above is what makes that acceptable.
+- **The staged file is forced** to its medium before the move, and the move is an `ATOMIC_MOVE` where the provider
+  supports one. A provider that refuses it falls back to a replacing move, which the match check above covers: an icon
+  left incomplete by such a move does not match its entry and is not served. The directory is not forced, so the
+  durability of the rename itself is the filesystem's.
 
 == Alternatives Considered
 

@@ -1505,5 +1505,34 @@ class PlanInstanceComposerTest {
 
             assertEquals(2, composed(composed).version(), "The post-run form composes without a provider");
         }
+
+        @Test
+        @DisplayName("landing.main on a protected base branch refuses the start composition with its reason")
+        void landingMainOnAProtectedBranchRefused() {
+            // The variant id and the prefix of the violation line are the contract of the landing check.
+            var refused = refused(composer().compose(
+                    start(facts().axis(PlanFacts.Axis.LANDING, PlanFacts.Level.PLAN, "landing.main").build()),
+                    new LandingVariantValidation.Project(true, true)));
+
+            assertAll(
+                    () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal(),
+                            "the landing refusal is the invariant refusal"),
+                    () -> assertTrue(refused.violations().stream()
+                                    .anyMatch(violation -> violation.startsWith("landing: the variant "
+                                            + "'landing.main' does not fit the project:")),
+                            "a violation names landing.main"));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(value = CompositionEvent.class, names = {"WAIVER", "REPLAN"})
+        @DisplayName("a later composition of a running plan is not refused by a project that changed since its start")
+        void laterCompositionSkipsLanding(CompositionEvent event) {
+            var inForce = version1();
+
+            var composed = composer().compose(request(event, facts().build(), inForce, List.of(), AT_START),
+                    new LandingVariantValidation.Project(false, true));
+
+            assertEquals(2, composed(composed).version(), "the running plan composes its next version");
+        }
     }
 }

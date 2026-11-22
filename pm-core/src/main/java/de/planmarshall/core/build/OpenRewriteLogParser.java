@@ -50,9 +50,21 @@ public class OpenRewriteLogParser {
 
     private static final Pattern REWRITE_RUN = Pattern.compile("---\\s+rewrite(?:-maven-plugin:[\\w.\\-]+)?:run\\s+\\(");
 
-    @SuppressWarnings("java:S8786") // ported pattern; the corpus fixtures pin it, a rewrite risks a silent change
+    /** The literal head of a finding line; the ported template's text before the path. */
+    private static final String FINDING_HEAD = "CUI_REWRITE-(10[01]): Finding (?:detected|pre-existing) at ";
+
+    /** The head alone, which {@link #findingMatch(String)} finds before it runs the whole template once. */
+    private static final Pattern FINDING_HEAD_PATTERN = Pattern.compile(FINDING_HEAD);
+
+    /**
+     * The finding template, the ported {@code (.+?):(\d+):(\d+) by (.+?): (.*)$} after the head. The path is the
+     * shortest text of at least one character that the location {@code :<line>:<column> by } follows, written as a
+     * tempered token that stops where the location begins, so no path length is tried twice; the location's digits are
+     * possessive because a colon or a blank, never a digit, follows them; the recipe name is written the same way as a
+     * token that stops at the first {@code : }. None changes a match of the ported form.
+     */
     private static final Pattern FINDING = Pattern.compile(
-            "CUI_REWRITE-(10[01]): Finding (?:detected|pre-existing) at (.+?):(\\d+):(\\d+) by (.+?): (.*)$");
+            FINDING_HEAD + "(.(?:(?!:\\d++:\\d++ by ).)*+):(\\d++):(\\d++) by (.(?:(?!: ).)*+): (.*)$");
 
     /** The identifier of a finding line, matched with a word boundary so a colon-less one is still recognised. */
     private static final Pattern FINDING_IDENTIFIER = Pattern.compile(RECIPE_LOG_PREFIX + "-10[01]\\b");
@@ -115,10 +127,13 @@ public class OpenRewriteLogParser {
      */
     private static Optional<RewriteLogResult> accept(String line, List<RewriteFinding> findings) {
         if (mayBeFinding(line)) {
-            Matcher match = FINDING.matcher(line);
-            if (match.find() && !match.group(2).isBlank() && !match.group(5).isBlank()
-                    && !SecretRedactor.redactText(match.group(2)).orElseThrow().isBlank()) {
-                return addFinding(line, match, findings);
+            var found = findingMatch(line);
+            if (found.isPresent()) {
+                Matcher match = found.get();
+                if (!match.group(2).isBlank() && !match.group(5).isBlank()
+                        && !SecretRedactor.redactText(match.group(2)).orElseThrow().isBlank()) {
+                    return addFinding(line, match, findings);
+                }
             }
         }
         return FINDING_IDENTIFIER.matcher(line).find()
@@ -151,6 +166,32 @@ public class OpenRewriteLogParser {
      */
     static boolean mayBeFinding(String line) {
         return line.indexOf("CUI_REWRITE-10") >= 0 && line.indexOf(" by ") >= 0;
+    }
+
+    /**
+     * The match of the finding template in a line, the one {@code FINDING.matcher(line).find()} gives, in one pass.
+     * <p>
+     * No part of the template matches a line terminator except the final one {@code $} admits, so a match begins after
+     * the last terminator inside the line; and when the template fails at the first head after it, it fails at every
+     * later head too, whose path, location and message are each a suffix of the first one's. So the template runs once,
+     * at that first head, and a line carrying many heads costs one scan instead of one per head.
+     *
+     * @param line the line to inspect
+     * @return the match, its groups readable, or empty when the line holds no finding
+     */
+    static Optional<Matcher> findingMatch(String line) {
+        var from = 0;
+        for (var index = 0; index < line.length() - 1; index++) {
+            if (BuildLogText.isLineTerminator(line.charAt(index))) {
+                from = index + 1;
+            }
+        }
+        Matcher head = FINDING_HEAD_PATTERN.matcher(line).region(from, line.length());
+        if (!head.find()) {
+            return Optional.empty();
+        }
+        Matcher match = FINDING.matcher(line).region(head.start(), line.length());
+        return match.lookingAt() ? Optional.of(match) : Optional.empty();
     }
 
     private static RewriteLogResult parseError(String line, String reason) {

@@ -3,11 +3,11 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-01
 origin: the three-layer analysis of the landing of PLAN-V2-157 (`landings/PLAN-V2-157.md`, 2026-11-20, PR #522 merged as `d65dbc66`) and the operator's rule that leftovers go into a staged plan
-lane: plan-marshall
+lane: runbook
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
 > Lives at `plans/PLAN-V2-164-call-bind-closeout.md` and is queued as one row file, `queue/PLAN-V2-164.json`,
-> in the epic ledger (lane `plan-marshall`: a medium plan, run with the plan lifecycle). The orchestrator EMITS the command below; it never launches the plan inline.
+> in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
 > the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
 > authored here and the epic-wide rules are in `standing-rules.md`, read first.
@@ -76,6 +76,8 @@ Source, tests, specification and documentation (specific files, R19):
 
 - OBSERVED (carried item 74, added 2026-11-21; read by the analysis leaf at `aab5ccdb`): `doc/specification/state-catalogue/01-conventions-generic-conditions.adoc`, `pm-core/doc/developer/core-store.adoc`, `doc/implementation-watch/workflow-dsl.adoc`.
 
+- OBSERVED (carried item 77, added 2026-11-21; read by the analysis leaf at `aaa7c002`): `pm-core/src/main/java/de/planmarshall/core/spi/Command.java`, `pm-core/src/main/java/de/planmarshall/core/spi/CommandSettlement.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/engine/EngineStep.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/engine/WorkflowEngine.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/engine/CommandDispatchTest.java`.
+
 ## Dependencies and Sequencing
 
 - Depends on: PLAN-V2-157 (shipped, #522, `landings/PLAN-V2-157.md`: the plan this one closes), PLAN-V2-15 (shipped, #513), PLAN-V2-156 (shipped, #516), PLAN-V2-83.
@@ -84,12 +86,14 @@ Source, tests, specification and documentation (specific files, R19):
 
 ## Carried Open Items
 
-74. **What the merge of PLAN-V2-19 (#531 `1ada535b`) made true or stale in this spec** (`landings/PLAN-V2-19.md`, carried 2026-11-21; merged as #531 `1ada535b` (the plan's own #530 was closed); read by the analysis leaf at `aab5ccdb`; no blocker). Binding over any contradicting older text: (a) PLAN-V2-19 is merged: the engine track is now 164, then 25 (19 leaves the overlap list and the sequencing note). (b) The engine hunks of PLAN-V2-19 do not touch `call`, `CallStack`, `invalidLinkArgs` or `storeSlot` (hunks at `advance`, chain AutoStep, `runPrimitive`, `Pending`, `leave`, `returnFromFrame`): the textual conflict with Deliverable 1 is low; `core-store.adoc` (inserted at `:233`), watch DSL-44 (`:609`) and Traceability were edited by 19, so expect hunk conflicts in Deliverable 2. (c) Deliverable 1: the `precondition_unmet` row of `state-catalogue/01-conventions-generic-conditions.adoc` (one long line, `:160-161`) now carries a "Second origin" sentence mid-row and `facts.reason` has two vocabularies (cause names such as `input_unbound`, and a primitive's reason wire name): adding `undeclared_param` and `missing_param` must edit the same line and keep that sentence. (d) Deliverable 4: `LessonStore.java:815` (`default -> false`) is still there at `aab5ccdb`; PLAN-V2-159's landing found ADR 079 `:79-81` false about it (PLAN-V2-163 item 64 carries the ADR side): the plan that removes the arm and the plan that corrects the ADR are the same change, decide it once. (e) Next free ADR numbers: workflow-verify 041, workflow-engine 023, core-store 081, core-spi 014 (R11).
+74. **What the merge of PLAN-V2-19 (#531 `1ada535b`) made true or stale in this spec** (`landings/PLAN-V2-19.md`, carried 2026-11-21; merged as #531 `1ada535b` (the plan's own #530 was closed); read by the analysis leaf at `aab5ccdb`; no blocker). Binding over any contradicting older text: (a) PLAN-V2-19 is merged: the engine track is now 164, then 25 (19 leaves the overlap list and the sequencing note). (b) The engine hunks of PLAN-V2-19 do not touch `call`, `CallStack`, `invalidLinkArgs` or `storeSlot` (hunks at `advance`, chain AutoStep, `runPrimitive`, `Pending`, `leave`, `returnFromFrame`): the textual conflict with Deliverable 1 is low; `core-store.adoc` (inserted at `:233`), watch DSL-44 (`:609`) and Traceability were edited by 19, so expect hunk conflicts in Deliverable 2. (c) Deliverable 1: the `precondition_unmet` row of `state-catalogue/01-conventions-generic-conditions.adoc` (one long line, `:160-161`) now carries a "Second origin" sentence mid-row and `facts.reason` has two vocabularies (cause names such as `input_unbound`, and a primitive's reason wire name): adding `undeclared_param` and `missing_param` must edit the same line and keep that sentence. (d) Deliverable 4: `LessonStore.java:815` (`default -> false`) is still there at `aab5ccdb`; PLAN-V2-159's landing found ADR 079 `:79-81` false about it (PLAN-V2-163 item 64 carries the ADR side): the plan that removes the arm and the plan that corrects the ADR are the same change, decide it once. (e) Next free ADR numbers: workflow-verify 041, workflow-engine 023, core-store 081, core-spi 014 (R11). **Stale since 2026-11-21 (PLAN-V2-25 merged as #542 `aaa7c002`, before this plan):** workflow-engine is at 028 and core-spi at 019 (read both at the head); `workflow-verify` 041 is also taken by the open pull request #545 of PLAN-V2-20 (its ADR 041 is the commit-message kind), so take the next free number at the head. The "engine track is 164, then 25" of (a) is reversed: 25 merged first and this plan edits the engine as #542 left it (the `Run` constructors, the `advance` overloads, the chain's call-refusal raise at `WorkflowEngine.java:1279`, adjacent to Deliverable 1).
+
+77. **What the merge of PLAN-V2-25 (#542 `aaa7c002`) leaves in the engine, three untested paths and a leak guard** (`landings/PLAN-V2-25.md`, carried 2026-11-21; read by the analysis leaf at `aaa7c002`; no blocker). The tests and the engine paths are here because this plan edits `WorkflowEngine` next: (a) **`spawnedJobId` mapping is asserted by no test** (`CommandDispatchTest`): on the raised exit `settle` carries `result.spawnedJobId()` (`WorkflowEngine.java:1575`) although the engine binds no job (only the routed exit sets it, `:1577`); decide the raised-exit semantics, then pin both exits. (b) **The transactional overloads of `advance` have no provenance test** (`WorkflowEngine.java:612`, `:629`, `:647`, `:666`; `drive()` uses the non-transactional entry points only): add the case per overload. (c) **The null-provenance refusal (`:1548`) has no test**; `composeOperatorEvent` (`:416`) and `restingWait` (`:680`) create a `Run` with a null provenance by the operator's decision (Q1 A, ADR core-spi/015): say so in the test. (d) **Lombok `@Builder` on `Command:38`, `CommandSettlement:48` and the three `EngineStep` variants** generates a builder `toString` that would print an input or a fact value if a builder were ever printed; `lombok.config` sets no `toString` option; the premise is unchecked (not compiled): check it and pin it with a leak test or switch the option off. (e) An unmappable `conditionKind` now throws `IllegalArgumentException` from the `CommandSettlement` constructor (`:1571`) before `ConditionRaised.raise`: the message and the site differ from what item 71(b) of PLAN-V2-161 describes; settle both in one place. The statements the merge made false in the specifications and guides are item 78 of PLAN-V2-161.
 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-164-call-bind-closeout.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-164-call-bind-closeout.md
 ```
 
 ## Write-Boundary

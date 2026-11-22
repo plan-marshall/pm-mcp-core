@@ -222,7 +222,10 @@ unit-local.
   077]).
 * *Consumed by its call.* The call clears the slot in the transaction that binds it, so a stale message or a stale path
   is never reused, and a restart between the fill and the call resumes from the pair (state, slot recorded); the engine
-  binds the value once and the second call that reads the same slot is refused `input_unbound`.
+  binds the value once and the second call that reads the same slot is refused `input_unbound`. Rule 6 refuses a read no
+  filling state separates from an earlier read, at build time and naming both reads
+  (link:../adr/core-store/077-a-slot-is-scope-level-and-consumed-by-its-call.adoc[ADR 077];
+  link:../../../pm-workflow/doc/adr/workflow-verify/042-rule-6-models-the-consumption-of-a-slot.adoc[ADR workflow-verify/042]).
 * *One value, two shapes.* A slot holds a text or the JSON array text of a `list<path>`, and `InputValidator.parse`
   reads that text back into the value at the bind.
 * *Format version 1 unchanged.* The member is added in place; a document without it reads as no slot and is rewritten
@@ -1509,7 +1512,11 @@ inside one transaction, is a violation the lock manager refuses
 
 Two refreshers of the same fact do not overwrite a newer result with an older one: the write re-reads the entry and,
 when the stored entry carries the same digest with a later `derived_at`, keeps it and returns it
-(link:../adr/core-store/056-the-derivation-runs-outside-the-lock.adoc[ADR 056]).
+(link:../adr/core-store/056-the-derivation-runs-outside-the-lock.adoc[ADR 056]). Two successes of different digests
+are last-writer-wins: the success that writes last is the one the store holds, ordered by the write, not by
+`derived_at`, because a refresher that started from an older snapshot may still write later (ADR 056, Decision). A
+failure that started later than a same-digest success and commits after it wins; that write-order gap is accepted
+there.
 
 The invariants of the write, per crash window (R14 (8)):
 
@@ -2742,6 +2749,8 @@ read and the aggregate carries its coverage.
   frames, and a frame carries no caller phase.
 * link:../adr/core-store/080-the-reason-is-an-optional-member-of-the-left-line.adoc[ADR 080]: the reason of a routed
   result is an optional member of the `left` history line, omitted when absent, in format version 1.
+* link:../adr/core-store/081-the-decision-log-rename-reads-no-old-name.adoc[ADR 081]: the renames of #427 read no old
+  name, the clarified request heads the role's calls "Role's Calls", and `repairs` keeps no bound.
 
 == The Intent Record
 
@@ -2761,6 +2770,14 @@ without exactly one riskiest one, a repeated identifier, and a source claim that
 current one and an identifier an earlier revision removed, and it appends the current revision to the history without
 changing it. `IntentCodec` reads and writes the document strictly, and `IntentStoreFile` runs the acceptance in one
 transaction on the plan lock.
+
+The strict readers refuse a member PLAN-V2-129 (2026-11-12) deleted like any undeclared member, so a record written
+before it is refused whole and the refusal names the member: an intent carries `capability` on every criterion, an
+outline `interfaces` and `key_links` on every deliverable, and a `metrics.json` task row `attempt_end`. No tolerant
+reader and no migration exist, and the format version stays 1
+(link:../adr/core-store/049-intent-and-outline-records-are-revision-stores.adoc[ADR 049]). The same holds for the
+names #427 replaced: `decisions` and the decider `model` are refused, not read
+(link:../adr/core-store/081-the-decision-log-rename-reads-no-old-name.adoc[ADR 081]).
 
 `IntentAcceptance` checks what needs the plan: an `operator` or `quorum` decision cites a part of an answered question
 record of this plan through the matching channel, a `fact` decision names an evidence path that exists (or a `pm://`
@@ -2789,7 +2806,9 @@ available, the landing variant fit for the project) before it calls the store. `
 document strictly; it checks
 the schema's own rules — an axis value carries its axis as prefix (`asking` is `ask.*`), an integration variant is `native`
 or `cli`, a role object sets at least one value — while the closed list of each axis's variants is checked where the axis
-binds (`PlanFacts.Axis`).
+binds (`PlanFacts.Axis`). Each name is checked by the grammar of what it names: a role key by `RoleName`, a role's
+`harness` by `HarnessId`, an integration key by `IntegrationName`; the three agree today and stay apart. A `maxLength`
+of the schema counts code points, so the codec counts them too (`codePointCount`), never UTF-16 units.
 
 `PlanOverridesStore` is the reader and writer of `plans/<plan_id>/overrides.json`. A write is one act of the operator's:
 `write(transaction, values, revision, updatedBy, updatedAt)` reads the current document inside the plan's open
@@ -2798,6 +2817,10 @@ past with `core.config.SettingsConflict` and the current document, and stages `r
 revision. The composition of the event `override`, the audit record and the `settings_changed` inbox message are the
 caller's acts in the same transaction
 (link:../adr/core-store/069-the-plan-overrides-are-written-through-the-plan-transaction.adoc[ADR core-store/069]).
+
+A corrupt `overrides.json`, or one in another format version, makes `read()` and so `write()` throw a `StoreRefusal`
+that names the file. No operator act repairs it: the operator deletes `plans/<plan_id>/overrides.json` by hand, which
+leaves the plan with no own values (every key defers to the project and the machine again), and sets the values anew.
 
 == The Outline Record
 

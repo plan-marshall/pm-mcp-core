@@ -25,7 +25,8 @@ import lombok.experimental.UtilityClass;
  * <p>
  * It is also the one seam every refusal passes, so it is where the echo of report content is bounded: the reason keeps
  * the format prefix and at most the first {@value #MAX_DETAIL_LENGTH} characters of the echoed content, a file name is
- * cut before its failure kind is appended so the kind always survives, and the parsers' own echo sites stay as they are.
+ * cut before its failure kind is appended so the kind always survives, and the parsers' own echo sites stay as they
+ * are.
  *
  * @since 0.1
  */
@@ -33,8 +34,9 @@ import lombok.experimental.UtilityClass;
 class CoverageRefusals {
 
     /**
-     * The most characters of a refusal's echoed content: a detail is cut to it, and a file name is cut to it before the
-     * failure kind is appended, so the reason can carry this many characters plus the kind.
+     * The most characters of a refusal's whole detail, the text after the format prefix: a detail is cut to it, and for
+     * a file-system failure the file name is cut so that the name, the separator and the failure kind together stay
+     * within it.
      */
     static final int MAX_DETAIL_LENGTH = 256;
 
@@ -56,9 +58,9 @@ class CoverageRefusals {
      * <p>
      * A file-system failure ({@link NoSuchFileException}, {@link AccessDeniedException} and every other
      * {@link FileSystemException}) carries the full path in its message, so its message is never passed through: the
-     * reason names the file name and the kind of failure, never the directory. Any other I/O failure — a malformed report,
-     * the bound of {@link CoverageReportStream} — is refused with its own message, as {@link #of(CoverageFormat, Exception)}
-     * does.
+     * reason names the file name and the kind of failure, never the directory. Any other I/O failure — a malformed
+     * report, the bound of {@link CoverageReportStream} — is refused with its own message, as
+     * {@link #of(CoverageFormat, Exception)} does.
      *
      * @param format     the format that was refused
      * @param reportFile the report file that was read

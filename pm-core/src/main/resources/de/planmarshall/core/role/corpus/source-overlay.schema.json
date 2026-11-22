@@ -73,7 +73,7 @@
           },
           "id": {
             "type": "string",
-            "maxLength": 256,
+            "maxLength": 250,
             "pattern": "^[a-z0-9][a-z0-9-]*$",
             "description": "the slug of the item: its file name below the topic without .json"
           },

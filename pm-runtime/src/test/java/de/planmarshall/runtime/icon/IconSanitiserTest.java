@@ -210,6 +210,23 @@ class IconSanitiserTest {
         }
 
         @Test
+        @DisplayName("refuses an escaped function in a presentation attribute")
+        void refusesEscapedAttributeUrl() {
+            assertRefused(IconRefusal.SVG_EXTERNAL_REFERENCE,
+                    svg("<path d=\"M0 0\" fill=\"u\\72l(https://example.invalid/x)\"/>"),
+                    "an escaped function in an attribute is refused");
+        }
+
+        @Test
+        @DisplayName("refuses a sanitised document above the serving bound")
+        void refusesSanitisedOutputAboveTheBound() {
+            var candidate = ("<svg xmlns=\"http://www.w3.org/2000/svg\"><title>"
+                    + ">".repeat(70_000) + "</title></svg>").getBytes(StandardCharsets.UTF_8);
+
+            assertRefused(IconRefusal.TOO_LARGE, candidate, "escaping grows an icon past the bound");
+        }
+
+        @Test
         @DisplayName("keeps one href when both namespaces carry one")
         void keepsOneHref() {
             var sanitised = IconSanitiser.accept(svg(
@@ -349,6 +366,45 @@ class IconSanitiserTest {
             assertFalse(contains(sanitised.content(), "eXIf".getBytes(StandardCharsets.US_ASCII)),
                     "the eXIf chunk is stripped from the stored image");
         }
+
+        @Test
+        @DisplayName("keeps a private ancillary chunk, which it does not claim to clean")
+        void keepsPrivateAncillaryChunk() {
+            var candidate = PngFixtures.png(PngFixtures.chunk("noTe", "free text".getBytes(StandardCharsets.UTF_8)));
+
+            var sanitised = IconSanitiser.accept(candidate);
+
+            assertTrue(contains(sanitised.content(), "noTe".getBytes(StandardCharsets.US_ASCII)),
+                    "a private ancillary chunk is copied with the image");
+        }
+
+        @Test
+        @DisplayName("refuses a PNG with a second header chunk")
+        void refusesSecondHeader() {
+            assertRefused(IconRefusal.PNG_MALFORMED,
+                    PngFixtures.png(PngFixtures.chunk("IHDR", new byte[13])),
+                    "a second IHDR chunk is refused");
+        }
+    }
+
+    @Test
+    @DisplayName("keeps an SVG behind a byte order mark and whitespace")
+    void keepsSvgBehindABom() {
+        var candidate = ("\uFEFF  " + SVG_OPEN + SAFE_PATH + SVG_CLOSE).getBytes(StandardCharsets.UTF_8);
+
+        var sanitised = IconSanitiser.accept(candidate);
+
+        assertEquals(IconMediaType.SVG, sanitised.mediaType(), "the mark and the whitespace are skipped");
+    }
+
+    @Test
+    @DisplayName("drops a comment and a processing instruction")
+    void dropsNonElementEvents() {
+        var sanitised = IconSanitiser.accept(svg("<?xml-stylesheet href=\"x\"?><!-- note -->" + SAFE_PATH));
+
+        var text = new String(sanitised.content(), StandardCharsets.UTF_8);
+        assertFalse(text.contains("xml-stylesheet"), "a processing instruction is dropped");
+        assertFalse(text.contains("note"), "a comment is dropped");
     }
 
     private static void assertRefused(String code, byte[] candidate, String message) {

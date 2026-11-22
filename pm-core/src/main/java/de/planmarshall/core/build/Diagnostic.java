@@ -19,31 +19,31 @@ import de.planmarshall.core.queue.SecretRedactor;
 /**
  * One structured diagnostic of a build log: where the tool pointed and what it said.
  * <p>
- * A diagnostic is a pure value. The location is absent component-wise: a line that carries no file has a null file, and
- * one that names a file but no line has a null line. A field, a record component and a return value follow the null
- * contract of the package: an absent location is a {@code @Nullable} component, never an {@code Optional}, and the
- * message itself is never null.
+ * A diagnostic is a pure value. The location is absent component-wise: a line that carries no file has a null file,
+ * and one that names a file but no line has a null line. A field, a record component and a return value follow the
+ * null contract of the package: an absent location is a {@code @Nullable} component, never an {@code Optional}, and
+ * the message itself is never null.
  * <p>
  * The {@code stackTrace} component carries the frames the parser collected for this diagnostic, {@code null} where the
  * log carried none. It is the target of the Maven and Gradle parsers' stack-trace collection, which the ported
- * originals attach to the last issue they filed (see {@link StackTraceCollector}). The constructor redacts it and cuts it
- * to the stored bound; the constructor redacts the file too, so neither read-out can leave a parser unmasked.
+ * originals attach to the last issue they filed (see {@link StackTraceCollector}). The constructor redacts it and cuts
+ * it to the stored bound; the constructor redacts the file too, so neither read-out can leave a parser unmasked.
  * <p>
  * The record has seven components, so it carries a {@code @Builder} beside its validating canonical constructor.
  *
  * @param file       the source file the diagnostic points into, or {@code null} when the tool named none; its
- *                   credential shapes are redacted here, and a file that holds nothing visible after the redaction is no
- *                   location — the line and column are dropped with it, so one such line cannot fail a whole parse
+ *                   credential shapes are redacted here, and a file that holds nothing visible after the redaction is
+ *                   no location — the line and column are dropped with it, so one such line cannot fail a whole parse
  * @param line       the line in {@code file}, or {@code null} when the tool named none
  * @param column     the column in {@code line}, or {@code null} when the tool named none
  * @param message    the diagnostic text with the tool's level prefix removed, never blank; its credential shapes are
  *                   redacted at {@link DiagnosticCollector#stored(String)}
  * @param category   the category the compiled table assigned, never {@code null}
- * @param severity   how serious the parser rates the diagnostic — the level the tool printed where it prints one (Maven),
- *                   the category otherwise (Gradle)
- * @param stackTrace the frames collected for this diagnostic joined by {@code \n}, or {@code null} when there were none;
- *                   its credential shapes are redacted here and it is cut to the stored bound, so no producer can store
- *                   an unmasked stack or a read-out longer than a stored message
+ * @param severity   how serious the parser rates the diagnostic — the level the tool printed where it prints one
+ *                   (Maven), the category otherwise (Gradle)
+ * @param stackTrace the frames collected for this diagnostic joined by {@code \n}, or {@code null} when there were
+ *                   none; its credential shapes are redacted here and it is cut to the stored bound, so no producer can
+ *                   store an unmasked stack or a read-out longer than a stored message
  * @since 0.1
  */
 @Builder

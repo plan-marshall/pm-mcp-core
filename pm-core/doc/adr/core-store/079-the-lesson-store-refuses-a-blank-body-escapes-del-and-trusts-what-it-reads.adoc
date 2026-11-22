@@ -76,9 +76,12 @@ Four contracts of the lesson store, each in one place:
   citation of a lesson that does not exist. Both writes apply it: `create` marks a lesson whose `sources[]` cite a
   lesson that is marked or cannot be trusted, and `revise` does the same for its new sources and for every lesson named
   in `merged_from[]`.
-* `LessonResolution.Absent` is the one state `LessonStore.isUntrusted` maps to `false` beyond `found` and `empty_shell`;
-  the switch has no `default` arm, so a new variant of the sealed type fails to compile until its arm is stated, and a
-  test compares the resolution arms with `LessonResolution.State` so a new state cannot pass without one.
+* `LessonResolution.Absent` is the one state `LessonStore.isUntrusted` maps to `false` beyond `found` and `empty_shell`,
+  whose own mark it returns. The switch names every variant of the sealed type and has no `default` arm, so a new
+  variant fails to compile until its arm is stated; a test compares the resolution arms with `LessonResolution.State`
+  so a new state cannot pass without one. Amended 2026-11-21 (PLAN-V2-163): pull request #522 (`d65dbc66`) had added a
+  `default -> false` arm, which made this sentence false and let a new variant count as trusted, fail-open on the path
+  this decision calls fail-closed; the arm is removed.
 * Because the verdict rules now run in the record, they also run at decode: a file whose `retired` contradicts its
   verdict (say `applied` with an `into`, or `completely_covered` without a clause) no longer decodes and resolves
   `present_unreadable` where it was `found` before, and a revision that cites such a lesson is marked untrusted. No

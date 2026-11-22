@@ -1,0 +1,59 @@
+= ADR workflow-dsl 017: A Slot Reference Is Typed in the Instance Header
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+The plan-instance header records the arguments a policy call was composed with as JSON values: a string for an enum
+value, a number for an integer, an array for an enum list. A call argument can also be a slot reference
+(`callee_input = slot.<name>`), and `HeaderJson` wrote it as the string `slot.<name>`, the DSL's source form, and read it
+back as a `CallValue.SlotRef` when a string carried that prefix.
+
+The form is ambiguous. The grammar's enum values carry no dot, but a `CallValue` is a value of the library and not only
+of the parser: a hand-built or composed tree can carry `CallValue.EnumValue("slot.commit")`, and the run's own test proves
+it. Once written, such a value reads back as a reference to a slot named `commit`. The value the caller bound and the value
+the composition reads are not the same, and nothing in the header says so. The same encoder serves the composition log's
+`diff_summary.ceilings_changed`, so the ambiguity reached there too.
+
+== Decision
+
+* A slot-reference argument is written as a typed object, `{"slot":"<name>"}`, and read back as
+  `CallValue.SlotRef(name)`. Every other value keeps its JSON scalar or array form: the string form of an enum value is
+  never a reference. The encoder is `HeaderJson.callValue`, which the instance header and the composition log share.
+* The instance-header schema admits any JSON value at `policy_calls[].args[].value`, and the composition-record schema
+  leaves `ceilings_changed[].previous` and `value` untyped, so neither needs a schema change; the format version stays 1
+  (R13), the change replaces the earlier shape in place, and the Workflow DSL specification's instance-header part states
+  the typed form.
+
+== Alternatives Considered
+
+* *Keep `slot.<name>` and refuse an enum member with that prefix.* Refused: the prefix is not reserved by the grammar, and
+  a refusal would cost a `CallValue` the library admits even though the parser never writes one.
+* *Escape the prefix (`\slot.x`).* Refused: an escaping rule must be stated for every reader, and a typed member states the
+  kind without one.
+* *Leave the ambiguity and document it.* Refused: the header is the record the composition reads to re-runs a call; a value
+  that changes kind on the way back is a defect, not a documented limit.
+
+== Consequences
+
+* `PlanInstanceHeaderTest` pins both shapes: a slot reference reads back as a reference, and the enum value `slot.commit`
+  reads back as an enum value.
+* The composition log's diff summary writes the same typed object for a ceiling whose value is a slot reference; no reader
+  of either document distinguishes a value by its text any more.
+* A header or a diff-summary line written before this change that carried a slot reference as a string now reads it as an
+  enum value. No stored document is migrated and no reader of the older shape is kept (R13, pre-1.0): the composition
+  writes the typed form from its first write after this change.
+
+== Source
+
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#instance-header-grammar[Workflow DSL § Instance
+  Header Grammar]
+* link:../workflow-dsl/004-instance-header-json-kept-as-a-string.adoc[ADR workflow-dsl/004]
+* `PLAN-V2-164` Deliverable 2

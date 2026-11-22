@@ -28,7 +28,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 4 (rename of code already built)
 
 |link:decision-log-renames.adoc[`decision-log-renames`]
-|The intent record's `decisions[]` becomes `choices[]`, one enum of decider kinds for choices and amendment sources; records with the old names stay readable
+|The amendment sources take the one enum of decider kinds; a record with an old name or value is refused, not read (the intent record's `choices[]` and decider `role` were delivered by #427)
 |`open`
 |nothing
 |Milestone 8 (rename of code already built: the intent record)
@@ -213,12 +213,6 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |`operator-reports`; `plan-and-epic-control` (the archives of plans); `epic-resource-and-release` (the archives of epics, the release; the unenrolment); `chat` (ended work, read-only); `runtime-metrics` (the token figures kept); `project-onboarding-unit` (the project's values)
 |Milestone 10; the client work of `pm-mcp-clients`
 
-|`judgment-votes`
-|A judgment role votes: two requests, the confidence from the lower probability, a rationale composed by the server, the class rule, and the calibration form; dropped: the judgment vote is deferred (link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-39[Later Improvements, L-39])
-|`dropped`
-|`decision-engine` (the vote members of the decision-log record); `decision-quorum-and-calibration` (the decision declarations, the adjudication unit, and the calibration)
-|Milestone 14
-
 |link:own-calls.adoc[`own-calls`]
 |Own calls of a writer: the choices a task settled that the plan left open, submitted with the task, checked by the server, and recorded as decisions
 |`blocked`
@@ -333,6 +327,8 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |
 |
 
+// The `diagram-generator` row stands `done` with no package file and is left as it is (R08): no plan owns a package
+// row, so no plan changes it (decision of PLAN-V2-159, recorded here by PLAN-V2-163).
 |`diagram-generator`
 |Diagram and table generators
 |`done`

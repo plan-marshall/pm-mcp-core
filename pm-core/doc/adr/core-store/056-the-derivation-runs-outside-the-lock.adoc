@@ -7,7 +7,8 @@ Accepted
 
 == Date
 
-2026-11-01
+2026-11-01; amended 2026-11-21 (PLAN-V2-163: the failure-versus-success write-order gap is accepted, and the
+cross-digest failure rule has its alternative)
 
 == Context
 
@@ -33,7 +34,9 @@ check: when its stored entry has a different digest or no stored entry, or a sam
 `derived_at` (where `isAfter(now)` is false and the failure is applied), it rewrites the entry `failed` (or `stale`,
 when it carried a value) whatever its start instant. A failure that started later and commits after an earlier-started
 success of the same digest wins; a failure that commits before that success can be overwritten by it. That gap of the
-write rule is reported by PLAN-V2-111 and not changed there, because the plan touches production only in `validated`.
+write rule, reported by PLAN-V2-111, is accepted: the losing order leaves the entry `failed` or `stale` with the last
+good value kept, a state the next refresh heals, and never returns a value the store cannot vouch for as `current`.
+No plan and no test changes it.
 
 Two successful derivations of different digests are last-writer-wins. A digest names an input snapshot, and the store
 has no rule that orders two different snapshots: the later successful derivation's value is the one the store holds, and
@@ -58,6 +61,13 @@ and is healed by that entry's own digest.
 * Compare-and-set on the whole file: the write would fail and retry on any concurrent write, even one of another key,
   so two independent refreshers would serialize on retries instead of on the one short write. The entry-level rule
   needs no retry and keeps an unrelated entry untouched.
+* A failure rule scoped to its digest: a failure would mark the entry `stale` only when the stored digest is its own,
+  and leave an entry of another digest `current`. Not taken: the specification's failure rule names no digest, and an
+  entry the latest refresh could not derive would then be returned `current` although the store can no longer vouch
+  for it.
+* Ordering a failure against a success of the same digest by start instant as well: it would close the write-order
+  gap, but needs a second ordering check on the failure path for a state the next refresh heals anyway. Not taken; the
+  gap is accepted (Decision).
 
 == Consequences
 

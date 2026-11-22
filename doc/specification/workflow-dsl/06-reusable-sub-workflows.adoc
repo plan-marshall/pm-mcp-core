@@ -268,13 +268,13 @@ _Implementation watch: link:../../implementation-watch/workflow-dsl.adoc#PM-WATC
 *** The ADR renumbering of the landing (`finalize.merge-sync`, `finalize.land-main`, `finalize.land-files`; link:../phase-workflows/06-finalize-re-entry-and-merge.adoc#adr-number-at-landing[Phase Workflows Specification, ADR Number at Landing]): `chore(finalize): renumber ADRs against <base_branch>`.
 ** No step supplies a message of its own. A call site may bind `message` from a slot of its unit (`message = slot.<name>`), which then replaces the fixed message; no call site of the matrix binds it. The value is validated against the slot's type where it is filled: a `commit_message` slot refuses a text that is no Conventional Commit or carries a `Co-Authored-By:` line (the rule `input.commit-message`) with `invalid_link_args`, and the submission or the act that carried it is not accepted (xref:04-ast-node-model.adoc#static-verification-rules[Rule 6]). The only trailer in the commit is the one the server appends here.
 ** When `message_mode == interactive` (or `none_assert_clean` when unexpected dirty files were found), transitions to `git.compose-message`, whose task carries `facts` from `git.diff-summary` (changed file count, module scope, priority-ordered suggested type `fix > feat > perf > refactor > docs > style > test > chore > ci`) and whose submit carries `message: text[1..2000]` directly in `pm_do` `args`.
-** Validates Conventional Commits format (`<type>[optional (<scope>)][!]: <subject>`) via `ConventionalCommitValidator` and deterministically appends the configured trailer `Co-Authored-By: {name} <{email}>`, resolved from the operator's `commit_trailer{name,email}` in the machine-local `<PM_MCP_BASE>/projects/<project_id>/local-config.json`, falling back to `machine-config.json` `project_defaults.commit_trailer` and then to the compiled default `plan-marshall <noreply@cuioss.de>` (link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas Specification, Operator Local Configuration]); the schema refuses an empty value or one containing an angle bracket or line break. No team file is ever consulted for the trailer.
+** Validates Conventional Commits format (`<type>[optional (<scope>)][!]: <subject>`) via `ConventionalCommitValidator` and deterministically appends the configured trailer `Co-Authored-By: {name} <{email}>`, resolved from the operator's `commit_trailer{name,email}` in the machine-local `<PM_MCP_BASE>/projects/<project_id>/local-config.json`, falling back to `machine-config.json` `project_defaults.commit_trailer` and then to the compiled default `plan-marshall <noreply@cuioss.de>` (link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas Specification, Operator Local Configuration]); the schema refuses an empty value or one containing an angle bracket or line break. No team file is ever consulted for the trailer. A `commit_message` body carries no control character, a tab included (the rule `input.commit-control`): a line break is the only control character the type admits (link:../../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR workflow-input/006]).
 ** The trailer names the system that produced the commit; it is independent of the commit's author and committer (Stage 4), which are never taken from the message.
 ** The resolved trailer is the only authority: a `Co-Authored-By:` line in a model-supplied `message` is rejected (`invalid_link_args`, `detail` names the line), and the only trailer in the commit is the one the server appends. The commit's audit record carries `trailer_source: {name, email}`, each half `configured`, `default`, or `invalid_ignored` (a stored value that was treated as absent); it is provenance for the operator and is never rendered in `facts`.
 * *Stage 4 — Staging, `stdin`-Piped Commit & Change-Ledger Stamping (`git.stage-and-commit`)*:
 ** *Footprint check first*: Before anything is staged, the primitive runs the footprint check for every caller (plan, epic, and workspace scope; <<_call_site_reuse_matrix_across_workflows>>): (1) the worktree boundary: no dirty path of the target checkout lies outside the staging set derived below, and for a plan no file outside its worktree was dirtied; (2) the pinned build files: no enrolled wrapper's `pinned_files` (link:../job-runtime/01-pipeline-and-subprocesses.adoc#_verify_not_resolve_execution_pipeline[Job Runtime Specification, Verify-Not-Resolve]) changed in the target checkout; (3) the main checkout: for a plan scope, no main-checkout path outside `.marshall/local/` is absent from `entry_baseline` or changed since it (`mcp/status.json`, link:../store-schemas.adoc[Store Schemas Specification]); for a `local_changes` plan this is the `entry_baseline` re-recorded by `land.worktree-init` after the capture restored the main checkout's captured paths, so the captured changes and their restoration never count as a violation (link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows Specification, Plan Source Contracts]). A violation raises the `footprint_violation` condition on the current state (the sub-workflow state `git.stage-and-commit`, xref:04-ast-node-model.adoc#condition-overlays[Condition Overlays (Engine-Owned)]) naming the offending files, and no commit is made; the condition's bounded self-remedy (in a plan, a task of the plan's writer role that reverts the offending changes; otherwise a re-check after the cause is removed) runs the check again. The check is part of the primitive, not of a link, so no caller can reach a commit around it.
 ** Derives the staging set from the scope, never from whatever the checkout holds: for a plan, the dirty paths inside its worktree after the footprint check (paths beyond the declared footprint are unplanned changes, staged and recorded with their provenance, the task or the loop-back, for the PR body and the landing record); for epic scopes, `.marshall/epics/**`, and while the epic archives (its archive flag, set by `epic.archive`) also `.marshall/archived-epics/**`; for the workspace scope, the setup call's set `.marshall/config/**`, `.gitignore`, and `.marshall/project-architecture/**`. A dirty path outside that set is never staged.
-** A bound `files` narrows the COMMIT set to a subset of that staging set, never the footprint check, which keeps judging the whole set: a dirty path outside `files` but inside the scope's set is left unstaged and is no violation, and a dirty path outside the scope's set stays a violation. Absent `files` means every path of the staging set. A list of no entry is outside the input's type (`list<path>[1..500]`, the rule `input.count`) and is refused where the slot is filled: it never means every change. A bound path outside the staging set is refused at the bind (`input_refused`, the rule `path.staging`, or `path.confinement` for a path outside the checkout), a check only the bind can make.
+** A bound `files` narrows the COMMIT set to a subset of that staging set, never the footprint check, which keeps judging the whole set: a dirty path outside `files` but inside the scope's set is left unstaged and is no violation, and a dirty path outside the scope's set stays a violation. Absent `files` means every path of the staging set. A list of no entry is outside the input's type (`list<path>[1..500]`, the rule `input.count`) and is refused where the slot is filled: it never means every change. A bound path outside the staging set is refused at the bind (`input_refused`, the rule `path.staging`, or `path.confinement` for a path outside the checkout), a check only the bind can make. The syntactic rules of a path are those of a literal staging: a segment may not begin or end with a space or end with a dot (`path.edge-space`, `path.trailing-dot`), because a filesystem that folds either would reach another name (`.git ` reads as `.git` on NTFS), while the characters `*`, `?` and `[` are admitted, because the staging names the path literally (link:../../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR workflow-input/006]).
 ** Stages the scoped files literally and invokes `git -C <tree> commit -F -`. Every path, bound or derived, is data and never a pathspec: the CLI variant runs `git -C <tree> --literal-pathspecs add --pathspec-from-file=- --pathspec-file-nul` with the paths NUL-separated on `stdin`, the native variant stages each path as an exact path. No character of a path is read as pathspec magic or as a glob, so a dirty file named `:(glob)**`, `-rf` or `app/[slug]/page.tsx` is staged as that file, and the staging refuses no path for the characters `*`, `?` or `[` (link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-41[PM-WATCH-DSL-41]). The commit streams the validated UTF-8 commit message + trailer directly to child `stdin` in memory (`PM-EXEC-5`) with zero `.plan/temp/` files.
 ** *Author and committer*: The commit's author is the operator: `commit_identity{name, email}` of the operator's `local-config.json` (link:../store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas Specification, Operator Local Configuration]), captured in project setup. The committer is the agent identity resolved from the provider credential (the derived fact `agent_identity`: for a GitHub App its `<app-slug>[bot]` noreply address, for a token the token's user); without a resolvable agent identity it is the compiled identity `plan-marshall-mcp <noreply@cuioss.de>`. Both variants produce identical metadata: the native variant sets author and committer on the commit object, the CLI variant passes the author as `-c user.name=… -c user.email=…` and the committer through `GIT_COMMITTER_NAME` and `GIT_COMMITTER_EMAIL`. The operator's own git `user.*` configuration is never read at commit time. Author and committer are recorded in the commit's audit record and never rendered in `facts` (link:../hypermedia-format/01-representation-and-link-forms.adoc#model-facing-minimality[Hypermedia Format Specification, Model-Facing Minimality]).
 ** Captures `commit_sha` (`git -C <tree> rev-parse HEAD`) and git-sourced `changed_paths` (`git -C <tree> diff-tree --no-commit-id --name-only -r <commit_sha>`), appending a `kind = "change"` entry to `change-ledger.jsonl`.
@@ -300,70 +300,86 @@ Every call site routes the exit contract `done` / `stepped_out` (Rule 6); a site
 
 A call site that replaces its fixed commit message (Stage 3) binds `message = slot.<name>` beside `message_mode` and `push_mode`; a call site that commits only part of its staging set binds `files = slot.files`. Both slots are declared and filled in the caller's unit. The rule applies to every row below. No call site in the table binds `message` or `files`.
 
-[cols="2,2,2,3"]
+[cols="2,2,2,2,3"]
 |===
-|Caller Workflow & State |`message_mode` |`push_mode` |Behavior & Routing
+|Caller Workflow & State |`message_mode` |`push_mode` |`push_target` |Behavior & Routing
 
 |`phase-5-execute` -> `execute.chain-tail-commit`
 |`auto_deliverable`
 |`never`
+|`branch`
 |Per-deliverable checkpoint commit at the tail of each deliverable's verification chain (`Step 10a`); cleans artifacts, commits via `stdin`, stamps `change-ledger.jsonl`, and stays local until Phase 6. `done` -> `execute.deliverable-build` (the per-deliverable module build); `stepped_out` -> the phase's exit `hand_back`.
 
 |`phase-5-execute` -> `execute.remediation-commit`
 |`interactive`
 |`never`
+|`branch`
 |Commits the changes of every remediation cause: the fixes of the remediation tasks allocated for a `fix_requested` of `remediation.build-failure` in Phase 5 or of a finalize loop-back, and the real changes of a dirty tree at `execute.exit-barrier`; validates the Conventional Commit message and stamps `change-ledger.jsonl`. `done` -> `execute.route-commit-cause`, an `auto` router state that continues by the persisted `remediation_cause` (`deliverable` -> `execute.deliverable-build`; `sweep` for `sweep`, `finalize`, and `exit_barrier` -> `execute.verify-sweep`); `stepped_out` -> the phase's exit `hand_back`.
 
 |`land` -> `land.remediation-commit`
 |`interactive`
 |`never`
+|`branch`
 |Commits the real changes of a dirty tree at `land.exit-barrier`; its artifact review separates build leftovers from the real changes, which are recorded as unplanned changes. `done` -> `land.verify-sweep`; `stepped_out` -> `land.handed-back` (the lane's exit `hand_back`).
 
 |`phase-6-finalize` -> `finalize.settle-commit`
 |`step_or_fallback`
 |`post_pr_conditional`
+|`branch`
 |Phase 6 commit instrumentation after every change of a `mutates_source: true` step made in Phase 6 (`simplify`, `architecture-refresh`, `pre-push-quality-gate`, `adr-propose`; a `security-audit` fix runs in the `loop_back` form and is committed by the exit barrier) and after a resolved sync-baseline conflict; re-stamps `head_at_completion`, records `freshness_reconcile` (any commit after the latest successful build), and re-pushes when `settle_trigger.order > 20` and the project has a push remote. `done` with `result.pushed` -> `finalize.review-cap-check`, without -> `finalize.next-step`; `stepped_out` -> `finalize.hand-back`.
 
 |`phase-6-finalize` (landing variant `landing.pull-request`) -> `finalize.push-barrier`
 |`none_assert_clean`
 |`if_push_remote`
+|`branch`
 |Phase 6 `default:push` barrier (`order == 11`); verifies working-tree cleanliness (or commits residual changes), checks the derived fact `push_remote`, enforces `pre-commit-verify-freshness` and `branch-sync-state`, and pushes to `origin/<branch>`. `done` with `result.landed` -> `finalize.merge-gate` (completes `default:push` `skipped`); otherwise -> `finalize.next-step` (completes `default:push` `done`: the remote branch holds `HEAD`; a local-only plan prunes the step), which selects `create-pr` unless the instance prunes it; `stepped_out` -> `finalize.hand-back`. A plan of source `pr` re-pushes the adopted pull-request head branch through this state and `finalize.settle-commit`; there is no separate pull-request repair workflow.
 
 |`remediation.ci-failure`, `remediation.review-findings`, `remediation.analysis` -> `<unit>.commit-fix`
 |`interactive`
 |`always`
+|`branch`
 |The in-branch `fix` of a remediation unit inside the finalize wait region or at the pre-merge barrier, always after the pull request exists (the Settle-band call sites `finalize.remediate-security-audit` and `finalize.remediate-self-review` bind `actions=[loop_back]` with `retry_budget=0` and never reach this state); `done` with `result.commit` -> the unit's await state for the new `HEAD`; `done` without a commit and `stepped_out` -> the unit's `budget-check` (the fix was charged when its task submitted it, xref:08-remediation-units.adoc#remediation-units[Remediation Policy Units]).
 
 |`epic.pmwf` -> `epic.commit-ledger`
 |`step_or_fallback`
 |`never`
+|`branch`
 |Commits epic ledger updates in the shared epic worktree on the fixed epic branch, staging only `.marshall/epics/**` paths; entered from `epic.archive` with the epic's archive flag set, it also stages `.marshall/archived-epics/**`, so the ledger's move into the archive is committed and landed like every ledger write. Never commits on the primary checkout; ledger changes reach the default branch only through the epic landing (link:../model-work/08-epic-coordination.adoc#epic-landing[Model Work Specification]); `done` continues at `epic.next-work`; `stepped_out` returns to the watch `epic.active` (the write stays uncommitted).
 
 |`decomposition.pmwf` -> `decomposition.commit`
 |`step_or_fallback`
 |`never`
+|`branch`
 |Commits the decomposition the operator agreed to in the review (the workstreams and the staged rows written to the ledger, with the epic's sources on the first run) in the shared epic worktree on the fixed epic branch, staging only `.marshall/epics/**`, and clears the draft (link:../state-catalogue/17-epic-decomposition-and-review.adoc#state-decomposition.commit[State Catalogue Specification, `decomposition.commit`]). `done` -> `decomposition.done`; `stepped_out` returns to `decomposition.review` (the draft kept; agreeing commits again).
 
 |`phase-6-finalize` (landing variant `landing.main`) -> `finalize.land-main`
 |`step_or_fallback`
 |`always`
+|`base`
 |Binds `push_target: base`: commits the plan's change from the base to `HEAD` as one commit on the base branch and pushes it there through the push freshness gate, with the explicit lease of the observed base commit and never as a force push (link:../phase-workflows/06-finalize-re-entry-and-merge.adoc#landing-variants[Phase Workflows Specification, Landing Variants]); `done` with `result.pushed` completes the landing; `done` without it and `stepped_out` -> `finalize.hand-back` (local form).
 
 |`git.land-removal` -> its commit state
 |`step_or_fallback`
 |`always`
+|`branch` / `base`
 |The removal from git of the documents a start moved into its source directory (<<short-landings>>); `push_target` by the project's landing: `branch` under `landing.pull-request`, `base` under `landing.main`.
 
 |`git.land-unit` -> its commit state
 |`step_or_fallback`
 |`always`
+|`branch` / `base`
 |A workflow unit placed or removed at project level (<<short-landings>>); `push_target` as for `git.land-removal`.
 
 |`git.land-setup` -> its commit state
 |`step_or_fallback`
 |`always`
+|`branch` / `base`
 |The team configuration a project's setup changed, started by `setup.land-changes` (<<short-landings>>); `push_target` as for `git.land-removal`.
 |===
+
+`push_target` is the effective value of the call site: the value it binds, or the input's compiled default `branch` where
+it binds none. The column carries only the input's two admitted values; the three short landings bind it by the project's
+landing variant and therefore carry both.
 
 The epic ledger (`epic.commit-ledger`, `decomposition.commit`) and the short landings, the project setup's changes among them (`git.land-setup`), reach the base branch through the project's landing variant (xref:09-plan-instance.adoc#plan-axes[Plan Behaviour Axes]): with `landing.pull-request` through a branch and its pull request, with `landing.main` by a commit pushed onto the base branch (`push_target: base`), and with `landing.files` they stay uncommitted in the working tree.
 

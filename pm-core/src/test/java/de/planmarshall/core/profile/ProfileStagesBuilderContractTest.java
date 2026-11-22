@@ -71,21 +71,18 @@ class ProfileStagesBuilderContractTest {
         var classes = new ProfileStages.EndpointClasses(true, false);
         var limits = new ProfileStages.EndpointLimits(true, 32_768);
 
-        var canonical = new ProfileStages.EndpointVerification(identity, launch, classes, limits,
-                ProfileStages.ENDPOINT_STAGES);
+        var canonical = new ProfileStages.EndpointVerification(identity, launch, classes, limits);
         var built = ProfileStages.EndpointVerification.builder().identity(canonical.identity())
-                .launch(canonical.launch()).classes(canonical.classes()).limits(canonical.limits())
-                .stages(canonical.stages()).build();
+                .launch(canonical.launch()).classes(canonical.classes()).limits(canonical.limits()).build();
 
         assertAll(
                 () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
                 () -> {
                     var fromConstructor = assertThrows(NullPointerException.class,
-                            () -> new ProfileStages.EndpointVerification(null, launch, classes, limits,
-                                    ProfileStages.ENDPOINT_STAGES),
+                            () -> new ProfileStages.EndpointVerification(null, launch, classes, limits),
                             "the constructor refuses a null identity");
                     var incomplete = ProfileStages.EndpointVerification.builder().launch(launch).classes(classes)
-                            .limits(limits).stages(ProfileStages.ENDPOINT_STAGES);
+                            .limits(limits);
                     var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                             "the builder refuses a missing identity");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),

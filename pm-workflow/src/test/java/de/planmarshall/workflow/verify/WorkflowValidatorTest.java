@@ -31,6 +31,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.workflow.ast.UnitType;
 import de.planmarshall.workflow.ast.WorkflowDefinition;
@@ -1255,6 +1256,353 @@ class WorkflowValidatorTest {
                     () -> assertTrue(withReasons.stream()
                                     .allMatch(violation -> violation.rule() == VerificationRule.STEP_COMPLETION),
                             "every refusal is one of Rule 9"));
+        }
+    }
+
+    /**
+     * The reserved words the verifier reads are the parser's set, which is the specification's: the positional words it
+     * leaves out (`decide`, `phase`, `inherit`, `entry`) are legal role names.
+     */
+    @Nested
+    @DisplayName("Reserved words")
+    class ReservedWords {
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"decide", "phase", "inherit", "entry"})
+        @DisplayName("Should accept a role named like a positional keyword")
+        void shouldAcceptAPositionalKeywordAsARole(String role) {
+            var result = validator.verify(unit("plan", """
+                    state verify.entry
+                        job llm change role %s ask
+                            approved -> verify.done
+                            lost -> verify.done
+                    """.formatted(role) + DONE_TERMINAL));
+
+            assertEquals(List.of(), result.violations(), "a positional keyword is a legal role name");
+        }
+    }
+
+    /**
+     * Rule 6 models the consumption of a slot: the bind removes the value at the first read, so a second read of the same
+     * slot can only fail at run time with {@code input_unbound}. The verifier refuses the second read instead.
+     */
+    @Nested
+    @DisplayName("Slot consumption")
+    class SlotConsumption {
+
+        private static final String TWO_INPUTS = """
+                ---
+                name: consume.two
+                description: A unit written for the verifier tests.
+                type: subworkflow
+                icon: workflow.default
+                entry: main
+                exit: done
+                input: first
+                input_type: commit_message[1..2000]
+                input: second
+                input_type: commit_message[1..2000]
+                modification_date: 2026-01-15
+                version: 0.1.0
+                author: plan-marshall
+                ---
+                workflow consume.two version 1 format 1
+                scope subworkflow
+                entry main -> consume.wait
+
+                state consume.wait
+                    job test.build
+                        succeeded -> consume.done
+                        failed -> consume.stepped-out
+                        cancelled -> consume.stepped-out
+
+                state consume.done terminal done success
+
+                state consume.stepped-out terminal stepped_out stepped_out
+                """;
+
+        private final WorkflowValidator consumption = new WorkflowValidator(TestPrimitives.registry(),
+                List.of("verify.entry"), TestPrimitives.entityKinds(), QuestionClassRegistry.defaults(),
+                SchemaRegistry.defaults(), WorkflowCatalog.of(VerifyFixtures.parseSource("consume-two.pmwf",
+                        TWO_INPUTS)));
+
+        @Test
+        @DisplayName("Should refuse a slot that two calls read")
+        void shouldRefuseTwoCalls() {
+            var result = validator.verify(slotPlan("""
+                    state verify.entry
+                        auto test.prepare
+                            done -> verify.fill
+                            skipped -> verify.fill
+
+                    state verify.fill
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke
+                            lost -> verify.done
+
+                    state verify.invoke
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.invoke-again
+                            stepped_out -> plan.return
+
+                    state verify.invoke-again
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.done
+                            stepped_out -> plan.return
+                    """));
+
+            assertEquals(List.of("the slot 'message' is read at 'verify.invoke-again' after the read at"
+                            + " 'verify.invoke'; the first read consumes it"),
+                    result.violations().stream().map(Violation::message).toList(),
+                    "the second read of the slot is refused");
+        }
+
+        @Test
+        @DisplayName("Should refuse a slot bound to two inputs of one call")
+        void shouldRefuseTwoInputsOfOneCall() {
+            var result = consumption.verify(slotPlan("""
+                    state verify.entry
+                        auto test.prepare
+                            done -> verify.fill
+                            skipped -> verify.fill
+
+                    state verify.fill
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke
+                            lost -> verify.done
+
+                    state verify.invoke
+                        call consume.two(first = slot.message, second = slot.message)
+                            done -> verify.done
+                            stepped_out -> plan.return
+                    """));
+
+            assertTrue(result.violations().stream().map(Violation::message).anyMatch(message ->
+                            message.equals("the slot 'message' is read at 'verify.invoke' after the read at"
+                                    + " 'verify.invoke'; the first read consumes it")),
+                    "the second input of the call refuses the slot");
+        }
+
+        @Test
+        @DisplayName("Should pass a unit that refills the slot after the first read")
+        void shouldPassARefilledSlot() {
+            var result = validator.verify(slotPlan("""
+                    state verify.entry
+                        auto test.prepare
+                            done -> verify.fill-first
+                            skipped -> verify.fill-first
+
+                    state verify.fill-first
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke-first
+                            lost -> verify.done
+
+                    state verify.invoke-first
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.fill-second
+                            stepped_out -> plan.return
+
+                    state verify.fill-second
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke-second
+                            lost -> verify.done
+
+                    state verify.invoke-second
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.done
+                            stepped_out -> plan.return
+                    """));
+
+            assertEquals(List.of(), result.violations(),
+                    "a slot refilled between two reads verifies");
+        }
+
+        @Test
+        @DisplayName("Should refuse a second read with no fill between it and the first")
+        void shouldRefuseTwoReadsWithoutAFillBetween() {
+            var result = validator.verify(slotPlan("""
+                    state verify.entry
+                        auto test.prepare
+                            done -> verify.fill-first
+                            skipped -> verify.fill-second
+
+                    state verify.fill-first
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke-first
+                            lost -> verify.done
+
+                    state verify.fill-second
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke-first
+                            lost -> verify.done
+
+                    state verify.invoke-first
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.invoke-second
+                            stepped_out -> plan.return
+
+                    state verify.invoke-second
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.done
+                            stepped_out -> plan.return
+                    """));
+
+            assertEquals(List.of("the slot 'message' is read at 'verify.invoke-second' after the read at"
+                            + " 'verify.invoke-first'; the first read consumes it"),
+                    result.violations().stream().map(Violation::message).toList(),
+                    "two fills do not separate two reads on one path");
+        }
+
+        @Test
+        @DisplayName("Should refuse a second read across the declaration order of two states")
+        void shouldRefuseAcrossTheDeclarationOrder() {
+            var result = validator.verify(slotPlan("""
+                    state verify.invoke-late
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.done
+                            stepped_out -> plan.return
+
+                    state verify.entry
+                        auto test.prepare
+                            done -> verify.fill
+                            skipped -> verify.fill
+
+                    state verify.fill
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke-early
+                            lost -> verify.done
+
+                    state verify.invoke-early
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.invoke-late
+                            stepped_out -> plan.return
+                    """));
+
+            assertEquals(List.of("the slot 'message' is read at 'verify.invoke-late' after the read at"
+                            + " 'verify.invoke-early'; the first read consumes it"),
+                    result.violations().stream().map(Violation::message).toList(),
+                    "the declaration order does not decide the pair");
+        }
+
+        @Test
+        @DisplayName("Should refuse a third read whose fill lies on one branch only")
+        void shouldRefuseAThirdReadWithAFillOnOneBranch() {
+            var result = validator.verify(slotPlan("""
+                    state verify.entry
+                        auto test.prepare
+                            done -> verify.fill-first
+                            skipped -> verify.fill-first
+
+                    state verify.fill-first
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.read-first
+                            lost -> verify.done
+
+                    state verify.read-first
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.fill-second
+                            stepped_out -> plan.return
+
+                    state verify.fill-second
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.read-second
+                            lost -> verify.done
+
+                    state verify.read-second
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.route
+                            stepped_out -> plan.return
+
+                    state verify.route
+                        auto test.prepare
+                            done -> verify.fill-third
+                            skipped -> verify.read-third
+
+                    state verify.fill-third
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.read-third
+                            lost -> verify.done
+
+                    state verify.read-third
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.done
+                            stepped_out -> plan.return
+                    """));
+
+            assertEquals(List.of("the slot 'message' is read at 'verify.read-third' after the read at"
+                            + " 'verify.read-second'; the first read consumes it"),
+                    result.violations().stream().map(Violation::message).toList(),
+                    "the bypass of the third fill leaves the third read unserved");
+        }
+
+        @Test
+        @DisplayName("Should refuse a reading state a fill-free cycle re-enters")
+        void shouldRefuseAReadingStateOnAFillFreeCycle() {
+            var result = validator.verify(slotPlan("""
+                    state verify.entry
+                        auto test.prepare
+                            done -> verify.fill
+                            skipped -> verify.fill
+
+                    state verify.fill
+                        fills slot.message from message
+                        job llm change role reviewer
+                            approved -> verify.invoke
+                            lost -> verify.done
+
+                    state verify.invoke
+                        call git.commit_and_push(push = enabled, targets = [origin], message = slot.message)
+                            done -> verify.await
+                            stepped_out -> plan.return
+
+                    state verify.await
+                        link next proceed ()
+                            do test.proceed
+                                done -> verify.invoke
+                    """));
+
+            assertEquals(List.of("the slot 'message' is read at 'verify.invoke' after the read at"
+                            + " 'verify.invoke'; the first read consumes it"),
+                    result.violations().stream().map(Violation::message).toList(),
+                    "the cycle re-enters the read without a fill");
+        }
+
+        /**
+         * @param states the states of the plan unit
+         * @return the plan unit with one commit-message slot and the two terminals
+         */
+        private static WorkflowDefinition slotPlan(String states) {
+            return VerifyFixtures.parseSource("consume-plan.pmwf", """
+                    ---
+                    name: consume.plan
+                    description: A unit written for the verifier tests.
+                    type: workflow
+                    icon: workflow.default
+                    slot: message
+                    slot_type: commit_message[1..2000]
+                    modification_date: 2026-01-15
+                    version: 0.1.0
+                    author: plan-marshall
+                    ---
+                    workflow consume.plan version 1 format 1
+                    scope plan
+                    start verify.entry
+
+                    %s
+                    state plan.return terminal returned failure
+
+                    state verify.done terminal done success
+                    """.formatted(states));
         }
     }
 }

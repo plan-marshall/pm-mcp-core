@@ -90,6 +90,11 @@ A refusal names the rule that rejected the value, so a caller can show or group 
 |An explicitly bound `list<path>` with no entry: it binds no path and never means "every change"
 (link:../adr/workflow-input/004-an-empty-files-list-is-refused.adoc[ADR workflow-input/004]).
 
+|`input.no-context`
+|A required input without a compiled default that names an `input_fallback` key where no bind context is wired, so the
+configuration value cannot be read (link:../adr/workflow-engine/028-the-bind-validates-the-arguments.adoc[ADR
+workflow-engine/028]).
+
 |`path.confinement`, `path.staging`, `path.no-context`
 |A path that leaves the worktree, one that is not in the scope's staging set, and one bound where no bind context is
 wired.
@@ -113,16 +118,20 @@ lone surrogate.
 |`path.magic`
 |A path that starts with `:` (git pathspec magic) or `-` (which `git` would read as an option).
 
-|`path.glob`
-|A path that carries `*`, `?` or `[`: JGit reads such a path as a pattern, so the provider refuses it and the bind
-refuses it too, and an accepted path is always a path the commit can stage.
-
 |`path.empty-segment`, `path.dot-segment`
 |A path with an empty segment (a `//` included) or with a `.` or `..` segment.
+
+|`path.edge-space`, `path.trailing-dot`
+|A path with a segment that starts or ends with a space, or ends with a dot: a filesystem that strips either would reach
+another name (`.git ` reads as `.git` on NTFS).
 
 |`path.git`
 |A path with a `.git` segment in any case.
 |===
+
+The glob characters `*`, `?` and `[` are **not** refused: a file named `pages/[id].tsx` is bindable, because both staging
+variants stage a path literally (link:../adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR
+workflow-input/006]).
 
 == How the Two Layers Work Together
 _Requirements: link:{docs}/requirements/02-workflow.adoc#PM-WF-16[PM-WF-16]_

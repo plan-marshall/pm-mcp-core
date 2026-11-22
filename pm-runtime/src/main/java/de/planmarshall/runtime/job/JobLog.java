@@ -70,6 +70,12 @@ public record JobLog(Path path) {
      */
     public static final int MAX_BYTES = Math.toIntExact(LimitProperties.read(LIMITS, MAX_BYTES_KEY));
 
+    /**
+     * The most bytes a whole read of an over-cap log searches for its first line, the launch report: a report is one
+     * short JSON line, so a first line that does not end inside this head is no report and is not kept.
+     */
+    static final int FIRST_LINE_MAX_BYTES = 64 * 1024;
+
     /** @throws NullPointerException if the path is {@code null} */
     public JobLog {
         Objects.requireNonNull(path, "path");
@@ -197,10 +203,12 @@ public record JobLog(Path path) {
      * counted from the first line beginning inside them. The first line is kept because the launch report is the first
      * line, and a launcher failure is decided from it: a tail read alone would report {@code Unreported} and lose the
      * launcher-failure decision. The cut is not {@link LogState#TRUNCATED}: that state means the log is shorter than
-     * what the runtime already read from it, and an over-cap log is longer, not shorter. A first line longer than the
-     * cap cannot be taken by a bounded read, and the head alone is answered. A log that shrinks between the size read
-     * and the read of its content is {@link LogState#TRUNCATED} too: a short read is never reported as a complete log. A
-     * log that grows instead loses nothing and is answered as the content read, with the length read before.
+     * what the runtime already read from it, and an over-cap log is longer, not shorter. The first line is looked for in
+     * at most {@link #FIRST_LINE_MAX_BYTES} bytes before the tail window; a first line that does not end there is not
+     * kept and the tail alone is answered, so a cut read never takes more than that head and the cap. A log that shrinks
+     * between the size read and the read of its content is {@link LogState#TRUNCATED} too: a short read is never
+     * reported as a complete log. A log that grows instead loses nothing and is answered as the content read, with the
+     * length read before.
      *
      * @param observedLength the number of bytes the runtime already read from the log while the job ran; {@code 0} when
      *                       it read nothing
@@ -254,15 +262,20 @@ public record JobLog(Path path) {
         return redacted(text).lines().toList();
     }
 
-    /** The first line and the last {@link #MAX_BYTES} bytes of a log longer than the cap. */
+    /**
+     * The first line and the last {@link #MAX_BYTES} bytes of a log longer than the cap. The first line is looked for in
+     * a head of at most {@link #FIRST_LINE_MAX_BYTES} bytes that ends before the tail window starts, so the read takes at
+     * most that head and the cap, and the two never overlap. A first line that does not end inside that head is not
+     * kept: the tail alone is answered.
+     */
     private static String capped(FileChannel channel, long size) throws IOException {
-        var head = read(channel, 0, MAX_BYTES);
+        var head = read(channel, 0, Math.min(FIRST_LINE_MAX_BYTES, size - MAX_BYTES));
+        var tail = new String(tail(channel, size), StandardCharsets.UTF_8);
         var end = firstLineEnd(head);
         if (end < 0) {
-            return new String(head, StandardCharsets.UTF_8);
+            return tail;
         }
-        return new String(head, 0, end + 1, StandardCharsets.UTF_8) + new String(tail(channel, size),
-                StandardCharsets.UTF_8);
+        return new String(head, 0, end + 1, StandardCharsets.UTF_8) + tail;
     }
 
     /**
@@ -281,7 +294,7 @@ public record JobLog(Path path) {
 
     /**
      * The end of the first line of a head, or {@code -1} when the head holds no complete line: the first line is then
-     * longer than the whole head, so no bounded read can take it and the head is all there is to answer with.
+     * longer than the head, so the bounded read does not take it and the tail is answered without it.
      */
     private static int firstLineEnd(byte[] head) {
         for (var index = 0; index < head.length; index++) {
@@ -294,10 +307,11 @@ public record JobLog(Path path) {
 
     /**
      * Drops the head of a cut that begins inside a line, so the output after the first line starts at a line beginning.
-     * A cut with none is one long line and is kept as it is.
+     * A cut with no line beginning in it is one long line and is kept as it is: emptying it would hide the only content
+     * the log has there. The same holds for a cut whose only line end is its last byte, because no line begins after it.
      */
-    private static byte[] fromLineStart(byte[] bytes) {
-        for (var index = 0; index < bytes.length; index++) {
+    static byte[] fromLineStart(byte[] bytes) {
+        for (var index = 0; index < bytes.length - 1; index++) {
             if (bytes[index] == '\n') {
                 return Arrays.copyOfRange(bytes, index + 1, bytes.length);
             }

@@ -3,11 +3,11 @@
 
 == Status
 
-Accepted
+Accepted; amended 2026-11-21 (PLAN-V2-163, carried item 36(a)): the check belongs to the start of a plan only
 
 == Date
 
-2026-11-16
+2026-11-16 (amended 2026-11-21)
 
 == Context
 
@@ -24,10 +24,15 @@ calls on its own, leaving the composition free to bind a variant no check had se
 
 * `LandingVariantValidation` is a pure check in `workflow.plan`: it takes the variant and a `Project` value (a pull-request
   provider, a protected base branch) and answers a verdict with the reason.
-* `PlanInstanceComposer` gains `compose(request, project)`: it validates the *bound* landing variant before composing and
-  refuses the version with `invariant_failed` and the reason in its violation line. The post-run-only events (`fallback`,
-  `empty_harvest`) skip the check: their version prunes the landing work, so the variant decides nothing there.
+* `PlanInstanceComposer` gains `compose(request, project)`: for the `start` composition it validates the *bound* landing
+  variant before composing and refuses the version with `invariant_failed` and the reason in its violation line.
   `compose(request)` keeps its signature and composes without the check, for a caller with no project known.
+* *Amendment of 2026-11-21:* the check belongs to the start of a plan only. Every later composition of a running plan
+  (`outline`, `plan`, `config_adopted`, `waiver`, `override`, `fallback`, `empty_harvest`, `replan`) skips it and keeps
+  the variant the start admitted. As
+  first decided, every event but the post-run-only `fallback` and `empty_harvest` was checked, so a waiver or a replan
+  of a running plan was refused with `invariant_failed` once its base branch had become protected after the plan began:
+  a fact of the project that changed under the plan blocked work the plan had already been admitted to do.
 * The `Project` value is passed per call, not stored in `CompositionRequest`: the record's facts stay the values the
   composition reads, and a request built by a caller without a project is unchanged.
 * The check does not decide which level set the variant: the reason names the variant, and a machine default that does not
@@ -45,14 +50,19 @@ calls on its own, leaving the composition free to bind a variant no check had se
    the caller's knowledge, not the plan's fact.
 3. *Validating only in the setup and settings code.* _Not taken_: the composition would then bind a variant no check had
    seen whenever a caller forgot the call, which is the fail-open path this item exists to close.
+4. *Checking every composition of a running plan* (the first form of this decision). _Not taken_ since the amendment: a
+   later branch protection would refuse a waiver or a replan of a plan whose landing the start had admitted.
 
 == Consequences
 
 * A caller that knows the project passes it; a plan start whose bound landing variant does not fit is refused before a
   version is written, and its reason names the variant and the missing provider or the protected branch.
+* An `override` that binds a new landing variant to a running plan is not landing-checked by the composition; a caller
+  that changes the landing of a running plan validates the new variant itself.
 * The composer stays a value in, value out: the check reads no store and writes nothing.
-* `LandingVariantValidationTest` holds the table of variants; `PlanInstanceComposerTest` holds the refusal and the control
-  that a fitting project composes the same text as no project at all.
+* `LandingVariantValidationTest` holds the table of variants; `PlanInstanceComposerTest` holds the refusal, the control
+  that a fitting project composes the same text as no project at all, the `landing.main` refusal on a protected branch
+  at the start, and the waiver and replan compositions of a running plan that a later protection does not refuse.
 
 == Source
 

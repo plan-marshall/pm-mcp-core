@@ -147,6 +147,19 @@ class PlanHistoryTest {
         assertEquals(line, history.read().records().getFirst(), "the line should round-trip unchanged");
     }
 
+    @Test
+    @DisplayName("a left line with a hyphenated outcome is written and reads back equal")
+    void hyphenatedOutcomeRoundTrip() {
+        var hyphenated = lowerName() + "-" + lowerName();
+        var line = left(1, node, hyphenated);
+        committed(transaction -> history.append(transaction, line));
+
+        var read = history.read().records();
+        assertAll(
+                () -> assertEquals(List.of(line), read, "the hyphenated line should round-trip"),
+                () -> assertEquals(hyphenated, read.getFirst().outcome(), "the hyphenated outcome should be read"));
+    }
+
     /** @return a {@code left} line of the state whose outcome carries the reason given */
     private PlanHistoryLine leftWithReason(long seq, String reason) {
         return PlanHistoryLine.builder().formatVersion(PlanHistoryLine.FORMAT_VERSION).seq(seq).event(Event.LEFT)

@@ -45,12 +45,26 @@ public class IconSanitiser {
             throw new IconRefusal(IconRefusal.NOT_SVG_OR_PNG, "An empty candidate is no icon");
         }
         if (PngSanitiser.looksLikePng(candidate)) {
-            return new SanitisedIcon(IconMediaType.PNG, PngSanitiser.sanitise(candidate));
+            return bounded(new SanitisedIcon(IconMediaType.PNG, PngSanitiser.sanitise(candidate)));
         }
         if (!SvgSanitiser.looksLikeXml(candidate)) {
             throw new IconRefusal(IconRefusal.NOT_SVG_OR_PNG,
                     "The bytes are neither an SVG document nor a PNG image");
         }
-        return new SanitisedIcon(IconMediaType.SVG, SvgSanitiser.sanitise(candidate));
+        return bounded(new SanitisedIcon(IconMediaType.SVG, SvgSanitiser.sanitise(candidate)));
+    }
+
+    /**
+     * @param icon the sanitised icon
+     * @return the icon, where its sanitised bytes are within the bound
+     * @throws IconRefusal if the sanitised output is larger than the candidate was allowed to be, which the escaping of
+     *                     a text node can do
+     */
+    private static SanitisedIcon bounded(SanitisedIcon icon) {
+        if (icon.content().length > MAX_BYTES) {
+            throw new IconRefusal(IconRefusal.TOO_LARGE,
+                    "A sanitised icon is at most %d bytes, not %d".formatted(MAX_BYTES, icon.content().length));
+        }
+        return icon;
     }
 }

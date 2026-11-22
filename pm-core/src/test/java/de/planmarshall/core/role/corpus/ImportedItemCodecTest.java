@@ -504,4 +504,58 @@ class ImportedItemCodecTest {
 
         assertUnreadable(refusalOf(document), "'topic' is longer than 256 characters");
     }
+
+    /** The fixture item moved below a topic of five characters, with a slug of the given length. */
+    private static String withSlug(int slugLength) {
+        var slug = "b".repeat(slugLength);
+        return text(closedItem())
+                .replace("\"id\" : \"screening/sample-set/q-1\"", "\"id\" : \"aaaaa/" + slug + "\"")
+                .replace("\"topic\" : \"screening/sample-set\"", "\"topic\" : \"aaaaa\"");
+    }
+
+    @Test
+    @DisplayName("a slug of 250 characters reads, its item id at the bound of 256")
+    void slugAtItsBound() {
+        var document = withSlug(250);
+
+        var read = ImportedItemCodec.read(FILE, document.getBytes(StandardCharsets.UTF_8));
+
+        assertAll(
+                () -> assertEquals(250, read.slug().length(), "the slug of the item has 250 characters"),
+                () -> assertEquals(document, text(read), "the item at the bound round-trips unchanged"));
+    }
+
+    @Test
+    @DisplayName("a slug of 251 characters composes an id over 256 and is refused")
+    void slugOverItsBound() {
+        assertUnreadable(refusalOf(withSlug(251)), "'id' is longer than 256 characters");
+    }
+
+    @Test
+    @DisplayName("an over-long malformed repository is refused by its length, not echoed")
+    void overLongMalformedRepository() {
+        var malformed = "https://h.test/" + "p q".repeat(700);
+        var document = text(closedItem()).replace("\"repository\" : \"https://github.com/example/sample-set\"",
+                "\"repository\" : \"" + malformed + "\"");
+
+        var refusal = refusalOf(document);
+
+        assertAll(
+                () -> assertUnreadable(refusal, "'repository' is longer than 2048 characters"),
+                () -> assertFalse(refusal.getMessage().contains("p q".repeat(100)),
+                        "the refusal does not echo the URI"));
+    }
+
+    @Test
+    @DisplayName("a group of line feeds only is echoed cut to its first 256 characters")
+    void echoedGroupIsCut() {
+        var refused = assertThrows(IllegalArgumentException.class,
+                () -> ImportedItem.requireText("\n".repeat(300), "group"), "line feeds only are refused");
+
+        assertAll(
+                () -> assertTrue(refused.getMessage().contains("\n".repeat(256)),
+                        "the echo keeps the first 256 characters"),
+                () -> assertFalse(refused.getMessage().contains("\n".repeat(257)),
+                        "the echo holds no more than 256 characters"));
+    }
 }

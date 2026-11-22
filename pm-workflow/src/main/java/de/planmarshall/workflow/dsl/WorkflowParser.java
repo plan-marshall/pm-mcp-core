@@ -34,6 +34,7 @@ import de.planmarshall.workflow.ast.LinkSpec;
 import de.planmarshall.workflow.ast.OutcomeTransition;
 import de.planmarshall.workflow.ast.ParamSpec;
 import de.planmarshall.workflow.ast.ParamType;
+import de.planmarshall.workflow.ast.ReservedKeywords;
 import de.planmarshall.workflow.ast.ResultGuard;
 import de.planmarshall.workflow.ast.SourceLocation;
 import de.planmarshall.workflow.ast.StateBehavior;
@@ -126,13 +127,7 @@ public final class WorkflowParser {
     private static final String PARAMETER_DECLARED_TWICE = "the parameter '%s' is declared twice";
     private static final String EXPECTATION_PARAMETER_NAME = "a parameter name";
 
-    static final Set<String> RESERVED_KEYWORDS = Set.of("workflow", "version", "format", "derived_from",
-            KEYWORD_SCOPE, "param", KEYWORD_RESULT, KEYWORD_DECLARE, KEYWORD_START, "migrate", KEYWORD_STATE, "terminal",
-            "skill", "facts", "auto", "job", KEYWORD_COMPOSITE_JOB, "call", KEYWORD_QUESTION,
-            KEYWORD_LINK, KEYWORD_GUARD, "depends_on_config", "do", "llm", "role", KEYWORD_EACH, KEYWORD_CONSULT,
-            "completes", "as", "and", "or", KEYWORD_NOT, "in_worktree", "has_open_findings", "all_tasks_completed",
-            "predicate", "text", KEYWORD_INT, KEYWORD_ENUM, KEYWORD_SCHEMA, KEYWORD_LIST,
-            "slot", "fills", "from");
+    static final Set<String> RESERVED_KEYWORDS = ReservedKeywords.ALL;
 
     private static final Set<String> DECISION_KINDS = Set.copyOf(DecisionDeclaration.DECISION_KINDS);
 

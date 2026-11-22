@@ -250,6 +250,19 @@ class IconStoreTest {
     }
 
     @Test
+    @DisplayName("refuses an index that is a symbolic link")
+    void refusesASymlinkedIndex() throws Exception {
+        var outside = base.resolve("outside-index.json");
+        Files.writeString(outside, "{\"format_version\":1,\"entries\":{}}", StandardCharsets.UTF_8);
+        Files.createDirectories(base.resolve("icons"));
+        Files.createSymbolicLink(base.resolve("icons").resolve("index.json"), outside);
+
+        var refusal = assertThrows(IconRefusal.class, () -> store.index(), "a linked index is refused");
+
+        assertEquals(IconRefusal.TARGET_IS_LINK, refusal.code(), "the refusal names the link");
+    }
+
+    @Test
     @DisplayName("refuses an index that does not read as the store's index")
     void refusesUnreadableIndex() throws Exception {
         Files.createDirectories(base.resolve("icons"));
@@ -259,6 +272,55 @@ class IconStoreTest {
         var refusal = assertThrows(IconRefusal.class, () -> store.index(), "an unreadable index is refused");
 
         assertEquals(IconRefusal.INDEX_UNREADABLE, refusal.code(), "the refusal names the index");
+    }
+
+    @Test
+    @DisplayName("reports its directory and its index file")
+    void reportsItsPaths() {
+        assertAll(
+                () -> assertEquals(base.resolve("icons"), store.directory(), "the directory is icons/"),
+                () -> assertEquals(base.resolve("icons").resolve("index.json"), store.indexFile(),
+                        "the index is icons/index.json"));
+    }
+
+    @Test
+    @DisplayName("refuses a store directory that is a symbolic link")
+    void refusesASymlinkedDirectory() throws Exception {
+        Files.createDirectories(base.resolve("elsewhere"));
+        Files.createSymbolicLink(base.resolve("icons"), base.resolve("elsewhere"));
+        var id = harnessId();
+
+        var refusal = assertThrows(IconRefusal.class,
+                () -> store.accept(id, "https://example.invalid/a.svg", fetchedAt, SVG),
+                "a store directory that is a link is refused");
+
+        assertEquals(IconRefusal.TARGET_IS_LINK, refusal.code(), "the refusal names the link");
+    }
+
+    @Test
+    @DisplayName("refuses an index of a format version the store does not read")
+    void refusesAnIndexOfAnotherVersion() throws Exception {
+        Files.createDirectories(base.resolve("icons"));
+        Files.writeString(base.resolve("icons").resolve("index.json"), "{\"format_version\":2,\"entries\":{}}",
+                StandardCharsets.UTF_8);
+
+        var refusal = assertThrows(IconRefusal.class, () -> store.index(), "an index of version 2 is refused");
+
+        assertEquals(IconRefusal.INDEX_UNREADABLE, refusal.code(), "the refusal names the index");
+    }
+
+    @Test
+    @DisplayName("refuses an index entry of another media type or size")
+    void refusesABadEntry() {
+        var digest = "0".repeat(64);
+
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new IconIndexEntry("https://example.invalid/a", digest, 1, "image/gif",
+                                Instant.EPOCH), "a media type the store does not keep is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new IconIndexEntry("https://example.invalid/a", digest, 0, "image/png",
+                                Instant.EPOCH), "an empty icon is refused"));
     }
 
     private static String harnessId() {

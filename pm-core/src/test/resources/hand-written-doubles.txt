@@ -41,6 +41,8 @@ de/planmarshall/core/spi/ReasonPrimitives.java#NonEnumReasonOutcome#1
 de/planmarshall/core/spi/ReasonPrimitives.java#NullConditionReason#1
 de/planmarshall/core/spi/ReasonPrimitives.java#NullConditionReasonOutcome#1
 de/planmarshall/core/spi/ReasonPrimitives.java#NullReasonOutcome#1
+de/planmarshall/core/spi/ReasonPrimitives.java#NumberConditionReason#1
+de/planmarshall/core/spi/ReasonPrimitives.java#NumberConditionReasonOutcome#1
 de/planmarshall/core/spi/ReasonPrimitives.java#ReasonedOutcome#1
 de/planmarshall/core/spi/ReasonPrimitives.java#SkippingReasonedOutcome#1
 de/planmarshall/core/spi/ReasonPrimitives.java#SteppedOutReasonedOutcome#1

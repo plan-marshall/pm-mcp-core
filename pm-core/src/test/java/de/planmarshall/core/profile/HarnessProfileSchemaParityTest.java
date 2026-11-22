@@ -35,8 +35,8 @@ import de.planmarshall.core.SchemaResource;
  * read through {@link SchemaResource}. Three deviations are pinned, each with its owner:
  * {@code headless.inline_settings} and {@code headless.loaded} (owned by the {@code client-profile-measured-values}
  * package), {@code headless.readable_paths} (owned by the
- * {@code job-confinement-and-environment} package); and {@code headless.usage.model} and
- * {@code headless.usage.accumulation} (owned by PLAN-V2-135). The id member is no longer a deviation: the validator's
+ * {@code job-confinement-and-environment} package); {@code headless.usage.model} (owned by PLAN-V2-135); and
+ * {@code headless.usage.accumulation} (owned by PLAN-V2-147). The id member is no longer a deviation: the validator's
  * canonical member is the file's {@code harness_id}, and the {@code client_id} of a document written before the rename
  * is read beside it, never instead of it. The comparison is structural: the file's relative
  * {@code $ref} to
@@ -59,10 +59,11 @@ class HarnessProfileSchemaParityTest {
     void membersAreTheValidatedDocument() {
         var schema = SchemaResource.load(SCHEMA);
         var required = names(SchemaResource.array(schema.get("required")));
+        var expected = required.stream().map(member -> ID_MEMBER.equals(member) ? READER_ID_MEMBER : member).toList();
         var document = document();
 
         assertAll(
-                () -> assertEquals(Set.copyOf(required), Set.copyOf(names(document.keySet())),
+                () -> assertEquals(Set.copyOf(expected), Set.copyOf(names(document.keySet())),
                         "The document's members are the file's"),
                 () -> assertDoesNotThrow(HarnessProfileSchemaParityTest::validate,
                         "The validator accepts its own document"));
@@ -81,14 +82,13 @@ class HarnessProfileSchemaParityTest {
     }
 
     @Test
-    @DisplayName("the id member is pinned: the file and the validator both name the harness")
-    void idMemberIsTheFiles() {
+    @DisplayName("the id member is pinned: the file names the harness, the validator the client")
+    void idMemberDrift() {
         var properties = SchemaResource.object(SchemaResource.load(SCHEMA).get("properties"));
 
         assertAll(
                 () -> assertTrue(properties.containsKey(ID_MEMBER), "The file names the id as the harness does"),
-                () -> assertFalse(properties.containsKey(READER_ID_MEMBER),
-                        "The file does not name the reader's legacy member"));
+                () -> assertFalse(properties.containsKey(READER_ID_MEMBER), "The file does not name the reader's id"));
     }
 
     @Test

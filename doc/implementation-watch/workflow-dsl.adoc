@@ -400,10 +400,29 @@ and
 link:../../pm-workflow/doc/developer/workflow-verify.adoc#_inv_gen_1_over_type_and_interface[Workflow Verification
 Developer Guide § INV-GEN-1 over Type and Interface]). A copy that swaps a `commit_message` for a `text` (or a
 `list<path>` for a `path`) is refused by `INV-GEN-1`, which compares each input's type with the default unit's type. The
-bind's `InputValidator` checks the value against the copy's own declared type, so it does not detect the swap. Owed: a
-refusing `CompiledInvariantsTest` case per weakened text and path type, and an `InputValidatorTest` case that shows the
-swapped type admits the value the default refuses.
+bind's `InputValidator` checks the value against the copy's own declared type, so it does not detect the swap. Pinned: a
+refusing `CompiledInvariantsTest` case per weakened text and path type (`CompiledInvariantsTest § Interface comparison`,
+mutations `INTERFACE_COMMIT_MESSAGE_WEAKENED` and `INTERFACE_PATH_LIST_WEAKENED`), and an `InputValidatorTest` case per
+type that shows the swapped type admits the value the default refuses.
 Source:: design review (PLAN-V2-15).
+
+[#PM-WATCH-DSL-44]
+=== PM-WATCH-DSL-44: A reason becomes a route
+
+Anchor:: link:../specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons],
+link:../specification/workflow-dsl/04-ast-node-model.adoc#condition-overlays[Workflow DSL § Condition Overlays],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]
+Hazard:: A unit branches on the cause of a failure instead of its outcome: a transition names the wire name of a
+reason, a guard reads `result.reason`, or a unit branches on a fact that copies the reason. The reason is then a hidden
+outcome that Rule 2 does not cover, so a new reason a primitive adds silently changes where a unit goes, and a reason
+that maps to a condition is no longer raised as one.
+Guard:: The refusing fixtures of the verifier: `reason-routed-as-outcome.pmwf` is refused by Rule 2 with a message that
+names the reason and its outcome, and `reason-guard-on-primitive-state.pmwf` keeps the refusal of Rule 6 for a result
+guard outside a call; matched control: `reason-bearing-outcome.pmwf` routes the outcome with three reasons by one
+transition and passes (`WorkflowValidatorTest`, group `Reasons`, of `pm-workflow`). `ReasonConditionTest` of
+`pm-workflow` proves that a reason mapped to a condition raises it instead of the transition and that a reason mapped to
+none takes the transition of its outcome. Open: a fact a unit branches on that copies a reason is not detected.
+Source:: design review (PLAN-V2-19).
 
 == Reusable Compound Sub-Workflows & Call-Stack Execution
 
@@ -604,11 +623,12 @@ commit message through the JGit API or `git commit -F -` over stdin, the paths i
 pathspecs (`--literal-pathspecs add --pathspec-from-file=- --pathspec-file-nul`), in the native variant as exact paths.
 `PathRules` refuses a leading `:` and `-` and every control character before the value is bound
 (link:../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide]).
-Tests: `PathRulesTest` refuses a leading `:` and `-` and a control character before a value is bound. Owed: a fixture
-whose dirty worktree holds files named `:(glob)**`, `-rf` and `app/[slug]/page.tsx`, which both variants stage as
-exactly those files (matched control: no other file of the worktree is staged); the CLI half belongs to the assembly that
-ships the CLI variant. A refusal of the glob characters `*`, `?` and `[` in the native variant or in `PathRules` fails
-the fixture.
+Tests: `PathRulesTest` refuses a leading `:` and `-` and a control character before a value is bound. The glob half is
+settled: `PathRules` and the provider admit `*`, `?` and `[`, and `JGitOperationsTest` (`TheGlobRefusalPremise`, the commit
+of `pages/[id].tsx`) shows the native variant stages such a name literally (link:../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR
+workflow-input/006]). Owed: a fixture whose dirty worktree holds files named `:(glob)**` and `-rf` (beside the
+`pages/[id].tsx` the native variant now commits), which both variants stage as exactly those files (matched control: no
+other file of the worktree is staged); the CLI half belongs to the assembly that ships the CLI variant.
 Source:: design review (PLAN-V2-15).
 
 [#PM-WATCH-DSL-42]
@@ -640,24 +660,6 @@ Guard:: The rules are the anchor's. Test: the artifact detection with a failing 
 budget steps out with `cause: oracle_failed`, and a push that fails after its server-rule retry budget steps out with
 `cause: push_failed`; an entering outcome that carries no reason is the cause itself.
 Source:: design review.
-
-[#PM-WATCH-DSL-44]
-=== PM-WATCH-DSL-44: A reason becomes a route
-
-Anchor:: link:../specification/workflow-dsl/05-primitives.adoc#outcomes-and-reasons[Workflow DSL § Outcomes and Reasons],
-link:../specification/workflow-dsl/04-ast-node-model.adoc#condition-overlays[Workflow DSL § Condition Overlays],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]
-Hazard:: A unit branches on the cause of a failure instead of its outcome: a transition names the wire name of a
-reason, a guard reads `result.reason`, or a unit branches on a fact that copies the reason. The reason is then a hidden
-outcome that Rule 2 does not cover, so a new reason a primitive adds silently changes where a unit goes, and a reason
-that maps to a condition is no longer raised as one.
-Guard:: The refusing fixtures of the verifier: `reason-routed-as-outcome.pmwf` is refused by Rule 2 with a message that
-names the reason and its outcome, and `reason-guard-on-primitive-state.pmwf` keeps the refusal of Rule 6 for a result
-guard outside a call; matched control: `reason-bearing-outcome.pmwf` routes the outcome with three reasons by one
-transition and passes (`WorkflowValidatorTest`, group `Reasons`, of `pm-workflow`). `ReasonConditionTest` of
-`pm-workflow` proves that a reason mapped to a condition raises it instead of the transition and that a reason mapped to
-none takes the transition of its outcome. Open: a fact a unit branches on that copies a reason is not detected.
-Source:: design review (PLAN-V2-19).
 
 == Positioned Layout
 

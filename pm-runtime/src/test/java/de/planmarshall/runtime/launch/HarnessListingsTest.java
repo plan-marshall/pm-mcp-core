@@ -128,8 +128,8 @@ class HarnessListingsTest {
                 () -> assertEquals(1, rows.size(), "The enrolled harness takes exactly one row"),
                 () -> assertEquals(VERSION, rows.getFirst().version(), "The row keeps the enrolled version"),
                 () -> assertFalse(rows.getFirst().selectable(), "A harness no longer found is not selectable"),
-                () -> assertEquals(HINT, rows.getFirst().installHint(),
-                        "The row keeps the profile's install hint"));
+                () -> assertEquals("install the harness again, or remove its enrolment",
+                        rows.getFirst().installHint(), "The row offers the removal"));
     }
 
     @Test
@@ -137,8 +137,6 @@ class HarnessListingsTest {
     void unreadableStatusNamesTheLaunchRefusal() {
         assertEquals(LaunchRefusal.HARNESS_STORE_UNREADABLE.code(),
                 HarnessUsageCoverage.Status.UNREADABLE.wireName(), "The two spellings are one code");
-        assertEquals(LaunchRefusal.HARNESS_STORE_UNREADABLE.code(),
-                HarnessEnrolmentStore.Refusal.UNREADABLE.code(), "The store refuses with the same code");
     }
 
     @Test

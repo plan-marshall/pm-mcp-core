@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.job;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.InstantSource;
@@ -18,6 +19,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
@@ -49,6 +51,8 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 public final class ProcessTreeTracker {
+
+    private static final CuiLogger LOGGER = new CuiLogger(ProcessTreeTracker.class);
 
     /** How often the tree is refreshed while the job runs: the specification's at least once per second. */
     public static final Duration REFRESH_INTERVAL = Duration.ofSeconds(1);
@@ -130,32 +134,28 @@ public final class ProcessTreeTracker {
     private final @Nullable Instant rootStartedAt;
 
     /**
-     * @param root    the job PID, the root of the tree
-     * @param signals the signalling primitive of the termination protocol; the sweep ends a member through the
-     *                {@link ProcessHandle} it was read from and sends no signal through this primitive, so the parameter
-     *                is accepted only to keep the call sites that pass the protocol's own primitive unchanged
-     * @throws NullPointerException if an argument is {@code null}
+     * A tracker that reads the process table of this host. The sweep ends a member through the {@link ProcessHandle}
+     * it was read from, so it needs no signalling primitive of its own.
+     *
+     * @param root the job PID, the root of the tree
      */
-    public ProcessTreeTracker(long root, ProcessGroupSignals signals) {
-        this(root, Descendants.system(), Starts.SYSTEM, signals, InstantSource.system(), Thread::sleep);
+    public ProcessTreeTracker(long root) {
+        this(root, Descendants.system(), Starts.SYSTEM, InstantSource.system(), Thread::sleep);
     }
 
     /**
      * @param root        the job PID, the root of the tree
      * @param descendants where the tree is read
      * @param starts      where the start instant of a PID is read
-     * @param signals     the signalling primitive of the termination protocol; the sweep no longer reads it, see
-     *                    {@link #ProcessTreeTracker(long, ProcessGroupSignals)}
      * @param clock       the clock of the grace period
      * @param pause       how the sweep waits
      * @throws NullPointerException if an argument is {@code null}
      */
-    ProcessTreeTracker(long root, Descendants descendants, Starts starts, ProcessGroupSignals signals,
-            InstantSource clock, TerminationProtocol.Pause pause) {
+    ProcessTreeTracker(long root, Descendants descendants, Starts starts, InstantSource clock,
+            TerminationProtocol.Pause pause) {
         this.root = root;
         this.descendants = Objects.requireNonNull(descendants, "descendants");
         this.starts = Objects.requireNonNull(starts, "starts");
-        Objects.requireNonNull(signals, "signals");
         this.clock = Objects.requireNonNull(clock, "clock");
         this.pause = Objects.requireNonNull(pause, "pause");
         this.rootStartedAt = this.starts.of(root).orElse(null);
@@ -185,7 +185,8 @@ public final class ProcessTreeTracker {
      * period, and {@code SIGKILL} through the handle of those left. A remembered member whose PID now belongs to a
      * process that started at another instant was reused: the sweep does not select it, and the JDK's destroy refuses a
      * PID that moved before its own check. A reuse between that check and its {@code kill(2)} is the residual window
-     * ADR 017 records as accepted.
+     * ADR 017 records as accepted. A signal that throws for one member leaves the others signalled, the escalation run
+     * and that member reported as a survivor when it is still alive.
      *
      * @return the members still alive after the {@code SIGKILL}, with their executables; empty when the sweep ended them
      */
@@ -195,7 +196,7 @@ public final class ProcessTreeTracker {
             return List.of();
         }
         for (var member : targets) {
-            member.handle().destroy();
+            signal(member, ProcessHandle::destroy);
         }
         var interrupted = false;
         var deadline = clock.instant().plus(SWEEP_GRACE);
@@ -205,7 +206,7 @@ public final class ProcessTreeTracker {
         }
         var left = survivors();
         for (var member : left) {
-            member.handle().destroyForcibly();
+            signal(member, ProcessHandle::destroyForcibly);
         }
         if (!left.isEmpty()) {
             // give SIGKILL a moment, so a process it ended is not reported as a survivor
@@ -218,6 +219,24 @@ public final class ProcessTreeTracker {
         return survivors().stream().filter(member -> killed.contains(member.pid()))
                 .map(member -> new Survivor(member.pid(), member.handle().info().command().orElse(null)))
                 .toList();
+    }
+
+    /**
+     * Signals one member through its own handle. A primitive that throws for one member does not end the sweep: the
+     * JDK's destroy throws {@link IllegalStateException} for the JVM's own PID and {@link UnsupportedOperationException}
+     * where the platform cannot signal, and either leaves the other members signalled, the escalation run and a member
+     * the throw left alive reported as a {@link Survivor}. The returned flag is ignored: a refused signal ends as a
+     * reported survivor too.
+     *
+     * @param member    the member to signal
+     * @param primitive {@link ProcessHandle#destroy()} or {@link ProcessHandle#destroyForcibly()}
+     */
+    private static void signal(Member member, Predicate<ProcessHandle> primitive) {
+        try {
+            primitive.test(member.handle());
+        } catch (IllegalStateException | UnsupportedOperationException failure) {
+            LOGGER.debug(failure, "Signalling the descendant %s failed; the sweep goes on", member.pid());
+        }
     }
 
     /** @return the remembered member of every PID that is still the process it was, and still runs */

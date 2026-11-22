@@ -32,6 +32,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -70,6 +71,15 @@ class WorkflowStatusCodecTest {
     static final String STEPS = "\"steps\":{\"default:verify\":{\"outcome\":\"done\",\"firings\":[{\"fired_at\":"
             + "\"2026-10-12T09:00:00Z\",\"cause\":\"first\",\"loop_back_iteration\":0,\"outcome\":\"done\"}]}}";
     static final String FACTS = "\"facts\":{\"ratio\":1.50,\"note\":\"caf\\u00e9 \\\"q\\\"\",\"flag\":true,\"none\":null}";
+
+    /** One filled slot in the canonical form (wire shape), the base of the slot refusal cases. */
+    static final String SLOT = "{\"value\":\"feat: a message\",\"source\":\"task_submit\","
+            + "\"filled_at\":\"2026-10-12T10:00:00Z\"}";
+
+    /** @return the workspace document with one slot filled under the key {@code plan:message} */
+    static String withSlot(String slot) {
+        return WORKSPACE.replace("\"slots\":{}", "\"slots\":{\"plan:message\":" + slot + "}");
+    }
 
     /** A plan status in the canonical form, with members of other components around the engine's (golden document). */
     static final String DOCUMENT = "{\"format_version\":1,\"scope_type\":\"plan\",\"scope_id\":\"workflow-engine\","
@@ -174,6 +184,30 @@ class WorkflowStatusCodecTest {
             var readBack = read(new String(WorkflowStatusCodec.write(status)));
 
             assertEquals(status.slots(), readBack.slots(), "the slot round-trips through the codec");
+        }
+
+        @Test
+        @DisplayName("a frame with every provenance is written back byte for byte")
+        void everyProvenance() {
+            // the closed provenance set and its wire shape are the contract
+            var sources = "{\"a\":{\"source\":\"literal\",\"source_ref\":null},"
+                    + "\"b\":{\"source\":\"config\",\"source_ref\":\"test.mode\"},"
+                    + "\"c\":{\"source\":\"default\",\"source_ref\":null},"
+                    + "\"d\":{\"source\":\"task_submit\",\"source_ref\":\"change\"},"
+                    + "\"e\":{\"source\":\"operator_answer\",\"source_ref\":\"proceed\"}}";
+            var document = DOCUMENT.replace(
+                    "\"arg_sources\":{\"message_mode\":{\"source\":\"literal\",\"source_ref\":null}}",
+                    "\"arg_sources\":" + sources);
+
+            var status = read(document);
+            var covered = status.callStack().getFirst().argSources().values().stream()
+                    .map(WorkflowStatus.CallFrame.ArgSource::source)
+                    .collect(Collectors.toSet());
+            assertAll(
+                    () -> assertEquals(WorkflowStatus.CallFrame.ArgSource.SOURCES, covered,
+                            "the parsed fixture covers every provenance"),
+                    () -> assertArrayEquals(bytes(document), WorkflowStatusCodec.write(status),
+                            "every provenance should round-trip byte for byte"));
         }
 
         @Test
@@ -342,7 +376,25 @@ class WorkflowStatusCodecTest {
                                         + "\"recorded_digest\":\"x\",\"current_digest\":null}"),
                         "'pending_condition.integrity' is required for integrity_breach and only for it"),
                 Arguments.of("the lesson store as scope", WORKSPACE.replace("\"scope_type\":\"workspace\"",
-                        "\"scope_type\":\"lessons\""), "'scope_type' has the undeclared value 'lessons'"));
+                        "\"scope_type\":\"lessons\""), "'scope_type' has the undeclared value 'lessons'"),
+                Arguments.of("a command id of 15 digits", DOCUMENT.replace("cmd-0123456789abcdef",
+                        "cmd-0123456789abcde"), "'command_id' is malformed: cmd-0123456789abcde"),
+                Arguments.of("a command id with an upper-case digit", DOCUMENT.replace("cmd-0123456789abcdef",
+                        "cmd-0123456789ABCDEf"), "'command_id' is malformed: cmd-0123456789ABCDEf"),
+                Arguments.of("a correlation id in the command member", DOCUMENT.replace("cmd-0123456789abcdef",
+                        "cor-0123456789abcdef"), "'command_id' is malformed: cor-0123456789abcdef"),
+                Arguments.of("a correlation id of 15 digits", DOCUMENT.replace("cor-0123456789abcdef",
+                        "cor-0123456789abcde"), "'correlation_id' is malformed: cor-0123456789abcde"),
+                Arguments.of("an unknown provenance", DOCUMENT.replace("\"source\":\"literal\"",
+                        "\"source\":\"invented\""), "'arg_sources.source' has the undeclared value 'invented'"),
+                Arguments.of("a slot without its value", withSlot(SLOT.replace("\"value\":\"feat: a message\",", "")),
+                        "field 'value' of the slot 'plan:message' is missing"),
+                Arguments.of("a slot without its filled_at",
+                        withSlot(SLOT.replace(",\"filled_at\":\"2026-10-12T10:00:00Z\"", "")),
+                        "field 'filled_at' of the slot 'plan:message' is missing"),
+                Arguments.of("a slot with an unknown provenance",
+                        withSlot(SLOT.replace("\"task_submit\"", "\"literal\"")),
+                        "'slots.source' has the undeclared value 'literal'"));
     }
 
     /** @return one call frame in the canonical form (wire shape) */

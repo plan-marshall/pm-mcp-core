@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Stream;
@@ -53,17 +54,35 @@ class EnvelopePackerTest {
         taskCounter = 0;
         budget = Generators.longs(100_000, 1_000_000).next();
         module = name();
-        role = name();
+        role = roleName();
     }
 
     private static String name() {
         return Generators.letterStrings(3, 12).next();
     }
 
+    /** @return a role name: three to twelve lower-case letters, inside the grammar of {@code RoleName} */
+    private static String roleName() {
+        return name().toLowerCase(Locale.ROOT);
+    }
+
+    /** @return a role that is no role name: it opens with an upper-case letter */
+    private static String noRoleName() {
+        return name().toUpperCase(Locale.ROOT);
+    }
+
     private static String otherThan(String value) {
         String other;
         do {
             other = name();
+        } while (other.equals(value));
+        return other;
+    }
+
+    private static String otherRoleThan(String value) {
+        String other;
+        do {
+            other = roleName();
         } while (other.equals(value));
         return other;
     }
@@ -208,7 +227,7 @@ class EnvelopePackerTest {
         @DisplayName("closes the envelope when the next task is served by another role")
         void closesOnARoleChange() {
             var first = task(regularCost());
-            var other = task(module, otherThan(role), regularCost());
+            var other = task(module, otherRoleThan(role), regularCost());
 
             var envelopes = pack(first, other);
 
@@ -291,6 +310,21 @@ class EnvelopePackerTest {
                             assertThrows(NullPointerException.class, withoutDependencies::build,
                                     "Missing dependencies are refused").getMessage(),
                             "The refusal names the missing dependencies"));
+        }
+
+        @Test
+        @DisplayName("refuses a role that is no role name, without echoing it")
+        void refusesARoleThatIsNoRoleName() {
+            var builder = PlannedTaskSummary.builder()
+                    .taskId("TASK-001").moduleId(module).role(noRoleName()).skillUris(Set.of())
+                    .costSize(CostSize.S).predictedCostTokens(1).dependsOnTaskIds(List.of());
+
+            var refusal = assertThrows(IllegalArgumentException.class, builder::build,
+                    "A role outside the grammar is refused");
+
+            // The message is the contract of the refusal; the task id is the plan's TASK-NNN format.
+            assertEquals("The role of the task TASK-001 is no role name", refusal.getMessage(),
+                    "The refusal names the task, not the role");
         }
     }
 
@@ -398,7 +432,7 @@ class EnvelopePackerTest {
         void areNamedSequentially() {
             var first = task(regularCost());
             var second = task(otherThan(module), role, regularCost());
-            var third = task(module, otherThan(role), regularCost());
+            var third = task(module, otherRoleThan(role), regularCost());
 
             var envelopes = pack(first, second, third);
 
@@ -429,6 +463,25 @@ class EnvelopePackerTest {
             assertAll("The minimum task work boundary",
                     () -> assertFalse(envelopeOf(MIN).belowMinimum(), "An envelope at the minimum is not below"),
                     () -> assertTrue(envelopeOf(MIN - 1).belowMinimum(), "An envelope under the minimum is below"));
+        }
+
+        @Test
+        @DisplayName("refuse a role that is no role name, without echoing it")
+        void refuseARoleThatIsNoRoleName() {
+            var builder = PackedEnvelope.builder()
+                    .envelopeId("envelope-1")
+                    .moduleId(module)
+                    .role(noRoleName())
+                    .taskIds(List.of())
+                    .unionSkillUris(List.of())
+                    .totalPredictedCostTokens(MIN);
+
+            var refusal = assertThrows(IllegalArgumentException.class, builder::build,
+                    "A role outside the grammar is refused");
+
+            // The message is the contract of the refusal; envelope-1 is the packer's contract id.
+            assertEquals("The role of the envelope envelope-1 is no role name", refusal.getMessage(),
+                    "The refusal names the envelope, not the role");
         }
 
         private PackedEnvelope envelopeOf(long total) {

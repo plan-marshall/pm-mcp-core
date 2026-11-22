@@ -78,9 +78,22 @@ public class LcovReportParser {
      *         naming its file name only
      */
     public static CoverageParseResult parse(Path reportFile) {
+        return parse(reportFile, CoverageReportStream.MAX_BYTES);
+    }
+
+    /**
+     * Parses an LCOV report from a file, streaming it within the given bound; the seam through which a test proves that
+     * the file is read through {@link CoverageReportStream}.
+     *
+     * @param reportFile the report file
+     * @param limit      the most bytes of the report that are read
+     * @return the parsed report, or a refusal naming the format and the reason
+     */
+    static CoverageParseResult parse(Path reportFile, long limit) {
         Objects.requireNonNull(reportFile, "reportFile");
         try (BufferedReader source = new BufferedReader(new InputStreamReader(
-                     new CoverageReportStream(Files.newInputStream(reportFile)), StandardCharsets.UTF_8.newDecoder()))) {
+                     new CoverageReportStream(Files.newInputStream(reportFile), limit),
+                     StandardCharsets.UTF_8.newDecoder()))) {
             return new Walk().parse(source);
         } catch (IOException e) {
             return CoverageRefusals.of(FORMAT, reportFile, e);

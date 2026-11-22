@@ -3,27 +3,30 @@
 
 == Status
 
-Accepted
+Accepted; amended by link:041-the-cycle-enumeration-is-capped.adoc[ADR 041], which caps the enumeration and changes
+its return type
 
 == Date
 
-2026-11-11
+2026-11-11 (amended 2026-11-21)
 
 == Context
 
 `UnitGraph.findSimpleCycles` enumerates the elementary simple cycles of a unit's transition graph. Two checks call it
 for every unit they verify: `CYCLE_AWAITED_EVENT` (`WorkflowValidator.checkCycleAwaitedEvent`) and the compiled
 invariant on capped model loops (`SubWorkflowInvariants.cappedModelLoops`). The implementation started a depth-first
-search at every state and descended only into states of a larger index, which walks every simple path from a state that
-keeps to a larger index: its cost follows the number of simple paths, not the number of cycles. Nothing measured that
-cost on a unit of the size or the shape the product's units have, and those units live in `plan-marshall-mcp`, which
-will run this code over them.
+search at every state and descended only into states whose index is greater than the index of that start state
+(`nextIndex > startIndex`; the indexes along a path need not increase), which walks every simple path from the start
+whose states all lie above it in declaration order: its cost follows the number of those simple paths, not the number
+of cycles. Nothing measured that cost on a unit of the size or the shape the product's units have, and those units live
+in `plan-marshall-mcp`, which will run this code over them.
 
-The scale test `UnitGraphCycleScaleTest` generates units in the DSL text and parses them with the real parser, in three
+The scale test `UnitGraphCycleScaleTest` generates units in the DSL text and parses them with the real parser, in four
 families: (a) a chain of `n` diamonds closed by one loop-back edge, the worst case with `2^n` simple cycles, (b) the
-shape of a phase with `k` remediation call sites each looping back to one gate, and (c) a few hundred states in
-branch-and-rejoin sections whose cycles are few. The test keeps the pre-change implementation as a private oracle and
-bounds each large unit at 15 seconds, a limit of the test rather than a benchmark.
+shape of a phase with `k` remediation call sites each looping back to one gate, (c) a few hundred states in
+branch-and-rejoin sections whose cycles are few, and (d) a chain of cyclic sections, each branch of a section either
+retrying its hub or advancing into the next section. The test keeps the pre-change implementation as a private oracle
+and bounds each large unit at 15 seconds, a limit of the test rather than a benchmark.
 
 Measured on the development host, with the test run through the project's Maven command
 (`test -pl pm-workflow -am -Dtest=UnitGraphCycleScaleTest`) and read from the surefire report of each run: the `Before`
@@ -54,10 +57,17 @@ of the same test against the restricted method. The times are of that host and t
 | 2
 | over the 15 s bound
 | 0.009 s
+
+| (d) 200 chained sections
+| 602
+| 1201
+| 400
+| not run
+| 0.013 s
 |===
 
-The family-(c) unit did not finish inside the bound: its branch-and-rejoin sections carry `2^100` simple paths of
-increasing index while the unit itself carries two cycles. The impractical case is therefore not only the family-(a)
+The family-(c) unit did not finish inside the bound: from its entry state its branch-and-rejoin sections carry `2^100`
+simple paths whose states all lie above the entry in declaration order, while the unit itself carries two cycles. The impractical case is therefore not only the family-(a)
 worst case; a unit of the size the product's units will have can overrun the bound without carrying many cycles.
 
 The twelve default fixture units of `pm-workflow/src/test/resources/unit-fixtures/defaults/` (4 to 17 states each) are
@@ -65,7 +75,9 @@ the fourth measured population: the same test compares both implementations on a
 run and 0.096 s of the `After` run, and the retained oracle reports the same cycles in the same order for every one of
 them. The two large generated units whose legacy enumeration finishes inside the bound — the 16-diamond chain and the
 200-site phase — are compared with the oracle as well; the family-(c) unit is not, because the legacy enumeration does
-not finish on it.
+not finish on it. The family-(d) row was added with ADR 041: the legacy enumeration and the first version of this
+change were not run on the 200-section chain (the oracle compares the 10-section chain only), and its `After` time is
+the run of the scale test on the head of that change, read from the surefire report.
 
 == Decision
 
@@ -73,7 +85,8 @@ not finish on it.
 depth-first search inside the component of the start state alone, with the same state order and the same successor
 order. The components are found in two passes over the graph — a finish order over the successor edges, then the
 components over the predecessor edges — so the pre-pass is linear in states and edges. The signature, the return type
-(`List<List<String>>`, each cycle ending in its start state) and both callers are unchanged.
+(`List<List<String>>`, each cycle ending in its start state) and both callers were unchanged by this decision; ADR 041
+later wrapped the result in an `Optional` that is empty above the cap.
 
 The restriction is per component, not per cyclic state: a state in another cyclic component is reachable from the start
 only over a one-way edge, and a path that leaves the start's component can never return to the start, so descending into
@@ -90,12 +103,13 @@ the generated small units of every family.
 
 The family-(a) chain stays exponential: its `2^n` cycles are the answer, and no rule bounds the number of cycles such a
 unit carries. A cap on the number of cycles is a decision of the operator and is not taken here; the enumeration is the
-cost Rule 11 charges for the shape.
+cost Rule 11 charges for the shape. The operator took that decision later: ADR 041 caps the enumeration at `2^16`
+cycles and refuses a unit above it.
 
 == Alternatives Considered
 
-1. *Cap the enumerated cycles.* Rejected: a limit is a decision of the operator, would be a new refusal, and would
-   change the verification result of every unit above the cap.
+1. *Cap the enumerated cycles.* Rejected here: a limit is a decision of the operator, would be a new refusal, and would
+   change the verification result of every unit above the cap. Taken later by ADR 041 on the operator's decision.
 2. *Leave the enumeration unrestricted.* Rejected: it is exponential in the number of simple paths, not only in the
    number of cycles, so a few hundred states in branch-and-rejoin sections overrun the bound while carrying two cycles.
 3. *Memoise the search per unit.* Not taken: each of the two checks asks once per unit, so a memo saves nothing here.
@@ -104,7 +118,7 @@ cost Rule 11 charges for the shape.
 
 A unit of a few hundred states enumerates inside the scale test's bound, and the chained-sections shape — the one that
 showed the per-state restriction was not enough — is generated at 200 sections and bounded there too. The family-(a)
-chain remains exponential by its nature and its cycle count is recorded rather than bounded. A third caller inherits the
+chain remains exponential by its nature; until ADR 041 its cycle count was recorded rather than bounded. A third caller inherits the
 same cost, and a rule that needs the enumeration repeatedly for one unit moves the component pre-pass out of the call
 rather than repeating it. A component with a self-loop counts as cyclic, so a single state that loops to itself is
 still enumerated.

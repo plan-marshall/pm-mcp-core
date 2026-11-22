@@ -31,8 +31,9 @@ import de.planmarshall.core.id.RoleName;
  * <p>
  * The directory also holds the release's default assignment ({@code default-assignment.json}, the onboarding's) and the
  * release's qualification records ({@code qualification/<role>.json}), neither of which is a role: the reader skips the
- * reserved file name and every subdirectory. A file whose name is not a role name refuses the read, so no shipped
- * document escapes the build test that validates the set.
+ * reserved file name and every subdirectory. A file whose name is not a role name, or is a reserved keyword of the
+ * workflow language ({@link RoleArtifactValidator}), refuses the read, so no shipped document escapes the build test
+ * that validates the set.
  * <p>
  * The reader is a build test's entry and a runtime entry alike: the release compiles the documents into the binary.
  *
@@ -128,6 +129,10 @@ public final class ShippedRoles {
         }
         if (!RoleName.matches(name)) {
             throw new IllegalStateException("The shipped role file '%s' is not named by a role name".formatted(fileName));
+        }
+        if (RoleArtifactValidator.RESERVED_KEYWORDS.contains(name)) {
+            throw new IllegalStateException("The shipped role file '%s' is named by a reserved keyword"
+                    .formatted(fileName));
         }
         documents.put(name, document);
     }

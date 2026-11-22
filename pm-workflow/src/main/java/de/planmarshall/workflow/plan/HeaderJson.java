@@ -461,7 +461,7 @@ final class HeaderJson {
             case CallValue.EnumValue(var text) -> new StringNode(text);
             case CallValue.IntValue(var integer) -> number(integer);
             case CallValue.EnumList(var values) -> strings(values);
-            case CallValue.SlotRef(var name) -> new StringNode(SLOT_REF_PREFIX + name);
+            case CallValue.SlotRef(var name) -> new ObjectNode(Map.of(SLOT_REF_MEMBER, new StringNode(name)));
         };
     }
 
@@ -559,15 +559,15 @@ final class HeaderJson {
     }
 
     /**
-     * The prefix a slot reference carries in the header: the DSL source form, so the tree reads it back as a slot
-     * reference and never as the enum value of the same text.
+     * The one member a slot-reference argument carries: a typed object, so no enum value of the same text can be read
+     * back as a reference (link:../adr/workflow-dsl/017-a-slot-reference-is-typed-in-the-header.adoc[ADR workflow-dsl/017]).
      */
-    static final String SLOT_REF_PREFIX = "slot.";
+    static final String SLOT_REF_MEMBER = "slot";
 
     private static CallValue callValue(Node node, String name) {
         return switch (node) {
-            case StringNode(var text) when text.startsWith(SLOT_REF_PREFIX) && text.length() > SLOT_REF_PREFIX.length() ->
-                new CallValue.SlotRef(text.substring(SLOT_REF_PREFIX.length()));
+            case ObjectNode(var members) when members.size() == 1
+                    && members.get(SLOT_REF_MEMBER) instanceof StringNode(var slot) -> new CallValue.SlotRef(slot);
             case StringNode(var text) -> new CallValue.EnumValue(text);
             case NumberNode number when number.integral() -> new CallValue.IntValue(intValue(number, name));
             case ArrayNode array when array.elements().stream().allMatch(StringNode.class::isInstance) ->

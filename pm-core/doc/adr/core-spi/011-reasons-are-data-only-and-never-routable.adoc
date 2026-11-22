@@ -19,7 +19,10 @@ router).
 == Decision
 
 Reasons are data only. No grammar production, guard or verifier reads a reason; `PM-WATCH-DSL-15` and
-`PM-WATCH-DSL-22` keep their text. A cause a unit must route on is promoted to a named outcome by the primitive's
+`PM-WATCH-DSL-22` keep their text. The verifier reads the wire name of a reason only to name a reason routed as an
+outcome, which routes nothing
+(link:../../../../pm-workflow/doc/adr/workflow-verify/040-a-reason-routed-as-an-outcome-is-named-by-rule-2.adoc[ADR
+workflow-verify/040] refines this sentence). A cause a unit must route on is promoted to a named outcome by the primitive's
 author — that is the rule, not an exception to it. What the engine does with a reason (the mapping to a condition, the
 data it records) belongs to `PLAN-V2-19`, which declares the same.
 
@@ -31,7 +34,9 @@ data it records) belongs to `PLAN-V2-19`, which declares the same.
 == Consequences
 
 * The graph and the state catalogue are unaffected by a new reason.
-* A reason is safe to add without a verifier change.
+* A reason is safe to add without a verifier change: the diagnostic of
+  link:../../../../pm-workflow/doc/adr/workflow-verify/040-a-reason-routed-as-an-outcome-is-named-by-rule-2.adoc[ADR
+  workflow-verify/040] reads the reasons a primitive declares and needs no edit for a new one.
 * The lane that adds the engine's use of a reason (`PLAN-V2-19`) must keep the guard surface unchanged.
 
 == Source

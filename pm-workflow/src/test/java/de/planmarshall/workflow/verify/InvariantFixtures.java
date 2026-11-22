@@ -125,6 +125,15 @@ public final class InvariantFixtures {
     static final Mutation INTERFACE_INPUT_MISSING = new Mutation("an input the default unit declares", GIT_FILE,
             "input: push_mode\ninput_type: enum[push|no_push]\n", "");
 
+    /** The project's commit unit weakens its commit-message input to a plain text. */
+    static final Mutation INTERFACE_COMMIT_MESSAGE_WEAKENED = new Mutation("a commit message weakened to a text",
+            GIT_FILE, "input: message\ninput_type: commit_message[1..2000]?",
+            "input: message\ninput_type: text[1..2000]?");
+
+    /** The project's commit unit weakens its path-list input to a single path. */
+    static final Mutation INTERFACE_PATH_LIST_WEAKENED = new Mutation("a path list weakened to a path", GIT_FILE,
+            "input: files\ninput_type: list<path>[0..500]?", "input: files\ninput_type: path?");
+
     /** The phase file of the init phase, which holds the split of the lanes at {@code init.ready}. */
     public static final String INIT_FILE = "init.pmwf";
 

@@ -48,15 +48,22 @@ class MachineSettingsWritersTest {
     private Path file;
     private MachineConfigurationStore store;
 
-    private final long revision = Generators.longs(1, 1_000_000).next();
-    private final int maxBuildSlots = Generators.integers(1, 16).next();
-    private final int lspIdleTimeout = Generators.integers(60, 86_400).next();
-    private final int plansAfterDays = Generators.integers(CleanupDuration.MIN_DAYS, 365).next();
-    private final int epicsAfterDays = Generators.integers(CleanupDuration.MIN_DAYS, 365).next();
-    private final int remindAfterDays = Generators.integers(CleanupDurations.MIN_REMIND_DAYS, 30).next();
+    private long revision;
+    private int maxBuildSlots;
+    private int lspIdleTimeout;
+    private int plansAfterDays;
+    private int epicsAfterDays;
+    private int remindAfterDays;
 
+    /** Draws the generated values under the per-test generator controller, so a failing run names its seed. */
     @BeforeEach
     void createStore() {
+        revision = Generators.longs(1, 1_000_000).next();
+        maxBuildSlots = Generators.integers(1, 16).next();
+        lspIdleTimeout = Generators.integers(60, 86_400).next();
+        plansAfterDays = Generators.integers(CleanupDuration.MIN_DAYS, 365).next();
+        epicsAfterDays = Generators.integers(CleanupDuration.MIN_DAYS, 365).next();
+        remindAfterDays = Generators.integers(CleanupDurations.MIN_REMIND_DAYS, 30).next();
         store = new MachineConfigurationStore(MachineConfigurationStore.file(base), new TestLocks());
         file = base.resolve(MachineConfigurationStore.FILE_NAME);
     }

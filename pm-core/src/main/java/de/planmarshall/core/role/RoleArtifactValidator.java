@@ -30,7 +30,8 @@ import de.planmarshall.core.profile.ProfileRefusal;
  * Validates one role artifact against the closed schema of {@code model-work/01-roles-and-configuration.adoc#role-artifact}
  * (PM-WORK-1). An unknown member, a missing required member, {@code recycling} missing for {@code warm} or present for
  * {@code fresh}, an {@code off_track} threshold above the compiled one or below the signal's floor, and {@code questions}
- * or {@code off_track} on a {@code zero_tool} role are {@code schema_invalid}.
+ * or {@code off_track} on a {@code zero_tool} role are {@code schema_invalid}. A name that is a reserved keyword of the
+ * workflow language is refused as well, as the workflow verifier refuses it where a state names a role.
  * <p>
  * The validator reads the document as bounded, untrusted input through {@link JsonDocument}, so a document that is not
  * JSON, is too large or repeats a member is refused as well. What depends on the harness, the model catalogue or the
@@ -65,6 +66,18 @@ public final class RoleArtifactValidator {
     private static final Pattern SKILL_SEGMENT = Pattern.compile("[a-z0-9][a-z0-9_-]*");
     private static final String SKILL_PREFIX = "skill://pm/";
     private static final String SKILL_SUFFIX = "/SKILL.md";
+
+    /**
+     * The reserved keywords of the workflow language, the set the workflow verifier refuses as a role name
+     * ({@code WorkflowValidator} of {@code pm-workflow}, which this module cannot read). A keyword with an underscore
+     * is listed although it never matches the role-name grammar, so the two sets read alike.
+     */
+    static final Set<String> RESERVED_KEYWORDS = Set.of("workflow", "version", "format", "derived_from", "scope",
+            "param", "result", "declare", "decide", "start", "migrate", "state", "terminal", "phase", "inherit",
+            "skill", "facts", "auto", "job", "composite_job", "call", "question", "link", "guard",
+            "depends_on_config", "do", "llm", "role", "each", "consult", "completes", "as", "and", "or", "not",
+            "in_worktree", "has_open_findings", "all_tasks_completed", "predicate", "text", "int", "enum", "schema",
+            "list", "slot", "fills", "from");
 
     private static final Map<String, RoleArtifact.OffTrackSignal> SIGNALS = signals();
 
@@ -118,6 +131,9 @@ public final class RoleArtifactValidator {
             var name = text(required(artifact, "name"), "/name", "name", 32);
             if (!RoleName.matches(name)) {
                 throw invalid("/name", "not a role name: '%s'".formatted(name));
+            }
+            if (RESERVED_KEYWORDS.contains(name)) {
+                throw invalid("/name", "the role name '%s' is a reserved keyword".formatted(name));
             }
             if (!name.equals(role)) {
                 throw invalid("/name", "the artifact declares '%s', its file name is '%s'".formatted(name, role));

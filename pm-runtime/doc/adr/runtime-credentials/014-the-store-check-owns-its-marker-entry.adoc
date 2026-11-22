@@ -33,7 +33,9 @@ conditional on the account being free.
   `CredentialStoreCheck.MARKER` (`pm-mcp-credential-store-check:`), followed by the random test value; only the check
   writes it. An entry under the account that carries the marker is a leftover of an earlier check: the check deletes it
   and runs. An entry without the marker is foreign: the check refuses it with `write.occupied` as before, writes
-  nothing and deletes nothing. A foreign value is never restored or overwritten.
+  nothing and deletes nothing. A foreign value is never restored or overwritten. A leftover of a check that ran before
+  this decision carries a random value without the marker, so it counts as foreign too: it still blocks the check with
+  `write.occupied` until the operator removes it in the OS keyring.
 * *The cleanup after a failed step is limited to the run's own value.* It reads the account and deletes the entry only
   while it holds the value this run wrote; an entry another writer put there before that read is kept. A writer that
   replaces the entry between that read and the delete is not excluded: the store offers no conditional delete the
@@ -62,7 +64,8 @@ conditional on the account being free.
 
 == Consequences
 
-* An interrupted check no longer blocks the next one; a foreign entry under the account is still refused and kept.
+* An interrupted check no longer blocks the next one; a foreign entry under the account is still refused and kept,
+  and so is a leftover written before the marker existed.
 * A failed step does not delete an entry another writer put under the account before the cleanup reads it; a writer
   that replaces the entry between that read and the delete is not excluded.
 * The check's value is longer by the marker; it is still never logged and never part of a check line.

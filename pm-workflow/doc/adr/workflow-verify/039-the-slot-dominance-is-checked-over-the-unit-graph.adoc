@@ -31,8 +31,12 @@ the path of a lost settlement too, and a state-level dominator would admit it.
 * A slot a call reads that is never filled in the unit is refused with its own message, so the two failures stay
   distinguishable.
 * The measurement: the check is one breadth-first walk per slot a call reads, linear in the states and transitions of the
-  unit; no separate benchmark was taken, so the cost is argued from the algorithm and measured only insofar as the
-  verifier suite, the largest fixture (`verify/passing/every-construct.pmwf`, 39 states) included, runs unchanged.
+  unit; the consumption check ADR `workflow-verify/042` adds is one walk per ordered pair of states that read a slot and
+  one per reading state for its cycle, so it is `O(k² · (states + transitions))` for `k` reading states of a slot — a `k`
+  of one or two in every unit shipped. It was measured on 2026-11-21 by `SlotDominanceCostTest` (`pm-workflow`): a plan
+  unit of 2 005 states, whose 2 000-state bypass chain must be crossed before the walk finds the call it cannot dominate,
+  takes 72 to 115 ms across the runs of that day (surefire testcase time, parse and verification together); the test also
+  publishes `slot_dominance_walk_ms`, which times the verification alone. The earlier suite-based argument is superseded.
 
 == Alternatives Considered
 

@@ -676,46 +676,27 @@ public final class ProfileStages {
     }
 
     /**
-     * The result of the stages of an endpoint's verification.
+     * The result of the stages of an endpoint's verification. An endpoint always runs the four stages of
+     * {@link #ENDPOINT_STAGES} in that order, so the record carries no stage list of its own.
      *
      * @param identity the stage {@code identity}
      * @param launch   the stage {@code launch}
      * @param classes  the stage {@code classes}
      * @param limits   the stage {@code limits}
-     * @param stages   the stages this verification ran, in the order they ran
      * @since 0.1
      */
     @Builder
     public record EndpointVerification(EndpointIdentity identity, EndpointLaunch launch, EndpointClasses classes,
-    EndpointLimits limits, List<String> stages) {
+    EndpointLimits limits) {
 
         /**
-         * @throws NullPointerException     if a stage that applies is {@code null}
-         * @throws IllegalArgumentException if the stage list is not an endpoint's, or a stage is present that the list
-         *                                  does not name
+         * @throws NullPointerException if a stage is {@code null}
          */
         public EndpointVerification {
             Objects.requireNonNull(identity, IDENTITY);
             Objects.requireNonNull(launch, LAUNCH);
+            Objects.requireNonNull(classes, CLASSES);
             Objects.requireNonNull(limits, LIMITS);
-            stages = List.copyOf(stages);
-            if (!ENDPOINT_STAGES.equals(stages)) {
-                throw new IllegalArgumentException("Not a stage list of an endpoint: " + stages);
-            }
-            if (stages.contains(CLASSES) != (classes != null)) {
-                throw new IllegalArgumentException("The classes stage is present exactly when the stages name it");
-            }
-        }
-
-        /**
-         * @param identity the stage {@code identity}
-         * @param launch   the stage {@code launch}
-         * @param classes  the stage {@code classes}
-         * @param limits   the stage {@code limits}
-         */
-        public EndpointVerification(EndpointIdentity identity, EndpointLaunch launch, EndpointClasses classes,
-                EndpointLimits limits) {
-            this(identity, launch, classes, limits, ENDPOINT_STAGES);
         }
 
         /** @return whether a failed {@code identity} or {@code launch} refuses the draft */

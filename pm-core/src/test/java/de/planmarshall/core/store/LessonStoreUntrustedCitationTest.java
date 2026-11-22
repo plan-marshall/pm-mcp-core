@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import static org.easymock.EasyMock.newCapture;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,6 +29,7 @@ import java.time.ZoneOffset;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -159,6 +161,29 @@ class LessonStoreUntrustedCitationTest {
 
         assertEquals(EnumSet.allOf(LessonResolution.State.class), covered,
                 "each lesson state needs a resolution arm");
+    }
+
+    @Test
+    @DisplayName("every variant of the sealed resolution type has a resolution arm")
+    void resolutionArmsCoverEveryVariant() {
+        var covered = resolutionArms()
+                .map(arguments -> arguments.get()[1].getClass())
+                .collect(Collectors.toSet());
+
+        assertEquals(Set.of(LessonResolution.class.getPermittedSubclasses()), covered,
+                "each resolution variant needs a resolution arm");
+    }
+
+    @Test
+    @DisplayName("the switch of isUntrusted has no default arm a new variant could fall to")
+    void untrustedSwitchHasNoDefaultArm() throws Exception {
+        var source = Files.readString(Path.of("src/main/java/de/planmarshall/core/store/LessonStore.java"));
+        var start = source.indexOf("static boolean isUntrusted(LessonResolution resolution)");
+        assertTrue(start >= 0, "the isUntrusted method is found in the source");
+        var end = source.indexOf("\n    }\n", start);
+        assertTrue(end > start, "the end of the isUntrusted method is found");
+
+        assertFalse(source.substring(start, end).contains("default"), "isUntrusted names every variant, no default");
     }
 
     static Stream<Arguments> contentArms() {

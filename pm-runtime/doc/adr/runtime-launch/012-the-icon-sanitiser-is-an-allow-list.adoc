@@ -24,7 +24,8 @@ The accept step (`IconSanitiser`) refuses a candidate above `256` KiB, decides t
 from a file name, and hands the bytes to one of two sanitisers.
 
 The SVG sanitiser (`SvgSanitiser`) is an **allow-list**. A closed list of elements is kept (`svg`, `g`, `title`, `desc`,
-`defs`, `clipPath`, `mask`, the shape elements, the two gradients, `stop`, `pattern`, `image`, `text`, `tspan`); an
+`defs`, `clipPath`, `mask`, `path`, `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `linearGradient`,
+`radialGradient`, `stop`, `pattern`, `image`, `text`, `tspan`); an
 element outside it, or one in a namespace other than the SVG one, is refused. A closed list of attributes is kept:
 `id`, `class`, `style`, `fill`, `fill-opacity`, `fill-rule`, `stroke`, `stroke-width`, `stroke-linecap`,
 `stroke-linejoin`, `stroke-dasharray`, `stroke-dashoffset`, `stroke-opacity`, `stroke-miterlimit`, `opacity`, `color`,
@@ -72,7 +73,9 @@ namespace once, escapes every text and attribute value itself, and has no config
 could weaken.
 
 Keeping the PNG's text chunks and refusing the image was rejected: the text is metadata the icon never needs, and
-stripping it keeps a legitimate icon usable while guaranteeing that no free text reaches a client.
+stripping it keeps a legitimate icon usable while keeping free text out of the four chunks a maker uses to carry it. A
+private ancillary chunk is copied with the image and is not claimed to be clean: the closed list is what the sanitiser
+checks, and a chunk type outside the PNG's registered set has no meaning to reason about.
 
 Refusing only the literal `url(` and `@import` was rejected after review: a CSS escape (`u\72l(`) spells the same
 reference without the literal, so a backslash is refused too. The cost is that a legitimate escape in a `style` value

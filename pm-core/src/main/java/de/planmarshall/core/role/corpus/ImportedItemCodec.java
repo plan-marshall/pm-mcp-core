@@ -36,7 +36,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
-import java.net.URI;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -466,7 +465,8 @@ public class ImportedItemCodec {
         var originCommit = commit;
         var originPath = path;
         var originLine = (int) line;
-        return construct(() -> new Origin(URI.create(originRepository), originCommit, originPath, originLine));
+        return construct(() -> new Origin(SourceManifest.parseRepository(originRepository), originCommit, originPath,
+                originLine));
     }
 
     private static Review readReview(JsonParser parser) throws IOException {

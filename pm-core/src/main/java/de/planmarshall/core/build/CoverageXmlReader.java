@@ -10,8 +10,12 @@
 package de.planmarshall.core.build;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Objects;
 import javax.xml.XMLConstants;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLResolver;
@@ -135,6 +139,26 @@ class CoverageXmlReader {
             return walk(source.stream(), format, handler);
         } catch (XMLStreamException | IllegalArgumentException e) {
             return CoverageRefusals.of(format, e);
+        }
+    }
+
+    /**
+     * Walks the given report file with the given handler, streaming it within the given bound of
+     * {@link CoverageReportStream}.
+     *
+     * @param reportFile the report file
+     * @param limit      the most bytes of the report that are read
+     * @param format     the format whose refusal names the parser
+     * @param handler    the format-specific walk
+     * @return the handler's result, or a refusal naming the format; a file that cannot be read is refused naming its
+     *         file name only
+     */
+    static CoverageParseResult parse(Path reportFile, long limit, CoverageFormat format, Handler handler) {
+        Objects.requireNonNull(reportFile, "reportFile");
+        try (InputStream source = new CoverageReportStream(Files.newInputStream(reportFile), limit)) {
+            return parse(source, format, handler);
+        } catch (IOException e) {
+            return CoverageRefusals.of(format, reportFile, e);
         }
     }
 

@@ -82,12 +82,13 @@ see the same free slot.
 The outcome of the launch-time verification, `Accepted` or `Refused`. It shares its simple name with
 `de.planmarshall.core.profile.HarnessVerification`, the admission precondition of a verification of an unknown harness;
 `WorkerSupervisor` imports this package's type. The collision is recorded and deliberately not renamed: the rename
-package renamed the harness identifier and the fields that carry it, and named neither class.
+package renames `clientId` and `client_id` only and names neither class.
 
 == How the parts work together
 
 [source,text]
-----LaunchRequest ──> LaunchComposer ──> WorkerVectorCheck ──> WorkerLaunch ──> job runner (kind llm)
+----
+LaunchRequest ──> LaunchComposer ──> WorkerVectorCheck ──> WorkerLaunch ──> job runner (kind llm)
       │                  │
       │                  ├── PromptComposer ──> prompt file, prompt digest, delivered skills
       │                  ├── HeadlessBlock  ──> argv, env, MCP configuration
