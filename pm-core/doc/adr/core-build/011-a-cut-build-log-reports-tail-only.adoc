@@ -55,6 +55,9 @@ answers to the operator (2026-11-22), who chose the explicit absence.
   parser changes, because the flag is passed to the Maven count scan alone.
 * A cut log never reads as `noTestsRan`: `ParsedBuild.noTestsRanFrom` needs a null count, and the cut reports the
   explicit absence instead, so a lost head cannot turn into a "no tests" verdict.
+* A cut log keeps the failing count its tail reports as one `TEST_FAILURE` diagnostic at error severity, so a visible
+  failure still contradicts a success banner even though the total is no measurement (the finding codereview raised
+  against the first form of this change). The diagnostic is evidence, not a count: `testCounts()` stays `Unmeasured`.
 * The other parsers read the text alone and do not carry the flag. A parser whose figure a cut can falsify takes the
   flag through `readLog` in the same way when a plan touches it.
 * The contradiction check of a consumer still sees only the tail: a failing module in the lost head is not in the

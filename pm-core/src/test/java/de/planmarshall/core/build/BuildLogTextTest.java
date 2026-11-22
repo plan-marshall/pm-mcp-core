@@ -244,6 +244,27 @@ class BuildLogTextTest {
     }
 
     @Test
+    @DisplayName("a cut log keeps a visible failing count as an error diagnostic")
+    void cutMavenLogKeepsAVisibleFailingCount(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        var failingTail = "[INFO] Results:\n[INFO] Tests run: 5, Failures: 2, Errors: 0, Skipped: 0\n"
+                + "[INFO] BUILD SUCCESS\n";
+        Path log = directory.resolve("cut-failing.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertTrue(build.diagnostics().stream().anyMatch(
+                        diagnostic -> diagnostic.severity() == Severity.ERROR
+                                && diagnostic.message().contains("2 failing tests")),
+                        "the visible failing count is still an error"));
+    }
+
+    @Test
     @DisplayName("a whole Maven log reports its count as the whole run's")
     void wholeMavenLogReportsTheWholeRun(@TempDir Path directory) throws Exception {
         Path log = directory.resolve("whole-maven.log");
