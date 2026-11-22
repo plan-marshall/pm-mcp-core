@@ -201,8 +201,12 @@ class BuildLogTextTest {
     }
 
     /** The tail of a Maven log: one summary block and the success banner (Maven's golden output format). */
-    private static final String MAVEN_TAIL = "[INFO] Results:\n[INFO] \n"
-            + "[INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0\n[INFO] BUILD SUCCESS\n";
+    private static final String MAVEN_TAIL = """
+            [INFO] Results:
+            [INFO]\s
+            [INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0
+            [INFO] BUILD SUCCESS
+            """;
 
     @Test
     @DisplayName("a cut Maven log reports its count as the tail's alone")

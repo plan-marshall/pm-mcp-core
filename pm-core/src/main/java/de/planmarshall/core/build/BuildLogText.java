@@ -94,6 +94,18 @@ public class BuildLogText {
     }
 
     /**
+     * Whether {@code .} of a pattern compiled without flags does not match the character: a carriage return, a line
+     * feed, NEL, the line separator or the paragraph separator.
+     *
+     * @param character the character to test
+     * @return true for a line terminator of the regular-expression dot
+     */
+    static boolean isLineTerminator(char character) {
+        return character == '\r' || character == '\n' || character == '\u0085' || character == ' '
+                || character == ' ';
+    }
+
+    /**
      * Reads a build log and strips its ANSI escape sequences, for a parser whose result the cut cannot falsify.
      * <p>
      * A log longer than {@link #MAX_BYTES} is cut as {@link #readLog(Path)} cuts it; whether it was cut is not returned.

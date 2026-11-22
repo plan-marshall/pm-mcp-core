@@ -131,19 +131,7 @@ public class MavenOutputParser {
         var length = line.length();
         var nextAt = new int[length + 1];
         var lastClose = new int[length + 1];
-        nextAt[length] = -1;
-        lastClose[length] = -1;
-        for (var index = length - 1; index >= 0; index--) {
-            if (isLineTerminator(line.charAt(index))) {
-                nextAt[index] = -1;
-                lastClose[index] = -1;
-            } else {
-                nextAt[index] = line.charAt(index) == '@' ? index : nextAt[index + 1];
-                lastClose[index] = lastClose[index + 1] < 0 && line.startsWith("---", index)
-                        ? index
-                        : lastClose[index + 1];
-            }
-        }
+        markRunnerBounds(line, nextAt, lastClose);
         Matcher head = EXECUTION_HEADER_HEAD.matcher(line);
         var from = 0;
         while (from < length && head.find(from)) {
@@ -156,10 +144,29 @@ public class MavenOutputParser {
         return Optional.empty();
     }
 
-    /** Whether {@code .} of a pattern compiled without flags does not match the character. */
-    private static boolean isLineTerminator(char character) {
-        return character == '\r' || character == '\n' || character == '\u0085' || character == ' '
-                || character == ' ';
+    /**
+     * The one pass from the line's end: for every position, the next {@code @} and the last {@code ---} before the next
+     * line terminator, {@code -1} where there is none.
+     *
+     * @param line      the line scanned
+     * @param nextAt    receives, per position, the index of the next {@code @}; one longer than the line
+     * @param lastClose receives, per position, the index of the last {@code ---}; one longer than the line
+     */
+    private static void markRunnerBounds(String line, int[] nextAt, int[] lastClose) {
+        var length = line.length();
+        nextAt[length] = -1;
+        lastClose[length] = -1;
+        for (var index = length - 1; index >= 0; index--) {
+            if (BuildLogText.isLineTerminator(line.charAt(index))) {
+                nextAt[index] = -1;
+                lastClose[index] = -1;
+            } else {
+                nextAt[index] = line.charAt(index) == '@' ? index : nextAt[index + 1];
+                lastClose[index] = lastClose[index + 1] < 0 && line.startsWith("---", index)
+                        ? index
+                        : lastClose[index + 1];
+            }
+        }
     }
 
     /**

@@ -60,10 +60,11 @@ public class OpenRewriteLogParser {
      * The finding template, the ported {@code (.+?):(\d+):(\d+) by (.+?): (.*)$} after the head. The path is the
      * shortest text of at least one character that the location {@code :<line>:<column> by } follows, written as a
      * tempered token that stops where the location begins, so no path length is tried twice; the location's digits are
-     * possessive because a colon or a blank, never a digit, follows them. Neither changes a match of the ported form.
+     * possessive because a colon or a blank, never a digit, follows them; the recipe name is written the same way as a
+     * token that stops at the first {@code : }. None changes a match of the ported form.
      */
     private static final Pattern FINDING = Pattern.compile(
-            FINDING_HEAD + "(.(?:(?!:\\d++:\\d++ by ).)*+):(\\d++):(\\d++) by (.+?): (.*)$");
+            FINDING_HEAD + "(.(?:(?!:\\d++:\\d++ by ).)*+):(\\d++):(\\d++) by (.(?:(?!: ).)*+): (.*)$");
 
     /** The identifier of a finding line, matched with a word boundary so a colon-less one is still recognised. */
     private static final Pattern FINDING_IDENTIFIER = Pattern.compile(RECIPE_LOG_PREFIX + "-10[01]\\b");
@@ -181,7 +182,7 @@ public class OpenRewriteLogParser {
     static Optional<Matcher> findingMatch(String line) {
         var from = 0;
         for (var index = 0; index < line.length() - 1; index++) {
-            if (isLineTerminator(line.charAt(index))) {
+            if (BuildLogText.isLineTerminator(line.charAt(index))) {
                 from = index + 1;
             }
         }
@@ -191,12 +192,6 @@ public class OpenRewriteLogParser {
         }
         Matcher match = FINDING.matcher(line).region(head.start(), line.length());
         return match.lookingAt() ? Optional.of(match) : Optional.empty();
-    }
-
-    /** Whether {@code .} of a pattern compiled without flags does not match the character. */
-    private static boolean isLineTerminator(char character) {
-        return character == '\r' || character == '\n' || character == '\u0085' || character == ' '
-                || character == ' ';
     }
 
     private static RewriteLogResult parseError(String line, String reason) {
