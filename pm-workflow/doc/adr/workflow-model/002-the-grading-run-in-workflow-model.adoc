@@ -23,7 +23,7 @@ The split follows the two packages' purposes:
   of a role, the constant baseline, the scoring of a closed item, the judge check record and instrument check, and
   `QualificationCheck`, which decides which form a record qualifies.
 * `workflow.model` owns the run: `RoleGrader` (consent, import verdict, judge independence and instrument check, the
-  fresh and warm forms, the screener's repeated runs, the checkout, the record assembly) and
+  fresh and warm forms, the checkout, the record assembly) and
   `RecordedQualification`, the production `QualificationLookup` the model caller already takes.
 
 The ports `GradingHarness`, `JudgeScorer`, `ItemCheckout`, `QualificationRecords` and `JudgeChecks` live with the values

@@ -14,8 +14,8 @@ import java.util.Objects;
 
 /**
  * The {@code connection} block of a client profile, as far as a wait needs it (PM-WF-8; Client Profiles § Worker
- * Block): the bounded wait window, the host's idle timeout, and whether a progress frame resets the host's tool-call
- * timer.
+ * Block): the bounded wait window, the harness's idle timeout, and whether a progress frame resets the harness's
+ * tool-call timer.
  * <p>
  * The values are the effective ones of the profile set that counts for the calling connection, an operator override in
  * {@code machine-config.json} included. Profile validation enforces the bounds and the relation between the bounded
@@ -23,8 +23,8 @@ import java.util.Objects;
  * would refuse.
  *
  * @param boundedWait           the bounded wait window, {@code connection.bounded_wait_seconds}, 15 to 3600 seconds
- * @param idleTimeout           the host's idle timeout, {@code connection.idle_timeout_seconds}
- * @param progressResetsTimeout whether a {@code notifications/progress} frame resets the host's tool-call timer
+ * @param idleTimeout           the harness's idle timeout, {@code connection.idle_timeout_seconds}
+ * @param progressResetsTimeout whether a {@code notifications/progress} frame resets the harness's tool-call timer
  * @since 0.1
  */
 public record ConnectionSettings(Duration boundedWait, Duration idleTimeout, boolean progressResetsTimeout) {
@@ -40,8 +40,9 @@ public record ConnectionSettings(Duration boundedWait, Duration idleTimeout, boo
 
     /**
      * @throws NullPointerException     if a component is {@code null}
-     * @throws IllegalArgumentException if the bounded wait is outside 15 to 3600 seconds, or the idle timeout is not
-     *                                  above it by the 30-second margin of a host whose progress resets no timer
+     * @throws IllegalArgumentException if the bounded wait is outside 15 to 3600 seconds, or, for a harness whose
+     *                                  progress resets no timer, the bounded wait is not at least the 30-second
+     *                                  margin below the idle timeout
      */
     public ConnectionSettings {
         Objects.requireNonNull(boundedWait, "boundedWait");
@@ -54,9 +55,9 @@ public record ConnectionSettings(Duration boundedWait, Duration idleTimeout, boo
             throw new IllegalArgumentException("the idle timeout %s is not positive".formatted(idleTimeout));
         }
         if (!progressResetsTimeout && boundedWait.compareTo(idleTimeout.minus(IDLE_MARGIN)) > 0) {
-            throw new IllegalArgumentException(
-                    "the bounded wait %s is not %s below the idle timeout %s of a host whose progress resets no timer"
-                            .formatted(boundedWait, IDLE_MARGIN, idleTimeout));
+            var message = "the bounded wait %s is not at least %s below the idle timeout %s of a harness whose"
+                    + " progress resets no timer";
+            throw new IllegalArgumentException(message.formatted(boundedWait, IDLE_MARGIN, idleTimeout));
         }
     }
 }

@@ -23,9 +23,9 @@ plan instance version, built from its template (the plan unit's own file).
 == Decision
 
 * `UnitFrontmatterReader` in `workflow.dsl` reads the frontmatter line by line with a parser of its own and imports no
-  YAML library. It is a plain final class with a private constructor, because `pm-workflow` does not use Lombok. It
-  reads up to the closing `---` and nothing after it, so it serves a caller that wants the frontmatter alone and does
-  not depend on the body being parseable.
+  YAML library. It is a Lombok `@UtilityClass` (the module has used Lombok since PLAN-V2-83). It reads up to the
+  closing `---` and nothing after it, so it serves a caller that wants the frontmatter alone and does not depend on the
+  body being parseable.
 * A refusal is a value: `read` returns the sealed `UnitFrontmatterReader.Result`, `Read` with the `UnitFrontmatter` and
   the line the body starts at, or `Refused` with a `Diagnostic` of the new `RefusalRule` member `FRONTMATTER`, the
   line and the column. The first refusal wins, as in the parser of the body. `WorkflowParser` calls the reader first and
