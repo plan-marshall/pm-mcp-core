@@ -135,6 +135,15 @@ public final class PendingEntryStore {
 
     /**
      * @param entryId an entry
+     * @param member  a member of the entry's directory, relative to it
+     * @return the path of the member relative to the path base of the workspace
+     */
+    public static String entryPath(EntryId entryId, String member) {
+        return directoryPath(entryId) + "/" + Objects.requireNonNull(member, "member");
+    }
+
+    /**
+     * @param entryId an entry
      * @return the source directory of the entry, absolute and normalized
      */
     public Path sourcesDirectory(EntryId entryId) {

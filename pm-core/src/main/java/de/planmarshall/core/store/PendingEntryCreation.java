@@ -220,7 +220,7 @@ public final class PendingEntryCreation {
 
     /** Copies the entry's decision store into the target's, and deletes the entry's in the workspace transaction. */
     private int copyDecision(ScopeTransaction workspaceTransaction, ScopeTransaction target, EntryId entryId) {
-        var path = PendingEntryStore.directoryPath(entryId) + "/" + PendingEntryStore.DECISION_LOG;
+        var path = PendingEntryStore.entryPath(entryId, PendingEntryStore.DECISION_LOG);
         var file = workspace.resolve(path);
         if (!Files.exists(file, LinkOption.NOFOLLOW_LINKS)) {
             return 0;
