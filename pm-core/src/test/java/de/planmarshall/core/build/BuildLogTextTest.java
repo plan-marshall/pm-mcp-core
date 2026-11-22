@@ -227,6 +227,23 @@ class BuildLogTextTest {
     }
 
     @Test
+    @DisplayName("a cut log never reads as no tests ran, whatever its tail says")
+    void cutMavenLogNeverReadsAsNoTestsRan(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        var noTestsTail = "[INFO] No tests to run.\n[INFO] BUILD SUCCESS\n";
+        Path log = directory.resolve("cut-no-tests.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + noTestsTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertFalse(build.noTestsRan(), "a cut log never reports that no test ran"));
+    }
+
+    @Test
     @DisplayName("a whole Maven log reports its count as the whole run's")
     void wholeMavenLogReportsTheWholeRun(@TempDir Path directory) throws Exception {
         Path log = directory.resolve("whole-maven.log");

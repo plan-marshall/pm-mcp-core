@@ -266,9 +266,12 @@ public class MavenOutputParser {
     }
 
     private static Optional<TestCounts> extractTestCounts(String logText, List<String> lines, boolean cut) {
+        if (cut) {
+            return Optional.of(TestCounts.unmeasured());
+        }
         var scan = new CountScan();
         lines.forEach(scan::accept);
-        return scan.result(logText, cut);
+        return scan.result(logText);
     }
 
     /**
@@ -348,10 +351,7 @@ public class MavenOutputParser {
             }
         }
 
-        Optional<TestCounts> result(String logText, boolean cut) {
-            if (cut) {
-                return Optional.of(TestCounts.unmeasured());
-            }
+        Optional<TestCounts> result(String logText) {
             if (summaryLines.isEmpty() && ambiguousLines.isEmpty() && perClassLines.isEmpty()) {
                 return Optional.empty();
             }

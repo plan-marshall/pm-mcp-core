@@ -5,7 +5,8 @@
 
 Accepted; amended 2026-11-22 (PLAN-V2-166): a cut log reports `TestCounts.Unmeasured`, not a tail-only `Measured`. The
 operator reversed the 2026-11-21 choice after the landing analysis found the flag read by no code of this repository
-(`landings/PLAN-V2-163.md`, C5).
+(`landings/PLAN-V2-163.md`, C5). The file name keeps the first decision's slug, because ADR identity is the number and
+every link to this record names the file.
 
 == Date
 
