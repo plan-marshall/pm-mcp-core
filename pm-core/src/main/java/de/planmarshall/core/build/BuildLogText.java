@@ -79,6 +79,15 @@ public class BuildLogText {
      */
     public static final int MAX_LINE_LENGTH = LimitProperties.readInt(LIMITS, MAX_LINE_LENGTH_KEY);
 
+    /** The next-line character, a line terminator of the regular-expression dot (U+0085). */
+    private static final char NEL = 0x85;
+
+    /** The line separator, a line terminator of the regular-expression dot (U+2028). */
+    private static final char LINE_SEPARATOR = 0x2028;
+
+    /** The paragraph separator, a line terminator of the regular-expression dot (U+2029). */
+    private static final char PARAGRAPH_SEPARATOR = 0x2029;
+
     /** ANSI escapes: OSC strings, two-character escapes and CSI sequences. */
     private static final Pattern ANSI_ESCAPE =
             Pattern.compile("\\u001B(?:\\][^\\u0007\\u001B]*(?:\\u0007|\\u001B\\\\)|[@-Z\\\\-_]|\\[[0-?]*[ -/]*[@-~])");
@@ -101,8 +110,8 @@ public class BuildLogText {
      * @return true for a line terminator of the regular-expression dot
      */
     static boolean isLineTerminator(char character) {
-        return character == '\r' || character == '\n' || character == '\u0085' || character == ' '
-                || character == ' ';
+        return character == '\r' || character == '\n' || character == NEL || character == LINE_SEPARATOR
+                || character == PARAGRAPH_SEPARATOR;
     }
 
     /**
