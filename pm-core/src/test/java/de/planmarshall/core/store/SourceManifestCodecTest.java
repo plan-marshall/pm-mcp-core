@@ -215,9 +215,9 @@ class SourceManifestCodecTest {
         void onePathInTwoSources() {
             var second = new Source(sourceId + "x", Kind.ISSUE, "ref", "forge", Trust.UNTRUSTED, List.of(file()),
                     addedAt, Verdict.CLEAN, null);
+            var sources = List.of(trusted(), second);
 
-            var refusal = assertThrows(IllegalArgumentException.class,
-                    () -> new SourceManifest(2, List.of(trusted(), second)),
+            var refusal = assertThrows(IllegalArgumentException.class, () -> new SourceManifest(2, sources),
                     "one path in two sources should be refused");
 
             assertTrue(refusal.getMessage().contains(path), "the refusal should name the shared path");
@@ -228,9 +228,10 @@ class SourceManifestCodecTest {
         void reservedPath() {
             var reserved = new Source(sourceId, Kind.DESCRIPTION, "ref", "operator", Trust.TRUSTED,
                     List.of(new SourceFile(SourceManifestCodec.FILE_NAME, size, digest)), addedAt, null, null);
+            var sources = List.of(reserved);
 
-            var refusal = assertThrows(IllegalArgumentException.class,
-                    () -> new SourceManifest(1, List.of(reserved)), "the manifest name should be reserved");
+            var refusal = assertThrows(IllegalArgumentException.class, () -> new SourceManifest(1, sources),
+                    "the manifest name should be reserved");
 
             assertAll(
                     () -> assertTrue(refusal.getMessage().contains(SourceManifestCodec.FILE_NAME),

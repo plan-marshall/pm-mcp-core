@@ -134,17 +134,8 @@ public final class PendingEntryRecordsSweep implements SweepStep {
             var kept = new ArrayList<String>();
             for (var entryId : candidates) {
                 var integrity = verifyUnderLock(store, lock, entryId, kept);
-                if (integrity.isEmpty()) {
-                    continue;
-                }
-                if (!(integrity.get() instanceof PendingEntryStore.Integrity.Absent)) {
-                    kept.add(entryId.value() + " (tampered)");
-                    continue;
-                }
-                store.remove(transaction, entryId);
-                transaction.owe(AuditEvent.pendingEntryRemoved(entryId.value(),
-                        PendingEntryStore.directoryPath(entryId), at, transaction.recordId().value()));
-                removed.add(entryId);
+                integrity.ifPresent(verdict -> removeIfResidue(transaction, store, entryId, verdict, at, removed,
+                        kept));
             }
             if (removed.isEmpty()) {
                 return new Removal(0, failure(kept, List.of()));
@@ -166,6 +157,22 @@ public final class PendingEntryRecordsSweep implements SweepStep {
         var all = new ArrayList<String>(kept);
         all.addAll(discarded);
         return all.isEmpty() ? null : "kept or failed entries: " + all;
+    }
+
+    /**
+     * Removes one candidate whose stores are absent, or keeps it as tampered. The directories themselves are deleted
+     * after the transaction commits.
+     */
+    private void removeIfResidue(ScopeTransaction transaction, PendingEntryStore store, EntryId entryId,
+            PendingEntryStore.Integrity integrity, Instant at, List<EntryId> removed, List<String> kept) {
+        if (integrity instanceof PendingEntryStore.Integrity.Absent) {
+            store.remove(transaction, entryId);
+            transaction.owe(AuditEvent.pendingEntryRemoved(entryId.value(),
+                    PendingEntryStore.directoryPath(entryId), at, transaction.recordId().value()));
+            removed.add(entryId);
+        } else {
+            kept.add(entryId.value() + " (tampered)");
+        }
     }
 
     /**

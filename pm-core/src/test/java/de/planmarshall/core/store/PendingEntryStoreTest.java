@@ -267,7 +267,7 @@ class PendingEntryStoreTest {
 
         @Test
         @DisplayName("is created in one transaction: a stop in the apply step rolls the other stores forward")
-        void createdAfterAPartialApply() throws Exception {
+        void createdAfterAPartialApply() {
             var sources = new SourceManifest(1, List.of(source()));
             try (var transaction = locks.openTransaction()) {
                 transaction.acquire(workspace.lockKey());
