@@ -284,6 +284,31 @@ class PendingEntryCreationTest {
     }
 
     @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a source directory that is a link refuses the move before a file of it is read")
+    void refusesASourceDirectoryThatIsNoDirectory() throws Exception {
+        prepareEntry();
+        var sources = store.sourcesDirectory(entryId);
+        var elsewhere = Files.createDirectory(base.resolve("elsewhere"));
+        Files.write(elsewhere.resolve(SourceManifestCodec.FILE_NAME),
+                SourceManifestCodec.write(SourceManifest.empty()));
+        Files.delete(sources.resolve("description-1.md"));
+        Files.delete(sources.resolve("issue.md"));
+        Files.delete(sources.resolve(SourceManifestCodec.FILE_NAME));
+        Files.delete(sources);
+        Files.createSymbolicLink(sources, elsewhere);
+
+        var refusal = assertThrows(StoreRefusal.class, this::move,
+                "a linked source directory should refuse the move");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("no directory"),
+                        "the refusal should name the source directory"),
+                () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
+                        "nothing should be written into the new scope"));
+    }
+
+    @Test
     @DisplayName("finish reports a directory another end removed first, never an error")
     void finishToleratesARemovedDirectory() throws Exception {
         prepareEntry();
