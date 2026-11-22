@@ -78,6 +78,12 @@ The admission of the machine model slots. Every running worker, warm or fresh, h
 the freed slots admitted. Admission decides in one transaction of `ModelSlotStore` (`core.store`), so two claims never
 see the same free slot.
 
+`HarnessVerification` (this package)::
+The outcome of the launch-time verification, `Accepted` or `Refused`. It shares its simple name with
+`de.planmarshall.core.profile.HarnessVerification`, the admission precondition of a verification of an unknown harness;
+`WorkerSupervisor` imports this package's type. The collision is recorded and deliberately not renamed: the rename
+package renames `clientId` and `client_id` only and names neither class.
+
 == How the parts work together
 
 [source,text]
@@ -296,12 +302,24 @@ ones the harness reports, not their values: two runs of different prompts legiti
 context only one run measured is not a repeated measurement, so it is refused too.
 
 The operator verb that writes the enrolment, the profile and the report under the store's lock stays in
-`plan-marshall-mcp`; what is built here is the seam it calls. An accepted self-update drops a report measured on the
-previous build (`HarnessEnrolment.updated`), so a list never shows an old version's coverage beside a new build.
+`plan-marshall-mcp`; what is built here is the seam it calls. An accepted self-update drops a **verified** report
+measured on the previous build (`HarnessEnrolment.updated`), so a list never shows an old version's coverage beside a
+new build; a `DECLARED` report is the profile's own declaration, not a measurement of a build, so it stays.
 `VerifiedUsageTest` covers the mapping, the cost left out, the start context across the seam and both refusals.
 
 link:../adr/runtime-launch/008-a-verified-usage-report-is-installed-from-a-repeated-evaluation.adoc[ADR 008]: a verified
 usage report is installed only from a repeated evaluation.
+
+== The Rename and Its Compatibility
+
+The harness side is named harness throughout the code: `HarnessEnrolment.harnessId()` and the store's parameters, the
+launch refusal's resolving act, the eligibility refusal and the supervisor's records. The store's file format did not
+change: `harnesses.json` is keyed by the harness id value and no entry member was ever named `client_id`, so a file
+written before the rename reads as before, and the next enrolment rewrites it in the same shape. The audit detail key is
+`harness_id` for records written now; records already written keep `client_id`, which nothing in this module reads as a
+key. The two carriers with a former member name are the profile document and the verification record: each reader
+accepts `client_id` where `harness_id` is absent and refuses a document that carries both, and the writers, which live in
+`plan-marshall-mcp` and `pm-operator`, write only `harness_id`.
 
 == Specification
 

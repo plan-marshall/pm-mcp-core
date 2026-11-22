@@ -27,17 +27,17 @@ import org.junit.jupiter.api.Test;
 @DisplayName("Harness profile builders")
 class HarnessProfileBuilderContractTest {
 
-    private static final String CLIENT_ID = Generators.letterStrings(3, 10).next();
+    private static final String HARNESS_ID = Generators.letterStrings(3, 10).next();
     private static final String MODEL = Generators.letterStrings(3, 10).next();
 
     @Test
     @DisplayName("the profile builder builds the constructor's value")
     void shouldBuildProfileLikeTheConstructor() {
-        var canonical = new HarnessProfile(CLIENT_ID, true, true, Set.of("acme/*"),
+        var canonical = new HarnessProfile(HARNESS_ID, true, true, Set.of("acme/*"),
                 Map.of(RoleClass.WRITER, HarnessProfile.ToolSet.ENFORCED), Map.of(MODEL, List.of("medium", "high")),
                 Map.of("standard", MODEL), 200_000, 3,
                 new HarnessProfile.Resumability(true, 300, true, 600), "ask_user");
-        var built = HarnessProfile.builder().clientId(canonical.clientId()).eligible(canonical.eligible())
+        var built = HarnessProfile.builder().harnessId(canonical.harnessId()).eligible(canonical.eligible())
                 .restrictedModelsDeclared(canonical.restrictedModelsDeclared())
                 .restrictedModels(canonical.restrictedModels()).classes(canonical.classes())
                 .modelEfforts(canonical.modelEfforts()).modelTiers(canonical.modelTiers())

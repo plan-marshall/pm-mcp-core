@@ -144,7 +144,7 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
      * counts it and restarts the same backoff; this method only clears the consumed probe and counts nothing.
      *
      * @param role    the role
-     * @param harness the client id of the harness
+     * @param harness the harness id of the harness
      * @throws NullPointerException if a value is {@code null}
      */
     @Override
@@ -179,7 +179,7 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
      * count that had not reached the hold.
      *
      * @param role    the role
-     * @param harness the client id of the harness
+     * @param harness the harness id of the harness
      * @throws NullPointerException if a value is {@code null}
      */
     public synchronized void firstCall(String role, String harness) {
@@ -195,7 +195,7 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
      * way.
      *
      * @param role    the role whose start failed
-     * @param harness the client id of the harness the start failed on
+     * @param harness the harness id of the harness the start failed on
      * @param logTail the failed worker's own error text, which the report bounds and redacts; {@code null} or blank
      *                reports {@link StartFailureReport#NO_OUTPUT}
      * @return the bounded, redacted report of this failure, which the assembly hands to its clients

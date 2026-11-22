@@ -15,7 +15,7 @@
  * keeps their {@link de.planmarshall.runtime.worker.WorkerGeneration} registry, bounded by the start-failure guard, the
  * verification-record gate and the machine model slots. Every generation's state is written into its job record's
  * {@code worker} block through the landed {@code pm-core} record, and no value of a host or a role is compiled into
- * the package: the timing comes from the harness's client profile and the recycling rules from the role artifact (see
+ * the package: the timing comes from the harness profile and the recycling rules from the role artifact (see
  * {@link de.planmarshall.runtime.worker.SupervisorEnvironment}).
  * <p>
  * The package composes and starts through the landed contracts of {@code runtime.launch} and {@code runtime.job} — it

@@ -38,13 +38,13 @@ import de.planmarshall.core.store.PendingEntryRecord.Bootstrap;
 import de.planmarshall.core.store.PendingEntryRecord.Kind;
 
 /**
- * Reads and writes the pending entry record {@code pending/<entry_id>.json} (PM-CLIENT-1, PM-IMPL-2).
+ * Reads and writes the pending entry record {@code pending/<entry_id>/entry.json} (PM-CLIENT-1, PM-IMPL-2).
  * <p>
  * The reader checks the {@code format_version} first, then reads every member strictly: each at most once, only the
  * declared members, every required member, one JSON type per member, and the rules of the record. The call frames and
  * the condition overlay of the bootstrap are read by the readers of the status document. The raw members {@code facts},
- * {@code source} and {@code options} must be JSON objects ({@code source} also {@code null}) and are captured as the
- * exact text they were read with. Whatever does not parse is a {@link StoreRefusal} naming the file.
+ * the recipe's {@code params} and {@code options} must be JSON objects and are captured as the exact text they were
+ * read with. Whatever does not parse is a {@link StoreRefusal} naming the file.
  * <p>
  * The writer writes every member in the order of the schema, the raw members as the text they were read with, so what
  * a source unit or a bootstrap state wrote is re-emitted byte for byte.
@@ -65,7 +65,9 @@ public class PendingEntryCodec {
     private static final String STATE = "state";
     private static final String CALL_STACK = "call_stack";
     private static final String FACTS = "facts";
-    private static final String SOURCE = "source";
+    private static final String RECIPE = "recipe";
+    private static final String RECIPE_KEY = "recipe_key";
+    private static final String PARAMS = "params";
     private static final String OPTIONS = "options";
     private static final String PENDING_CONDITION = "pending_condition";
     private static final String LAST_REFUSAL = "last_refusal";
@@ -75,7 +77,7 @@ public class PendingEntryCodec {
             CREATED_AT, UPDATED_AT, BOOTSTRAP);
 
     /** The members of the bootstrap state, in the order of the schema. */
-    static final List<String> BOOTSTRAP_MEMBERS = List.of(STATE, CALL_STACK, FACTS, SOURCE, OPTIONS,
+    static final List<String> BOOTSTRAP_MEMBERS = List.of(STATE, CALL_STACK, FACTS, RECIPE, OPTIONS,
             PENDING_CONDITION, LAST_REFUSAL);
 
     /**
@@ -128,16 +130,24 @@ public class PendingEntryCodec {
         WorkflowStatusCodec.writeCallStack(generator, bootstrap.callStack());
         generator.writeFieldName(FACTS);
         generator.writeRawValue(bootstrap.facts());
-        generator.writeFieldName(SOURCE);
-        if (bootstrap.source() == null) {
-            generator.writeNull();
-        } else {
-            generator.writeRawValue(bootstrap.source());
-        }
+        writeRecipe(generator, bootstrap.recipe());
         generator.writeFieldName(OPTIONS);
         generator.writeRawValue(bootstrap.options());
         WorkflowStatusCodec.writeCondition(generator, bootstrap.pendingCondition());
         writeNullable(generator, LAST_REFUSAL, bootstrap.lastRefusal());
+        generator.writeEndObject();
+    }
+
+    private static void writeRecipe(JsonGenerator generator, PendingEntryRecord.@Nullable Recipe recipe)
+            throws IOException {
+        if (recipe == null) {
+            generator.writeNullField(RECIPE);
+            return;
+        }
+        generator.writeObjectFieldStart(RECIPE);
+        generator.writeStringField(RECIPE_KEY, recipe.recipeKey());
+        generator.writeFieldName(PARAMS);
+        generator.writeRawValue(recipe.params());
         generator.writeEndObject();
     }
 
@@ -174,7 +184,7 @@ public class PendingEntryCodec {
                 case CALL_STACK -> bootstrap.callStack(
                         StrictJson.array(parser, field, WorkflowStatusCodec::readFrame));
                 case FACTS -> bootstrap.facts(rawObject(parser, document, field));
-                case SOURCE -> bootstrap.source(isNull(parser) ? null : rawObject(parser, document, field));
+                case RECIPE -> bootstrap.recipe(isNull(parser) ? null : readRecipe(parser, document));
                 case OPTIONS -> bootstrap.options(rawObject(parser, document, field));
                 case PENDING_CONDITION -> bootstrap.pendingCondition(
                         isNull(parser) ? null : WorkflowStatusCodec.readCondition(parser, document));
@@ -189,6 +199,23 @@ public class PendingEntryCodec {
     private static String rawObject(JsonParser parser, byte[] document, String field) throws IOException {
         requireObject(parser, field);
         return WorkflowStatusCodec.raw(parser, document);
+    }
+
+    private static PendingEntryRecord.Recipe readRecipe(JsonParser parser, byte[] document) throws IOException {
+        requireObject(parser, RECIPE);
+        String recipeKey = null;
+        String params = null;
+        var seen = new HashSet<String>();
+        while (parser.nextToken() == JsonToken.FIELD_NAME) {
+            var field = nextField(parser, seen);
+            switch (field) {
+                case RECIPE_KEY -> recipeKey = string(parser, field);
+                case PARAMS -> params = rawObject(parser, document, field);
+                default -> throw undeclared(field);
+            }
+        }
+        requireFields(seen, RECIPE, RECIPE_KEY, PARAMS);
+        return new PendingEntryRecord.Recipe(recipeKey, params);
     }
 
     private static Kind kind(String wireName) {

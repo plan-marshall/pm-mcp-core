@@ -97,12 +97,16 @@ Guard:: Scenario per way an entry ends (the scope created, the entry abandoned, 
 point: the entry's directory (`pending/<entry_id>/` with its record, sources, decisions, and chat) is deleted by that
 end, for a created scope in the fixed write order after the new plan scope, the
 epic queue row, and the lesson claim; no lesson claim, queue-row change, or capture ref exists before the plan scope
-is written, and the capture ref of a `local_changes` plan is set right after it; a crash between these writes is
-completed by the startup recovery (<<PM-WATCH-STORE-44>>; a missing capture ref is re-created at `snapshot_sha`), and a crash
-before the plan scope leaves only the pending record; a record whose digest mismatches pauses only its own entry; an entry is never removed by time (an aged entry
-fixture is still offered in both clients after any number of runtime restarts and periodic sweeps). Present in
-`pm-mcp-core`: two concurrent entries never share a record (`PendingEntryStoreTest`); the directory form, the ends,
-and the crash-point scenarios stay for the start.
+is written, and the capture ref of a `local_changes` plan is set right after it; the startup recovery completes the
+queue row and the lesson claim (<<PM-WATCH-STORE-44>>; a missing capture ref is re-created at `snapshot_sha`), and a
+crash before the plan scope leaves only the pending record; a crash between the plan's commit and the entry's deletion
+leaves the entry, which the operator ends by abandoning it (the new scope does not carry the entry id, so no recovery
+derives it); a record whose digest mismatches pauses only its own entry; an entry is never removed by time (an aged
+entry fixture is still offered in both clients after any number of runtime restarts and periodic sweeps). Present in
+`pm-mcp-core`: two concurrent entries never share a directory (`PendingEntryStoreTest`); the directory form, the record
+deleted last, the per-entry digest verification and the sweep of the residue a cut-off removal left
+(`PendingEntryStoreTest`, `PendingEntryCreationTest`, `PendingEntryRecordsSweepTest`); the ends' routes and the
+client-side hold stay for the start.
 Source:: design review.
 
 == Workflow State Store (`mcp/status.json`)

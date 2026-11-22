@@ -13,8 +13,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.experimental.UtilityClass;
 
+import de.planmarshall.core.profile.HarnessCandidate;
 import de.planmarshall.core.profile.HarnessList;
 import de.planmarshall.core.profile.HarnessListEntry;
 import de.planmarshall.core.profile.HarnessScan;
@@ -51,31 +53,45 @@ public class HarnessListings {
     public static HarnessList of(HarnessScan scan, Map<String, HarnessEnrolment> enrolments, boolean storeUnreadable) {
         var recorded = new LinkedHashMap<HarnessList.Key, HarnessUsageCoverage>();
         enrolments.values().forEach(enrolment -> recorded.put(
-                new HarnessList.Key(enrolment.clientId(), enrolment.version()),
+                new HarnessList.Key(enrolment.harnessId(), enrolment.version()),
                 coverage(enrolment.usageReport())));
         var list = HarnessList.of(scan, recorded, storeUnreadable);
-        var enrolledButMissing = enrolments.values().stream()
-                .filter(enrolment -> !scan.knownIds().contains(enrolment.clientId()))
-                .map(enrolment -> missingRow(enrolment, storeUnreadable))
+        var missing = enrolments.values().stream()
+                .filter(enrolment -> !foundInScan(scan, enrolment.harnessId()))
                 .toList();
-        if (enrolledButMissing.isEmpty()) {
+        if (missing.isEmpty()) {
             return list;
         }
-        var entries = new ArrayList<>(list.entries());
-        entries.addAll(enrolledButMissing);
+        var replaced = missing.stream().map(HarnessEnrolment::harnessId).collect(Collectors.toSet());
+        var entries = list.entries().stream().filter(entry -> !replaced.contains(entry.harnessId()))
+                .collect(Collectors.toCollection(ArrayList::new));
+        missing.forEach(enrolment -> entries.add(missingRow(scan, enrolment, storeUnreadable)));
         return new HarnessList(entries);
     }
 
     /**
-     * A harness that is still enrolled but that the scan did not find (State Catalogue § {@code harness.choose}: "an
-     * enrolled one no longer found as missing"): shown with the version and path its enrolment records, marked
-     * unsupported, so the operator sees it and can remove it. Its display name is its harness id, because the enrolment
-     * keeps no display name.
+     * @param scan      the scan
+     * @param harnessId the id of the enrolled harness
+     * @return whether the scan found the harness; a candidate the scan lists as not found is a harness the scan no
+     *         longer finds, which the list shows as missing instead
      */
-    private static HarnessListEntry missingRow(HarnessEnrolment enrolment, boolean storeUnreadable) {
+    private static boolean foundInScan(HarnessScan scan, String harnessId) {
+        return scan.candidates().stream()
+                .filter(candidate -> candidate.harnessId().equals(harnessId))
+                .anyMatch(HarnessCandidate::found);
+    }
+
+    /**
+     * A harness that is still enrolled but that the scan no longer finds (State Catalogue § {@code harness.choose}: "an
+     * enrolled one no longer found as missing"), either because its profile left the set or because its executable is
+     * gone: shown with the version and path its enrolment records, marked unsupported, so the operator sees it and can
+     * remove it. Its display name is the scan's where the profile still lists one, otherwise its harness id, because the
+     * enrolment keeps no display name.
+     */
+    private static HarnessListEntry missingRow(HarnessScan scan, HarnessEnrolment enrolment, boolean storeUnreadable) {
         return HarnessListEntry.builder()
-                .harnessId(enrolment.clientId())
-                .displayName(enrolment.clientId())
+                .harnessId(enrolment.harnessId())
+                .displayName(displayNameOf(scan, enrolment))
                 .version(enrolment.version())
                 .executablePath(enrolment.executablePath().toString())
                 .installHint("install the harness again, or remove its enrolment")
@@ -84,6 +100,14 @@ public class HarnessListings {
                 .defaultHarness(false)
                 .usage(storeUnreadable ? HarnessUsageCoverage.unreadable() : coverage(enrolment.usageReport()))
                 .build();
+    }
+
+    private static String displayNameOf(HarnessScan scan, HarnessEnrolment enrolment) {
+        return scan.candidates().stream()
+                .filter(candidate -> candidate.harnessId().equals(enrolment.harnessId()))
+                .map(HarnessCandidate::displayName)
+                .findFirst()
+                .orElse(enrolment.harnessId());
     }
 
     /**

@@ -48,7 +48,7 @@ class WeightsReaderTest {
 
     private EndpointProfile profile(EndpointProfile.WeightsProbe probe) {
         var base = EndpointFixtures.profile();
-        return new EndpointProfile(base.clientId(), base.executable(), base.identity(), base.updateEvidence(),
+        return new EndpointProfile(base.harnessId(), base.executable(), base.identity(), base.updateEvidence(),
                 base.endpoint(), base.modelTiers(), probe);
     }
 

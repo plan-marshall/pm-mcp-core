@@ -1,0 +1,39 @@
+= Pending Entry Reader (`runtime.entry`)
+
+:toc:
+:toclevels: 3
+:nofooter:
+
+:req: ../../../../plan-marshall-documentation/doc/requirements
+:spec: ../../../doc/specification
+:src: ../../src/main/java/de/planmarshall/runtime/entry
+:test: ../../src/test/java/de/planmarshall/runtime/entry
+
+_Requirements: link:{req}/02-workflow.adoc#PM-WF-10[PM-WF-10], link:{req}/01-architecture.adoc#PM-ARCH-4[PM-ARCH-4]_
+
+`PendingEntryDirectoryReader` is the adapter of the engine port
+`de.planmarshall.core.spi.PendingEntryReader` over the pending entry directory `pending/<entry_id>/` of the workspace
+scope (`{spec}/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry]`). The
+engine addresses a pending plan or epic bootstrap as an entity of the workspace scope by its `entry_id` and resolves it
+from the persisted record `entry.json`, never from the memory of a running engine; this package is that read, outside
+the engine packages (PM-IMPL-5), as `runtime.question` is the read of a question record.
+
+The read is tri-state, the port's own: `Live` with the
+link:../../../pm-core/src/main/java/de/planmarshall/core/store/PendingEntryRecord.java[`Kind`] wire name of the record
+(`plan` or `epic`), `Deleted` for an absent record, and `Unreadable` with the refusal for a record that does not parse,
+of another `format_version`, or stating another `entry_id` than its directory.
+
+*Trust assumptions* (link:../adr/runtime-entry/001-the-entry-reader-is-lock-free.adoc[ADR runtime-entry/001]):
+
+* The read takes no lock, writes nothing and repairs nothing. The record is replaced by an atomic rename under the
+  workspace lock, so the read sees one complete version; a torn record is evidence of an edit outside a transaction.
+* The read judges the record alone, never the entry's source directory, question or decision store, or its transcript.
+* The read does not verify the digest sidecar, because a lock-free read cannot decide an edit outside a transaction.
+  Integrity is decided by `PendingEntryStore.verify` under the workspace lock, whose `Tampered` answer names the entry
+  and its store; the runtime raises the entry's own integrity hold from that answer.
+* An absent record is `Deleted`. The directory a removal a stop cut off left behind is the periodic sweep's residue, and
+  the reader never removes it.
+
+Tested by `PendingEntryDirectoryReaderTest`: a plan and an epic read live with their kinds, an absent entry and the
+directory of a cut-off removal read deleted, a torn and a mismatching record are unreadable, a tampered record still
+reads live (the reader never decides the edit), and a project id that is no identifier is refused at construction.

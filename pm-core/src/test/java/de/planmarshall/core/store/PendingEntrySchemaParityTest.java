@@ -19,7 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -33,8 +32,6 @@ import de.planmarshall.core.store.PendingEntryRecord.Kind;
  * added to or removed from the schema without the code fails here. The schema is the file
  * {@code de/planmarshall/core/store/pending-entry.schema.json} beside the codec, read from the class path.
  */
-@Disabled("the specification gives the entry the directory form; "
-        + "re-enabled by the work package start-source-intake")
 @DisplayName("Pending entry record schema parity")
 // Every datum in this class is a contract: the schema file, its members and its entry-id pattern.
 class PendingEntrySchemaParityTest {

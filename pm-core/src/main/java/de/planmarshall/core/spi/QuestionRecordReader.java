@@ -13,6 +13,8 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.store.EntryId;
+
 /**
  * The engine port that reads a question record of a scope (PM-ARCH-4, bullets 4 and 5: a question state rests on the
  * persisted record, never on the memory of a running engine). The engine reads the record a {@code question} state
@@ -40,8 +42,13 @@ public interface QuestionRecordReader {
 
     /**
      * What the engine asks the port to read: one question record of one scope.
+     * <p>
+     * The scope is a plan, an epic, the workspace ({@code null}) or a pending entry: an entry's questions are the
+     * {@code questions.jsonl} of its directory {@code pending/<entry_id>/}, a workspace-scope entity of its own
+     * ({@link de.planmarshall.core.store.QuestionLog#ofEntry}). {@link #ofEntry} is the typed way to address one.
      *
-     * @param scopeId the identifier of the plan or epic the record belongs to; {@code null} for the workspace scope
+     * @param scopeId the identifier of the plan, epic or pending entry the record belongs to; {@code null} for the
+     *                workspace scope
      * @param questionId the identifier of the question, {@code ^Q-[0-9]{3,6}$}
      * @since 0.1
      */
@@ -58,6 +65,18 @@ public interface QuestionRecordReader {
             if (!QUESTION_ID.matcher(questionId).matches()) {
                 throw new IllegalArgumentException("question_id does not match ^Q-[0-9]{3,6}$: " + questionId);
             }
+        }
+
+        /**
+         * The request for the question of a pending entry.
+         *
+         * @param entryId    the entry, whose grammar its type has checked
+         * @param questionId the identifier of the question
+         * @return the request of the entry's question
+         * @throws NullPointerException if the entry is {@code null}
+         */
+        public static ReadRequest ofEntry(EntryId entryId, String questionId) {
+            return new ReadRequest(Objects.requireNonNull(entryId, "entryId").value(), questionId);
         }
     }
 

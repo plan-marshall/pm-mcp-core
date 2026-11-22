@@ -210,13 +210,13 @@ class AuditEventTest {
     }
 
     @Test
-    @DisplayName("a removed pending entry record names the entry, its store, its creation instant and the transaction")
+    @DisplayName("a removed pending entry names the entry, its directory, the run instant and the transaction")
     void pendingEntryRemoved() {
         var entryId = "ent-" + Generators.letterStrings(4, 8).next().toLowerCase(Locale.ROOT);
-        var store = "pending/" + entryId + ".json";
-        var createdAt = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next()).toString();
+        var directory = "pending/" + entryId;
+        var removedAt = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
 
-        var event = AuditEvent.pendingEntryRemoved(entryId, store, createdAt, TRANSACTION_ID);
+        var event = AuditEvent.pendingEntryRemoved(entryId, directory, removedAt, TRANSACTION_ID);
 
         assertAll(
                 () -> assertEquals("pending_entry_removed", event.event(), "pending removal event name"),
@@ -224,20 +224,20 @@ class AuditEventTest {
                         "pending removal constant agrees"),
                 () -> assertEquals("store", event.category(), "pending removal category is store"),
                 () -> assertEquals("succeeded", event.outcome(), "pending removal outcome is succeeded"),
-                () -> assertEquals(Map.of("entry_id", entryId, "store", store, "created_at", createdAt,
-                                "transaction_id", TRANSACTION_ID), event.details(),
-                        "pending removal names entry, store, instant, transaction"),
+                () -> assertEquals(Map.of("entry_id", entryId, "store", directory, "removed_at",
+                                removedAt.toString(), "transaction_id", TRANSACTION_ID), event.details(),
+                        "pending removal names entry, directory, instant, transaction"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.pendingEntryRemoved(null, store, createdAt, TRANSACTION_ID),
+                        () -> AuditEvent.pendingEntryRemoved(null, directory, removedAt, TRANSACTION_ID),
                         "removal needs an entry id"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.pendingEntryRemoved(entryId, null, createdAt, TRANSACTION_ID),
-                        "removal needs a store"),
+                        () -> AuditEvent.pendingEntryRemoved(entryId, null, removedAt, TRANSACTION_ID),
+                        "removal needs a directory"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.pendingEntryRemoved(entryId, store, null, TRANSACTION_ID),
-                        "removal needs a creation instant"),
+                        () -> AuditEvent.pendingEntryRemoved(entryId, directory, null, TRANSACTION_ID),
+                        "removal needs the run instant"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> AuditEvent.pendingEntryRemoved(entryId, store, createdAt, null),
+                        () -> AuditEvent.pendingEntryRemoved(entryId, directory, removedAt, null),
                         "removal needs a transaction id"));
     }
 

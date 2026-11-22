@@ -63,8 +63,8 @@ final class LaunchFixtures {
         return profile(document());
     }
 
-    static LoadedProfile profileForClient(String clientId) {
-        return profile(document().replace("\"client_id\": \"claude\"", "\"client_id\": \"" + clientId + "\""));
+    static LoadedProfile profileForClient(String harnessId) {
+        return profile(document().replace("\"client_id\": \"claude\"", "\"client_id\": \"" + harnessId + "\""));
     }
 
     static LoadedProfile profile(String document) {

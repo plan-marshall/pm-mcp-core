@@ -30,8 +30,9 @@ core-store/032]); this package only reads it.
 `read(ReadRequest)`. The base is the runtime's base directory, below which the project stores lie
 (`projects/<project_id>/`); the read is confined to it. A package-private constructor takes a confinement and serves
 the refusal tests only.
-`QuestionRecordReader.ReadRequest`:: What the engine asks to read: the scope id (`Optional.empty()` for the workspace
-scope, else a plan or epic id) and the question id (`^Q-[0-9]{3,6}$`).
+`QuestionRecordReader.ReadRequest`:: What the engine asks to read: the scope id (`null` for the workspace scope,
+otherwise a plan id, an epic id or the id of a pending entry; `ofEntry(EntryId, questionId)` is the typed way to name an
+entry) and the question id (`^Q-[0-9]{3,6}$`).
 `QuestionRecordReader.QuestionRead`:: The result: `Open`, `Resolved(outcome)` or `Unreadable(reason)`.
 
 === Component Interaction
@@ -49,11 +50,14 @@ question state ──► QuestionLogRecordReader.read(ReadRequest(scopeId, quest
 == The Scope of the Request
 
 The workspace scope is the empty scope id: `projects/<project_id>/workspace/questions.jsonl`. A non-empty scope id is
-resolved from the store directory it names: `plans/<id>/questions.jsonl` is a plan, `epics/<id>/questions.jsonl` an
-epic. Both directories of one id is refused as a value — the adapter never guesses which scope the engine meant — and so
-is an id that is no identifier. An id whose store directory does not exist answers `no question log for the scope`.
+resolved in this order: an `entry_id` (`ent-` and 8 to 32 lower-case hex digits) is a pending entry, whose questions are
+the `questions.jsonl` of `pending/<entry_id>/` (`QuestionLog.ofEntry`); every other id is resolved from the store
+directory it names: `plans/<id>/questions.jsonl` is a plan, `epics/<id>/questions.jsonl` an epic. Both directories of one
+id is refused as a value — the adapter never guesses which scope the engine meant — and so is an id that is no
+identifier. An id whose store directory does not exist answers `no question log for the scope`.
 The choice and its alternatives are recorded in
-link:../adr/runtime-question/001-the-adapter-resolves-the-scope-of-the-request.adoc[ADR 001].
+link:../adr/runtime-question/001-the-adapter-resolves-the-scope-of-the-request.adoc[ADR 001]; the entry address is
+plan `PLAN-V2-22`'s deliverable 13.
 
 == The Tri-State Read
 

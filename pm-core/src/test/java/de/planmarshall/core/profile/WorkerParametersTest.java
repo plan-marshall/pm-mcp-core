@@ -31,10 +31,10 @@ import org.junit.jupiter.api.Test;
 @DisplayName("Worker parameters of a client profile")
 class WorkerParametersTest {
 
-    private static LoadedProfile shipped(String clientId) {
-        var document = ShippedProfiles.read().shipped().get(clientId).document();
-        var tree = ProfileValidator.validate(document, "profiles/" + clientId + ".json", ProfileRules.none());
-        return new LoadedProfile(clientId, ProfileSetKind.SHIPPED, tree, document, LoadedProfile.State.VERIFIED, null);
+    private static LoadedProfile shipped(String harnessId) {
+        var document = ShippedProfiles.read().shipped().get(harnessId).document();
+        var tree = ProfileValidator.validate(document, "profiles/" + harnessId + ".json", ProfileRules.none());
+        return new LoadedProfile(harnessId, ProfileSetKind.SHIPPED, tree, document, LoadedProfile.State.VERIFIED, null);
     }
 
     private static LoadedProfile loaded(ProfileFixtures.ProfileFixture fixture) {

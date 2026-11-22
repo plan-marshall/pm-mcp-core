@@ -28,7 +28,7 @@ import de.planmarshall.core.role.RoleAssignment;
  * and read back as {@code DEFAULT}; a {@code VALUE} carrying a {@code null} value would be written the same way and
  * read back as {@code DEFAULT}, a silent change of the effort setting, so the constructor refuses it.
  *
- * @param harness    the client id of an enrolled, worker-eligible harness
+ * @param harness    the harness id of an enrolled, worker-eligible harness
  * @param model      the model, allowed on that harness by the effective catalogue
  * @param effort     what the level names of the effort
  * @param effortValue the effort value, non-{@code null} exactly for {@link EffortSetting#VALUE}, and then carrying a
@@ -41,7 +41,7 @@ public record RoleAssignmentValue(String harness, String model, EffortSetting ef
 @Nullable EffortValue effortValue, @Nullable Escalation escalation) {
 
     /**
-     * @throws IllegalArgumentException if the harness or the model is empty, the harness is not a client id, the
+     * @throws IllegalArgumentException if the harness or the model is empty, the harness is not a harness id, the
      *                                  effort setting and its value do not belong together, or a named effort
      *                                  ({@link EffortSetting#VALUE}) carries a {@code null} value
      */
@@ -50,7 +50,7 @@ public record RoleAssignmentValue(String harness, String model, EffortSetting ef
         Objects.requireNonNull(model, "model");
         Objects.requireNonNull(effort, "effort");
         if (!HarnessId.matches(harness)) {
-            throw new IllegalArgumentException("Not a client id of a role assignment: " + harness);
+            throw new IllegalArgumentException("Not a harness id of a role assignment: " + harness);
         }
         if (model.isEmpty() || model.length() > 128) {
             throw new IllegalArgumentException("A role assignment names a model of 1 to 128 characters: " + model);

@@ -102,12 +102,12 @@ public final class HarnessEnrolmentStore {
     }
 
     /**
-     * @param clientId the client id of the harness
+     * @param harnessId the harness id of the harness
      * @return the enrolment of the harness
      * @throws StoreException if the file fails its integrity check or does not read as the store
      */
-    public Optional<HarnessEnrolment> find(String clientId) {
-        return all().stream().filter(enrolment -> enrolment.clientId().equals(clientId)).findFirst();
+    public Optional<HarnessEnrolment> find(String harnessId) {
+        return all().stream().filter(enrolment -> enrolment.harnessId().equals(harnessId)).findFirst();
     }
 
     /**
@@ -132,7 +132,7 @@ public final class HarnessEnrolmentStore {
         Objects.requireNonNull(enrolment, "enrolment");
         try (var transaction = lockManager.openTransaction()) {
             var entries = read(transaction, true);
-            entries.put(enrolment.clientId(), enrolment);
+            entries.put(enrolment.harnessId(), enrolment);
             write(transaction, entries);
             return enrolment;
         }
@@ -141,14 +141,14 @@ public final class HarnessEnrolmentStore {
     /**
      * Removes the enrolment of one harness, leaving the other entries in place.
      *
-     * @param clientId the client id of the harness
+     * @param harnessId the harness id of the harness
      * @return whether the harness was enrolled
      * @throws StoreException if the file fails its integrity check or cannot be written
      */
-    public boolean unenrol(String clientId) {
+    public boolean unenrol(String harnessId) {
         try (var transaction = lockManager.openTransaction()) {
             var entries = read(transaction);
-            if (entries.remove(clientId) == null) {
+            if (entries.remove(harnessId) == null) {
                 return false;
             }
             write(transaction, entries);
@@ -160,23 +160,23 @@ public final class HarnessEnrolmentStore {
      * Records an accepted self-update of the enrolled executable: the new version, the new digest and the instant, in
      * the same transaction that verified the harness.
      *
-     * @param clientId the client id of the harness
+     * @param harnessId the harness id of the harness
      * @param version  the version the probe reported
      * @param sha256   the digest of the changed executable
      * @param updateAt the instant of the accepted self-update
      * @return the entry as written, or empty when the harness is not enrolled any more
      * @throws StoreException if the file fails its integrity check or cannot be written
      */
-    public Optional<HarnessEnrolment> acceptSelfUpdate(String clientId, String version, String sha256,
+    public Optional<HarnessEnrolment> acceptSelfUpdate(String harnessId, String version, String sha256,
             Instant updateAt) {
         try (var transaction = lockManager.openTransaction()) {
             var entries = read(transaction);
-            var current = entries.get(clientId);
+            var current = entries.get(harnessId);
             if (current == null) {
                 return Optional.empty();
             }
             var updated = current.updated(version, sha256, updateAt);
-            entries.put(clientId, updated);
+            entries.put(harnessId, updated);
             write(transaction, entries);
             return Optional.of(updated);
         }
@@ -257,25 +257,25 @@ public final class HarnessEnrolmentStore {
         return entries;
     }
 
-    private static HarnessEnrolment entry(String clientId, JsonNode node) {
-        onlyMembers(node, clientId);
-        return new HarnessEnrolment(clientId, Path.of(text(node, EXECUTABLE_PATH)), text(node, SHA256),
+    private static HarnessEnrolment entry(String harnessId, JsonNode node) {
+        onlyMembers(node, harnessId);
+        return new HarnessEnrolment(harnessId, Path.of(text(node, EXECUTABLE_PATH)), text(node, SHA256),
                 text(node, VERSION), Instant.parse(text(node, ENROLLED_AT)),
                 Instant.parse(text(node, UPDATED_AT)), usageReport(node), events(node), weights(node));
     }
 
     /**
      * @param node     the entry
-     * @param clientId the client id, for the refusal
+     * @param harnessId the harness id, for the refusal
      * @throws IllegalArgumentException if the entry carries an undeclared member, so an entry of another shape is refused
      *                                  instead of being read in part
      */
-    private static void onlyMembers(JsonNode node, String clientId) {
+    private static void onlyMembers(JsonNode node, String harnessId) {
         for (var member : node.members().keySet()) {
             if (!ENTRY_MEMBERS.contains(member)) {
                 throw new IllegalArgumentException(
                         "the entry '%s' carries the member '%s', which is not a member of an entry"
-                                .formatted(clientId, member));
+                                .formatted(harnessId, member));
             }
         }
     }
@@ -379,7 +379,7 @@ public final class HarnessEnrolmentStore {
 
     private static JsonNode document(Map<String, HarnessEnrolment> entries) {
         var harnesses = new TreeMap<String, JsonNode>();
-        entries.forEach((clientId, enrolment) -> harnesses.put(clientId, entry(enrolment)));
+        entries.forEach((harnessId, enrolment) -> harnesses.put(harnessId, entry(enrolment)));
         return JsonNode.object(Map.of(FORMAT_VERSION_MEMBER, JsonNode.integer(FORMAT_VERSION), HARNESSES,
                 JsonNode.object(harnesses)));
     }

@@ -32,7 +32,7 @@ class LoadedProfileBuilderContractTest {
 
         var canonical = new LoadedProfile(Generators.letterStrings(3, 12).next(), ProfileSetKind.MACHINE, document,
                 new byte[]{1, 2, 3}, LoadedProfile.State.VERIFIED, null);
-        var built = LoadedProfile.builder().clientId(canonical.clientId()).kind(canonical.kind())
+        var built = LoadedProfile.builder().harnessId(canonical.harnessId()).kind(canonical.kind())
                 .document(canonical.document()).bytes(canonical.bytes()).state(canonical.state())
                 .verificationRecord(canonical.verificationRecord()).build();
 

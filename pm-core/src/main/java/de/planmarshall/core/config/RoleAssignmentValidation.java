@@ -33,7 +33,7 @@ import de.planmarshall.core.role.RoleValidationReason;
  * The checks are the ones the state names; the artifact's own rules (tools, form, skills) belong to the artifact and are
  * validated when it is read, not when an assignment is written. The role's own values and its escalation are each
  * validated against <em>their own</em> harness: the escalation may name another harness than the role, and its profile
- * and enrolment are looked up by its own client id.
+ * and enrolment are looked up by its own harness id.
  *
  * @since 0.1
  */
@@ -43,8 +43,8 @@ public final class RoleAssignmentValidation {
     /**
      * The lookups every value is validated against.
      *
-     * @param profiles   the facts of a harness's profile by client id
-     * @param enrolments the enrolled build of a harness by client id
+     * @param profiles   the facts of a harness's profile by harness id
+     * @param enrolments the enrolled build of a harness by harness id
      * @param catalogue  the effective model catalogue; {@code null} when none exists
      * @since 0.1
      */
@@ -80,7 +80,7 @@ public final class RoleAssignmentValidation {
         var enrolments = facts.enrolments();
         var catalogue = facts.catalogue();
         var harnessFacts = profile.apply(harness).orElseThrow(() -> invalid(RoleValidationReason.HARNESS_UNKNOWN,
-                role, artifact, "no client profile has the client id '%s'".formatted(harness)));
+                role, artifact, "no harness profile has the harness id '%s'".formatted(harness)));
         if (enrolments.apply(harness).isEmpty()) {
             throw invalid(RoleValidationReason.HARNESS_UNKNOWN, role, artifact,
                     "the harness '%s' is not enrolled".formatted(harness));

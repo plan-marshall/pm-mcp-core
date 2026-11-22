@@ -198,7 +198,7 @@ public final class WorkerSupervisor {
      * generations of that role and harness are removed; every other generation stays.
      *
      * @param role    the role
-     * @param harness the client id of the harness
+     * @param harness the harness id of the harness
      * @throws NullPointerException if a value is {@code null}
      */
     public synchronized void forgetStartFailures(String role, String harness) {

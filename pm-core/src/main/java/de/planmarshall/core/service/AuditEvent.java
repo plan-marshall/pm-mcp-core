@@ -150,8 +150,8 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     /** The name of the event that records an accepted self-update of an enrolled harness (PM-EXEC-1). */
     public static final String HARNESS_UPDATED = "harness_updated";
 
-    /** The detail of a harness record that names the client id of the harness. */
-    public static final String DETAIL_CLIENT_ID = "client_id";
+    /** The detail of a harness record that names the harness id of the harness. */
+    public static final String DETAIL_HARNESS_ID = "harness_id";
 
     /** The detail of a harness self-update that holds the version the enrolment recorded before it. */
     public static final String DETAIL_OLD_VERSION = "old_version";
@@ -211,16 +211,16 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     public static final String REASON_NOT_CONFIRMED = "not_confirmed";
 
     /**
-     * The name of the event that records a pending entry record removed by the pending-record sweep because it is
-     * older than the pending entry record maximum age.
+     * The name of the event that records the directory of a pending entry the sweep removed as residue: the entry was
+     * started or abandoned, and the removal its end began was cut off before the directory was gone.
      */
     public static final String PENDING_ENTRY_REMOVED = "pending_entry_removed";
 
-    /** The detail of a removed pending entry record that names the entry by its id. */
+    /** The detail of a removed pending entry that names the entry by its id. */
     public static final String DETAIL_ENTRY_ID = "entry_id";
 
-    /** The detail of a removed pending entry record that holds the instant the record was created. */
-    public static final String DETAIL_CREATED_AT = "created_at";
+    /** The detail of a removed pending entry that holds the instant the residue was removed. */
+    public static final String DETAIL_REMOVED_AT = "removed_at";
 
     /**
      * The name of the record a stalled plan or epic appends once per episode (PM-ARCH-8; Store Schemas § Audit Log,
@@ -317,26 +317,25 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     }
 
     /**
-     * The record a pending-record sweep owes for every pending entry record it removes, as the evidence of its
-     * removal: the entry, the creation instant the age was measured from, and the store path. It is owed by the
-     * workspace transaction that removes the record, under an id of its own, so two records removed in one run carry
-     * two ids.
+     * The record the sweep owes for every pending entry whose directory it removes as residue: the entry, the
+     * directory, and the instant of the sweep's run. It is owed by the workspace transaction that removes the residue,
+     * under an id of its own, so two directories removed in one run carry two ids.
      *
-     * @param entryId       the id of the removed entry
-     * @param store         the record, relative to the path base of the workspace scope
-     * @param createdAt     the creation instant of the record, in its one wire shape
-     * @param transactionId the id of this one record, issued by the transaction that removes the record and distinct
+     * @param entryId       the id of the entry
+     * @param directory     the directory, relative to the path base of the workspace scope
+     * @param removedAt     the instant of the sweep's run
+     * @param transactionId the id of this one record, issued by the transaction that removes the residue and distinct
      *                      from its own id; the deduplication key by which a record handed over again is recognised
      *                      as the same
      * @return the record of the removal
      * @throws NullPointerException if an argument is {@code null}
      */
-    public static AuditEvent pendingEntryRemoved(String entryId, String store, String createdAt,
+    public static AuditEvent pendingEntryRemoved(String entryId, String directory, Instant removedAt,
             String transactionId) {
         return new AuditEvent(PENDING_ENTRY_REMOVED, CATEGORY_STORE, OUTCOME_SUCCEEDED,
                 Map.of(DETAIL_ENTRY_ID, Objects.requireNonNull(entryId, "entryId"), DETAIL_STORE,
-                        Objects.requireNonNull(store, DETAIL_STORE), DETAIL_CREATED_AT,
-                        Objects.requireNonNull(createdAt, "createdAt"), DETAIL_TRANSACTION_ID,
+                        Objects.requireNonNull(directory, DETAIL_STORE), DETAIL_REMOVED_AT,
+                        Objects.requireNonNull(removedAt, "removedAt").toString(), DETAIL_TRANSACTION_ID,
                         Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT)));
     }
 
@@ -452,7 +451,7 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     }
 
     /**
-     * @param clientId   the enrolled harness whose executable changed
+     * @param harnessId   the enrolled harness whose executable changed
      * @param oldVersion the version the enrolment recorded before the change
      * @param oldSha256  the digest the enrolment recorded before the change
      * @param newVersion the version the accepted probe reported
@@ -460,10 +459,10 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
      * @return the record of an accepted self-update, naming both builds
      * @throws NullPointerException if a value is {@code null}
      */
-    public static AuditEvent harnessUpdated(String clientId, String oldVersion, String oldSha256, String newVersion,
+    public static AuditEvent harnessUpdated(String harnessId, String oldVersion, String oldSha256, String newVersion,
             String newSha256) {
         return new AuditEvent(HARNESS_UPDATED, CATEGORY_OPERATOR, OUTCOME_SUCCEEDED,
-                Map.of(DETAIL_CLIENT_ID, Objects.requireNonNull(clientId, "clientId"), DETAIL_OLD_VERSION,
+                Map.of(DETAIL_HARNESS_ID, Objects.requireNonNull(harnessId, "harnessId"), DETAIL_OLD_VERSION,
                         Objects.requireNonNull(oldVersion, "oldVersion"), DETAIL_OLD_SHA256,
                         Objects.requireNonNull(oldSha256, "oldSha256"), DETAIL_NEW_VERSION,
                         Objects.requireNonNull(newVersion, "newVersion"), DETAIL_NEW_SHA256,
@@ -471,17 +470,17 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     }
 
     /**
-     * @param clientId  the enrolled harness whose model's weights changed
+     * @param harnessId  the enrolled harness whose model's weights changed
      * @param model     the model whose weights identity changed
      * @param oldWeightsId the identity the enrolment recorded before the change
      * @param newWeightsId the identity read now
      * @return the record of a changed weights identity, naming the model and both identities
      * @throws NullPointerException if a value is {@code null}
      */
-    public static AuditEvent harnessWeightsUpdated(String clientId, String model, String oldWeightsId,
+    public static AuditEvent harnessWeightsUpdated(String harnessId, String model, String oldWeightsId,
             String newWeightsId) {
         return new AuditEvent(HARNESS_UPDATED, CATEGORY_OPERATOR, OUTCOME_SUCCEEDED,
-                Map.of(DETAIL_CLIENT_ID, Objects.requireNonNull(clientId, "clientId"), DETAIL_MODEL,
+                Map.of(DETAIL_HARNESS_ID, Objects.requireNonNull(harnessId, "harnessId"), DETAIL_MODEL,
                         Objects.requireNonNull(model, "the model of the weights change"), DETAIL_OLD_WEIGHTS_ID,
                         Objects.requireNonNull(oldWeightsId, "oldWeightsId"), DETAIL_NEW_WEIGHTS_ID,
                         Objects.requireNonNull(newWeightsId, "newWeightsId")));

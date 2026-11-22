@@ -48,9 +48,9 @@ class HarnessVerificationTest {
     void yesWithTokensAdmitsTheValidatedDraft() {
         var request = request(ConsentGate.Answer.YES, STAGES, tokens());
         var profile = HarnessVerification.admit(request);
-        var clientId = ProfileValidator.clientId(profile);
+        var harnessId = ProfileValidator.harnessId(profile);
 
-        assertEquals("acme-cli", clientId, "The admitted draft is the validated one");
+        assertEquals("acme-cli", harnessId, "The admitted draft is the validated one");
     }
 
     @Test
@@ -125,13 +125,35 @@ class HarnessVerificationTest {
     }
 
     @Test
+    @DisplayName("a run without a stage is refused with the code that names it")
+    void emptyStageListRefused() {
+        var refusal = refusalOf(request(ConsentGate.Answer.YES, List.of(), Map.of()),
+                "A run that declares no stage is refused");
+
+        assertEquals(HarnessVerificationRefusal.STAGES_EMPTY, refusal.code(),
+                "The refusal names the empty stage list");
+    }
+
+    @Test
+    @DisplayName("a stage named twice is refused with the code that names it")
+    void duplicateStageRefused() {
+        var stage = STAGES.getFirst();
+        var refusal = refusalOf(request(ConsentGate.Answer.YES, List.of(stage, stage),
+                Map.of(stage, IDENTITY_TOKENS)), "A stage named twice is refused");
+
+        assertEquals(HarnessVerificationRefusal.STAGES_DUPLICATE, refusal.code(),
+                "The refusal names the duplicate stage");
+    }
+
+    @Test
     @DisplayName("a stage outside the closed list is refused")
     void unknownStageRefused() {
         var request = request(ConsentGate.Answer.YES, List.of("no_such_stage"),
                 Map.of("no_such_stage", IDENTITY_TOKENS));
         var refusal = refusalOf(request, "A stage outside the verification's closed list is refused");
 
-        assertEquals(HarnessVerificationRefusal.TOKENS_MISSING, refusal.code(), "The refusal names the token rule");
+        assertEquals(HarnessVerificationRefusal.STAGE_UNKNOWN, refusal.code(),
+                "The refusal names the unknown stage");
     }
 
     @Test

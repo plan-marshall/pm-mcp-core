@@ -70,10 +70,11 @@ Implementation (the scope identifier a primitive is handed with every execution,
 
 Verified by (the scope identifier of a primitive): link:../pm-core/src/test/java/de/planmarshall/core/spi/PrimitiveContractTest.java[PrimitiveContractTest]
 
-Implementation (the engine side of the entity identifier of bullets 2 and 5, as far as the library modules carry it and not yet bound to `pm_state` and `pm_do`: an entity is addressed together with its scope, `NO_PLAN` naming the workspace scope, and resolved from persisted state within that scope only, a pending plan or epic bootstrap by its `entry_id` through the pending entry record; an entity of another scope or a consumed entry is `scope_not_found`. Not implemented yet: the request handling and the runtime's reader of the pending entry record): link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/EntityAddress.java[EntityAddress],
+Implementation (the engine side of the entity identifier of bullets 2 and 5, as far as the library modules carry it and not yet bound to `pm_state` and `pm_do`: an entity is addressed together with its scope, `NO_PLAN` naming the workspace scope, and resolved from persisted state within that scope only, a pending plan or epic bootstrap by its `entry_id` through the pending entry's record, whose runtime reader is `PendingEntryDirectoryReader`; an entity of another scope or a consumed entry is `scope_not_found`. Not implemented yet: the request handling): link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/EntityAddress.java[EntityAddress],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/EntityAddressResolver.java[EntityAddressResolver],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/engine/AddressResolution.java[AddressResolution],
-link:../pm-core/src/main/java/de/planmarshall/core/spi/PendingEntryReader.java[PendingEntryReader]
+link:../pm-core/src/main/java/de/planmarshall/core/spi/PendingEntryReader.java[PendingEntryReader],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/entry/PendingEntryDirectoryReader.java[PendingEntryDirectoryReader]
 
 Verified by (the entity addressing): link:../pm-workflow/src/test/java/de/planmarshall/workflow/engine/EntityAddressingTest.java[EntityAddressingTest],
 link:../pm-core/src/test/java/de/planmarshall/core/spi/EnginePortsTest.java[EnginePortsTest]
@@ -121,7 +122,7 @@ link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7]
 
-Implementation (as far as the library module `pm-runtime` carries it, and, apart from the start steps, not yet wired into the runtime `pm-mcpd`: the start at login through the per-user OS service manager, with the unit file rendered, written, replaced and removed, the unit in force kept beside it and restored when a new unit does not load, and loaded and unloaded through `launchctl` and `systemctl --user`; the start steps from the singleton lock to the runtime token, which `pm-mcpd` runs before its bind, with the bounded verification of the audit chain through a seam (the verification is the one of `PM-SEC-6`, which `pm-mcpd` does not pass yet: it runs the start with `AuditChainVerification.NONE`); the drain in its order, with the drain timeout, the removal of the runtime record, the token and the socket, and the release of the singleton lock, where workers, the LSP pool and the web listener join through a seam and the jobs through their participant (below); the runtime side of the version comparison on relay connection; the per-project recovery after bind with its two triggers, the bounded wait answered `runtime_recovering`, the step order, the orphan marking of leases with release on positive evidence only, the roll-forward of interrupted journals, and the cross-scope reconciliation, and the periodic sweep with its residue-removal step, which removes the old pending entry records, where the settlement of workers and the other recovery steps are named seams and the settlement of jobs is the step below. Not implemented yet: the API request and the operator verbs `pm-operator runtime install|uninstall`, the bind and the ready step, the version notice of `pm-operator status` and of the clients, the verification of workflow definitions at start, the first four bullets apart from the start at login, and the operator's lifecycle acts of the last bullet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java[ServiceUnitFile],
+Implementation (as far as the library module `pm-runtime` carries it, and, apart from the start steps, not yet wired into the runtime `pm-mcpd`: the start at login through the per-user OS service manager, with the unit file rendered, written, replaced and removed, the unit in force kept beside it and restored when a new unit does not load, and loaded and unloaded through `launchctl` and `systemctl --user`; the start steps from the singleton lock to the runtime token, which `pm-mcpd` runs before its bind, with the bounded verification of the audit chain through a seam (the verification is the one of `PM-SEC-6`, which `pm-mcpd` does not pass yet: it runs the start with `AuditChainVerification.NONE`); the drain in its order, with the drain timeout, the removal of the runtime record, the token and the socket, and the release of the singleton lock, where workers, the LSP pool and the web listener join through a seam and the jobs through their participant (below); the runtime side of the version comparison on relay connection; the per-project recovery after bind with its two triggers, the bounded wait answered `runtime_recovering`, the step order, the orphan marking of leases with release on positive evidence only, the roll-forward of interrupted journals, and the cross-scope reconciliation, and the periodic sweep with its residue-removal step, which removes the directory of a pending entry whose removal a stop cut off, by the evidence of its absent record and never by its age, where the settlement of workers and the other recovery steps are named seams and the settlement of jobs is the step below. Not implemented yet: the API request and the operator verbs `pm-operator runtime install|uninstall`, the bind and the ready step, the version notice of `pm-operator status` and of the clients, the verification of workflow definitions at start, the first four bullets apart from the start at login, and the operator's lifecycle acts of the last bullet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java[ServiceUnitFile],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceManager.java[ServiceManager],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitInstaller.java[ServiceUnitInstaller],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/StartupSequence.java[StartupSequence],
@@ -242,14 +243,14 @@ link:../pm-runtime/doc/adr/runtime-worker/009-transport-notifications-and-the-pr
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-10[PM-ARCH-10]
 
 Implementation (of the fourth bullet, the pass of the periodic sweep of the running runtime; the residue kinds it
-removes and the cleanup of the first three bullets are not traced here. The removal of pending entry records older than
-a maximum age that `PendingEntryRecordsSweep` performs diverges from the specification, which discards no pending entry
-by time (link:specification/timeouts/02-runtime-leases-operator-web.adoc#pending-entry-max-age[Timeouts & Budgets
-Specification, Pending Entry]), and is therefore not listed as implemented): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java[PeriodicSweep]
+removes and the cleanup of the first three bullets are not traced here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java[PeriodicSweep],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java[PendingEntryRecordsSweep]
 
-Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepTest.java[PeriodicSweepTest]
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepTest.java[PeriodicSweepTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PendingEntryRecordsSweepTest.java[PendingEntryRecordsSweepTest]
 
-Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_start_drain_and_recovery[Runtime Start Developer Guide § The Start Sequence, the Drain and the Recovery]
+Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_start_drain_and_recovery[Runtime Start Developer Guide § The Start Sequence, the Drain and the Recovery],
+link:../pm-runtime/doc/adr/runtime-start/016-the-sweep-removes-pending-entry-residue-by-evidence.adoc[ADR runtime-start/016]
 
 [#PM-ARCH-11]
 === PM-ARCH-11: The Operator's Two Clients & Their Contract
@@ -470,14 +471,29 @@ link:../pm-workflow/doc/adr/workflow-engine/012-model-waits-selected-from-the-co
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10]
 
-Implementation (the pending entry of a start in the workspace scope with a freshly allocated `entry_id`, so concurrent entries never share a record, created, replaced and removed in workspace transactions; its directory form with the entry's sources, questions, decisions, and chat, its opening from the clients over the local API, and its consumption by the start are not implemented yet): link:../pm-core/src/main/java/de/planmarshall/core/store/PendingEntryRecord.java[PendingEntryRecord],
+Implementation (the pending entry of a start in the workspace scope with a freshly allocated `entry_id`, so concurrent
+entries never share a directory, created, replaced, verified and removed in workspace transactions; its directory form
+with the entry's record, source manifest, question and decision stores and chat transcript, its creation into the new
+scope, and the sweep of the residue a cut-off removal left; the client's opening over the local API and the `/api/v1`
+entry routes are not traced here, they are `pm-mcp-server` classes): link:../pm-core/src/main/java/de/planmarshall/core/store/PendingEntryRecord.java[PendingEntryRecord],
 link:../pm-core/src/main/java/de/planmarshall/core/store/PendingEntryStore.java[PendingEntryStore],
-link:../pm-core/src/main/java/de/planmarshall/core/store/EntryId.java[EntryId]
+link:../pm-core/src/main/java/de/planmarshall/core/store/EntryId.java[EntryId],
+link:../pm-core/src/main/java/de/planmarshall/core/store/SourceManifest.java[SourceManifest],
+link:../pm-core/src/main/java/de/planmarshall/core/store/PendingEntryCreation.java[PendingEntryCreation],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/entry/PendingEntryDirectoryReader.java[PendingEntryDirectoryReader],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java[PendingEntryRecordsSweep]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntryStoreTest.java[PendingEntryStoreTest],
-link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntrySchemaParityTest.java[PendingEntrySchemaParityTest]
+link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntryCodecTest.java[PendingEntryCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntrySchemaParityTest.java[PendingEntrySchemaParityTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/SourceManifestCodecTest.java[SourceManifestCodecTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntryCreationTest.java[PendingEntryCreationTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/entry/PendingEntryDirectoryReaderTest.java[PendingEntryDirectoryReaderTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PendingEntryRecordsSweepTest.java[PendingEntryRecordsSweepTest]
 
-Documentation: link:../pm-core/doc/developer/core-store.adoc[Scope Stores Developer Guide]
+Documentation: link:../pm-core/doc/developer/core-store.adoc#_the_pending_entry[Scope Stores Developer Guide § The
+Pending Entry], link:../pm-runtime/doc/developer/runtime-entry.adoc[Pending Entry Reader Developer Guide],
+link:../pm-core/doc/adr/core-store/082-the-pending-entry-is-a-directory.adoc[ADR core-store/082]
 
 [#PM-WF-11]
 === PM-WF-11: Q-Gate Validation Loop, Change-Type & Unplanned-Change Recording
@@ -485,8 +501,8 @@ Documentation: link:../pm-core/doc/developer/core-store.adoc[Scope Stores Develo
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-11[PM-WF-11]
 
 Implementation (the protected-path matcher of the tracked hook definitions, as far as `pm-core` carries it; the boundary
-check that refuses the change before the next commit job is a stage of `git.stage-and-commit` and has no class
-yet, and the other protected-path families are those of `PM-WATCH-PHASE-130` and `PM-WATCH-PHASE-131`):
+check that refuses the change before the next commit job is the footprint check of `git.stage-and-commit`
+(`FootprintBoundary`), to which nothing supplies a changed protected path yet; the other protected-path families are those of `PM-WATCH-PHASE-130` and `PM-WATCH-PHASE-131`):
 link:../pm-core/src/main/java/de/planmarshall/core/store/ProtectedPaths.java[ProtectedPaths]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/store/ProtectedPathsTest.java[ProtectedPathsTest]
@@ -826,6 +842,42 @@ link:../pm-workflow/doc/adr/workflow-dsl/017-a-slot-reference-is-typed-in-the-he
 link:../pm-core/doc/adr/core-store/077-a-slot-is-scope-level-and-consumed-by-its-call.adoc[ADR core-store/077],
 link:../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/078],
 link:../pm-providers/pm-provider-git/doc/adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR provider-git/003]
+
+Implementation (the commit stages 3 and 4 of `git.commit_and_push`, as far as the provider module carries them and not yet wired into the runtime `pm-mcpd`: the primitives `git.resolve-message`, `git.template-message` and `git.stage-and-commit` and the return evaluation `commit-message.evaluate` over the port `CommitSite`; the Conventional Commit validation with the bound of 2000 characters and the refusal of a lone surrogate; the trailer resolved per half from the local, the machine and the compiled value with its `trailer_source`, appended exactly once by the one writer, a supplied trailer line refused; the staging set derived from the scope with every path confined; check 1 of the footprint check before anything is staged, with checks 2 and 3 as the site's answers; the commit through `GitOperations.commit` with the listed paths, the operator's identity as author and the agent or compiled identity as committer; the outcome `failed` with its closed reason; and the default entity kind `commit-message`. Not implemented yet: the implementation of `CommitSite` and the `PrimitiveRegistry` of the assembly, the shipped unit and its product verification, the engine's mapping of `footprint_violation` to the condition, the commit attempt counters, the `change-ledger.jsonl` row, `head_at_completion`, `freshness_reconcile` and the CLI variant):
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitSite.java[CommitSite],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitTrailer.java[CommitTrailer],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitMessages.java[CommitMessages],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/StagingSets.java[StagingSets],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/FootprintBoundary.java[FootprintBoundary],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/GitResolveMessagePrimitive.java[GitResolveMessagePrimitive],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/GitTemplateMessagePrimitive.java[GitTemplateMessagePrimitive],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitive.java[GitStageAndCommitPrimitive],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitMessageEvaluatePrimitive.java[CommitMessageEvaluatePrimitive],
+link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/EntityKindRegistry.java[EntityKindRegistry]
+
+Verified by (the commit stages 3 and 4):
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/CommitMessagesTest.java[CommitMessagesTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/CommitTrailerTest.java[CommitTrailerTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/StagingSetsTest.java[StagingSetsTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/FootprintBoundaryTest.java[FootprintBoundaryTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/CoAuthoredBySourceScanTest.java[CoAuthoredBySourceScanTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitResolveMessagePrimitiveTest.java[GitResolveMessagePrimitiveTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitTemplateMessagePrimitiveTest.java[GitTemplateMessagePrimitiveTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/CommitMessageEvaluatePrimitiveTest.java[CommitMessageEvaluatePrimitiveTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitiveTest.java[GitStageAndCommitPrimitiveTest],
+link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/RegistriesAndRecordsTest.java[RegistriesAndRecordsTest]
+
+Documentation (the commit stages 3 and 4):
+link:../pm-providers/pm-provider-git/doc/developer/provider-git-primitive.adoc[Commit Primitives Developer Guide],
+link:../pm-workflow/doc/developer/workflow-verify.adoc#_architecture_and_core_types[Workflow Verification Developer Guide § Architecture and Core Types],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/001-the-commit-primitives-live-in-pm-provider-git.adoc[ADR provider-git-primitive/001],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/002-one-port-commit-site-resolved-per-call.adoc[ADR provider-git-primitive/002],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/003-the-staging-set-is-derived-from-the-scope.adoc[ADR provider-git-primitive/003],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/004-the-trailer-is-appended-by-commit-messages-alone.adoc[ADR provider-git-primitive/004],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/005-one-failed-outcome-with-a-closed-reason.adoc[ADR provider-git-primitive/005],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/006-the-primitive-checks-the-boundary-half.adoc[ADR provider-git-primitive/006],
+link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/007-the-template-message-renders-from-facts.adoc[ADR provider-git-primitive/007],
+link:../pm-workflow/doc/adr/workflow-verify/043-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify/043]
 
 [#PM-WF-17]
 === PM-WF-17: Dynamic Re-Planning of a Running Plan
@@ -1377,6 +1429,18 @@ link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/009-the-pull-request-spl
 link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/010-the-github-issue-comment-reads-the-issue.adoc[ADR provider-ci/010],
 link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/011-the-github-comment-guard-reads-only-the-pull-request-flag.adoc[ADR provider-ci/011]
 
+Implementation (the commit message over no file and no command line, on the native variant: `git.stage-and-commit` passes the validated message with its trailer and the confined paths to `GitOperations.commit` in memory, so no value of a call reaches a process argument and no `.plan/temp/` file is written; the CLI variant, `git commit -F -` over stdin, is not in this repository):
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitive.java[GitStageAndCommitPrimitive],
+link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitMessages.java[CommitMessages]
+
+Verified by (the commit message in memory):
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitiveTest.java[GitStageAndCommitPrimitiveTest]
+(the commit through the real `JGitOperations`, its message, trailer, author and committer read back from the history)
+
+Documentation (the commit message in memory):
+link:../pm-providers/pm-provider-git/doc/developer/provider-git-primitive.adoc#_git_stage_and_commit[Commit Primitives Developer Guide § `git.stage-and-commit`],
+link:../pm-providers/pm-provider-git/doc/developer/provider-git.adoc#_the_consumer_of_the_commit_set[Cache Repository Operations Developer Guide § The Consumer of the Commit Set]
+
 [#PM-EXEC-6]
 === PM-EXEC-6: Adaptive Build Timeouts, Coverage Parsing & Gate Honesty
 
@@ -1912,9 +1976,13 @@ Documentation: link:../pm-core/doc/developer/core-config.adoc#_the_consent_store
 link:../pm-core/doc/adr/core-config/002-the-consent-rule-is-a-gate-over-a-snapshot.adoc[ADR core-config/002],
 link:../pm-core/doc/adr/core-config/003-the-consent-record-is-handed-over-before-the-write.adoc[ADR core-config/003]
 
-Implementation (the consent of a verification of an unknown harness: the kind `verify_harness_profile` is never
-remembered, the step is reached only from `harness.verify-profile` after a `yes` with the expected tokens of its stages,
-and a `yes_remember` is refused): link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessVerification.java[HarnessVerification]
+Implementation (the precondition of the consent of a verification of an unknown harness: `admit` requires the state
+`harness.verify-profile`, the kind `verify_harness_profile` and an answer other than `no` or `yes_remember` — the kind is
+never remembered, so a remembered answer is refused rather than read from the store — and it refuses a run that declares
+no stage, a stage twice and a stage outside the closed list. It is a precondition function, not a gate a run passes: no
+production caller reaches it yet, and the confined probe jobs and the stage runner that would are owed
+(PM-WATCH-CLIENT-16)): link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessVerification.java[HarnessVerification],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessVerificationRefusal.java[HarnessVerificationRefusal]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/profile/HarnessVerificationTest.java[HarnessVerificationTest]
 
@@ -2283,9 +2351,12 @@ link:../pm-core/src/main/java/de/planmarshall/core/profile/VerificationRecord.ja
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolment.java[HarnessEnrolment],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEnrolmentStore.java[HarnessEnrolmentStore]
 
-Implementation (the harness scan's ordered list, preselection and default; the harness list's usage coverage, with
-`harness_store_unreadable` shown instead of an empty usage map; the admission of a verification of an unknown harness,
-its never-remembered consent and the draft validated as a profile):
+Implementation (the value classes of the harness scan and of the harness list, and the precondition of the verification
+gate — none of them runs anything: the scan's ordered list, its preselection and its default are values the probe jobs
+would fill, `HarnessProbe` is the seam those jobs implement, the list's usage coverage shows `harness_store_unreadable`
+instead of an empty map, and `HarnessVerification.admit` validates a draft and its consent. Owed: the confined probe
+jobs — the harness scan, the login and model probes and the verification run — and the stage runner that would call the
+precondition (PM-WATCH-CLIENT-16, PM-WATCH-CLIENT-21)):
 link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessCandidate.java[HarnessCandidate],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessScan.java[HarnessScan],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessNone.java[HarnessNone],
@@ -2295,6 +2366,25 @@ link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessListEntry.java
 link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessUsageCoverage.java[HarnessUsageCoverage],
 link:../pm-core/src/main/java/de/planmarshall/core/profile/HarnessVerification.java[HarnessVerification],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessListings.java[HarnessListings]
+
+Implementation (the harness icon store and its sanitising accept step: one file per harness under
+`<PM_MCP_BASE>/icons/` with mode `0600` and the index `icons/index.json`, written under `locks/icons.lock`, and the
+accept step that decides the media type from the bytes, keeps an SVG only through an allow-list, refuses a DOCTYPE, an
+event attribute and every reference outside the document, and strips a PNG's text chunks; the outbound fetch itself is
+owed to the profile that declares the `source` form, which no shipped profile does):
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/IconStore.java[IconStore],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/IconSanitiser.java[IconSanitiser],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/SvgSanitiser.java[SvgSanitiser],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/PngSanitiser.java[PngSanitiser],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/icon/IconIndex.java[IconIndex]
+
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/icon/IconSanitiserTest.java[IconSanitiserTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/icon/IconStoreTest.java[IconStoreTest]
+
+Documentation: link:../pm-runtime/doc/developer/runtime-icon.adoc[Icon Store and Sanitiser Developer Guide],
+link:../pm-runtime/doc/adr/runtime-launch/012-the-icon-sanitiser-is-an-allow-list.adoc[ADR runtime-launch/012],
+link:../pm-runtime/doc/adr/runtime-launch/013-the-icon-store-serves-only-a-file-that-matches-its-entry.adoc[ADR
+runtime-launch/013]
 
 The install path's seam from the verification's `UsageResult` to the enrolment's `UsageReport` is
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/VerifiedUsage.java[VerifiedUsage] (`UsageReport.of` is the

@@ -41,7 +41,7 @@ import de.planmarshall.core.role.RoleForm;
  *                         file delivery, where {@link #mcpConfigFile()} carries it instead
  * @param jobToken         the minted job token; never stored
  * @param jobTokenSha256   the digest of the job token, as the job record keeps it
- * @param harness          the client id of the harness
+ * @param harness          the harness id of the harness
  * @param harnessVersion   the version probed at the spawn
  * @param model            the model passed to the harness
  * @param effort           the effort passed after narrowing; {@code null} when none was passed

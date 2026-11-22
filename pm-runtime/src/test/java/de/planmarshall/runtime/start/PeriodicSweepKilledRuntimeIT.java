@@ -17,9 +17,7 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.attribute.FileTime;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -37,9 +35,9 @@ import de.planmarshall.runtime.test.TestBases;
  * runtime is a child JVM of {@link KilledRuntimeFixture}; the next run, in a new instance in this JVM, completes what
  * the interrupted run left, because every removal is judged on its own evidence.
  * <p>
- * The names and ages of the records are generated; a name prefix fixes the order in which the step of the child
- * removes them, and the records are written in another order than that one, so the order the test pins is the one of
- * the names and not the one of the writes.
+ * The names of the records are generated; a name prefix fixes the order in which the step of the child removes them,
+ * and the records are written in another order than that one, so the order the test pins is the one of the names and
+ * not the one of the writes. A record with a {@code .keep} sibling stands for an open entry, which no run removes.
  */
 @EnableGeneratorController
 @Timeout(value = 120, unit = TimeUnit.SECONDS)
@@ -70,21 +68,14 @@ class PeriodicSweepKilledRuntimeIT {
         return prefix + "-" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT) + ".json";
     }
 
-    /** @return a generated age beyond the maximum age of a pending entry record */
-    private static Duration aged() {
-        return PeriodicSweep.PENDING_ENTRY_MAX_AGE.plusHours(Generators.integers(1, 48).next());
+    private void writeResidue(String name) throws IOException {
+        // Contract literal: the smallest record, an empty JSON object
+        Files.writeString(RuntimeChildProcess.pendingRecords(base).resolve(name), "{}");
     }
 
-    /** @return a generated age below the maximum age, by at least an hour, which no run of the test outlasts */
-    private static Duration young() {
-        var maxMinutes = PeriodicSweep.PENDING_ENTRY_MAX_AGE.minusHours(1).toMinutes();
-        return Duration.ofMinutes(Generators.longs(1, maxMinutes).next());
-    }
-
-    private void writePendingRecord(String name, Duration age) throws IOException {
-        // Contract literal: the smallest record, an empty JSON object; the sweep judges the age alone
-        var file = Files.writeString(RuntimeChildProcess.pendingRecords(base).resolve(name), "{}");
-        Files.setLastModifiedTime(file, FileTime.from(Instant.now().minus(age)));
+    private void writeOpen(String name) throws IOException {
+        writeResidue(name);
+        Files.writeString(RuntimeChildProcess.pendingRecords(base).resolve(name + ".keep"), "");
     }
 
     private List<String> records() throws IOException {
@@ -94,15 +85,15 @@ class PeriodicSweepKilledRuntimeIT {
     }
 
     @Test
-    @DisplayName("a run killed after one removal is completed by the next run; a young record is kept in both")
+    @DisplayName("a run killed after one removal is completed by the next run; an open record is kept in both")
     void shouldCompleteInterruptedSweep() throws Exception {
-        var firstAged = recordName("a");
-        var youngRecord = recordName("b");
-        var secondAged = recordName("c");
+        var firstResidue = recordName("a");
+        var openRecord = recordName("b");
+        var secondResidue = recordName("c");
         Files.createDirectory(RuntimeChildProcess.pendingRecords(base));
-        writePendingRecord(secondAged, aged());
-        writePendingRecord(youngRecord, young());
-        writePendingRecord(firstAged, aged());
+        writeResidue(secondResidue);
+        writeOpen(openRecord);
+        writeResidue(firstResidue);
         fixture.start(RuntimeChildProcess.SWEEP, base);
         fixture.awaitMarker(RuntimeChildProcess.inside(RuntimeChildProcess.SWEEP));
         fixture.kill();
@@ -113,10 +104,10 @@ class PeriodicSweepKilledRuntimeIT {
                 })), Clock.systemUTC()).runOnce(Instant.now());
 
         assertAll(
-                () -> assertEquals(List.of(youngRecord, secondAged), afterKill,
-                        "the killed run removed the first aged record"),
-                () -> assertEquals(List.of(youngRecord), records(),
-                        "the next run removed the remaining aged record"),
+                () -> assertEquals(List.of(openRecord, openRecord + ".keep", secondResidue), afterKill,
+                        "the killed run removed the first residue record only"),
+                () -> assertEquals(List.of(openRecord, openRecord + ".keep"), records(),
+                        "the next run removed the remaining residue record"),
                 () -> assertEquals(new PeriodicSweep.Summary(1, 0, 0), summary,
                         "the next run swept the one project"));
     }

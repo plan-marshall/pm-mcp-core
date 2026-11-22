@@ -54,7 +54,7 @@ import de.planmarshall.runtime.launch.SkillSource;
  * @param relaySocket     the daemon's socket the worker's relay connects to
  * @param shimParagraph   the paragraph of the shim skill of the client bundle
  * @param skills          where the launch prompt's skills are read
- * @param profile         the effective client profile of the worker's harness
+ * @param profile         the effective harness profile of the worker's harness
  * @param harnessVerifier the launch-time verification of an enrolled harness
  * @param composer        the composition of one worker launch
  * @param starter         the job runtime that starts and settles a worker
@@ -248,7 +248,7 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
 
         /**
          * @param role    the role
-         * @param harness the client id of the harness
+         * @param harness the harness id of the harness
          * @return whether the guard holds
          */
         boolean holds(String role, String harness);
@@ -258,7 +258,7 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
          * changes or the harness is enrolled again. The open guard holds nothing and has nothing to clear.
          *
          * @param role    the role
-         * @param harness the client id of the harness
+         * @param harness the harness id of the harness
          */
         default void clear(String role, String harness) {
             // the open guard counts no failure, so a clear leaves it as it is
@@ -270,7 +270,7 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
          * hold the guard put on it. The open guard counts no failure, so a first call leaves it as it is.
          *
          * @param role    the role
-         * @param harness the client id of the harness
+         * @param harness the harness id of the harness
          */
         default void firstCall(String role, String harness) {
             // the open guard counts no failure, so a first call leaves it as it is
@@ -281,7 +281,7 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
          * made its first call. The open guard runs no probe and has nothing to decline.
          *
          * @param role    the role
-         * @param harness the client id of the harness
+         * @param harness the harness id of the harness
          */
         default void probeDeclined(String role, String harness) {
             // the open guard runs no probe
@@ -297,7 +297,7 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
 
     /**
      * The verification-record gate (PM-CLIENT-5, the load-time stage): whether the harness may host a worker of one
-     * role, decided from the harness's client profile, the runtime platform and the profile verification record before
+     * role, decided from the harness profile, the runtime platform and the profile verification record before
      * every start.
      *
      * @since 0.1
@@ -307,7 +307,7 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
 
         /**
          * @param role    the role
-         * @param harness the client id of the harness
+         * @param harness the harness id of the harness
          * @return whether the harness admits a worker of the role
          */
         boolean admits(String role, String harness);

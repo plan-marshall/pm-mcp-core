@@ -76,7 +76,7 @@ public record DefaultAssignment(Map<String, DefaultRole> roles) {
      *
      * @param tier             the model tier of the closed list {@code frontier}, {@code standard}, {@code fast}
      * @param effort           the effort, or {@code null} for the profile's default effort
-     * @param preferredHarness the client id of the harness the release graded the role on
+     * @param preferredHarness the harness id of the harness the release graded the role on
      * @param advisory         the message key of the advisory shown beside the value
      * @since 0.1
      */

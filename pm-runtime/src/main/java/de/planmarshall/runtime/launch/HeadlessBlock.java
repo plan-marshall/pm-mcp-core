@@ -29,7 +29,7 @@ import de.planmarshall.core.queue.ActivityEventMapping;
 import de.planmarshall.core.role.RoleClass;
 
 /**
- * The launch contract of one client profile, projected out of its {@code headless} block (PM-CLIENT-2, PM-CLIENT-5): the
+ * The launch contract of one harness profile, projected out of its {@code headless} block (PM-CLIENT-2, PM-CLIENT-5): the
  * executable and the argument-vector template with its typed slots, the per-class argument templates, the agent mode,
  * the delivery of the MCP configuration, the launch environment, the model tiers and efforts, the supported version
  * range, the update evidence, the resource tools, the per-worker data home, the session residue and the resumability.
@@ -107,9 +107,9 @@ UpdateEvidence updateEvidence, SupportedVersions supportedVersions, List<String>
     public static HeadlessBlock of(LoadedProfile profile) {
         Objects.requireNonNull(profile, "profile");
         var headless = profile.document().member("headless").orElseThrow(
-                () -> new IllegalArgumentException("The profile '%s' has no headless block".formatted(profile.clientId())));
+                () -> new IllegalArgumentException("The profile '%s' has no headless block".formatted(profile.harnessId())));
         if (headless.isNull()) {
-            throw new IllegalArgumentException("The profile '%s' has no headless block".formatted(profile.clientId()));
+            throw new IllegalArgumentException("The profile '%s' has no headless block".formatted(profile.harnessId()));
         }
         return new HeadlessBlock(text(headless, "executable").orElseThrow(),
                 strings(headless.member("argv").orElse(JsonNode.nullValue())),
@@ -126,7 +126,7 @@ UpdateEvidence updateEvidence, SupportedVersions supportedVersions, List<String>
                 resumeArgv(headless.member("resumability").orElse(JsonNode.nullValue())),
                 capabilities(headless.member("capabilities").orElse(JsonNode.nullValue())),
                 updateEvidence(headless.member("update_evidence").orElse(JsonNode.nullValue())),
-                SupportedVersions.parse(text(headless, "supported_versions").orElseThrow(), profile.clientId(),
+                SupportedVersions.parse(text(headless, "supported_versions").orElseThrow(), profile.harnessId(),
                         "/headless/supported_versions"),
                 versionProbeArgv(profile),
                 text(profile.document().member("identity").orElse(JsonNode.nullValue()), "version_pattern")

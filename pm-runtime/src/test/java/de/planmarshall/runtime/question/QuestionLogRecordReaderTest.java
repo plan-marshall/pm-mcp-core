@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -48,6 +49,7 @@ import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead.Open;
 import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead.Resolved;
 import de.planmarshall.core.spi.QuestionRecordReader.QuestionRead.Unreadable;
 import de.planmarshall.core.spi.QuestionRecordReader.ReadRequest;
+import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.QuestionEvent;
 import de.planmarshall.core.store.QuestionLog;
@@ -376,6 +378,19 @@ class QuestionLogRecordReaderTest {
 
             assertEquals(new Open(), reader.read(new ReadRequest(null, question)),
                     "an empty scope id reads the workspace log");
+        }
+
+        @ParameterizedTest
+        @EnumSource(EndOfLine.class)
+        @DisplayName("reads a pending entry's log for the entry address")
+        void readsAnEntryScope(EndOfLine endOfLine) throws Exception {
+            var entryId = new EntryId("ent-" + Generators.strings("0123456789abcdef", 16, 16).next());
+            var log = QuestionLog.ofEntry(workspace, entryId);
+            Files.createDirectories(log.store().getParent());
+            Files.writeString(log.store(), line(asked(question)) + endOfLine.text(), UTF_8);
+
+            assertEquals(new Open(), reader.read(ReadRequest.ofEntry(entryId, question)),
+                    "an entry address reads the entry's question log");
         }
 
         @ParameterizedTest

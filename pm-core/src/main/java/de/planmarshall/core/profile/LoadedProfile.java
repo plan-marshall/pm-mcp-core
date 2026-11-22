@@ -24,7 +24,7 @@ import org.jspecify.annotations.Nullable;
  * build enrolled now, in which case launches go on; and it is not loaded at all when it does not count, in which case
  * the profile of the next set stays in force.
  *
- * @param clientId the client id of the profile
+ * @param harnessId the harness id of the profile
  * @param kind     the set it was read from
  * @param document the validated tree
  * @param bytes    the document, UTF-8 encoded, as its digest and sidecar are computed over it
@@ -33,26 +33,26 @@ import org.jspecify.annotations.Nullable;
  * @since 0.1
  */
 @Builder
-public record LoadedProfile(String clientId, ProfileSetKind kind, JsonNode document, byte[] bytes, State state,
+public record LoadedProfile(String harnessId, ProfileSetKind kind, JsonNode document, byte[] bytes, State state,
 @Nullable VerificationRecord verificationRecord) {
 
     @Override
     public boolean equals(Object other) {
-        return other instanceof LoadedProfile(String otherClientId, ProfileSetKind otherKind, JsonNode otherDocument,
+        return other instanceof LoadedProfile(String otherHarnessId, ProfileSetKind otherKind, JsonNode otherDocument,
                 byte[] otherBytes, State otherState, VerificationRecord otherRecord)
-                && Objects.equals(clientId, otherClientId) && kind == otherKind
+                && Objects.equals(harnessId, otherHarnessId) && kind == otherKind
                 && Objects.equals(document, otherDocument) && Arrays.equals(bytes, otherBytes) && state == otherState
                 && Objects.equals(verificationRecord, otherRecord);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(clientId, kind, document, Arrays.hashCode(bytes), state, verificationRecord);
+        return Objects.hash(harnessId, kind, document, Arrays.hashCode(bytes), state, verificationRecord);
     }
 
     @Override
     public String toString() {
-        return "LoadedProfile[clientId=" + clientId + ", kind=" + kind + ", document=" + document + ", bytes=["
+        return "LoadedProfile[harnessId=" + harnessId + ", kind=" + kind + ", document=" + document + ", bytes=["
                 + bytes.length + " bytes], state=" + state + ", verificationRecord=" + verificationRecord + "]";
     }
 
@@ -98,7 +98,7 @@ public record LoadedProfile(String clientId, ProfileSetKind kind, JsonNode docum
     public Optional<JsonNode> headless(String headlessPath) {
         return document.member("headless")
                 .filter(headless -> !headless.isNull())
-                .map(headless -> JsonPointer.resolve(headless, headlessPath, clientId));
+                .map(headless -> JsonPointer.resolve(headless, headlessPath, harnessId));
     }
 
     /**

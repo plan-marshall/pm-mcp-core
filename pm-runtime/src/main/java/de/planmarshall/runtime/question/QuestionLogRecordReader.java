@@ -21,6 +21,7 @@ import org.jspecify.annotations.Nullable;
 import de.planmarshall.core.spi.QuestionRecordReader;
 import de.planmarshall.core.store.ConfinementOutcome.Confined;
 import de.planmarshall.core.store.ConfinementOutcome.Rejected;
+import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.QuestionLog;
@@ -44,7 +45,8 @@ import de.planmarshall.runtime.workspace.WorkspaceConfinement;
  * and a log the store cannot read are all {@link QuestionRecordReader.QuestionRead.Unreadable}, never
  * {@link QuestionRecordReader.QuestionRead.Open} (ADR {@code core-store/039}).
  * <p>
- * The scope of the request is the plan or epic its id names, or the workspace scope of the project for an empty id. A
+ * The scope of the request is the plan or epic its id names, the pending entry its id names (the entry directory's
+ * {@code questions.jsonl}, {@link QuestionLog#ofEntry}), or the workspace scope of the project for an empty id. A
  * scope id that names a plan and an epic is refused rather than guessed, and an id that is no identifier is a value,
  * not an exception.
  *
@@ -124,7 +126,8 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
         if (resolution.refused()) {
             return new QuestionRead.Unreadable(resolution.refusal());
         }
-        var log = new QuestionLog(resolution.scope());
+        var log = resolution.entryId() == null
+                ? new QuestionLog(resolution.scope()) : QuestionLog.ofEntry(resolution.scope(), resolution.entryId());
         var store = log.store();
         var outcome = confinement.confine(store.toString());
         if (outcome instanceof Rejected rejected) {
@@ -164,8 +167,9 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
     }
 
     /**
-     * The scope a request addresses: the workspace scope for an empty id, else the plan or epic of that id. The store
-     * directory of the scope tells the two apart; an id that names both is refused rather than guessed.
+     * The scope a request addresses: the workspace scope for an empty id, the questions of a pending entry for an
+     * entry id, else the plan or epic of the id. The store directory of the scope tells a plan and an epic apart; an
+     * id that names both is refused rather than guessed.
      */
     private Resolution resolve(@Nullable String scopeId) {
         if (scopeId == null) {
@@ -179,24 +183,32 @@ public final class QuestionLogRecordReader implements QuestionRecordReader {
             if (planExists && epicExists) {
                 return Resolution.refused("the scope " + scopeId + " names a plan and an epic");
             }
-            if (!planExists && !epicExists) {
-                return Resolution.refused("no question log for the scope");
+            if (planExists || epicExists) {
+                return Resolution.of(planExists ? plan : epic);
             }
-            return Resolution.of(planExists ? plan : epic);
+            var entryId = EntryId.parse(scopeId);
+            if (entryId.isPresent()) {
+                return Resolution.ofEntry(JournalScope.workspace(base, projectId), entryId.get());
+            }
+            return Resolution.refused("no question log for the scope");
         } catch (IllegalArgumentException _) {
             return Resolution.refused("the scope is not an identifier: " + scopeId);
         }
     }
 
-    /** The scope a request resolved to, or the reason it resolved to none. */
-    private record Resolution(@Nullable JournalScope scope, @Nullable String refusal) {
+    /** The scope a request resolved to, the entry whose questions are read, or the reason it resolved to none. */
+    private record Resolution(@Nullable JournalScope scope, @Nullable EntryId entryId, @Nullable String refusal) {
 
         static Resolution of(JournalScope scope) {
-            return new Resolution(scope, null);
+            return new Resolution(scope, null, null);
+        }
+
+        static Resolution ofEntry(JournalScope workspace, EntryId entryId) {
+            return new Resolution(workspace, entryId, null);
         }
 
         static Resolution refused(String reason) {
-            return new Resolution(null, reason);
+            return new Resolution(null, null, reason);
         }
 
         boolean refused() {

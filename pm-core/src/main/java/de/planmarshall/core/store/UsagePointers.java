@@ -21,7 +21,7 @@ import de.planmarshall.core.profile.ProfileRefusal;
 import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 
 /**
- * The usage pointers of a client profile's {@code headless.usage} block (PM-CLIENT-2, Client Profiles § Tokens, Not
+ * The usage pointers of a harness profile's {@code headless.usage} block (PM-CLIENT-2, Client Profiles § Tokens, Not
  * Money): where a harness's output carries each usage figure.
  * <p>
  * A pointer is a JSON Pointer into a turn line and fills the metrics column of the same name, except
@@ -66,7 +66,7 @@ public record UsagePointers(@Nullable String inputTokens, @Nullable String outpu
     }
 
     /**
-     * @param usage the {@code headless.usage} object of a client profile
+     * @param usage the {@code headless.usage} object of a harness profile
      * @return the pointers of the block
      * @throws IllegalArgumentException if the value is no object or a member is missing
      */

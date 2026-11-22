@@ -21,7 +21,7 @@ import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Reads a client profile or a profile verification record as the bounded tree of a {@link JsonNode} (PM-CLIENT-5).
+ * Reads a harness profile or a profile verification record as the bounded tree of a {@link JsonNode} (PM-CLIENT-5).
  * <p>
  * A profile is untrusted input, so the reader is bounded before any value of it is used: a document of at most
  * {@value #MAX_BYTES} bytes, values nested at most {@value #MAX_DEPTH} deep, strings of at most {@value #MAX_STRING}

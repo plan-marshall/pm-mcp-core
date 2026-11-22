@@ -33,7 +33,7 @@ import de.planmarshall.core.role.RoleClass;
  * self-update, the usage report of the harness and, where its profile declares a weights probe, the weights identity of
  * the models it serves. The store records nothing else: never an environment value, a variable name or a credential.
  *
- * @param clientId       the client id of the enrolled harness
+ * @param harnessId      the harness id of the enrolled harness
  * @param executablePath the resolved absolute path of the executable
  * @param sha256         the lowercase-hex SHA-256 of the executable at the last accepted probe
  * @param version        the version the profile's version probe reported
@@ -45,7 +45,7 @@ import de.planmarshall.core.role.RoleClass;
  * @since 0.1
  */
 @Builder
-public record HarnessEnrolment(String clientId, Path executablePath, String sha256, String version, Instant enrolledAt,
+public record HarnessEnrolment(String harnessId, Path executablePath, String sha256, String version, Instant enrolledAt,
 Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<String, Weights> weights) {
 
     private static final Pattern DIGEST = Pattern.compile("[0-9a-f]{64}");
@@ -53,9 +53,9 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
 
     /** Copies the collections and refuses a malformed entry. */
     public HarnessEnrolment {
-        Objects.requireNonNull(clientId, "clientId");
-        if (!HarnessId.matches(clientId)) {
-            throw new IllegalArgumentException("Not a client id: " + clientId);
+        Objects.requireNonNull(harnessId, "harnessId");
+        if (!HarnessId.matches(harnessId)) {
+            throw new IllegalArgumentException("Not a harness id: " + harnessId);
         }
         Objects.requireNonNull(executablePath, "executablePath");
         if (!executablePath.isAbsolute()) {
@@ -89,14 +89,15 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
      * @return the entry with the new weights
      */
     public HarnessEnrolment withWeights(Map<String, Weights> weights, Instant updatedAt) {
-        return new HarnessEnrolment(clientId, executablePath, sha256, version, enrolledAt, updatedAt, usageReport,
+        return new HarnessEnrolment(harnessId, executablePath, sha256, version, enrolledAt, updatedAt, usageReport,
                 events, weights);
     }
 
     /**
-     * The usage report of an accepted self-update: a report measured on the previous build says nothing about the new one,
-     * so the entry keeps no figure until the new version is verified — the harness lists file a coverage under the
-     * version it was measured on and must not show the old one beside the new build.
+     * The usage report of an accepted self-update: a report measured on the previous build says nothing about the new
+     * one, so a VERIFIED report keeps no figure until the new version is verified — the harness lists file a coverage
+     * under the version it was measured on and must not show the old one beside the new build. A DECLARED report is the
+     * profile's own declaration and not a measurement of a build, so it stays.
      */
     private static final UsageReport NO_REPORT_FOR_A_NEW_BUILD = new UsageReport(UsageSource.DECLARED, Map.of());
 
@@ -104,13 +105,14 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
      * @param version  the version probed after an accepted self-update
      * @param sha256   the digest of the changed executable
      * @param updateTo the instant of the accepted self-update
-     * @return the entry with the new build of the same harness; a report measured on another build — another version or
-     *         another executable digest — is dropped
+     * @return the entry with the new build of the same harness; a VERIFIED report measured on another build — another
+     *         version or another executable digest — is dropped, a DECLARED report is kept
      */
     public HarnessEnrolment updated(String version, String sha256, Instant updateTo) {
         var sameBuild = version.equals(this.version) && sha256.equals(this.sha256);
-        var report = sameBuild ? usageReport : NO_REPORT_FOR_A_NEW_BUILD;
-        return new HarnessEnrolment(clientId, executablePath, sha256, version, enrolledAt, updateTo, report,
+        var verifiedOnAnotherBuild = !sameBuild && usageReport.source() == UsageSource.VERIFIED;
+        var report = verifiedOnAnotherBuild ? NO_REPORT_FOR_A_NEW_BUILD : usageReport;
+        return new HarnessEnrolment(harnessId, executablePath, sha256, version, enrolledAt, updateTo, report,
                 events, weights);
     }
 

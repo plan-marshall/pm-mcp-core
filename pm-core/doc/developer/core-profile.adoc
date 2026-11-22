@@ -39,24 +39,25 @@ link:{spec}/harness-profiles/01-profile-schema.adoc#profile-hardening[§ A Profi
 |Set |Where |What binds it
 
 |Shipped
-|`classpath:/profiles/<client_id>.json`, a resource of `pm-api`
+|`classpath:/profiles/<harness_id>.json`, a resource of `pm-api`
 |The release. The build test validates every shipped document.
 
 |Machine
-|`<PM_MCP_BASE>/profiles/<client_id>.json`
-|Its verification record and its `<client_id>.json.hmac` sidecar.
+|`<PM_MCP_BASE>/profiles/<harness_id>.json`
+|Its verification record and its `<harness_id>.json.hmac` sidecar.
 
 |Project
-|`<PM_MCP_BASE>/projects/<project_id>/profiles/<client_id>.json`
+|`<PM_MCP_BASE>/projects/<project_id>/profiles/<harness_id>.json`
 |The same, plus equality of `detection`, `identity` and `headless.executable` with the machine or shipped document.
 |===
 
-The validator reads the id member of a profile as `client_id`, and the file names above use that value. The schema file
-`harness-profile-v1.schema.json` and the specification name the member `harness_id`; `HarnessProfileSchemaParityTest`
-pins that difference (`ID_MEMBER` against `READER_ID_MEMBER`).
+The validator reads the id member of a profile as `harness_id`, which the file names above use. A document written
+before the rename carries the same value under `client_id`; the validator reads it where `harness_id` is absent and
+refuses a document that carries both. The schema file `harness-profile-v1.schema.json` and the specification name the
+member `harness_id`, and `HarnessProfileSchemaParityTest` asserts the file names it and not the former member.
 
-The nearest set wins *as a whole document*, never merged. A project profile only exists for a client id the machine or
-shipped set defines; a machine profile of a client id the release does not ship adds a harness.
+The nearest set wins *as a whole document*, never merged. A project profile only exists for a harness id the machine or
+shipped set defines; a machine profile of a harness id the release does not ship adds a harness.
 
 == Main Types
 
@@ -160,7 +161,7 @@ profile only if no effective profile already uses its `detection.precedence`. A 
 when all of the following hold:
 
 . its `profile_digest` equals `CanonicalJson.digest` of the document;
-. its `<client_id>.json.hmac` sidecar is an `EnrolmentSidecar` over the exact bytes and its HMAC verifies with the key of
+. its `<harness_id>.json.hmac` sidecar is an `EnrolmentSidecar` over the exact bytes and its HMAC verifies with the key of
   the enrolment store;
 . the record names the enrolled harness executable;
 . the enrolled version and executable digest are those of the record, or the enrolled version lies in
@@ -291,19 +292,24 @@ holds both as values, so no client re-derives the order or the default:
   the harness that passed, or to leave out anything when it is the only chosen one.
 * `HarnessList` keeps the scan's order and carries per row the path or install hint, the default mark and the
   `HarnessUsageCoverage`. The coverage is filed under a `HarnessList.Key` — the harness **and** the version — so a
-  coverage recorded for one version is never shown beside another. `HarnessUsageCoverage.of` maps a `UsageResult` to
-  `complete`, `partial` with the missing report figures in schema order, or `not_reported`;
+  coverage recorded for one version is never shown beside another. `HarnessUsageCoverage` holds the `complete`,
+  `partial` (with the missing report figures in schema order) or `not_reported` status; its derivation from a report
+  lives in one place, `HarnessListings.coverage` of `pm-runtime`, the production path.
   `HarnessUsageCoverage.unreadable()` and `HarnessList.of(..., storeUnreadable = true)` show `harness_store_unreadable`
   at every row instead of an empty usage map. The bridge from the enrolment store to the list is
   `HarnessListings.of` in `pm-runtime`, which maps the store's figure names (`input`, `output`) back to the profile
-  schema's and files each report under the version it was enrolled with.
+  schema's, files each report under the version it was enrolled with, and shows an enrolled harness the scan no longer
+  finds — its profile gone or its executable gone — as a missing row with the enrolment's version and path.
 
 `HarnessVerification.admit` is the one admission of a verification of an unknown harness: the state must be
 `harness.verify-profile`, the consent kind `verify_harness_profile` (never remembered, so a `yes_remember` is refused),
 the answer `yes` with the expected tokens of **exactly** the stages the caller declares as the run's — a subset prices
 stages the consent never showed, a superset prices a stage that does not run, and the stage list is the run's own
 precondition because the gate cannot see the run — and the draft is validated by `ProfileValidator` before
-anything runs. Each refusal carries a stable code from `HarnessVerificationRefusal`.
+anything runs. The stage list itself is refused when it is empty (`harness_verify_stages_empty`), names a stage twice
+(`harness_verify_stages_duplicate`) or names a stage outside the closed list (`harness_verify_stage_unknown`); the price
+rule keeps `harness_verify_stage_tokens_missing`. Each refusal carries a stable code from `HarnessVerificationRefusal`.
+`admit` is a precondition function: no production caller reaches it yet, and the confined probe jobs that would are owed.
 
 link:../adr/core-profile/013-the-scan-and-list-are-ordered-values.adoc[ADR 013]: the scan and list are ordered values
 with the store refusal as a status. link:../adr/core-profile/014-the-verification-is-admitted-by-one-gate.adoc[ADR 014]:
@@ -331,7 +337,7 @@ enrolled-harness binding, told apart by `profile_kind: "endpoint"` (Harness Prof
 § Endpoint Profile Schema).
 
 `ProfileValidator` reads `profile_kind` before anything else. `endpoint` selects a closed document of its own members —
-`profile_kind`, `schema_version`, `client_id`, `display_name`, `min_daemon_version`, `icon`, `executable`, `identity`,
+`profile_kind`, `schema_version`, `harness_id`, `display_name`, `min_daemon_version`, `icon`, `executable`, `identity`,
 `update_evidence`, `endpoint`, `model_tiers` and `weights_probe` — and none of the harness profile's blocks: no `tools`,
 `skill_loading`, `headless`, `connection`, `detection` or `worker` (link:../adr/core-profile/010-endpoint-profile-is-a-kind-of-the-profile-sets.adoc[ADR
 010]). Any other `profile_kind` value is an undeclared member of the harness profile. The hardening rules that a client

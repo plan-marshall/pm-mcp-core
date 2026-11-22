@@ -3,8 +3,9 @@
 
 == Status
 
-Accepted. The selection by age of this decision is superseded as the target by the specification (see the note below);
-the code still removes by age.
+Accepted. The selection by age of this decision is superseded by
+link:016-the-sweep-removes-pending-entry-residue-by-evidence.adoc[ADR 016]; the delete transaction and the audit record
+of one removal stand.
 
 == Date
 

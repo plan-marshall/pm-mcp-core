@@ -270,6 +270,21 @@ class EndpointVerificationTest {
     }
 
     @Test
+    @DisplayName("a found lookup whose executable name differs from the draft refuses the draft")
+    void foreignExecutableRefusesDraft() {
+        var verification = new EndpointVerification(new EndpointClient(),
+                (host, port) -> SocketOwner.Lookup.found("/opt/other/bin/" + profile.executable() + "-not"),
+                new WeightsReader(), (executable, argv, pattern) -> Optional.empty());
+
+        var result = verification.verify(profile, MODEL, word(), word(), decoy, schema);
+
+        assertAll("the foreign executable",
+                () -> assertTrue(result.refusesDraft(), "a foreign executable refuses the draft"),
+                () -> assertFalse(result.identity().passed(), "the identity stage fails"),
+                () -> assertEquals(0, server.getRequestCount(), "no request reached the mock web server"));
+    }
+
+    @Test
     @DisplayName("a models listing whose body is not JSON fails the identity stage instead of the run")
     void malformedModelsListing() {
         on("GET", profile.endpoint().modelsPath(), fixed(200, "{"));

@@ -110,7 +110,7 @@ class ProfileLoaderTest {
                         "machine profile loads as verified"),
                 () -> assertEquals(ProfileSetKind.MACHINE, loaded.effective(CLIENT).orElseThrow().kind(),
                         "effective set is the machine one"),
-                () -> assertEquals(CLIENT, loaded.effective(CLIENT).orElseThrow().verificationRecord().clientId(),
+                () -> assertEquals(CLIENT, loaded.effective(CLIENT).orElseThrow().verificationRecord().harnessId(),
                         "The loaded profile carries the record it was bound to"));
     }
 
@@ -289,8 +289,8 @@ class ProfileLoaderTest {
 
     @Test
     @DisplayName("a profile whose client id is not its file name is refused")
-    void clientIdMustEqualFileName(@TempDir Path machine) throws Exception {
-        var document = ProfileFixtures.valid().set("/client_id", OTHER_CLIENT).bytes();
+    void harnessIdMustEqualFileName(@TempDir Path machine) throws Exception {
+        var document = ProfileFixtures.valid().set("/harness_id", OTHER_CLIENT).bytes();
         write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA), sidecar(key, document));
 
         var loaded = loader.load(ProfileSets.withMachine(Map.of(CLIENT, shipped(ProfileFixtures.validBytes())),
@@ -299,7 +299,7 @@ class ProfileLoaderTest {
         assertAll(
                 () -> assertEquals(ProfileSetKind.SHIPPED, loaded.effective(CLIENT).orElseThrow().kind(),
                         "client id mismatch keeps shipped set"),
-                () -> assertEquals("/client_id", refusal(loaded).pointer(), "refusal points at client_id"));
+                () -> assertEquals("/harness_id", refusal(loaded).pointer(), "refusal points at harness_id"));
     }
 
     @Test
@@ -307,7 +307,7 @@ class ProfileLoaderTest {
     void precedenceIsUnique(@TempDir Path machine) throws Exception {
         var document = ProfileFixtures.validBytes();
         write(machine, CLIENT, document, verificationRecord(document, "1.5.0", OTHER_SHA), sidecar(key, document));
-        var other = ProfileFixtures.valid().set("/client_id", OTHER_CLIENT)
+        var other = ProfileFixtures.valid().set("/harness_id", OTHER_CLIENT)
                 .set("/headless/executable", OTHER_EXECUTABLE).bytes();
         write(machine, OTHER_CLIENT, other,
                 verificationRecord(other, "1.5.0", OTHER_SHA, OTHER_CLIENT, OTHER_EXECUTABLE), sidecar(key, other));
@@ -338,11 +338,11 @@ class ProfileLoaderTest {
         return verificationRecord(document, version, sha, CLIENT, EXECUTABLE);
     }
 
-    private byte[] verificationRecord(byte[] document, String version, String sha, String clientId, String executable) {
-        var profile = JsonDocument.parse(document, clientId);
+    private byte[] verificationRecord(byte[] document, String version, String sha, String harnessId, String executable) {
+        var profile = JsonDocument.parse(document, harnessId);
         var recordBytes = new LinkedHashMap<String, Object>();
         recordBytes.put("format_version", 1);
-        recordBytes.put("client_id", clientId);
+        recordBytes.put("client_id", harnessId);
         recordBytes.put("profile_schema_version", 1);
         recordBytes.put("profile_digest", CanonicalJson.digest(profile));
         recordBytes.put("verified_at", VERIFIED_AT);
@@ -367,13 +367,13 @@ class ProfileLoaderTest {
         }
     }
 
-    private static void write(Path directory, String clientId, byte[] document, byte[] recordBytes, byte[] hmac)
+    private static void write(Path directory, String harnessId, byte[] document, byte[] recordBytes, byte[] hmac)
             throws IOException {
         Files.createDirectories(directory.resolve("verification"));
-        Files.write(directory.resolve(clientId + ".json"), document);
+        Files.write(directory.resolve(harnessId + ".json"), document);
         if (recordBytes != null) {
-            Files.write(directory.resolve("verification").resolve(clientId + ".json"), recordBytes);
+            Files.write(directory.resolve("verification").resolve(harnessId + ".json"), recordBytes);
         }
-        Files.write(directory.resolve(clientId + ".json.hmac"), hmac);
+        Files.write(directory.resolve(harnessId + ".json.hmac"), hmac);
     }
 }

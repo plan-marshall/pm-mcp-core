@@ -31,15 +31,15 @@ class EndpointProfileBuilderContractTest {
     @Test
     @DisplayName("the profile builder builds the constructor's value and refuses alike")
     void shouldBuildProfileLikeTheConstructorAndRefuseAlike() {
-        var clientId = Generators.letterStrings(3, 12).next();
+        var harnessId = Generators.letterStrings(3, 12).next();
         var executable = Generators.letterStrings(3, 12).next();
         var identity = new EndpointProfile.Identity(List.of("--version"), "version ([0-9.]+)");
         var endpoint = new EndpointProfile.Endpoint("openai_chat", "http://127.0.0.1:11434", "/health",
                 "/v1/models", "/data", "enforced", 32_768, 4_096, 120);
         var modelTiers = Map.of("frontier", "acme-frontier");
 
-        var canonical = new EndpointProfile(clientId, executable, identity, null, endpoint, modelTiers, null);
-        var built = EndpointProfile.builder().clientId(canonical.clientId()).executable(canonical.executable())
+        var canonical = new EndpointProfile(harnessId, executable, identity, null, endpoint, modelTiers, null);
+        var built = EndpointProfile.builder().harnessId(canonical.harnessId()).executable(canonical.executable())
                 .identity(canonical.identity()).updateEvidence(canonical.updateEvidence())
                 .endpoint(canonical.endpoint()).modelTiers(canonical.modelTiers())
                 .weightsProbe(canonical.weightsProbe()).build();
@@ -49,13 +49,13 @@ class EndpointProfileBuilderContractTest {
                 () -> {
                     var fromConstructor = assertThrows(NullPointerException.class,
                             () -> new EndpointProfile(null, executable, identity, null, endpoint, modelTiers, null),
-                            "the constructor refuses a null clientId");
+                            "the constructor refuses a null harnessId");
                     var incomplete = EndpointProfile.builder().executable(executable).identity(identity)
                             .endpoint(endpoint).modelTiers(modelTiers);
                     var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
-                            "the builder refuses a missing clientId");
+                            "the builder refuses a missing harnessId");
                     assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
-                            "both refuse an absent clientId with the same message");
+                            "both refuse an absent harnessId with the same message");
                 });
     }
 

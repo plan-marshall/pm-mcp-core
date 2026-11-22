@@ -3,7 +3,8 @@
 
 == Status
 
-Accepted
+Superseded by link:082-the-pending-entry-is-a-directory.adoc[ADR 082] for the record's form; the move of the question
+file stays.
 
 == Date
 

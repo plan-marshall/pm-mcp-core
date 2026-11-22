@@ -55,14 +55,18 @@
  * closed {@link de.planmarshall.core.store.WaiverRequestOutcome}), without a time limit (PM-SEC-3).
  * {@link de.planmarshall.core.store.WorkflowStatusStore} reads the store without a lock and writes it only as a
  * target of the caller's {@link de.planmarshall.core.store.ScopeTransaction}.</li>
- * <li><em>The pending entry record</em> (PM-CLIENT-1): {@code pending/<entry_id>.json} of the workspace scope
- * ({@link de.planmarshall.core.store.PendingEntryRecord}, read and written by
- * {@link de.planmarshall.core.store.PendingEntryCodec}), the state store of the bootstrap of an entry a client opens
- * for a scope that does not exist yet, named by its {@link de.planmarshall.core.store.EntryId}: the envelope and the
- * members the engine owns are typed, {@code facts}, {@code source} and {@code options} kept as raw JSON.
- * {@link de.planmarshall.core.store.PendingEntryStore} allocates a fresh id and creates, replaces and removes a record
- * as a target of the caller's workspace {@link de.planmarshall.core.store.ScopeTransaction}, and lists only the names
- * that parse as entry ids.</li>
+ * <li><em>The pending entry</em> (PM-CLIENT-1): the directory {@code pending/<entry_id>/} of the workspace scope
+ * ({@link de.planmarshall.core.store.PendingEntryStore}), the state store of the bootstrap of an entry a client opens
+ * for a scope that does not exist yet, named by its {@link de.planmarshall.core.store.EntryId}: the record
+ * {@code entry.json} ({@link de.planmarshall.core.store.PendingEntryRecord}, read and written by
+ * {@link de.planmarshall.core.store.PendingEntryCodec}; the envelope and the members the engine owns are typed,
+ * {@code facts}, the recipe's {@code params} and {@code options} kept as raw JSON), the source directory with its
+ * manifest ({@link de.planmarshall.core.store.SourceManifest}, read and written by
+ * {@link de.planmarshall.core.store.SourceManifestCodec}), the question and decision stores and the transcript.
+ * {@link de.planmarshall.core.store.PendingEntryStore} allocates a fresh id and creates, replaces, verifies and removes
+ * the entry's stores as targets of the caller's workspace {@link de.planmarshall.core.store.ScopeTransaction}, lists
+ * only the directories whose name parses as an entry id, and {@link de.planmarshall.core.store.PendingEntryCreation}
+ * moves the entry's stores into the scope it creates.</li>
  * <li><em>The job records</em> (PM-EXEC-4, PM-ARCH-7): {@code jobs/<job_id>.json} of a project, of the machine scope
  * and of an onboarding entry ({@link de.planmarshall.core.store.JobRecord}, read and written by
  * {@link de.planmarshall.core.store.JobRecordCodec}), the write-ahead journal of one job named by its

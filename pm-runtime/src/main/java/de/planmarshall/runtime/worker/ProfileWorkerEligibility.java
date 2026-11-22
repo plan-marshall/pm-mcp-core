@@ -145,7 +145,7 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
      * The gate decides from the profile's claims alone: the role and the harness are the caller's names for the worker
      * it wants to start, and the profile the gate holds is already the effective one of that harness. The refusal it
      * finds is available from {@link #verdict()}; the start path reads only {@code admits}, and a report asks the verdict
-     * for the reason, the stage and the client id.
+     * for the reason, the stage and the harness id.
      */
     @Override
     public boolean admits(String role, String harness) {
@@ -273,9 +273,9 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
         return switch (stage.status()) {
             case PASSED -> stageFactRefusal(stage, name, profile, unenforcedEgressAccepted);
             case FAILED -> Optional.of(
-                    new EligibilityRefusal(EligibilityRefusal.Reason.STAGE_FAILED, name, profile.clientId()));
+                    new EligibilityRefusal(EligibilityRefusal.Reason.STAGE_FAILED, name, profile.harnessId()));
             case NOT_RUN -> Optional.of(
-                    new EligibilityRefusal(EligibilityRefusal.Reason.STAGE_NOT_RUN, name, profile.clientId()));
+                    new EligibilityRefusal(EligibilityRefusal.Reason.STAGE_NOT_RUN, name, profile.harnessId()));
             default -> throw new IllegalStateException("Not a stage status: " + stage.status());
         };
     }
@@ -294,11 +294,11 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
             LoadedProfile profile, boolean unenforcedEgressAccepted) {
         if (FAULTS_STAGE.equals(name) && (stage.trials() == null || stage.trials() < MINIMUM_FAULTS_TRIALS)) {
             return Optional.of(new EligibilityRefusal(EligibilityRefusal.Reason.FAULTS_TRIALS_INSUFFICIENT, name,
-                    profile.clientId()));
+                    profile.harnessId()));
         }
         if (EGRESS_STAGE.equals(name) && !unenforcedEgressAccepted && unenforced(stage)) {
             return Optional.of(new EligibilityRefusal(EligibilityRefusal.Reason.EGRESS_UNENFORCED, name,
-                    profile.clientId()));
+                    profile.harnessId()));
         }
         return Optional.empty();
     }
@@ -326,6 +326,6 @@ public final class ProfileWorkerEligibility implements SupervisorEnvironment.Eli
 
     private static EligibilityVerdict refuse(EligibilityRefusal.Reason reason, @Nullable String stage,
             LoadedProfile profile) {
-        return EligibilityVerdict.refused(new EligibilityRefusal(reason, stage, profile.clientId()));
+        return EligibilityVerdict.refused(new EligibilityRefusal(reason, stage, profile.harnessId()));
     }
 }

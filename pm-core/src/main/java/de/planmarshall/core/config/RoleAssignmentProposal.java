@@ -31,7 +31,7 @@ import de.planmarshall.core.role.RoleSet;
  * release's default assignment applied to the enrolled harnesses and the effective catalogue.
  * <p>
  * Per assignable role — every role of the effective set except the steward — the harness is the role's preferred harness
- * where it is enrolled, else the first enrolled harness, in the order of the client id, whose profile runs the role's
+ * where it is enrolled, else the first enrolled harness, in the order of the harness id, whose profile runs the role's
  * class; the model is the one that harness maps the role's tier to, where the catalogue allows it; and the effort is the
  * default's, narrowed to what the harness accepts for the model. A role whose default cannot be met is reported without a
  * value, with the reason and the advisory beside it, and the operator chooses its model in {@code roles.write}.
@@ -47,15 +47,15 @@ public final class RoleAssignmentProposal {
     /**
      * One enrolled harness with the facts of its profile.
      *
-     * @param clientId the client id of the harness
-     * @param profile  the facts of its client profile
+     * @param harnessId the harness id of the harness
+     * @param profile  the facts of its harness profile
      * @since 0.1
      */
-    public record Harness(String clientId, HarnessProfile profile) {
+    public record Harness(String harnessId, HarnessProfile profile) {
 
         /** Rejects {@code null} components. */
         public Harness {
-            Objects.requireNonNull(clientId, "clientId");
+            Objects.requireNonNull(harnessId, "harnessId");
             Objects.requireNonNull(profile, "profile");
         }
     }
@@ -88,7 +88,7 @@ public final class RoleAssignmentProposal {
     /**
      * @param roles      the effective role set of the project or the machine
      * @param defaults   the release's default assignment
-     * @param harnesses  the enrolled harnesses, in the order of the client id
+     * @param harnesses  the enrolled harnesses, in the order of the harness id
      * @param catalogue  the effective model catalogue; {@code null} when the machine has none yet
      * @return one proposal per assignable role, in role-name order
      */
@@ -117,14 +117,14 @@ public final class RoleAssignmentProposal {
         var model = harness.get().profile().tierModel(defaultRole.tier());
         if (model.isEmpty()) {
             return unresolved(role, defaultRole, "the harness '%s' maps no model to the tier '%s'"
-                    .formatted(harness.get().clientId(), defaultRole.tier()));
+                    .formatted(harness.get().harnessId(), defaultRole.tier()));
         }
         if (catalogue == null) {
             return unresolved(role, defaultRole, "no effective model catalogue exists yet");
         }
-        if (!catalogue.allows(harness.get().clientId(), model.get())) {
+        if (!catalogue.allows(harness.get().harnessId(), model.get())) {
             return unresolved(role, defaultRole, "the effective model catalogue does not allow '%s' on '%s'"
-                    .formatted(model.get(), harness.get().clientId()));
+                    .formatted(model.get(), harness.get().harnessId()));
         }
         var effort = narrow(harness.get().profile(), model.get(), defaultRole.effort());
         return Proposal.builder()
@@ -132,7 +132,7 @@ public final class RoleAssignmentProposal {
                 .tier(defaultRole.tier())
                 .advisory(defaultRole.advisory())
                 .assignment(RoleAssignmentValue.builder()
-                        .harness(harness.get().clientId())
+                        .harness(harness.get().harnessId())
                         .model(model.get())
                         .effort(defaultRole.effort() != null && effort.isPresent() ? EffortSetting.VALUE
                                 : EffortSetting.DEFAULT)
@@ -149,7 +149,7 @@ public final class RoleAssignmentProposal {
     private static Optional<Harness> resolveHarness(RoleArtifact artifact, DefaultAssignment.DefaultRole defaultRole,
             List<Harness> harnesses) {
         var preferred = harnesses.stream()
-                .filter(harness -> harness.clientId().equals(defaultRole.preferredHarness()))
+                .filter(harness -> harness.harnessId().equals(defaultRole.preferredHarness()))
                 .filter(harness -> harness.profile().runs(artifact.roleClass()))
                 .findFirst();
         return preferred.or(() -> harnesses.stream()

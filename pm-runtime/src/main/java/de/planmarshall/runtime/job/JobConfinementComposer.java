@@ -32,7 +32,7 @@ import de.planmarshall.core.store.ProjectEnrolment;
  * The write set is the project root, the enrolment's {@code write_paths}, the system temporary directory and the device
  * nodes; a {@code build} or {@code project_script} job and a {@code git} job that runs repository hooks add the
  * project's daemon store; a {@code ci} job adds the configuration directory of its CLI; a worker adds the sub-paths its
- * client profile declares writable and its own data directory; a probe adds what its kind may write. The write set never
+ * harness profile declares writable and its own data directory; a probe adds what its kind may write. The write set never
  * contains the runtime base directory, apart from the project's daemon store and a worker's own data directory, and
  * never {@code ~/.plan-marshall/}.
  * <p>
@@ -141,7 +141,7 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      *
      * @param enrolment           the verified enrolment of the job's project
      * @param jobId               the id of the job
-     * @param harnessWritablePaths the sub-paths a worker's client profile declares writable; empty for other kinds
+     * @param harnessWritablePaths the sub-paths a worker's harness profile declares writable; empty for other kinds
      * @param runRepositoryHooks  whether a {@code git} job runs repository hooks
      * @return the confinement
      */
@@ -248,7 +248,7 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      * @param checkoutRoot         the checkout root of a checkout's script; {@code null} for a probe of the machine
      * @param toolchainCaches      the build write set of a checkout's script; empty otherwise
      * @param harnessProbe         whether the probe is a harness probe
-     * @param harnessWritablePaths the sub-paths the harness's client profile declares writable
+     * @param harnessWritablePaths the sub-paths the harness profile declares writable
      * @return the confinement
      */
     public JobConfinement forProbe(JobId jobId, @Nullable Path checkoutRoot, List<Path> toolchainCaches,

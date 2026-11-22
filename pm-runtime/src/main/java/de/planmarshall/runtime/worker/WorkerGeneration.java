@@ -33,7 +33,7 @@ import de.planmarshall.runtime.launch.LaunchRequest;
  *
  * @param generationId        the worker's generation, equal to its job id
  * @param role                the role the worker serves
- * @param harness             the client id of the worker's harness
+ * @param harness             the harness id of the worker's harness
  * @param model               the model the launch passes to the harness
  * @param form                the form of the role's workers
  * @param workdirKind         the kind of the working directory fixed at the launch

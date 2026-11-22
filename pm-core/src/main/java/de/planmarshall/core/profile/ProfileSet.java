@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * The effective profile set of one project (PM-CLIENT-5, Profile Sets): one profile per client id, each the document of
+ * The effective profile set of one project (PM-CLIENT-5, Profile Sets): one profile per harness id, each the document of
  * the nearest set that counts, never merged with another, beside the profiles that were refused and the one whose
  * refusal left the next set in force.
  * <p>
@@ -36,14 +36,14 @@ public final class ProfileSet {
     }
 
     /**
-     * @param clientId a client id
+     * @param harnessId a harness id
      * @return the effective profile of the client, from the nearest set that counts
      */
-    public Optional<LoadedProfile> effective(String clientId) {
-        return Optional.ofNullable(effective.get(clientId));
+    public Optional<LoadedProfile> effective(String harnessId) {
+        return Optional.ofNullable(effective.get(harnessId));
     }
 
-    /** @return the effective profiles by client id; unmodifiable, in client-id order */
+    /** @return the effective profiles by harness id; unmodifiable, in client-id order */
     public Map<String, LoadedProfile> effective() {
         return effective;
     }
@@ -54,29 +54,29 @@ public final class ProfileSet {
     }
 
     /**
-     * @param clientId a client id
+     * @param harnessId a harness id
      * @return the state of the effective profile; empty if the client has no profile that counts
      */
-    public Optional<LoadedProfile.State> state(String clientId) {
-        return effective(clientId).map(LoadedProfile::state);
+    public Optional<LoadedProfile.State> state(String harnessId) {
+        return effective(harnessId).map(LoadedProfile::state);
     }
 
     /**
-     * @param clientId a client id
+     * @param harnessId a harness id
      * @return whether the effective profile was verified on another build of the enrolled harness
      */
-    public boolean verifiedOnOtherBuild(String clientId) {
-        return state(clientId).filter(LoadedProfile.State.VERIFIED_ON_OTHER_BUILD::equals).isPresent();
+    public boolean verifiedOnOtherBuild(String harnessId) {
+        return state(harnessId).filter(LoadedProfile.State.VERIFIED_ON_OTHER_BUILD::equals).isPresent();
     }
 
     /**
      * A profile the loader refused.
      *
-     * @param clientId the client id the profile names
+     * @param harnessId the harness id the profile names
      * @param kind     the set it was read from
      * @param refusal  the refusal
      * @since 0.1
      */
-    public record RefusedProfile(String clientId, ProfileSetKind kind, ProfileRefusal refusal) {
+    public record RefusedProfile(String harnessId, ProfileSetKind kind, ProfileRefusal refusal) {
     }
 }

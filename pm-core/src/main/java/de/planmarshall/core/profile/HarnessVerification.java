@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import lombok.Builder;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.config.ConsentGate;
@@ -69,9 +70,9 @@ public class HarnessVerification {
      * @param rules       what the installation knows beyond the draft
      * @since 0.1
      */
+    @Builder
     public record Request(String state, ConsentKind kind, ConsentGate.Answer answer, List<String> stages,
     Map<String, Long> stageTokens, String draft, String draftName, ProfileRules rules) {
-
         /**
          * @throws NullPointerException if a required component is {@code null}
          */
@@ -136,16 +137,16 @@ public class HarnessVerification {
 
     private static void requireStages(List<String> stages) {
         if (stages.isEmpty()) {
-            throw new HarnessVerificationRefusal(HarnessVerificationRefusal.TOKENS_MISSING,
+            throw new HarnessVerificationRefusal(HarnessVerificationRefusal.STAGES_EMPTY,
                     "A verification runs at least one stage");
         }
         if (new HashSet<>(stages).size() != stages.size()) {
-            throw new HarnessVerificationRefusal(HarnessVerificationRefusal.TOKENS_MISSING,
+            throw new HarnessVerificationRefusal(HarnessVerificationRefusal.STAGES_DUPLICATE,
                     "A stage is named twice in the run: " + stages);
         }
         for (var stage : stages) {
             if (!VerificationRecord.STAGE_NAMES.contains(stage)) {
-                throw new HarnessVerificationRefusal(HarnessVerificationRefusal.TOKENS_MISSING,
+                throw new HarnessVerificationRefusal(HarnessVerificationRefusal.STAGE_UNKNOWN,
                         "Not a stage of the profile verification: " + stage);
             }
         }

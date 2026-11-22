@@ -23,7 +23,7 @@ import java.util.Set;
  * <p>
  * The store is written by the model step of the onboarding; this package only reads it, through {@link RoleEnvironment}.
  *
- * @param allowed the allowed models per client id of an enrolled harness
+ * @param allowed the allowed models per harness id of an enrolled harness
  * @since 0.1
  */
 public record ModelCatalogue(Map<String, Set<String>> allowed) {
@@ -37,7 +37,7 @@ public record ModelCatalogue(Map<String, Set<String>> allowed) {
     }
 
     /**
-     * @param harness the client id of a harness
+     * @param harness the harness id of a harness
      * @param model   a model identifier
      * @return whether the catalogue allows the model on the harness
      */

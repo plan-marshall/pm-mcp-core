@@ -135,23 +135,6 @@ class RuntimeLogMessagesTest {
                         "the record must carry its specified template"));
     }
 
-    static Stream<Arguments> sweepRecords() {
-        return Stream.of(
-                Arguments.of(RuntimeLogMessages.INFO.PENDING_ENTRY_RECORDS_SWEPT, "PM_RUNTIME-23",
-                        "Periodic sweep removed %s pending entry records of project '%s'"));
-    }
-
-    @ParameterizedTest(name = "{1}")
-    @MethodSource("sweepRecords")
-    @DisplayName("the record of the sweep's pending-entry step")
-    void sweep(LogRecord logRecord, String identifier, String template) {
-        assertAll(
-                () -> assertEquals(identifier, logRecord.resolveIdentifierString(),
-                        "the record must carry its specified identifier"),
-                () -> assertEquals(template, logRecord.getTemplate(),
-                        "the record must carry its specified template"));
-    }
-
     static Stream<Arguments> credentialStoreRecords() {
         return Stream.of(
                 Arguments.of(RuntimeLogMessages.INFO.CREDENTIAL_STORE_SELECTED, "PM_RUNTIME-9",

@@ -95,13 +95,13 @@ final class EndpointFixtures {
     }
 
     /**
-     * @param clientId       the client id of the harness
+     * @param harnessId       the client id of the harness
      * @param executablePath the absolute path of the program the owner check found
      * @return the enrolment of that client, which accepts the program's path and digest
      */
-    static HarnessEnrolment enrolled(String clientId, String executablePath) {
+    static HarnessEnrolment enrolled(String harnessId, String executablePath) {
         var digest = HarnessVerifier.digestExecutable(Path.of(executablePath)).orElseThrow();
-        return new HarnessEnrolment(clientId, Path.of(executablePath), digest, "1.0.0", Instant.EPOCH, Instant.EPOCH,
+        return new HarnessEnrolment(harnessId, Path.of(executablePath), digest, "1.0.0", Instant.EPOCH, Instant.EPOCH,
                 new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of()), Map.of(), Map.of());
     }
 

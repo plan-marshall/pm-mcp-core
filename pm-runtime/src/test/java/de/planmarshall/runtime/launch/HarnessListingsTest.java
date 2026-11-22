@@ -118,6 +118,47 @@ class HarnessListingsTest {
                 "The new build shows no report of the old one");
     }
 
+    @Test
+    @DisplayName("an enrolled harness whose executable is no longer found is shown as missing")
+    void enrolledHarnessNoLongerFoundIsShownAsMissing() {
+        var list = HarnessListings.of(scanMissing(AAA_ID), Map.of(AAA_ID, enrolment(VERSION, complete())), false);
+        var rows = list.entries().stream().filter(entry -> AAA_ID.equals(entry.harnessId())).toList();
+
+        assertAll(
+                () -> assertEquals(1, rows.size(), "The enrolled harness takes exactly one row"),
+                () -> assertEquals(VERSION, rows.getFirst().version(), "The row keeps the enrolled version"),
+                () -> assertFalse(rows.getFirst().selectable(), "A harness no longer found is not selectable"),
+                () -> assertEquals("install the harness again, or remove its enrolment",
+                        rows.getFirst().installHint(), "The row offers the removal"));
+    }
+
+    @Test
+    @DisplayName("the unreadable-status wire name is the launch refusal's code")
+    void unreadableStatusNamesTheLaunchRefusal() {
+        assertEquals(LaunchRefusal.HARNESS_STORE_UNREADABLE.code(),
+                HarnessUsageCoverage.Status.UNREADABLE.wireName(), "The two spellings are one code");
+    }
+
+    @Test
+    @DisplayName("a report whose every figure is missing reads as not_reported")
+    void everyFigureMissingReadsAsNotReported() {
+        var list = HarnessListings.of(scan(), Map.of(AAA_ID, enrolment(VERSION, partialEveryFigure())), false);
+
+        assertEquals(HarnessUsageCoverage.Status.NOT_REPORTED, row(list, AAA_ID).usage().status(),
+                "A report that names nothing is not reported");
+    }
+
+    @Test
+    @DisplayName("an accepted self-update keeps a declared report and drops only a verified one")
+    void selfUpdateKeepsTheDeclaredReport() {
+        var updated = enrolment(VERSION, declared())
+                .updated(OTHER_VERSION, "1".repeat(64), Instant.parse("2026-11-13T11:00:00Z"));
+        var list = HarnessListings.of(scan(OTHER_VERSION), Map.of(AAA_ID, updated), false);
+
+        assertEquals(HarnessUsageCoverage.Status.COMPLETE, row(list, AAA_ID).usage().status(),
+                "The profile's own declaration survives the new build");
+    }
+
     private static HarnessListEntry row(HarnessList list, String harnessId) {
         return list.entries().stream().filter(entry -> entry.harnessId().equals(harnessId)).findFirst().orElseThrow();
     }
@@ -128,6 +169,23 @@ class HarnessListingsTest {
 
     private static HarnessScan scan(String version) {
         return new HarnessScan(List.of(candidate(AAA_ID, version), candidate(BBB_ID, version)));
+    }
+
+    private static HarnessScan scanMissing(String harnessId) {
+        return new HarnessScan(List.of(notFoundCandidate(harnessId), candidate(BBB_ID, VERSION)));
+    }
+
+    private static HarnessCandidate notFoundCandidate(String harnessId) {
+        return HarnessCandidate.builder()
+                .harnessId(harnessId)
+                .displayName("Harness " + harnessId)
+                .found(false)
+                .version(null)
+                .executablePath(null)
+                .supported(false)
+                .workerEligible(false)
+                .installHint(HINT)
+                .build();
     }
 
     private static HarnessCandidate candidate(String harnessId, String version) {
@@ -154,7 +212,7 @@ class HarnessListingsTest {
     private static HarnessEnrolment enrolment(String harnessId, String version, UsageReport report) {
         var now = Instant.parse("2026-11-13T10:00:00Z");
         return HarnessEnrolment.builder()
-                .clientId(harnessId)
+                .harnessId(harnessId)
                 .executablePath(Path.of("/opt/" + harnessId + "/bin/run"))
                 .sha256("0".repeat(64))
                 .version(version)
@@ -172,6 +230,16 @@ class HarnessListingsTest {
 
     private static UsageReport partial(String missing) {
         return report(figure -> figure.equals(missing) ? "missing" : "reported");
+    }
+
+    private static UsageReport partialEveryFigure() {
+        return report(figure -> "missing");
+    }
+
+    private static UsageReport declared() {
+        var figures = new LinkedHashMap<String, String>();
+        ProfileStages.REPORT_FIGURES.forEach(figure -> figures.put(figure, "reported"));
+        return UsageReport.of(UsageSource.DECLARED, figures, List.of());
     }
 
     private static UsageReport report(Function<String, String> status) {

@@ -72,11 +72,17 @@ public interface GitOperations {
     GitResult<Path> worktreeRemove(Path root, Path worktree);
 
     /**
-     * {@code git.commit}: stages every change of the worktree (additions, modifications, deletions)
-     * and commits it without signing.
+     * {@code git.commit}: stages the listed paths of {@link CommitInput#paths()}, or every change of the worktree when
+     * the list is empty (additions, modifications, deletions), and commits exactly them without signing.
+     * <p>
+     * A listed path is a literal repository path of one file, never a pathspec: no character of it is read as a glob,
+     * so {@code app/[slug]/page.tsx} commits that file, and a symbolic link, also one to a directory or a dangling one,
+     * is committed as the link. A path that is empty, begins with {@code :} (git pathspec magic), is absolute, outside
+     * the root, not in normal form (an empty, {@code .} or {@code ..} segment), carries a backslash or a control
+     * character, or names a directory is refused with {@code PATH_REFUSED} before anything is staged.
      *
      * @param input the input
-     * @return {@code OK} with the commit, {@code NOTHING_TO_COMMIT}, {@code CAPABILITY_MISSING},
+     * @return {@code OK} with the commit, {@code NOTHING_TO_COMMIT}, {@code PATH_REFUSED}, {@code CAPABILITY_MISSING},
      *         {@code NOT_A_REPOSITORY} or {@code FAILED}
      */
     GitResult<CommitInfo> commit(CommitInput input);

@@ -19,7 +19,7 @@ import java.util.TreeMap;
 import lombok.experimental.UtilityClass;
 
 /**
- * The canonical JSON of a client profile or verification record (RFC 8785, JCS), which its {@code profile_digest} is
+ * The canonical JSON of a harness profile or verification record (RFC 8785, JCS), which its {@code profile_digest} is
  * computed over (PM-CLIENT-5).
  * <p>
  * The writer has one output for one value: an object's members sorted by their names in UTF-16 code-unit order, no
