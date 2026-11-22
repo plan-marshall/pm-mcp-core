@@ -43,7 +43,13 @@ List<ProfileStages.StartContext> startContext) {
         PARTIAL("partial"),
         /** No report figure is reported or not applicable. */
         NOT_REPORTED("not_reported"),
-        /** The enrolment store could not be read; shown instead of an empty map. */
+        /**
+         * The enrolment store could not be read; shown instead of an empty map.
+         * <p>
+         * The wire name repeats the launch refusal {@code HARNESS_STORE_UNREADABLE} of {@code pm-runtime}, which this
+         * module may not depend on; the two spellings are pinned to one code by
+         * {@code HarnessListingsTest} of {@code pm-runtime}.
+         */
         UNREADABLE("harness_store_unreadable");
 
         private final String wireName;
@@ -83,20 +89,6 @@ List<ProfileStages.StartContext> startContext) {
         if (status == Status.UNREADABLE && !startContext.isEmpty()) {
             throw new IllegalArgumentException("An unreadable store records no start context");
         }
-    }
-
-    /**
-     * @param result the result of the verification stage {@code usage}
-     * @return the coverage of the harness's report, with the start context the stage measured
-     */
-    public static HarnessUsageCoverage of(ProfileStages.UsageResult result) {
-        var status = switch (result.coverage()) {
-            case COMPLETE -> Status.COMPLETE;
-            case PARTIAL -> Status.PARTIAL;
-            case NOT_REPORTED -> Status.NOT_REPORTED;
-        };
-        List<String> missing = status == Status.PARTIAL ? result.missingFigures() : List.of();
-        return new HarnessUsageCoverage(status, missing, result.startContext());
     }
 
     /**

@@ -1,0 +1,68 @@
+= ADR 013: The icon store serves only a file that matches its entry
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-21.
+
+== Context
+
+Store Schemas § Harness Icon Store says a file that differs from its index entry, or one above the compiled bound, is not
+served. The store writes two files — `icons/<harness_id>.<ext>` and `icons/index.json` — each atomically, but they are
+two moves of one logical update, and the JDK gives no portable way to make both durable as one. A crash between them, or
+a file changed out of band, therefore leaves an icon that disagrees with its entry, and the store is the one seam that
+decides what a client is served. The store also takes the source URL and the bytes from a caller, and a harness can
+change its media type between fetches.
+
+== Decision
+
+- **Served only on a match.** `find` reads the file only after `Files.size` agrees with the entry's size and the bound,
+  then reads at most one byte more than that size, and serves the icon only when the bytes' length is the recorded one
+  and their SHA-256 is the recorded digest. A mismatch yields nothing rather than a different icon: the harness is shown
+  by its monogram, and the file is fetched again only on a new consent.
+- **A bounded read.** The size check runs before the read and the read is bounded by the size, so a file planted in
+  `icons/` cannot be allocated whole before the refusal is reached.
+- **One media type per harness.** A new icon of the other media type (`svg` over `png` or the reverse) deletes the old
+  file under the lock, so one harness never has two icon files.
+- **The source is `https`.** The caller's source URL must be an absolute `https` URL with a host, free of whitespace and
+  at most `2048` characters, refused as `icon_source_url_invalid`. The profile validator applies the same rule to a
+  profile's `icon.source`; the store states it again because it takes the value from a caller.
+- **The staged file is forced** to its medium before the move, and the move is an `ATOMIC_MOVE` where the provider
+  supports one. A provider that refuses it falls back to a replacing move, which the match check above covers: an icon
+  left incomplete by such a move does not match its entry and is not served. The directory is not forced, so the
+  durability of the rename itself is the filesystem's.
+
+== Alternatives Considered
+
+Reading the file and comparing afterwards was rejected: the bound protects nothing if the read happens first.
+
+Serving a mismatched file with a warning was rejected: the specification says it is not served, and a client must never
+receive bytes the entry does not describe.
+
+Trusting the index alone (the first implementation) was rejected: it serves the product of a half-finished update.
+
+Keeping both media types and letting the index choose was rejected: the losing file is dead weight the bound must still
+account for, and "one file per harness" is what the store's name in the specification says.
+
+Recording a non-https source and refusing it at the fetch was rejected: no fetch exists yet, and a store that records a
+scheme it would never fetch states a value the rest of the system cannot use.
+
+== Consequences
+
+A crash between the two writes leaves an entry whose file is missing or different; `find` answers empty until the next
+accepted fetch, and no client is served a mismatched icon. A tampered file is likewise not served.
+
+An icon whose source is not `https` is refused before anything is written. A harness that changes media type keeps one
+file.
+
+The store still has no production caller: the fetch and the operator path that would call `accept` are owed to the
+profile that declares the `source` form, which no shipped profile does.
+
+== Source
+
+Staged plan PLAN-V2-142 (`harness-verification-residue`), Deliverable 1, as corrected by its review; Store Schemas
+§ Harness Icon Store; Harness Profiles § Harness Icons; R06 and R09.

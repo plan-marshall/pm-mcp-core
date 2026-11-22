@@ -94,9 +94,10 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
     }
 
     /**
-     * The usage report of an accepted self-update: a report measured on the previous build says nothing about the new one,
-     * so the entry keeps no figure until the new version is verified — the harness lists file a coverage under the
-     * version it was measured on and must not show the old one beside the new build.
+     * The usage report of an accepted self-update: a report measured on the previous build says nothing about the new
+     * one, so a VERIFIED report keeps no figure until the new version is verified — the harness lists file a coverage
+     * under the version it was measured on and must not show the old one beside the new build. A DECLARED report is the
+     * profile's own declaration and not a measurement of a build, so it stays.
      */
     private static final UsageReport NO_REPORT_FOR_A_NEW_BUILD = new UsageReport(UsageSource.DECLARED, Map.of());
 
@@ -104,12 +105,13 @@ Instant updatedAt, UsageReport usageReport, Map<String, String> events, Map<Stri
      * @param version  the version probed after an accepted self-update
      * @param sha256   the digest of the changed executable
      * @param updateTo the instant of the accepted self-update
-     * @return the entry with the new build of the same harness; a report measured on another build — another version or
-     *         another executable digest — is dropped
+     * @return the entry with the new build of the same harness; a VERIFIED report measured on another build — another
+     *         version or another executable digest — is dropped, a DECLARED report is kept
      */
     public HarnessEnrolment updated(String version, String sha256, Instant updateTo) {
         var sameBuild = version.equals(this.version) && sha256.equals(this.sha256);
-        var report = sameBuild ? usageReport : NO_REPORT_FOR_A_NEW_BUILD;
+        var verifiedOnAnotherBuild = !sameBuild && usageReport.source() == UsageSource.VERIFIED;
+        var report = verifiedOnAnotherBuild ? NO_REPORT_FOR_A_NEW_BUILD : usageReport;
         return new HarnessEnrolment(clientId, executablePath, sha256, version, enrolledAt, updateTo, report,
                 events, weights);
     }

@@ -129,11 +129,15 @@ public final class EndpointVerification {
         return Path.of(lookup.executablePath()).getFileName().toString().equals(profile.executable());
     }
 
+    /**
+     * Runs the {@code identity} stage. The caller passes only a lookup that found the socket's owner, so the stage never
+     * has to answer for a port nothing owns ({@link #verify} returns the refusal for that case before calling here).
+     *
+     * @param profile the endpoint profile
+     * @param lookup  the found lookup of the socket's owner
+     * @return the identity stage's result
+     */
     private ProfileStages.EndpointIdentity identity(EndpointProfile profile, SocketOwner.Lookup lookup) {
-        if (!lookup.isFound()) {
-            return ProfileStages.EndpointIdentity.builder().passed(false).executablePath(null).version(null)
-                    .models(List.of()).weights(Map.of()).build();
-        }
         var version = probe(profile, lookup.executablePath());
         var listing = listing(profile);
         var models = modelIds(listing);
