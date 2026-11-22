@@ -1,0 +1,55 @@
+= ADR 083: The Store-Level Creation Carries a Plan's Sources Alone
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-22
+
+== Context
+
+`PendingEntryCreation.move` was written for `start.create-scope` and accepted a plan and an epic target alike, copying
+the entry's source directory, its transcript, its decision store and its composed `request.md` into the new scope. The
+specification says something else for an epic: an epic's sources are copied into its git-tracked ledger
+(`.marshall/epics/<epic_id>/sources/`, committed and landed with it) so that another machine and every later
+decomposition reads them, and an epic's *machine* store keeps no source (Filesystem Layout § The Source Directory). The
+store-level move writes `plans/<plan_id>/sources/`, `plans/<plan_id>/chat/` and `plans/<plan_id>/request.md`, which is a
+plan's layout. The epic's ledger copy is owed to `PLAN-V2-133` D5 and does not exist, so a move into an epic's machine
+scope would write a location the specification forbids and that no reader of the epic path reads.
+
+== Decision
+
+`PendingEntryCreation.move` carries a plan's sources alone: a target whose scope is an epic is refused with an
+`IllegalArgumentException` that names the epic's ledger and the `PLAN-V2-133` D5 source copy it waits for. A target that
+is neither a plan nor an epic is refused as before, and the refusal happens before the entry, its manifest or its
+stores are read, so a refused move writes nothing. The operator decided this on 2026-11-22 (the spec's Deliverable 1 a).
+
+== Alternatives Considered
+
+1. *Keep accepting an epic target.*
+   _Rejected_: it writes the sources into the epic's machine store, which the specification says keeps none, and no
+   reader of the epic's ledger would see them.
+2. *Defer the choice to the epic bootstrap and keep the write.*
+   _Rejected_: a deferral leaves the code doing the forbidden write, so the caller cannot tell the two paths apart.
+3. *Write the epic's ledger from the store-level move.*
+   _Rejected_: the ledger copy is owed to `PLAN-V2-133` D5, which owns the screening and the ledger's landing; a move
+   that wrote a git-tracked ledger would couple a store transaction to a landing the plan does not own.
+
+== Consequences
+
+* The epic's bootstrap hands its sources over through the ledger copy `PLAN-V2-133` D5 owes; when that copy lands, the
+  epic target either moves to a ledger writer or the move gains it, and this record is superseded then.
+* A caller that reached the move with an epic target learns why it is refused from the exception's message, and nothing
+  of the entry is carried.
+* Nothing in this repository calls the move with an epic target; the assembly `plan-marshall-mcp` runs
+  `start.create-scope`.
+
+== Source
+
+* Operator decision of 2026-11-22 (question of Deliverable 1 a of the plan below)
+* link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas § Transaction Journal, `start.create-scope`]
+* link:../../../../doc/specification/filesystem-layout/03-project-store.adoc#source-directory[Filesystem Layout § The Source Directory]
+* ADR link:082-the-pending-entry-is-a-directory.adoc[082] (the entry as a directory, whose creation this record refines)

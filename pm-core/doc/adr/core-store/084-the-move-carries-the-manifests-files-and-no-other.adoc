@@ -1,0 +1,66 @@
+= ADR 084: The Move Carries the Manifest's Files and No Other
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-22
+
+== Context
+
+The source directory `pending/<entry_id>/sources/` is defined by its manifest: a source is a set of files with their
+size and SHA-256, and the manifest is the record of what the entry holds (Filesystem Layout § The Source Directory). The
+store-level move wrote one store per manifest entry and then this was not so: two sources could name one file path, so
+the move collected one store path twice and `ScopeTransaction` refused the second target with an
+`IllegalArgumentException` while the target was added — a failure the transaction cannot attribute to either source; a
+source could name `sources.json`, the manifest's own file, with the same refusal; a file of `sources/` that no manifest
+entry named was silently left behind and deleted with the entry's directory; and the stored file was read with
+`Files.readAllBytes`, which follows a symbolic link, so a link in the entry's directory could make the move read a file
+outside it.
+
+== Decision
+
+Three rules, each enforced where its input is defined:
+
+1. `SourceManifest` refuses a path that two sources name, and a path that is the manifest's own file name
+   (`sources.json`) or lies below it, with an `IllegalArgumentException` naming the path and the source. The manifest is
+   built where an entry is written, so the refusal happens before a directory is staged.
+2. `PendingEntryCreation.move` refuses to carry an entry whose source directory holds a file or a link that no manifest
+   entry names — the manifest itself excepted — with a `StoreRefusal` naming the file, so nothing of the entry is
+   dropped silently when its directory is deleted after the move.
+3. A stored file is read only after its canonical path was checked to lie in the source directory and with
+   `LinkOption.NOFOLLOW_LINKS`, so a symbolic link is refused instead of followed, and a path that leaves the directory
+   through a link is refused with it.
+
+== Alternatives Considered
+
+1. *Let the transaction refuse the duplicate path.*
+   _Rejected_: the refusal is an `IllegalArgumentException` from the target collection, indistinguishable from a store
+   the transaction may not write, and it names no source a caller can act on.
+2. *Skip a file the manifest does not name.*
+   _Rejected_: the file is deleted with the entry's directory, so a source would be lost without a trace.
+3. *Copy the whole source directory instead of the manifest's files.*
+   _Rejected_: then the manifest is no longer the record of what is carried, and the size and digest verification of
+   each file would be lost.
+4. *Follow a link and verify its content against the manifest.*
+   _Rejected_: the digest would match whatever the link points at, so an entry's directory could redirect a read
+   outside it.
+
+== Consequences
+
+* The entry's file set is exactly its manifest: a file another tool writes into `sources/` must be entered in the
+  manifest before a move carries it, and the refusal names it when it is not.
+* The manifest can no longer describe a directory whose files collide, which the store-level move would otherwise have
+  written twice.
+* A symbolic link in a source directory is a refusal, never a read: the operator removes the link or abandons the entry.
+* `SourceManifestCodecTest`, `PendingEntryCreationTest` and `PendingEntryStoreTest` carry the refusals; the guide
+  (§ The Pending Entry) states them.
+
+== Source
+
+* Deliverable 1 b to d and Deliverable 3 k of the plan below
+* link:../../../../doc/specification/filesystem-layout/03-project-store.adoc#source-directory[Filesystem Layout § The Source Directory]
+* ADR link:082-the-pending-entry-is-a-directory.adoc[082] (the entry as a directory)

@@ -211,8 +211,9 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     public static final String REASON_NOT_CONFIRMED = "not_confirmed";
 
     /**
-     * The name of the event that records the directory of a pending entry the sweep removed as residue: the entry was
-     * started or abandoned, and the removal its end began was cut off before the directory was gone.
+     * The name of the event that records the directory of a pending entry the sweep removed as residue: every store of
+     * the entry was absent from the workspace's sidecar and from the filesystem — a removal a stop cut off, or a
+     * creation that never committed its first transaction — and the directory itself was left behind.
      */
     public static final String PENDING_ENTRY_REMOVED = "pending_entry_removed";
 

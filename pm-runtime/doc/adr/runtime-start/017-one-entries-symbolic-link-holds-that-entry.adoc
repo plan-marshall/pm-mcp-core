@@ -1,0 +1,52 @@
+= ADR 017: One Entry's Symbolic Link Holds That Entry, Never the Sweep
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-22
+
+== Context
+
+The pending-entry step of the periodic sweep re-judges every candidate under the workspace lock with
+`PendingEntryStore.verify`, which compares the entry's four stores against the workspace's digest sidecar. That
+verification refuses a store path that passes through a symbolic link below the path base with an
+`IllegalArgumentException` (Store Digest Verification: a link below the path base names no store of the scope). The step
+caught `UncheckedIOException`, `IllegalStateException`, `InternalFaultException` and `StoreRefusal`, so the
+`IllegalArgumentException` escaped: one entry whose directory carried a link aborted the step for the whole project,
+including the residue that had nothing to do with it, and the run reported the whole project as not swept.
+
+== Decision
+
+The sweep verifies each candidate under the lock in one step of its own and catches the `IllegalArgumentException` of a
+refused store path: that entry is kept and named in the report as `(held: …)`, and the other candidates are removed as
+usual. The step no longer catches `IllegalArgumentException` at the level of the whole project, because a refusal of one
+entry's path is no reason to leave the project's other residue in place.
+
+== Alternatives Considered
+
+1. *Catch `IllegalArgumentException` around the whole run.*
+   _Rejected_: it reports the project as not swept and removes no residue, so one link blocks every other entry.
+2. *Follow the link and verify its target.*
+   _Rejected_: a store reached through a link is no store of the scope (Store Digest Verification), and following it
+   would let a directory outside the path base decide what the sweep removes.
+3. *Keep the entry silently.*
+   _Rejected_: the operator would never learn which entry holds a link, and the sweep's report is the only place the
+   hold is visible until the entry-level hold exists.
+
+== Consequences
+
+* The step's report names a held entry with the verification's reason, after the readable residue was removed; its
+  outcome is `Failed` because a directory stays behind.
+* The entry stays where it is until the operator removes the link or abandons the entry; the sweep never removes it.
+* `PendingEntryRecordsSweepTest` proves that the held entry is kept and the other residue is still removed.
+
+== Source
+
+* Deliverable 2 f of the plan below
+* link:../../../../doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Lifecycle § Periodic Sweep]
+* link:../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc#store-digest-verification[Store Schemas § Store Digest Verification]
+* ADR link:016-the-sweep-removes-pending-entry-residue-by-evidence.adoc[016] (the evidence rule this record guards)

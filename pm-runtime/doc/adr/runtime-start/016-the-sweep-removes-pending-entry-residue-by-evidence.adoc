@@ -23,9 +23,9 @@ Periodic Sweep]).
 * `PeriodicSweep` carries no maximum age. `runOnce(now)` passes the instant of the run to every step as the instant its
   records carry, never an age to compare.
 * `PendingEntryRecordsSweep` decides by the end of the entry, not by its age: a directory whose record `entry.json`
-  exists is an open entry and is never removed, however old it is; a directory whose record is gone is the residue of a
-  removal a stop cut off, because the removal the creation or the abandoning began deletes the entry's stores in one
-  workspace transaction and the directory last.
+  exists is an open entry and is never removed, however old it is; a directory whose four stores are absent from the
+  workspace's sidecar and from the filesystem is residue — a removal a stop cut off, or a creation that never committed
+  its first transaction — decided under the workspace lock by `PendingEntryStore.verify` (refined by PLAN-V2-167).
 * The residue of a run is removed in one transaction of the workspace scope. Every candidate is re-judged under the
   workspace lock before it is removed, so an entry opened between the listing and the lock is kept. The delete targets
   are the entry's four stores, and the record is the last of them; the transaction owes one
