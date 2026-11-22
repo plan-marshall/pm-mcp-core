@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
+import de.planmarshall.core.id.RoleName;
 import lombok.Builder;
 import lombok.experimental.UtilityClass;
 
@@ -42,6 +43,21 @@ public class EnvelopePacker {
     private static final String ENVELOPE_ID_PREFIX = "envelope-";
 
     /**
+     * Refuses a role that is no role name; the value is not echoed.
+     *
+     * @param role  the role of a task or an envelope
+     * @param owner names the task or the envelope, for the message
+     * @throws NullPointerException     if the role is {@code null}
+     * @throws IllegalArgumentException if the role is no role name
+     */
+    private static void requireRoleName(String role, String owner) {
+        Objects.requireNonNull(role, "role");
+        if (!RoleName.matches(role)) {
+            throw new IllegalArgumentException("The role of the " + owner + " is no role name");
+        }
+    }
+
+    /**
      * A plan task as the packer sees it.
      *
      * @param taskId              the task's id, for example {@code TASK-001}
@@ -66,11 +82,13 @@ public class EnvelopePacker {
          * @param costSize            the task's cost size
          * @param predictedCostTokens the task's stamped predicted tokens
          * @param dependsOnTaskIds    the ids of the tasks the task depends on
+         * @throws IllegalArgumentException if the role is no role name ({@link RoleName}) or the predicted cost is
+         *                                  negative
          */
         public PlannedTaskSummary {
             Objects.requireNonNull(taskId, "taskId");
             Objects.requireNonNull(moduleId, "moduleId");
-            Objects.requireNonNull(role, "role");
+            requireRoleName(role, "task " + taskId);
             Objects.requireNonNull(skillUris, "skillUris");
             Objects.requireNonNull(costSize, "costSize");
             Objects.requireNonNull(dependsOnTaskIds, "dependsOnTaskIds");
@@ -105,11 +123,12 @@ public class EnvelopePacker {
          * @param taskIds                  the ids of its tasks, in task order
          * @param unionSkillUris           the distinct skills of its tasks, sorted
          * @param totalPredictedCostTokens the sum of its tasks' predicted tokens
+         * @throws IllegalArgumentException if the role is no role name ({@link RoleName})
          */
         public PackedEnvelope {
             Objects.requireNonNull(envelopeId, "envelopeId");
             Objects.requireNonNull(moduleId, "moduleId");
-            Objects.requireNonNull(role, "role");
+            requireRoleName(role, "envelope " + envelopeId);
             taskIds = List.copyOf(taskIds);
             unionSkillUris = List.copyOf(unionSkillUris);
         }
