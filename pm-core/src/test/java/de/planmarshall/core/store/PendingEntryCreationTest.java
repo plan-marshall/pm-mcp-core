@@ -36,6 +36,8 @@ import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.service.AuditSink;
@@ -156,6 +158,17 @@ class PendingEntryCreationTest {
         }
     }
 
+    /** Runs the move into another scope, without committing: the call under test refuses or throws. */
+    private void moveTo(JournalScope target) {
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(workspace.lockKey());
+            transaction.acquire(target.lockKey());
+            var workspaceWrite = ScopeTransaction.open(transaction, workspace, audit, clock);
+            var write = ScopeTransaction.open(transaction, target, audit, clock);
+            creation.move(workspaceWrite, write, entryId);
+        }
+    }
+
     @Test
     @DisplayName("the sources, transcript, questions and decisions move into the new scope, the directory last")
     void movesIntoTheNewScope() throws Exception {
@@ -212,6 +225,71 @@ class PendingEntryCreationTest {
         assertThrows(StoreRefusal.class, this::move, "a differing source file should refuse the move");
         assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
                 "nothing should be written into the new scope");
+    }
+
+    @Test
+    @DisplayName("an epic target is refused with its reason: an epic's sources belong to its ledger")
+    void refusesAnEpicTarget() throws Exception {
+        prepareEntry();
+        var epic = JournalScope.epic(base, PROJECT, "epic-" + Generators.letterStrings(3, 12).next()
+                .toLowerCase(Locale.ROOT));
+        Files.createDirectories(epic.journalFile().getParent());
+
+        var refusal = assertThrows(IllegalArgumentException.class, () -> moveTo(epic),
+                "an epic's machine store takes no source");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("ledger"),
+                        "the reason should name the epic's ledger"),
+                () -> assertTrue(refusal.getMessage().contains("PLAN-V2-133"),
+                        "the reason should name what the ledger copy waits for"),
+                () -> assertFalse(Files.exists(epic.pathBase().resolve("sources")),
+                        "nothing should be written into the epic"));
+    }
+
+    @Test
+    @DisplayName("a file of the source directory with no manifest entry refuses the move, naming it")
+    void refusesAFileWithoutManifestEntry() throws Exception {
+        prepareEntry();
+        Files.writeString(store.sourcesDirectory(entryId).resolve("hand-written.md"), "not in the manifest", UTF_8);
+
+        var refusal = assertThrows(StoreRefusal.class, this::move,
+                "a file no manifest entry names should refuse the move");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("hand-written.md"),
+                        "the refusal should name the file"),
+                () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
+                        "nothing should be written into the new scope"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a source that is a symbolic link refuses the move, so the read never leaves the entry")
+    void refusesASymbolicLink() throws Exception {
+        prepareEntry();
+        var outside = Files.writeString(base.resolve("outside.md"), description, UTF_8);
+        var stored = store.sourcesDirectory(entryId).resolve("description-1.md");
+        Files.delete(stored);
+        Files.createSymbolicLink(stored, outside);
+
+        var refusal = assertThrows(StoreRefusal.class, this::move, "a linked source should refuse the move");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("symbolic link"),
+                        "the refusal should name the link"),
+                () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
+                        "nothing should be written into the new scope"));
+    }
+
+    @Test
+    @DisplayName("finish reports a directory another end removed first, never an error")
+    void finishToleratesARemovedDirectory() throws Exception {
+        prepareEntry();
+        move();
+        creation.finish(entryId);
+
+        assertFalse(creation.finish(entryId), "a removed directory should be reported as absent");
     }
 
     /** Runs the move and commits the new scope only: the crash window between the two commits. */

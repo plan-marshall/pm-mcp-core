@@ -73,8 +73,9 @@ import de.planmarshall.runtime.lock.FileLockManager;
  * rename.</li>
  * <li>{@value #ORDERED_WRITE}: an {@link de.planmarshall.core.store.OrderedWrite} from the plan {@value #ROLLED_PLAN}
  * to the plan {@value #DERIVED_PLAN}, blocked between the authoritative and the derived write.</li>
- * <li>{@value #SWEEP}: a {@link PeriodicSweep} run whose step ({@link #removingStep(Path, Runnable)}) removes the
- * aged records of {@link #pendingRecords(Path)} one at a time, blocked after the first removal.</li>
+ * <li>{@value #SWEEP}: a {@link PeriodicSweep} run of the real {@link PendingEntryRecordsSweep} over the pending
+ * entries of {@value #SWEEP_PROJECT}, blocked while the removal's owed audit record is handed to the sink — after the
+ * transaction applied and recorded its stores, before its journal is closed.</li>
  * <li>{@value #VERSION}: a {@link RelayVersionCheck} of runtime version {@value #CHILD_RUNTIME_VERSION} that observed
  * the mismatching relay version {@value #MISMATCHING_RELAY} into the file-backed sink {@link #recordingSink(Path)},
  * blocked after the record.</li>
@@ -122,8 +123,11 @@ final class RuntimeChildProcess {
     /** The plan the mode {@value #ORDERED_WRITE} derives. */
     static final String DERIVED_PLAN = "plan-b";
 
-    /** Mode: blocked in a periodic sweep after its first removal. */
+    /** Mode: blocked inside a periodic sweep after its removal transaction applied its stores. */
     static final String SWEEP = "sweep";
+
+    /** The project whose pending entries the mode {@value #SWEEP} sweeps; the test JVM creates its entries. */
+    static final String SWEEP_PROJECT = RecoveryStepFixtures.PROJECT_A;
 
     /** Mode: blocked after a relay version mismatch was recorded. */
     static final String VERSION = "version";
@@ -322,52 +326,16 @@ final class RuntimeChildProcess {
     }
 
     /**
-     * @param base the base directory of the runtime
-     * @return the directory of the fixture records the mode {@value #SWEEP} sweeps
-     */
-    static Path pendingRecords(Path base) {
-        return base.resolve("pending-records");
-    }
-
-    /**
-     * The step of the mode {@value #SWEEP}, also used by the run of the next instance: it removes, in the order of
-     * their names, the fixture records that carry no {@code .keep} sibling (the evidence that the record is residue
-     * of a removal a stop cut off), one at a time, and runs the hook after each removal. A record with its
-     * {@code .keep} sibling is open and is never removed.
+     * The step of the mode {@value #SWEEP}, also run by the next instance: the real
+     * {@link PendingEntryRecordsSweep} over the workspace of {@value #SWEEP_PROJECT}, with the sink the caller gives.
      *
-     * @param base         the base directory of the runtime
-     * @param afterRemoval runs after each removal
-     * @return the removing step
+     * @param base    the base directory of the runtime
+     * @param sink    where the removal's owed record is handed over
+     * @param manager the lock manager the step opens its transaction on
+     * @return the pending-entry step of the periodic sweep
      */
-    static SweepStep removingStep(Path base, Runnable afterRemoval) {
-        return new SweepStep() {
-
-            @Override
-            public Name name() {
-                return Name.PENDING_ENTRY_RECORDS;
-            }
-
-            @Override
-            public RecoveryStep.Outcome run(String projectId, Instant at) {
-                try (var listing = Files.list(pendingRecords(base))) {
-                    var removed = 0;
-                    for (var pendingRecord : listing.sorted().toList()) {
-                        // Fixture evidence only: a record with its `.keep` sibling is open here; the real step,
-                        // PendingEntryRecordsSweep, decides on the entry's verified stores instead.
-                        if (!pendingRecord.getFileName().toString().endsWith(".keep")
-                                && !Files.exists(pendingRecord.resolveSibling(
-                                pendingRecord.getFileName() + ".keep"))) {
-                            Files.delete(pendingRecord);
-                            removed++;
-                            afterRemoval.run();
-                        }
-                    }
-                    return new RecoveryStep.Outcome.Done(removed + " removed");
-                } catch (IOException e) {
-                    return new RecoveryStep.Outcome.Failed("records not swept: " + e);
-                }
-            }
-        };
+    static SweepStep realStep(Path base, AuditSink sink, LockManager manager) {
+        return new PendingEntryRecordsSweep(base, manager, sink, Clock.systemUTC());
     }
 
     /**
@@ -407,12 +375,14 @@ final class RuntimeChildProcess {
 
     private static void sweep(Path base, PrintStream markers) {
         markers.println(before(SWEEP));
-        new PeriodicSweep(() -> List.of(RecoveryStepFixtures.PROJECT_A), _ -> true,
-                List.of(removingStep(base, () -> {
+        var lockManager = new FileLockManager(_ -> {
+        });
+        new PeriodicSweep(() -> List.of(SWEEP_PROJECT), _ -> true,
+                List.of(new PendingEntryRecordsSweep(base, lockManager, _ -> {
                     markers.println(inside(SWEEP));
                     awaitKill();
-                })), Clock.systemUTC()).runOnce(Instant.now());
-        throw new IllegalStateException("the sweep ended although its step blocks");
+                }, Clock.systemUTC())), Clock.systemUTC()).runOnce(Instant.now());
+        throw new IllegalStateException("the sweep ended although its sink blocks");
     }
 
     private static void leases(Path base, PrintStream markers) throws IOException {

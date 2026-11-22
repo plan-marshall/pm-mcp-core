@@ -300,6 +300,33 @@ class PendingEntryRecordsSweepTest {
     }
 
     @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a store path through a symbolic link holds that entry, and the readable residue is still removed")
+    void symlinkedStoreHeld() throws Exception {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        var linked = entryId();
+        create(entry(linked, now));
+        cutOffRemoval(linked);
+        var sources = store.sourcesDirectory(linked);
+        var elsewhere = Files.createDirectory(base.resolve("elsewhere"));
+        Files.delete(sources);
+        Files.createSymbolicLink(sources, elsewhere);
+
+        var outcome = sweep.run(projectId, now);
+
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a linked store path fails the step").reason();
+        assertAll(
+                () -> assertTrue(reason.startsWith("removed 1 pending entry directories; kept or failed entries:"),
+                        "the report must count the removed directory"),
+                () -> assertTrue(reason.contains(linked.value() + " (held: "),
+                        "the report must name the held entry"),
+                () -> assertFalse(Files.exists(store.entryDirectory(residue)), "the readable residue is removed"),
+                () -> assertTrue(Files.exists(store.entryDirectory(linked)), "the linked entry is kept"),
+                () -> assertTrue(Files.isSymbolicLink(sources), "the link is left as it is"));
+    }
+
+    @Test
     @DisplayName("a record that states another entry_id than its directory is kept and reported, and the residue "
             + "is still removed")
     void mismatchingEntryIdKeptAsFailure() throws Exception {

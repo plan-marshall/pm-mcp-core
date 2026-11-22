@@ -79,7 +79,8 @@ class SourceManifestCodecTest {
 
     private Source untrusted() {
         return new Source(sourceId + "x", Kind.ISSUE, "https://github.com/example/repo/issues/42", "forge",
-                Trust.UNTRUSTED, List.of(file()), addedAt, Verdict.CLEAN, null);
+                Trust.UNTRUSTED, List.of(new SourceFile(path + ".issue.md", size, digest)), addedAt, Verdict.CLEAN,
+                null);
     }
 
     private static byte[] document(String... lines) {
@@ -125,7 +126,7 @@ class SourceManifestCodecTest {
             var accepted = new Source(sourceId, Kind.PR, "ref", "forge", Trust.UNTRUSTED, List.of(file()), addedAt,
                     Verdict.ACCEPTED, "the operator read the diff");
             var unscreened = new Source(sourceId + "x", Kind.LESSON, "ref", "operator", Trust.UNTRUSTED,
-                    List.of(file()), addedAt, Verdict.UNSCREENED, null);
+                    List.of(new SourceFile(path + ".lesson.md", size, digest)), addedAt, Verdict.UNSCREENED, null);
 
             var read = SourceManifestCodec.read(FILE, SourceManifestCodec.write(
                     new SourceManifest(1, List.of(accepted, unscreened))));
@@ -201,10 +202,41 @@ class SourceManifestCodecTest {
                 a path that leaves the directory | "revision":0,"sources":[{"source_id":"s","kind":"description","reference":"r","origin":"o","trust":"trusted","files":[{"path":"../a.md","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"}],"added_at":"2026-10-13T08:00:00Z","verdict":null,"verdict_reason":null}]
                 a source id of another form | "revision":0,"sources":[{"source_id":"Source 1","kind":"description","reference":"r","origin":"o","trust":"trusted","files":[{"path":"a.md","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"}],"added_at":"2026-10-13T08:00:00Z","verdict":null,"verdict_reason":null}]
                 a source id used twice | "revision":0,"sources":[{"source_id":"s","kind":"description","reference":"r","origin":"o","trust":"trusted","files":[{"path":"a.md","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"}],"added_at":"2026-10-13T08:00:00Z","verdict":null,"verdict_reason":null},{"source_id":"s","kind":"description","reference":"r","origin":"o","trust":"trusted","files":[{"path":"a.md","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"}],"added_at":"2026-10-13T08:00:00Z","verdict":null,"verdict_reason":null}]
+                one file path in two sources | "revision":0,"sources":[{"source_id":"s1","kind":"description","reference":"r","origin":"o","trust":"trusted","files":[{"path":"a.md","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"}],"added_at":"2026-10-13T08:00:00Z","verdict":null,"verdict_reason":null},{"source_id":"s2","kind":"issue","reference":"r","origin":"o","trust":"untrusted","files":[{"path":"a.md","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"}],"added_at":"2026-10-13T08:00:00Z","verdict":"clean","verdict_reason":null}]
+                a stored path of the manifest's own name | "revision":0,"sources":[{"source_id":"s","kind":"description","reference":"r","origin":"o","trust":"trusted","files":[{"path":"sources.json","size":1,"sha256":"0000000000000000000000000000000000000000000000000000000000000000"}],"added_at":"2026-10-13T08:00:00Z","verdict":null,"verdict_reason":null}]
                 """)
         @DisplayName("a manifest outside its one shape is refused (the shapes are the schema's contract)")
         void shape(String name, String members) {
             assertRefused(("{\"format_version\":1," + members + "}").getBytes(UTF_8));
+        }
+
+        @Test
+        @DisplayName("two sources that name one file path are refused naming the path, never carried twice")
+        void onePathInTwoSources() {
+            var second = new Source(sourceId + "x", Kind.ISSUE, "ref", "forge", Trust.UNTRUSTED, List.of(file()),
+                    addedAt, Verdict.CLEAN, null);
+
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> new SourceManifest(2, List.of(trusted(), second)),
+                    "one path in two sources should be refused");
+
+            assertTrue(refusal.getMessage().contains(path), "the refusal should name the shared path");
+        }
+
+        @Test
+        @DisplayName("a stored path of the manifest's own name is refused, so the manifest is never overwritten")
+        void reservedPath() {
+            var reserved = new Source(sourceId, Kind.DESCRIPTION, "ref", "operator", Trust.TRUSTED,
+                    List.of(new SourceFile(SourceManifestCodec.FILE_NAME, size, digest)), addedAt, null, null);
+
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> new SourceManifest(1, List.of(reserved)), "the manifest name should be reserved");
+
+            assertAll(
+                    () -> assertTrue(refusal.getMessage().contains(SourceManifestCodec.FILE_NAME),
+                            "the refusal should name the reserved file"),
+                    () -> assertTrue(refusal.getMessage().contains(sourceId),
+                            "the refusal should name the source that stored it"));
         }
 
         @ParameterizedTest(name = "{0}")
