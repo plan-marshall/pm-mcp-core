@@ -204,6 +204,26 @@ class GitStageAndCommitPrimitiveTest {
                     () -> assertEquals(Outcome.NOTHING_TO_COMMIT, result.outcome(), "an empty set commits nothing"),
                     () -> assertNull(result.reason(), "nothing_to_commit carries no reason"));
         }
+
+        @Test
+        @DisplayName("a bound path outside the staging set is narrowed away, never refused")
+        void boundPathOutsideTheSetIsDropped() throws Exception {
+            var listed = file();
+            var beside = file();
+            write(listed);
+            write(beside);
+            stub(ScopeType.PLAN, false, List.of(listed, beside), Optional.of(agent));
+            // the typo names nothing of the checkout: the bind would refuse it, this primitive only narrows
+            var typo = file();
+
+            var result = run(new GitStageAndCommitPrimitive(git, site), new Params(messages.next(),
+                    List.of(listed, typo)));
+
+            var commit = committed(result);
+            assertAll("narrowed commit",
+                    () -> assertTrue(inCommit(commit, listed), "the bound path inside the set is committed"),
+                    () -> assertFalse(inCommit(commit, beside), "a path outside files is not committed"));
+        }
     }
 
     @Nested

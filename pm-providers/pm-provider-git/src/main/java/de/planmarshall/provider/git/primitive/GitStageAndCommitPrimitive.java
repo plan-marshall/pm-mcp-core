@@ -47,7 +47,9 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
  * breaches the {@link CommitSite} observes; a breach is {@code failed} with the reason {@code footprint_violation}
  * before anything is staged;</li>
  * <li>the staging set narrowed by the bound {@code files}; an empty set is {@code nothing_to_commit} without a git
- * call;</li>
+ * call. The narrowing never refuses: a bound entry inside the staging set is committed and one outside it is dropped,
+ * because the bind owns the rule that a {@code files} entry names a path of the staging set
+ * ({@code input_refused}, the rule {@code path.staging});</li>
  * <li>the message given the resolved trailer by {@link CommitMessages#withTrailer(String, CommitTrailer)}, which
  * refuses a message that already holds a trailer line, and checked by {@link CommitMessages#validate(String)}; a
  * refusal is {@code failed} with the reason {@code message_refused};</li>
@@ -171,7 +173,8 @@ public final class GitStageAndCommitPrimitive
     }
 
     /**
-     * Runs once the footprint check passed: narrows the staging set, checks the message and commits.
+     * Runs once the footprint check passed: narrows the staging set by the bound files, never refusing an entry outside
+     * it, checks the message and commits.
      */
     private PrimitiveResult<Outcome> stageAndCommit(WorkflowExecutionContext context, Params parameters, Path worktree,
             StagingSet stagingSet) {
@@ -260,7 +263,8 @@ public final class GitStageAndCommitPrimitive
      *
      * @param message the final message, without the trailer
      * @param files   the files that narrow the commit to a subset of the staging set, {@code null} for the whole
-     *                staging set
+     *                staging set; an entry outside the staging set is dropped, because the bind refuses such an entry
+     *                ({@code path.staging}) and this primitive narrows only
      * @since 0.1
      */
     public record Params(String message, @Nullable List<String> files) {

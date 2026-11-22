@@ -202,7 +202,10 @@ message without the trailer and the optional `files`. The order of work is fixed
 
 . The footprint check over the staging set of the scope and the site's breaches. A breach is `failed` with the reason
   `footprint_violation` before anything is staged and before the message is read.
-. The staging set narrowed by `files`; an empty set is `nothing_to_commit` without a git call.
+. The staging set narrowed by `files`; an empty set is `nothing_to_commit` without a git call. The narrowing refuses
+  nothing: the bind owns the rule that a `files` entry names a path of the staging set (`input_refused`,
+  `path.staging`), so an entry outside the set is dropped and the rest is committed
+  (link:{adr}/003-the-staging-set-is-derived-from-the-scope.adoc[ADR 003]).
 . The message given the resolved trailer by `withTrailer`, which refuses a message that already holds a trailer line,
   and checked by `CommitMessages.validate`; a refusal is `failed` with the reason `message_refused`.
 . One call of `GitOperations.commit` with `CommitInput.paths` set to exactly the files to commit

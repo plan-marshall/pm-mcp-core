@@ -48,6 +48,9 @@ type `ScopeKind`, which does not exist; `core.store.ScopeType` holds `PLAN`, `EP
 == Consequences
 
 * A dirty path outside the set is a breach of check 1 of the footprint check (link:006-the-primitive-checks-the-boundary-half.adoc[ADR 006]).
+* A bound `files` entry outside the set is dropped, not refused: the bind owns the refusal (`input_refused`, the rule
+  `path.staging`), so `git.stage-and-commit` narrows only and commits the intersection. A test pins that the primitive
+  never refuses a bound entry, so a refusal added here fails it.
 * A change of a scope's set changes `StagingSets` and its test; no caller holds a copy of the paths.
 
 == Source
