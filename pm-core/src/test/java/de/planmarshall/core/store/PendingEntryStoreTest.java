@@ -412,8 +412,9 @@ class PendingEntryStoreTest {
         void abandoned() throws Exception {
             run(write -> store.create(write, entry(entryId, state)));
             var description = Files.writeString(store.sourcesDirectory(entryId).resolve("description.md"),
-                    "the request, as written");
-            var chat = Files.writeString(store.chatDirectory(entryId).resolve("session.md"), "the transcript");
+                    Generators.letterStrings(20, 60).next());
+            var chat = Files.writeString(store.chatDirectory(entryId).resolve("session.md"),
+                    Generators.letterStrings(20, 60).next());
 
             run(write -> store.remove(write, entryId));
             var discarded = store.discard(entryId);

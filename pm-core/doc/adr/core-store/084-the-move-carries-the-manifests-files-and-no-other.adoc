@@ -14,11 +14,12 @@ Accepted
 The source directory `pending/<entry_id>/sources/` is defined by its manifest: a source is a set of files with their
 size and SHA-256, and the manifest is the record of what the entry holds (Filesystem Layout § The Source Directory). The
 store-level move wrote one store per manifest entry and then this was not so: two sources could name one file path, so
-the move wrote one store path twice and the transaction refused the second target with an `IllegalStateException`
-raised from deep inside the commit; a source could name `sources.json`, the manifest's own file, so the move overwrote
-it; a file of `sources/` that no manifest entry named was silently left behind and deleted with the entry's directory;
-and the stored file was read with `Files.readAllBytes`, which follows a symbolic link, so a link in the entry's
-directory could make the move read a file outside it.
+the move collected one store path twice and `ScopeTransaction` refused the second target with an
+`IllegalArgumentException` while the target was added — a failure the transaction cannot attribute to either source; a
+source could name `sources.json`, the manifest's own file, with the same refusal; a file of `sources/` that no manifest
+entry named was silently left behind and deleted with the entry's directory; and the stored file was read with
+`Files.readAllBytes`, which follows a symbolic link, so a link in the entry's directory could make the move read a file
+outside it.
 
 == Decision
 
@@ -37,8 +38,8 @@ Three rules, each enforced where its input is defined:
 == Alternatives Considered
 
 1. *Let the transaction refuse the duplicate path.*
-   _Rejected_: the refusal is an `IllegalStateException` from the commit, indistinguishable from a store that exists,
-   and it names no path a caller can act on.
+   _Rejected_: the refusal is an `IllegalArgumentException` from the target collection, indistinguishable from a store
+   the transaction may not write, and it names no source a caller can act on.
 2. *Skip a file the manifest does not name.*
    _Rejected_: the file is deleted with the entry's directory, so a source would be lost without a trace.
 3. *Copy the whole source directory instead of the manifest's files.*

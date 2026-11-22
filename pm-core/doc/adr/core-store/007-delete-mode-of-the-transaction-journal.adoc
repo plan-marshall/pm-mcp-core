@@ -59,9 +59,11 @@ The operator decided to add the delete mode now (refine, question q1):
 
 * Every store of a scope can be removed with the guarantees of every other write; the pending entry's four stores
   (`PendingEntryStore.remove`) are the first user.
-* The pending entry is never removed by age: the sweep removes the directory of an entry whose removal a stop cut off,
-  on the evidence of an absent record and an absent sidecar, never on the entry's age (ADR
-  `runtime-start/016`, PLAN-V2-22). The flat record this decision was written for no longer exists.
+* The pending entry is never removed by age: the sweep removes the directory of an entry whose four stores are absent
+  from the sidecar and from the filesystem — a removal a stop cut off, or a creation that never committed its first
+  transaction — never on the entry's age (ADR `runtime-start/016`, PLAN-V2-22; refined by
+  link:086-the-cross-commit-window-belongs-to-the-assembly.adoc[ADR 086]). The flat record this decision was written
+  for no longer exists.
 * The journal has one shape, `format_version` 1. The earlier work packages that raised the constant to version 2
   (`PLAN-06`, #26) and version 3 (`PLAN-12`, #51) are reset by the plan that carries this ADR: the constant, its
   Javadoc, the developer guide, the specification part and the tests state version 1, and an earlier version is the

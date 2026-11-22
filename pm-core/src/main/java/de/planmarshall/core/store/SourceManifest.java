@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
@@ -79,7 +80,7 @@ public record SourceManifest(long revision, List<Source> sources) {
      * The sources are one set of files of one directory, so a path is stored once: the second source that names it is
      * refused here, where the manifest is built, instead of the move writing one file twice.
      */
-    private static void requireDistinctPath(String sourceId, String path, HashSet<String> paths) {
+    private static void requireDistinctPath(String sourceId, String path, Set<String> paths) {
         if (SourceManifestCodec.FILE_NAME.equals(path) || path.startsWith(SourceManifestCodec.FILE_NAME + "/")) {
             throw new IllegalArgumentException("The source '%s' stores the reserved path '%s'".formatted(sourceId, path));
         }

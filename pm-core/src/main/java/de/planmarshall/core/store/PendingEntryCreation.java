@@ -230,8 +230,12 @@ public final class PendingEntryCreation {
      * @throws UncheckedIOException if the directory cannot be listed
      */
     private static void requireOnlyManifestFiles(Path sourceDirectory, SourceManifest manifest) {
-        if (!Files.isDirectory(sourceDirectory, LinkOption.NOFOLLOW_LINKS)) {
+        if (!Files.exists(sourceDirectory, LinkOption.NOFOLLOW_LINKS)) {
             return;
+        }
+        if (!Files.isDirectory(sourceDirectory, LinkOption.NOFOLLOW_LINKS)) {
+            throw StoreRefusal.unreadable(sourceDirectory, SourceManifest.FORMAT_VERSION,
+                    "the source directory is no directory", null);
         }
         var stored = manifest.sources().stream()
                 .flatMap(source -> source.files().stream())

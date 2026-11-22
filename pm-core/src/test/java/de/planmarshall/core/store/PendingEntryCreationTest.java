@@ -251,7 +251,8 @@ class PendingEntryCreationTest {
     @DisplayName("a file of the source directory with no manifest entry refuses the move, naming it")
     void refusesAFileWithoutManifestEntry() throws Exception {
         prepareEntry();
-        Files.writeString(store.sourcesDirectory(entryId).resolve("hand-written.md"), "not in the manifest", UTF_8);
+        Files.writeString(store.sourcesDirectory(entryId).resolve("hand-written.md"),
+                Generators.letterStrings(10, 40).next(), UTF_8);
 
         var refusal = assertThrows(StoreRefusal.class, this::move,
                 "a file no manifest entry names should refuse the move");

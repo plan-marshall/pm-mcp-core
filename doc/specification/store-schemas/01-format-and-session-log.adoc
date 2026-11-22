@@ -77,7 +77,9 @@ Entry], ADR `core-store/082`):
   scope is created, the operator abandons it, or the release of its project deletes it
   (link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-release[Credentials & Enrolment
   Specification, Releasing Ends Work as the Operator Ends It]). The periodic sweep removes only the directory of an
-  entry already started or abandoned whose removal a stop cut off (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime
+  entry whose four stores are absent from the workspace's digest sidecar and from the filesystem, re-judged under the
+  workspace lock — the evidence of a removal a stop cut off, or of a creation that never committed its first
+  transaction — and never an entry because of its age (link:../runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime
   Lifecycle Specification, Periodic Sweep]).
 * The `start.create-scope` transaction creates the scope from the entry in the fixed write order of
   <<transaction-journal>>: the source directory, the transcript and the decision stores move into the new scope, the

@@ -177,8 +177,7 @@ class PeriodicSweepKilledRuntimeIT {
                         "the next run must sweep the one project"),
                 () -> assertTrue(removals.stream().anyMatch(removal ->
                                 residue.value().equals(removal.details().get("entry_id"))
-                                        && PendingEntryStore.directoryPath(residue)
-                                        .equals(removal.details().get("store"))),
+                                        && ("pending/" + residue.value()).equals(removal.details().get("store"))),
                         "a removal record must name the residue's directory"),
                 () -> assertTrue(removals.stream().noneMatch(removal ->
                                 removal.details().containsValue(openEntry.value())),

@@ -2129,8 +2129,10 @@ records over again. A record handed over again carries the same `transaction_id`
 drops the duplicate (<<_audit_log>>). A process that stops between the mutation and the append leaves the intent in the
 same way.
 
-Tests: `AuditEventTest` (`core.service`), and the delivery tests of `JournalRecoveryTest`, `JsonlStoreFileTest`,
-`ScopeTransactionTest` and `OrderedWriteTest`.
+Tests: `AuditEventTest` (`core.service`, which carries the shape of every record — the pending-entry removal's
+`entry_id`, `store` and `removed_at` among them), and the delivery tests of `JournalRecoveryTest`, `JsonlStoreFileTest`,
+`ScopeTransactionTest` and `OrderedWriteTest`; the record the sweep owes is asserted end to end by
+`PendingEntryRecordsSweepTest.cutOffRemovalSwept` of `pm-runtime`.
 
 [#_testing_with_crash_points]
 === Testing with Crash Points
