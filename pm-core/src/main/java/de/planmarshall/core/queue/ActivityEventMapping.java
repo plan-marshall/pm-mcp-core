@@ -82,6 +82,9 @@ public record ActivityEventMapping(String kindPointer, Map<ActivityEntry.Kind, K
             match.add(element.text().orElseThrow(
                     () -> new IllegalArgumentException("A match value is not a string")));
         }
+        // Exempt from the builder rule of a record of four or more components: each arm is the one place a kind's
+        // mapping is read from the profile, and it names exactly the fields that kind carries, the others null. A
+        // builder would add a call per null and no check (developer guide core-queue.adoc).
         return switch (kind) {
             case TEXT -> new KindMapping(match, text(declaration, "text"), null, List.of(), null, null, null, null);
             case TOOL_CALL -> new KindMapping(match, null, text(declaration, "tool"),

@@ -45,7 +45,9 @@
  * <p>
  * Specification: {@code doc/specification/job-runtime/03-parsers-and-gates.adoc}. Developer guide:
  * {@code pm-core/doc/developer/core-build.adoc}. The decisions of the package are recorded in
- * {@code pm-core/doc/adr/core-build/}; the coverage model and its XML hardening are {@code core-build/005}.
+ * {@code pm-core/doc/adr/core-build/}; the coverage model is {@code core-build/005}, and the reader of the coverage
+ * reports, its XML hardening and its bounds are {@code core-build/008}. A build log the read cuts reports its Maven
+ * test count as the tail's alone ({@code core-build/011}).
  */
 @NullMarked
 package de.planmarshall.core.build;

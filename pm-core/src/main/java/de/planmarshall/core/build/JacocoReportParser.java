@@ -9,9 +9,6 @@
  */
 package de.planmarshall.core.build;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -93,12 +90,19 @@ public class JacocoReportParser {
      *         naming its file name only
      */
     public static CoverageParseResult parse(Path reportFile) {
-        Objects.requireNonNull(reportFile, "reportFile");
-        try (InputStream source = new CoverageReportStream(Files.newInputStream(reportFile))) {
-            return CoverageXmlReader.parse(source, FORMAT, new Walk());
-        } catch (IOException e) {
-            return CoverageRefusals.of(FORMAT, reportFile, e);
-        }
+        return parse(reportFile, CoverageReportStream.MAX_BYTES);
+    }
+
+    /**
+     * Parses a JaCoCo XML report from a file, streaming it within the given bound; the seam through which a test proves
+     * that the file is read through {@link CoverageReportStream}.
+     *
+     * @param reportFile the report file
+     * @param limit      the most bytes of the report that are read
+     * @return the parsed report, or a refusal naming the format and the reason
+     */
+    static CoverageParseResult parse(Path reportFile, long limit) {
+        return CoverageXmlReader.parse(reportFile, limit, FORMAT, new Walk());
     }
 
     /**

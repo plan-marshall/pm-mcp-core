@@ -12,6 +12,7 @@ package de.planmarshall.core.build;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -169,5 +170,93 @@ class BuildLogTextTest {
                 () -> assertTrue(text.startsWith("line "), "the cut starts at a line beginning"),
                 () -> assertFalse(text.contains("head"), "the head of the log is cut"),
                 () -> assertTrue(text.endsWith(line), "the last line is kept whole"));
+    }
+
+    @Test
+    @DisplayName("a read of a log over the cap says it was cut")
+    void readOfALogOverTheCapSaysItWasCut(@TempDir Path directory) throws Exception {
+        var content = "h" + "a".repeat(BuildLogText.MAX_BYTES);
+        Path log = directory.resolve("cut.log");
+        Files.writeString(log, content, StandardCharsets.UTF_8);
+
+        var read = BuildLogText.readLog(log);
+
+        assertAll(
+                () -> assertTrue(read.cut(), "a log over the cap is reported as cut"),
+                () -> assertEquals(BuildLogText.MAX_BYTES, read.text().length(), "the read keeps the cap's tail"));
+    }
+
+    @Test
+    @DisplayName("a read of a log at the cap says it was not cut")
+    void readOfALogAtTheCapSaysItWasNotCut(@TempDir Path directory) throws Exception {
+        var content = "h" + "a".repeat(BuildLogText.MAX_BYTES - 1);
+        Path log = directory.resolve("whole.log");
+        Files.writeString(log, content, StandardCharsets.UTF_8);
+
+        var read = BuildLogText.readLog(log);
+
+        assertAll(
+                () -> assertFalse(read.cut(), "a log at the cap is reported as whole"),
+                () -> assertEquals(content, read.text(), "a whole log is read as it was written"));
+    }
+
+    /** The tail of a Maven log: one summary block and the success banner (Maven's golden output format). */
+    private static final String MAVEN_TAIL = """
+            [INFO] Results:
+            [INFO]\s
+            [INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0
+            [INFO] BUILD SUCCESS
+            """;
+
+    @Test
+    @DisplayName("a cut Maven log reports its count as the tail's alone")
+    void cutMavenLogReportsTailOnly(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        var head = "[INFO] Results:\n[INFO] Tests run: 9, Failures: 0, Errors: 0, Skipped: 0\n";
+        Path log = directory.resolve("cut-maven.log");
+        Files.writeString(log, head + filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + MAVEN_TAIL,
+                StandardCharsets.UTF_8);
+
+        var counts = MavenOutputParser.parse(log).testCounts();
+
+        var measured = assertInstanceOf(TestCounts.Measured.class, counts, "the tail's block is a measurement");
+        assertAll(
+                () -> assertTrue(measured.tailOnly(), "a cut log's count is reported as tail only"),
+                () -> assertEquals(3, measured.passed(), "only the tail's summary block is counted"));
+    }
+
+    @Test
+    @DisplayName("a whole Maven log reports its count as the whole run's")
+    void wholeMavenLogReportsNoTailOnly(@TempDir Path directory) throws Exception {
+        Path log = directory.resolve("whole-maven.log");
+        Files.writeString(log, MAVEN_TAIL, StandardCharsets.UTF_8);
+
+        var counts = MavenOutputParser.parse(log).testCounts();
+
+        var measured = assertInstanceOf(TestCounts.Measured.class, counts, "the summary block is a measurement");
+        assertFalse(measured.tailOnly(), "a whole log's count is not tail only");
+    }
+
+    @Test
+    @DisplayName("a cut whose only line end is its last byte keeps the window")
+    void cutWhoseOnlyLineEndIsItsLastByteKeepsTheWindow(@TempDir Path directory) throws Exception {
+        var window = "a".repeat(BuildLogText.MAX_BYTES - 1) + "\n";
+        Path log = directory.resolve("last-byte.log");
+        Files.writeString(log, "h" + window, StandardCharsets.UTF_8);
+
+        var text = BuildLogText.read(log);
+
+        assertEquals(window, text, "the window is kept, never emptied");
+    }
+
+    @Test
+    @DisplayName("a window whose only line end is its last byte is kept whole")
+    void fromLineStartKeepsAWindowEndingInItsOnlyLineEnd() {
+        var window = (Generators.letterStrings(1, 40).next() + "\n").getBytes(StandardCharsets.UTF_8);
+
+        var kept = BuildLogText.fromLineStart(window);
+
+        assertEquals(new String(window, StandardCharsets.UTF_8), new String(kept, StandardCharsets.UTF_8),
+                "the window ending in its only line end is kept");
     }
 }
