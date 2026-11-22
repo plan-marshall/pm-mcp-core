@@ -34,9 +34,9 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * <p>
  * A launch the runtime refuses on the enrolment store — {@code harness_store_unreadable} or {@code harness_tampered} —
  * is counted by {@code WorkerSupervisor} through {@link #startFailed}, because no worker of it spawned; a refusal of
- * any other reason is a decision about that one start and counts nothing. A worker that spawned and ended before its
- * first call is counted from the registry instead: the one end path records {@link EndCause#START_FAILURE} for it
- * whatever the job's fate was, a kill or a cancellation included.
+ * any other reason is a decision about that one start and counts nothing. A spawned worker that ended before its first
+ * call is counted when a guard is rebuilt from the supervisor's registry: the one end path records
+ * {@link EndCause#START_FAILURE} for it whatever the job's fate was, a kill or a cancellation included.
  * <p>
  * The guard owns four transitions of the specification:
  * <ul>

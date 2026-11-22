@@ -256,11 +256,10 @@ the enrolment (<<_not_implemented_here>>).
   `VerificationRecord.stages` and `HarnessEnrolment.events` is the verification path's, which runs the profile
   verification and writes its record. The recorded outputs per shipped harness version are written where the shipped
   profiles live.
-* *A refused launch is not counted as a start failure*: a refused launch (a `HarnessVerification.Refused` from
-  `HarnessVerifier`, which `SubprocessJobRunner.refuseWorker` turns into a refused `JobId`) is a start failure the
-  supervisor counts per role and harness through `StartFailureGuard`, closing the tasks of the role `lost` with
-  `role_unavailable` after the compiled count; no production code calls `StartFailureGuard.startFailed`
-  (link:runtime-worker.adoc[`runtime.worker`] records the same). The warm offer, the re-delivery, the offer bound,
+* *A refused launch on the enrolment store is counted as a start failure*: a refusal the verifier makes because the
+  store is unreadable or tampered is counted per role and harness through `StartFailureGuard`, closing the tasks of the
+  role `lost` with `role_unavailable` after the compiled count; `WorkerSupervisor` makes that call. A refusal of any
+  other reason is a decision about that one start and is not counted. The warm offer, the re-delivery, the offer bound,
   harness activation and the `skills_not_loaded` submit refusal of Model Work § Skill Delivery Record & Re-Delivery are
   the task protocol's.
 * *Output and usage reading*: the mapping of the output stream to activity, the per-turn usage and the result parsing

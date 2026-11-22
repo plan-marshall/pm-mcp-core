@@ -313,8 +313,9 @@ harness id alone, so one instance shared by the supervisors of every project spa
 harness at once. `awaitTurn` waits until the previous worker of the harness made its first call or ended, at most
 `SPACING_BOUND` (30 seconds). Past the bound the next start proceeds, so the spacing only ever delays a start and never
 refuses one. A collision that still makes a worker exit before its first call is a start failure and counts for the
-guard. A test lowers the bound instead of sleeping. The class is not yet reached from a production start path — no
-production class calls `awaitTurn` — so the shared instance ADR 001 describes is owed to the supervisor's wiring.
+guard. A test lowers the bound instead of sleeping. `WorkerSupervisor` calls `awaitTurn` before the spawn,
+`firstCall` at the worker's connection and `ended` when the spawn was refused or the worker ended; the instance travels
+in `SupervisorEnvironment`, so the assembly supplies the one shared by every supervisor.
 
 The guard and the spacing are part of the supervisor's start ownership (ADR 001).
 
@@ -580,10 +581,10 @@ enrolment, and no plan cleanup calls `ActivityJournal.archiveInto` or `delete`.
 
 Gaps of the package itself:
 
-* `StartFailureGuard.startFailed` has no production caller, so a live guard does not count the start failure of an exit
-  the pass observes, while a guard rebuilt over the registry does, because the pass enters the `START_FAILED` state on
-  that path. The pass is the only reader of the settled record, so only the pass can count it. The count stays owed to
-  PLAN-V2-162 Deliverable 1.
+* `StartFailureGuard.startFailed` is called by `WorkerSupervisor` for the two enrolment-store refusals only, so a live
+  guard does not count the start failure of an exit the pass observes, while a guard rebuilt over the registry does,
+  because the pass enters the `START_FAILED` state on that path. The pass is the only reader of the settled record, so
+  only the pass can count it; that count is owed to PLAN-V2-126.
 * `AgentStartedDetector` has no `forget` for a terminal generation, which the pass makes long-lived.
 * The pass's pump map and finished-attempt set, with the calls' detection, loss and digest maps, are removed only by
   the pass's completion, so a generation retired from the registry another way leaves its entries behind.

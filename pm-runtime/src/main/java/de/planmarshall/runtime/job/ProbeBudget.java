@@ -19,7 +19,8 @@ import de.planmarshall.core.store.JobRecord.BudgetDerivation;
 /**
  * The fixed budgets of the probe jobs (PM-EXEC-4), one per kind of probe under the budget key {@code probe:<kind>}. A
  * probe runs before its program is enrolled and has no project store, so its budget is never learned and never
- * escalated: it is a compiled constant, recorded with the derivation {@code floor_default}. A probe over its budget
+ * escalated: it is a compiled constant, recorded with the derivation {@code floor_default}, unless a test lowers it
+ * through {@link #override} to observe a timeout without the compiled seconds. A probe over its budget
  * ends {@code timed_out} and is not started again by the runner.
  * <p>
  * Specification: {@code doc/specification/timeouts/01-job-budgets-and-waits.adoc} (Job Budgets, the probe budget and

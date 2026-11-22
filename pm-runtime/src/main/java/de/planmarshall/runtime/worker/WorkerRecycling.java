@@ -242,7 +242,9 @@ public final class WorkerRecycling {
      * Ends the hold of a generation that reached its budget, once per generation and before the recycle: the protocol
      * suspends the task where it may resume and falls back otherwise, while the generation still leases the task and
      * before the end path fences it (Model Work § Continuing after a Question, Budget). A task whose facts cannot be
-     * read names no attempt, so it is not reported; the end path still recycles the generation.
+     * read names no attempt, so the hold-ended notification is not sent and the case is logged as
+     * {@code HOLD_ENDED_TASK_UNREADABLE}; the end path still recycles the generation, because it must not wait for a
+     * task record the protocol may never supply.
      *
      * @param generation the holding generation
      */
