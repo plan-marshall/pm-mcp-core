@@ -36,14 +36,14 @@ class SvgSanitiserAllowListParityTest {
 
     @Test
     @DisplayName("the elements the ADR names are the elements the sanitiser keeps")
-    void elementsAreTheAdrList() throws IOException {
+    void elementsAreTheAdrList() throws Exception {
         assertEquals(SvgSanitiser.ALLOWED_ELEMENTS, list(ELEMENT_LIST),
                 "the ADR's element list is the sanitiser's allow-list");
     }
 
     @Test
     @DisplayName("the attributes the ADR names are the attributes the sanitiser keeps")
-    void attributesAreTheAdrList() throws IOException {
+    void attributesAreTheAdrList() throws Exception {
         assertEquals(SvgSanitiser.ALLOWED_ATTRIBUTES, list(ATTRIBUTE_LIST),
                 "the ADR's attribute list is the sanitiser's allow-list");
     }
