@@ -54,8 +54,9 @@ import de.planmarshall.core.store.StoreRefusal;
  * never the id of the transaction. Every candidate is re-judged under the workspace lock before it is removed, so an
  * entry opened between the listing and the lock is kept. The directories themselves are deleted after that
  * transaction, each as the last act, so a stop before it leaves the residue for the next run. The step reports how
- * many directories it removed; an entry it could not read is reported as a failure of the step, after the readable
- * residue was removed.
+ * many directories it removed and every entry it kept or could not remove, the unreadable ones and the held ones in one
+ * report: an entry whose record cannot be read, whose store path is refused, or whose directory the discard could not
+ * remove is named there, and the step's outcome is a failure then, after the readable residue was removed.
  *
  * @since 0.1
  */
@@ -106,15 +107,19 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                 }
             }
             var removal = candidates.isEmpty() ? new Removal(0, null) : remove(workspace, store, candidates, at);
-            var report = "removed " + removal.removed() + " pending entry directories";
+            var report = new StringBuilder("removed " + removal.removed() + " pending entry directories");
             if (!unreadable.isEmpty()) {
-                return new RecoveryStep.Outcome.Failed(report + "; kept unreadable entries " + unreadable);
+                report.append("; kept unreadable entries ").append(unreadable);
             }
             if (removal.failure() != null) {
-                return new RecoveryStep.Outcome.Failed(report + "; " + removal.failure());
+                report.append("; ").append(removal.failure());
             }
-            return new RecoveryStep.Outcome.Done(report);
-        } catch (UncheckedIOException | IllegalStateException | InternalFaultException | StoreRefusal e) {
+            if (!unreadable.isEmpty() || removal.failure() != null) {
+                return new RecoveryStep.Outcome.Failed(report.toString());
+            }
+            return new RecoveryStep.Outcome.Done(report.toString());
+        } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
+                | StoreRefusal e) {
             return new RecoveryStep.Outcome.Failed("pending entry directories not swept: " + e.getMessage());
         }
     }
@@ -145,6 +150,8 @@ public final class PendingEntryRecordsSweep implements SweepStep {
             for (var entryId : removed) {
                 try {
                     store.discard(entryId);
+                } catch (IllegalStateException e) {
+                    discarded.add(entryId.value() + " (record again: " + e.getMessage() + ")");
                 } catch (UncheckedIOException e) {
                     discarded.add(entryId.value() + " (" + e.getMessage() + ")");
                 }
@@ -177,8 +184,10 @@ public final class PendingEntryRecordsSweep implements SweepStep {
 
     /**
      * Verifies one candidate under the workspace lock. A store path that passes through a symbolic link below the path
-     * base is refused by the verification with an {@link IllegalArgumentException}; that entry alone is held and
-     * reported, so a link one entry's directory carries does not stop the step for the project.
+     * base is refused by the verification with a {@link JournalScope.SymbolicLinkRefusal}; that entry alone is held and
+     * reported, so a link one entry's directory carries does not stop the step for the project. Any other refusal of
+     * the verification is a fault of the recovery or the sidecar code, not a link: it is not read as a held entry and
+     * leaves the step as the failure it is.
      *
      * @return the verdict; empty when the verification refused the entry's path, which is reported in {@code kept}
      */
@@ -187,9 +196,20 @@ public final class PendingEntryRecordsSweep implements SweepStep {
         try {
             return Optional.of(store.verify(lock, entryId, auditSink));
         } catch (IllegalArgumentException e) {
+            if (!holdsEntry(e)) {
+                throw e;
+            }
             kept.add(entryId.value() + " (held: " + e.getMessage() + ")");
             return Optional.empty();
         }
+    }
+
+    /**
+     * @param refusal a refusal of the verification
+     * @return whether it is the symbolic-link refusal, the one refusal that holds its entry instead of failing the step
+     */
+    static boolean holdsEntry(IllegalArgumentException refusal) {
+        return refusal instanceof JournalScope.SymbolicLinkRefusal;
     }
 
     /**
