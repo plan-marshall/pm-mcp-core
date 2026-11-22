@@ -101,6 +101,17 @@ public final class GitMetadataDigest {
         }
         var gitDirectory = paths.gitDirectory();
         if (gitDirectory == null) {
+            // a pointer file that was skipped is not a project without git: the tree could not be read, so it fails
+            // closed instead of baselining an empty digest
+            for (var skipped : paths.skipped()) {
+                failures.add(name(root, skipped.path()));
+            }
+            failClosed(parts, failures);
+            return parts;
+        }
+        if (!Files.isDirectory(gitDirectory, LinkOption.NOFOLLOW_LINKS)) {
+            // a git file that names no directory leaves the tree unreadable, never an empty digest to baseline
+            failures.add(name(root, gitDirectory));
             failClosed(parts, failures);
             return parts;
         }

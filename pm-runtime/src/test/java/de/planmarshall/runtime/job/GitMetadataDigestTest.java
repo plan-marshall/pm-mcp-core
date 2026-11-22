@@ -384,6 +384,18 @@ class GitMetadataDigestTest {
         assertTrue(parts.isEmpty(), "a project without git has no metadata");
     }
 
+    @Test
+    @DisplayName("Should fail closed when the only pointer file names no directory")
+    void shouldFailClosedOnASkippedPointerFile() throws Exception {
+        var root = Files.createDirectories(base.resolve(name()));
+        Files.writeString(root.resolve(".git"), "gitdir: " + base.resolve("absent-administration") + "\n");
+
+        var parts = GitMetadataDigest.of(root);
+
+        assertTrue(parts.containsKey(GitMetadataDigest.UNREADABLE),
+                "a skipped pointer file is an unreadable tree, not an empty one");
+    }
+
     private Path repository() throws IOException {
         var root = Files.createDirectories(base.resolve(name()));
         var git = Files.createDirectories(root.resolve(".git"));

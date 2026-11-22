@@ -188,6 +188,7 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
      * @param harness the harness id of the harness
      * @throws NullPointerException if a value is {@code null}
      */
+    @Override
     public synchronized void firstCall(String role, String harness) {
         states.remove(new StartFailureState.Key(role, harness));
     }

@@ -295,7 +295,7 @@ public final class SupervisorCalls implements WorkerCalls {
      * @throws IllegalStateException if the generation's role has no class, so no detection can be built for it; the
      *                               supervision pass reports it as that generation's failure
      */
-    public synchronized LossDetection detection(WorkerGeneration generation) {
+    synchronized LossDetection detection(WorkerGeneration generation) {
         Objects.requireNonNull(generation, "generation");
         var generationId = generation.generationId();
         return detections.computeIfAbsent(generationId, ignored -> {
@@ -316,7 +316,7 @@ public final class SupervisorCalls implements WorkerCalls {
      * @return the loss the generation's detection raised, whether a deadline fired it or the pass observed the exit;
      *         empty while the generation produced none
      */
-    public synchronized Optional<LossSignal> loss(String generationId) {
+    synchronized Optional<LossSignal> loss(String generationId) {
         Objects.requireNonNull(generationId, GENERATION_ID_ARGUMENT);
         return Optional.ofNullable(losses.get(generationId));
     }
@@ -340,7 +340,7 @@ public final class SupervisorCalls implements WorkerCalls {
      *
      * @param generationId the worker's generation
      */
-    public synchronized void forget(String generationId) {
+    synchronized void forget(String generationId) {
         Objects.requireNonNull(generationId, GENERATION_ID_ARGUMENT);
         var detection = detections.remove(generationId);
         if (detection != null) {
