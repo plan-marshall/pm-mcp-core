@@ -126,12 +126,14 @@ convention and the consumers of each artifact are recorded in
   `pm-workflow` and `pm-provider-sonar`, and `org.easymock:easymock` (test). `de.cuioss.test:cui-test-mockwebserver-junit5`
   (test) in `pm-provider-sonar` is the R04 dependency (operator decision 2026-10-09). Their versions come from the
   parent POM; a module POM carries no version literal.
-- Never add a dependency or a plugin without asking the user first. The six above are the operator's answers — the
-  five of 2026-10-30 and the R04 dependency of 2026-10-09 — for the coding-skill conformance family (PLAN-V2-83 to
-  PLAN-V2-108); anything else still needs a decision.
-- `com.tngtech.archunit:archunit-junit5` (test) in `pm-runtime` and in `pm-core`: the architecture guards
-  `OutboundCallsArchTest` of `pm-runtime` and the `*ArchTest` classes of `pm-core`. The operator gave the word for it on
-  2026-10-29 (decision A1 of the spec of PLAN-V2-53); the version comes from the parent POM.
+- `com.tngtech.archunit:archunit-junit5` (test) in `pm-runtime` and in `pm-core`, the version from the parent POM. In
+  `pm-runtime` it carries the architecture guard `OutboundCallsArchTest`, for which the operator gave the word on
+  2026-10-29 (decision A1 of the spec of PLAN-V2-53; ADR `doc/adr/023`). `pm-core` has carried it for its `*ArchTest`
+  classes since #31 (2026-10-11), before that word; that is a fact of the build, not an authorisation.
+- Never add a dependency or a plugin without asking the user first. The six coding-skill dependencies above are the
+  operator's answers — the five of 2026-10-30 and the R04 dependency of 2026-10-09 — for the coding-skill conformance
+  family (PLAN-V2-83 to PLAN-V2-108), and ArchUnit's word is the one of 2026-10-29 its bullet names; anything else
+  still needs a decision.
 - Pre-1.0: no deprecation cycles, no backward-compatibility shims.
 
 ## Dependency Rules (enforced by the build)
@@ -198,7 +200,8 @@ them with a fixture project below `src/guard-controls`:
   module's artifact.
 - A class with a hand-written `equals`/`hashCode` (not a record or an enum) has a contract test through
   `ShouldHandleObjectContracts` (`cui-test-value-objects`).
-- Every assertion carries a message of 20 to 60 characters that says what is checked (`junit-core`).
+- Every assertion carries a message of 20 to 60 characters that says what is checked (`junit-core`). The heading of
+  an `assertAll` is exempt: it labels a group whose assertions carry their own messages (ADR `doc/adr/012`).
 - Every `LogRecord` a class logs is asserted by its constant with `LogAsserts` (`@EnableTestLogger`); no hand-made
   log handler.
 - HTTP tests use `@EnableMockWebServer` with `@MockResponseConfig` or `@ModuleDispatcher` and an injected
