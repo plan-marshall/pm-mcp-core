@@ -361,6 +361,33 @@ class BuildLogTextTest {
     }
 
     @Test
+    @DisplayName("a cut log files the failing tests its own error line does not report")
+    void cutMavenLogFilesTheFailuresItsErrorLineDoesNotReport(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        var failingTail = """
+                [ERROR] Results:
+                [ERROR] Tests run: 2, Failures: 1, Errors: 0, Skipped: 0
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-mixed-failing.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertEquals(2, build.diagnostics().stream()
+                                .filter(diagnostic -> diagnostic.severity() == Severity.ERROR
+                                        && diagnostic.category() == Category.TEST_FAILURE).count(),
+                        "each failing block is an error once"),
+                () -> assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                                diagnostic.message().contains("1 further failing test")),
+                        "the unfiled block is named as the remainder"));
+    }
+
+    @Test
     @DisplayName("a whole Maven log reports its count as the whole run's")
     void wholeMavenLogReportsTheWholeRun(@TempDir Path directory) throws Exception {
         Path log = directory.resolve("whole-maven.log");

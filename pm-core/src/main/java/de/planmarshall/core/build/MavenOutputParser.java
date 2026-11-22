@@ -18,6 +18,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
+import lombok.Builder;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
@@ -226,7 +228,7 @@ public class MavenOutputParser {
         if (cut) {
             long unfiledFailures = scan.unfiledFailures();
             if (unfiledFailures > 0) {
-                diagnostics = withVisibleFailures(diagnostics, unfiledFailures);
+                diagnostics = withVisibleFailures(diagnostics, unfiledFailures, scan.filesFailingCount());
             }
         }
         TestCounts testCounts = scan.result(bounded, cut).orElse(null);
@@ -241,14 +243,20 @@ public class MavenOutputParser {
      * Adds the one finding a cut log keeps from a tail that reports failing tests: the total is no measurement, but the
      * visible failing count is evidence a consumer must still see (ADR {@code core-build/011}).
      *
-     * @param diagnostics the diagnostics the log filed
-     * @param failures    the failing tests the counted blocks report and no filed diagnostic carries yet
+     * @param diagnostics       the diagnostics the log filed
+     * @param failures          the failing tests the counted blocks report and no filed diagnostic carries yet
+     * @param besideFiledCount  whether a filed {@code [ERROR]} count line already reports failing tests, so the message
+     *                          names this figure as the remainder beside it
      * @return the diagnostics with the visible failing count filed as an error
      */
-    private static List<Diagnostic> withVisibleFailures(List<Diagnostic> diagnostics, long failures) {
+    private static List<Diagnostic> withVisibleFailures(List<Diagnostic> diagnostics, long failures,
+            boolean besideFiledCount) {
+        var message = besideFiledCount
+                ? "the cut log's tail reports %d further failing tests".formatted(failures)
+                : "the cut log's tail reports %d failing tests".formatted(failures);
         var withFailures = new ArrayList<>(diagnostics);
         withFailures.add(Diagnostic.builder()
-                .message("the cut log's tail reports %d failing tests".formatted(failures))
+                .message(message)
                 .category(Category.TEST_FAILURE).severity(Severity.ERROR).build());
         return withFailures;
     }
@@ -346,6 +354,7 @@ public class MavenOutputParser {
          * @param errorLevel whether the line carries {@code [ERROR]}, so the diagnostic collector files it as a diagnostic
          *                   and the cut tail must not file its count again
          */
+        @Builder
         private record Counts(long total, long failed, long skipped, boolean errorLevel) {
         }
 
@@ -372,7 +381,8 @@ public class MavenOutputParser {
             if (skipped > total) {
                 unrepresentable = true;
             }
-            var counts = new Counts(total, failed, skipped, line.contains(ERROR_MARKER));
+            var counts = Counts.builder().total(total).failed(failed).skipped(skipped)
+                    .errorLevel(line.contains(ERROR_MARKER)).build();
             if (line.contains(TIME_ELAPSED)) {
                 perClassLines.add(counts);
             } else if (resultsSeen) {
@@ -419,6 +429,17 @@ public class MavenOutputParser {
             }
             var counted = ambiguousLines.isEmpty() ? perClassLines : ambiguousLines;
             return failuresOf(counted) - failuresOf(filed(counted));
+        }
+
+        /**
+         * Whether a count line an error diagnostic already reports carries failing tests, so the synthetic finding is a
+         * remainder beside it rather than the tail's whole visible count.
+         *
+         * @return true when a filed count line reports a failing test
+         */
+        boolean filesFailingCount() {
+            return Stream.of(summaryLines, ambiguousLines, perClassLines).flatMap(List::stream)
+                    .anyMatch(counts -> counts.errorLevel() && counts.failed() > 0);
         }
 
         private static long failuresOf(List<Counts> lines) {

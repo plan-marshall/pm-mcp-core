@@ -2062,14 +2062,16 @@ class SubprocessJobRunnerTest {
 
         @ParameterizedTest(name = "{0}")
         @EnumSource(BuildSystem.class)
-        @DisplayName("the parser receives the job record of every build system")
+        @DisplayName("the parser receives the job record and the uncut fact of every build system")
         void parserReceivesTheRecord(BuildSystem system) throws Exception {
             var budgetKey = system.wireName() + ":verify";
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
             var seen = new AtomicReference<JobRecord>();
+            var seenCut = new AtomicBoolean(true);
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), environment(),
                     (job, output, cut) -> {
                         seen.set(job);
+                        seenCut.set(cut);
                         return SUCCESS;
                     }, request -> Optional.empty(), null);
 
@@ -2079,6 +2081,7 @@ class SubprocessJobRunnerTest {
 
             assertAll(
                     () -> assertNotNull(seen.get(), "the parser ran for the ended job"),
+                    () -> assertFalse(seenCut.get(), "a small job log is not reported as cut"),
                     () -> assertEquals(budgetKey, seen.get().budgetKey(), "the parser received the job key"),
                     () -> assertEquals(JobId.Kind.BUILD, seen.get().kind(), "the parser received the kind"));
         }
