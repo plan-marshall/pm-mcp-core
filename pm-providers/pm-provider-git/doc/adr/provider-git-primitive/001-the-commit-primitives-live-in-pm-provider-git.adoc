@@ -27,7 +27,7 @@ depend on `pm-workflow`. `pm-workflow` must not see JGit, and it holds the plan-
 * Each implements `Primitive` of `pm-core` with `awaitedEvent() = NONE` and passes the `PrimitiveRegistry` constructor
   (id pattern, outcome wire names not reserved for the engine).
 * The return evaluation `commit-message.evaluate` lives here beside the other commit primitives; `pm-workflow` keeps
-  only the entity kind that names it (link:../../../../../pm-workflow/doc/adr/workflow-verify/041-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify/041]).
+  only the entity kind that names it (link:../../../../../pm-workflow/doc/adr/workflow-verify/043-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify/043]).
 * The assembly constructs the `PrimitiveRegistry` from them; that call is the only wrapper it owes.
 
 == Alternatives Considered

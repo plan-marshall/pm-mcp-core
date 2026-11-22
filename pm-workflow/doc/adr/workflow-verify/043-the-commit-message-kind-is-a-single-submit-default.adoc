@@ -1,4 +1,4 @@
-= ADR workflow-verify 041: The Kind `commit-message` Is a Single-Submit Default
+= ADR workflow-verify 043: The Kind `commit-message` Is a Single-Submit Default
 :nofooter:
 
 == Status

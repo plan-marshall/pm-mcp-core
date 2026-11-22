@@ -315,4 +315,4 @@ link:{adr}/004-the-trailer-is-appended-by-commit-messages-alone.adoc[ADR 004],
 link:{adr}/005-one-failed-outcome-with-a-closed-reason.adoc[ADR 005],
 link:{adr}/006-the-primitive-checks-the-boundary-half.adoc[ADR 006],
 link:{adr}/007-the-template-message-renders-from-facts.adoc[ADR 007],
-link:../../../../pm-workflow/doc/adr/workflow-verify/041-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify 041]
+link:../../../../pm-workflow/doc/adr/workflow-verify/043-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify 043]

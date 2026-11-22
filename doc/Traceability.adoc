@@ -861,7 +861,7 @@ link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/004-the-trai
 link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/005-one-failed-outcome-with-a-closed-reason.adoc[ADR provider-git-primitive/005],
 link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/006-the-primitive-checks-the-boundary-half.adoc[ADR provider-git-primitive/006],
 link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/007-the-template-message-renders-from-facts.adoc[ADR provider-git-primitive/007],
-link:../pm-workflow/doc/adr/workflow-verify/041-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify/041]
+link:../pm-workflow/doc/adr/workflow-verify/043-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify/043]
 
 [#PM-WF-17]
 === PM-WF-17: Dynamic Re-Planning of a Running Plan
