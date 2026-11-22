@@ -89,7 +89,11 @@ shape is anchored to its own form so prose cannot match it (its Javadoc names th
 (link:../adr/core-queue/007-the-events-mapping-is-projected.adoc[ADR 007]) and the journal redacts at its write boundary
 (link:../adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR 008]). `ActivityEventMapping.of`
 answers `Optional<ActivityEventMapping>`: a profile whose `headless.events` is `null` is `Optional.empty()`, never a
-`null` value, because every production package is `@NullMarked`.
+`null` value, because every production package is `@NullMarked`. The five arms of `kindMapping` build
+`ActivityEventMapping.KindMapping` positionally, each naming the fields of its kind and `null` for the rest; they are
+exempt from the rule that a record of four or more components is built through its builder, because each arm is the
+one place its kind is read from the profile and a builder would add one call per `null` and no check. The exemption is
+recorded beside the switch.
 
 ADR number 009 of this package is retired: it decided the navigation figures, which the work package
 `deferred-code-removal` deleted with the record. The next ADR of `core-queue` takes 011.

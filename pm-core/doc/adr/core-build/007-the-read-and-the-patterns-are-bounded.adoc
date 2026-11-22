@@ -68,15 +68,31 @@ characters for a line — and asked that both be data of a properties resource, 
   entry of its parse in the same way.
 * A new parser is bounded by calling `BuildLogText.boundLines` at the entry of its parse; a pattern added to one of the
   three cut parsers is already inside the cut.
-* `JobLog.readLines`, the incremental read, is not capped: a reader that follows a growing log reads from the offset it
-  names.
+* `JobLog.readLines`, the incremental read, is not capped, and this is decided, not left open (PLAN-V2-163, item 11(e)).
+  Its callers (`SubprocessJobRunner` and `WorkerActivityPump` of `pm-runtime`) follow a growing log from the offset the
+  previous read returned, so one call reads what the log grew since the last one, not the log's whole size. A cap there
+  would have to skip bytes between two offsets, and the follower would never read those lines again: the tail read that
+  suits a parser of an ended log is a silent gap for a reader that streams every line. The residue accepted with it: a
+  log that grows by more than the memory a read can hold between two calls is read whole by the next one.
 * The cut of a read can leave a partial ANSI escape at the head of the tail. `BuildLogText.stripAnsi` does not match it
   and the fragment stays in the text, where no parser pattern reads it as a marker.
-* The two Maven-side pre-tests reject a line that cannot match; a line that carries the token they test still backtracks
-  inside the expression, so its cost is the square of the line's length — bounded by the per-line cut to one line's
-  worth, not made linear. The pytest summary is linear for every line without a line terminator; a line that carries one
-  is answered by the ported expression, whose cost the terminator does not change. A linear expression for the two
-  Maven-side patterns needs the anchored rewrite, which this plan did not take.
+* As this plan left them, the two Maven-side pre-tests rejected a line that cannot match, but a line that carried the
+  token they test still backtracked inside the expression, at the square of the line's length; and a pytest line that
+  carried a line terminator was answered by the ported expression. PLAN-V2-163 (item 11(a)) made all three linear: the
+  execution header is a possessive head with its `@ … ---` tail decided by index arrays, the finding line runs its
+  template once at the first head after the line's last terminator with a tempered path, and the pytest line with a
+  terminator is decided in one pass over the whitespace run that holds it. Each answers what the ported expression
+  answered; a cut log's Maven count is reported as the tail's alone (ADR `core-build/011`).
+* The copy cost of `UnparsedEvidence` was measured, not assumed, and it did not change the class (PLAN-V2-163, item
+  43(a), the operator's "measure first"). `UnparsedEvidence.of` copies the whole log twice: `BuildLogText.stripAnsi`
+  rebuilds it when it carries an escape, and the carriage-return reduction writes it into a builder sized to the log and
+  copies that out; the tail, the line cut, the redaction and the byte bound then work on at most fifty lines. On a
+  16 MiB log at the read's cap, every line coloured and carrying one carriage-return frame, so both passes copy it,
+  the call allocated 83,219,096 bytes — 4.96 times the log — and took 0.44 s (2026-11-21,
+  `BuildLogBoundsTest.boundsTheUnparsedEvidenceCopyOfALogAtTheCap`). The cost is linear in the log's length and bounded
+  by the read's cap, which is the bound this ADR states, so the outcome is "measured, no change". The test asserts the
+  allocation against eight times the log's length under a preemptive timeout of ten seconds, so a change that makes the
+  copy grow faster than the log fails there.
 
 == Source
 
