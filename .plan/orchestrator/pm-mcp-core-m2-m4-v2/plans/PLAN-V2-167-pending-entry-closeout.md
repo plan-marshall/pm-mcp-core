@@ -87,6 +87,8 @@ The plan implementing this spec touches only its own repository source and tests
 and edits NO file under `.plan/orchestrator/` other than its own
 `inbox/{sender}-{seq}` message — the orchestrator owns every other ledger write — and reports
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
+sole sanctioned write mechanism are stated in
+`persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
 
 ## Carried Open Items
 

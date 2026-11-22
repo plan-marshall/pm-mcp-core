@@ -32,9 +32,9 @@ import org.jspecify.annotations.Nullable;
  * A pyproject log commonly carries the output of several tools of one verify run, so the parser detects each tool by
  * its own content marker and combines the results: mypy ({@code path:line: error: message}), whose category is the
  * first match of the original's Python pattern table (a type error by default, an import failure for an import message,
- * and a lint or test-failure category for a message that table places so), ruff ({@code path:line:column: CODE message})
- * as {@link Category#LINT_ERROR}, and pytest's {@code FAILED} and {@code ERROR} short-summary lines as
- * {@link Category#TEST_FAILURE} and {@link Category#TEST_COLLECTION_ERROR}.
+ * and a lint or test-failure category for a message that table places so), ruff
+ * ({@code path:line:column: CODE message}) as {@link Category#LINT_ERROR}, and pytest's {@code FAILED} and
+ * {@code ERROR} short-summary lines as {@link Category#TEST_FAILURE} and {@link Category#TEST_COLLECTION_ERROR}.
  * <p>
  * The pytest parse follows the original: a block under the {@code FAILURES} or {@code ERRORS} banner supplies the
  * location (the deepest {@code path.py:NN} frame of its traceback, ahead of any captured-output section) and, for a
@@ -214,10 +214,10 @@ public class PyprojectOutputParser {
     /**
      * The ported expression's answer for a line that carries a line terminator, in one pass over the line.
      * <p>
-     * Only the {@code \s+} after {@code in} can cross a terminator, the verdict word and {@code in} stand before the first
-     * one, and nothing after the seconds may carry one. So the whitespace run that holds the first terminator must also
-     * hold every later one, {@code in} must stand directly before that run with a word boundary ahead of it and after the
-     * earliest verdict word, and {@code [\d.]+s} must follow the run.
+     * Only the {@code \s+} after {@code in} can cross a terminator, the verdict word and {@code in} stand before the
+     * first one, and nothing after the seconds may carry one. So the whitespace run that holds the first terminator
+     * must also hold every later one, {@code in} must stand directly before that run with a word boundary ahead of it
+     * and after the earliest verdict word, and {@code [\d.]+s} must follow the run.
      */
     private static boolean isSummaryLineAcrossTerminators(String line, int firstTerminator) {
         Matcher word = SUMMARY_WORD.matcher(line);

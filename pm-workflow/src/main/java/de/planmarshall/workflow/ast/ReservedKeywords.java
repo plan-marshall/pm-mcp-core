@@ -16,8 +16,8 @@ import lombok.experimental.UtilityClass;
 /**
  * The reserved keywords of the workflow DSL: the one set the parser and the verifier read.
  * <p>
- * A reserved keyword may be no outcome name, parameter name, job entity kind, role name, or segment of a state, primitive
- * or configuration-key identifier. The set is the specification's
+ * A reserved keyword may be no outcome name, parameter name, job entity kind, role name, or segment of a state,
+ * primitive or configuration-key identifier. The set is the specification's
  * (link:../../../../doc/specification/workflow-dsl/01-grammar.adoc#dsl-reserved-keywords[Workflow DSL § Reserved
  * Keywords]): a word the grammar leaves positional — {@code decide}, {@code phase}, {@code inherit}, {@code entry},
  * {@code quorum} — is not reserved and stays usable as an identifier segment. Two sets drifted apart once; one holder

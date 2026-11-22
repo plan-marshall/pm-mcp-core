@@ -1,0 +1,45 @@
+= ADR provider-git-primitive 006: The Primitive Checks the Boundary Half
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+The footprint check of Stage 4 runs before anything is staged and has three parts: (1) no dirty path of the target
+checkout lies outside the staging set and, for a plan, none outside its worktree; (2) no enrolled wrapper's
+`pinned_files` changed; (3) for a plan, no main-checkout path outside `.marshall/local/` is absent from
+`entry_baseline` or changed since it. Part 1 is a function of the staging set; parts 2 and 3 read stores and the job
+runtime, which a primitive cannot reach.
+
+== Decision
+
+* `FootprintBoundary.check(stagingSet, pinnedFilesChanged, mainCheckoutBreaches)` judges the check: the staging set's
+  `outside` paths are part 1; parts 2 and 3 are the answers of `CommitSite.pinnedFilesChanged` and
+  `CommitSite.mainCheckoutBreaches`, which the assembly implements, and the check treats them as it treats part 1.
+* The verdict is `Within` or `Violated`, which names the sorted offending files, at most 50, and the total count.
+* `GitStageAndCommitPrimitive` runs the check first, before anything is staged and before the message is read, for
+  every scope.
+
+== Alternatives Considered
+
+* *All three parts in this module.* Not taken: parts 2 and 3 read the enrolment store, `entry_baseline` and the job
+  runtime, which `pm-provider-git` must not see.
+* *All three parts in the assembly.* Not taken: part 1 is pure and is the one the staging set already decides.
+
+== Consequences
+
+* The assembly's `CommitSite` decides parts 2 and 3; a wrong answer there is not caught here.
+* A breach reaches the engine as `failed` with the reason `footprint_violation`, which raises the condition of the same
+  name (link:005-one-failed-outcome-with-a-closed-reason.adoc[ADR 005]).
+
+== Source
+
+* link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 4, footprint check first)
+* link:../../developer/provider-git-primitive.adoc#_the_staging_set_and_the_footprint_check[Commit Primitives Developer Guide § The Staging Set and the Footprint Check]
+* Pull request of `PLAN-V2-20` (`git-commit-primitives`), decision 6

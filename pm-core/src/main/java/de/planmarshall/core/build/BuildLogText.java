@@ -41,7 +41,7 @@ import de.planmarshall.core.config.LimitProperties;
  * from the end, and starts at the first line beginning inside them, so a parser sees the log's tail whole-lined: the
  * count lines, the summary and the failure tail are at the end, which is the part a parser needs and the part a build
  * tool cannot be trusted to keep short. {@link #readLog(Path)} says whether it cut, so a figure the lost head
- * can falsify — the Maven test count — is reported as the tail's alone. A log at or below the cap, with every line
+ * can falsify — the Maven test count — is reported as unmeasured. A log at or below the cap, with every line
  * inside the per-line bound, is read as it was written, so no parser result changes for one. The cap is data of
  * {@link #LIMITS}, never a literal, and only editing that resource changes it.
  * <p>
@@ -117,7 +117,8 @@ public class BuildLogText {
     /**
      * Reads a build log and strips its ANSI escape sequences, for a parser whose result the cut cannot falsify.
      * <p>
-     * A log longer than {@link #MAX_BYTES} is cut as {@link #readLog(Path)} cuts it; whether it was cut is not returned.
+     * A log longer than {@link #MAX_BYTES} is cut as {@link #readLog(Path)} cuts it; whether it was cut is not
+     * returned.
      *
      * @param logFile the file to read
      * @return the file content without escapes, undecodable bytes replaced; the tail of a log longer than the cap
@@ -131,8 +132,8 @@ public class BuildLogText {
      * Reads a build log, strips its ANSI escape sequences and says whether the read cut it.
      * <p>
      * A log longer than {@link #MAX_BYTES} is cut: at most {@link #MAX_BYTES} bytes are taken, counted from its end and
-     * from the first line beginning inside them, and the result says so through {@link LogRead#cut()}, so a parser whose
-     * figure the lost head can falsify reports that figure as the tail's alone (ADR {@code core-build/011}).
+     * from the first line beginning inside them, and the result says so through {@link LogRead#cut()}, so a
+     * parser whose figure the lost head can falsify reports it as unmeasured (ADR {@code core-build/011}).
      *
      * @param logFile the file to read
      * @return the file content without escapes, undecodable bytes replaced, with whether the log was cut; the tail of a
@@ -234,8 +235,8 @@ public class BuildLogText {
 
     /**
      * Drops the head of a cut that begins inside a line, so the parsers see whole lines. A cut with no line beginning in
-     * it is one long line and is kept as it is: emptying it would hide the only content the log has there. The same holds
-     * for a cut whose only line end is its last byte, because no line begins after it.
+     * it is one long line and is kept as it is: emptying it would hide the only content the log has there. The same
+     * holds for a cut whose only line end is its last byte, because no line begins after it.
      */
     static byte[] fromLineStart(byte[] bytes) {
         for (var index = 0; index < bytes.length - 1; index++) {

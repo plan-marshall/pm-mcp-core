@@ -82,14 +82,14 @@ Source, tests, specification and documentation (specific files, R19; the outline
 /plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-166-statement-residue-closeout.md
 ```
 
-```
-
 ## Write-Boundary
 
 The plan implementing this spec touches only its own repository source and tests. It creates
 and edits NO file under `.plan/orchestrator/` other than its own
 `inbox/{sender}-{seq}` message — the orchestrator owns every other ledger write — and reports
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
+sole sanctioned write mechanism are stated in
+`persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
 
 ## Carried Open Items
 

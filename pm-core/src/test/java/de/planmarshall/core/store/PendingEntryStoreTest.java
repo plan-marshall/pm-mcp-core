@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,6 +44,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.PendingEntryRecord.Bootstrap;
@@ -80,6 +83,7 @@ class PendingEntryStoreTest {
     private PendingEntryStore store;
     private RecordingLockManager locks;
     private AuditSink audit;
+    private int sourceFiles;
 
     /** What the step hook throws to stop a commit after its journal was written. */
     private static final class StopWrite extends RuntimeException {
@@ -144,8 +148,10 @@ class PendingEntryStoreTest {
     private Source source() {
         var content = Generators.letterStrings(1, 20).next();
         var digest = Generators.strings("0123456789abcdef", 64, 64).next();
+        // The counter keeps two sources of one manifest off one file path, as the manifest requires
         return new Source("source_" + lowerName(), SourceManifest.Kind.DESCRIPTION, lowerName(),
-                "operator", Trust.TRUSTED, List.of(new SourceFile(lowerName() + ".md", content.length(), digest)),
+                "operator", Trust.TRUSTED,
+                List.of(new SourceFile(lowerName() + "-" + sourceFiles++ + ".md", content.length(), digest)),
                 createdAt, null, null);
     }
 
@@ -220,6 +226,72 @@ class PendingEntryStoreTest {
                     () -> assertEquals(Optional.of(SourceManifest.empty()), store.readSources(entryId),
                             "the manifest should start empty"),
                     () -> assertEquals(Set.of(entryId), store.entryIds(), "the entry should be listed"));
+        }
+
+        @Test
+        @DisplayName("is created in one transaction: a stop after its journal rolls all four stores forward")
+        void createdInOneTransaction() throws Exception {
+            var sources = new SourceManifest(1, List.of(source()));
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(workspace.lockKey());
+                var write = ScopeTransaction.open(transaction, workspace, audit, clock, (step, _) -> {
+                    if (step == Step.JOURNAL) {
+                        throw new StopWrite();
+                    }
+                });
+                store.create(write, entry(entryId, state), sources);
+                assertThrows(StopWrite.class, write::commit, "the commit should stop after the journal");
+            }
+            var journal = TransactionJournal.read(workspace.journalFile(),
+                    Files.readAllBytes(workspace.journalFile()));
+
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(workspace.lockKey());
+                JournalRecovery.recover(transaction, workspace, audit);
+            }
+
+            assertAll(
+                    () -> assertEquals(4, journal.targets().size(),
+                            "one journal should carry the entry's four stores"),
+                    () -> assertTrue(journal.targets().stream().allMatch(target -> target.mode() == Mode.REPLACE),
+                            "every one of the four should replace its store"),
+                    () -> assertEquals(Optional.of(entry(entryId, state)), store.read(entryId),
+                            "the record should roll forward"),
+                    () -> assertEquals(Optional.of(sources), store.readSources(entryId),
+                            "the manifest should roll forward"),
+                    () -> assertEquals(new PendingEntryStore.Integrity.Verified(entryId), verify(entryId),
+                            "all four stores should roll forward together"),
+                    () -> assertFalse(Files.exists(workspace.journalFile()),
+                            "the recovery should close the journal"));
+        }
+
+        @Test
+        @DisplayName("is created in one transaction: a stop in the apply step rolls the other stores forward")
+        void createdAfterAPartialApply() {
+            var sources = new SourceManifest(1, List.of(source()));
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(workspace.lockKey());
+                var write = ScopeTransaction.open(transaction, workspace, audit, clock, (step, index) -> {
+                    if (step == Step.APPLY && index == 1) {
+                        throw new StopWrite();
+                    }
+                });
+                store.create(write, entry(entryId, state), sources);
+                assertThrows(StopWrite.class, write::commit, "the commit should stop inside the apply step");
+            }
+
+            try (var transaction = locks.openTransaction()) {
+                transaction.acquire(workspace.lockKey());
+                JournalRecovery.recover(transaction, workspace, audit);
+            }
+
+            assertAll(
+                    () -> assertEquals(Optional.of(entry(entryId, state)), store.read(entryId),
+                            "the record should be applied by the recovery"),
+                    () -> assertEquals(Optional.of(sources), store.readSources(entryId),
+                            "the manifest should be applied by the recovery"),
+                    () -> assertEquals(new PendingEntryStore.Integrity.Verified(entryId), verify(entryId),
+                            "the four stores should be complete after the recovery"));
         }
 
         @Test
@@ -336,6 +408,40 @@ class PendingEntryStoreTest {
         }
 
         @Test
+        @DisplayName("abandoned: the stores go in one transaction, the directory with sources and chat last")
+        void abandoned() throws Exception {
+            run(write -> store.create(write, entry(entryId, state)));
+            var description = Files.writeString(store.sourcesDirectory(entryId).resolve("description.md"),
+                    Generators.letterStrings(20, 60).next());
+            var chat = Files.writeString(store.chatDirectory(entryId).resolve("session.md"),
+                    Generators.letterStrings(20, 60).next());
+
+            run(write -> store.remove(write, entryId));
+            var discarded = store.discard(entryId);
+
+            assertAll(
+                    () -> assertTrue(discarded, "the abandon should find the directory"),
+                    () -> assertFalse(Files.exists(store.entryDirectory(entryId)),
+                            "the directory should be gone with its sources"),
+                    () -> assertFalse(Files.exists(description), "the stored source should be gone"),
+                    () -> assertFalse(Files.exists(chat), "the transcript should be gone"),
+                    () -> assertEquals(Set.of(), store.entryIds(), "no entry should be listed"),
+                    () -> assertEquals(Optional.empty(), DigestSidecar.load(workspace.sidecarFile())
+                                    .digest(PendingEntryStore.storePath(entryId)),
+                            "the sidecar should keep no store of the entry"));
+        }
+
+        @Test
+        @DisplayName("abandoned twice: the second discard reports that nothing was there, never an error")
+        void discardedTwice() {
+            run(write -> store.create(write, entry(entryId, state)));
+            run(write -> store.remove(write, entryId));
+            store.discard(entryId);
+
+            assertFalse(store.discard(entryId), "a directory already removed should be reported as absent");
+        }
+
+        @Test
         @DisplayName("that does not exist is removed without error, and the removal says so")
         void removeAbsent() {
             var removed = inTransaction(write -> store.remove(write, entryId));
@@ -440,6 +546,42 @@ class PendingEntryStoreTest {
                     "a hand-written store should be tampered");
             assertInstanceOf(ScopeIntegrity.Untracked.class, tampered.cause(),
                     "the cause should be the untracked store");
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"questions.jsonl", "decision-log.jsonl", "sources/sources.json"})
+        @DisplayName("a tampered store holds the entry alone, and the cause names that store")
+        void tamperedStoreAlone(String member) throws Exception {
+            var id = enter(new ScriptedRandom(Generators.longs(0, Long.MAX_VALUE - 1).next()));
+            Files.writeString(workspace.resolve(PendingEntryStore.directoryPath(id) + "/" + member), "{}");
+
+            var tampered = assertInstanceOf(PendingEntryStore.Integrity.Tampered.class, verify(id),
+                    "the edited store should hold its entry");
+
+            var mismatch = assertInstanceOf(ScopeIntegrity.Mismatch.class, tampered.cause(),
+                    "the cause should be the edited store's mismatch");
+            assertAll(
+                    () -> assertEquals(PendingEntryStore.directoryPath(id) + "/" + member, mismatch.store(),
+                            "the cause should name the edited store"),
+                    () -> assertNotEquals(mismatch.recorded(), mismatch.current(),
+                            "the edited store should differ from its recorded digest"));
+        }
+
+        @Test
+        @DisplayName("a record deleted outside a transaction is a mismatch naming it, never verified")
+        void deletedRecord() throws Exception {
+            var id = enter(new ScriptedRandom(Generators.longs(0, Long.MAX_VALUE - 1).next()));
+            Files.delete(store.store(id));
+
+            var tampered = assertInstanceOf(PendingEntryStore.Integrity.Tampered.class, verify(id),
+                    "the deleted record should hold its entry");
+
+            var mismatch = assertInstanceOf(ScopeIntegrity.Mismatch.class, tampered.cause(),
+                    "the cause should be the deleted record's mismatch");
+            assertAll(
+                    () -> assertEquals(PendingEntryStore.storePath(id), mismatch.store(),
+                            "the cause should name the deleted record"),
+                    () -> assertNull(mismatch.current(), "the deleted record should have no current digest"));
         }
     }
 

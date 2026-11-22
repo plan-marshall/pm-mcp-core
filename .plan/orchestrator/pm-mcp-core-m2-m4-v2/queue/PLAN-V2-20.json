@@ -2,10 +2,10 @@
   "id": "PLAN-V2-20",
   "slug": "git-commit-primitives",
   "workstream": "WS-01",
-  "status": "running",
+  "status": "shipped",
   "lane": "plan-marshall",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "plan-v2-20-git-commit-primitives",
+  "pr": "#545",
+  "landing": "landings/PLAN-V2-20.md",
   "seq": 20
 }

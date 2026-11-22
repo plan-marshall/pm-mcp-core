@@ -29,7 +29,9 @@ The consultation id is the consultation task's `queue_task_id`, and the service 
 `Supplier<QueueTaskId>` (link:../adr/workflow-consult/005-the-consultation-id-comes-from-a-seam.adoc[ADR 005]). The
 one-argument constructor draws from `QueueTaskId.random()`; a caller that must know the ids in advance, as the scenario
 replay harness does, passes its own supplier to the two-argument constructor. A drawn id the queue already holds is
-skipped and the next one drawn, so a supplier yields a free id after finitely many taken ones.
+skipped and the next one drawn, so a supplier yields a free id after finitely many taken ones; a supplier that keeps
+handing out taken ids is refused `consultation_ids_exhausted` after
+`ConsultationService.MAX_ID_DRAWS` (`64`) draws in a row instead of looping.
 
 `ConsultationRequest`::
 The ask: the asking task and generation, the consulted role and its class, the roles the state declares, the question,
@@ -47,7 +49,7 @@ parameter `question: text[1..4000]`. A consultation entity offers exactly one li
 What a call did: `Opened` (the consultation id and the asking task in `consulting`), `Answered` (the asking task and
 the consultations it carries) or `Refused` with a `ConsultationRefusal`. The refusal names are the server's:
 `job_scope_mismatch`, `link_not_available`, `stale_entity`, `invalid_link_args`, `class_mismatch`, and this package's
-own `consultation_open`, `consultation_bound_spent` and `consultation_depth`.
+own `consultation_open`, `consultation_bound_spent`, `consultation_depth` and `consultation_ids_exhausted`.
 
 `ConsultationFact` and `SubmitValidation`::
 The fact of one consultation as the asking task's `facts.consultations` carries it (`consultation_id`, role, status,

@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
@@ -53,8 +54,9 @@ public record SourceManifest(long revision, List<Source> sources) {
 
     /**
      * @throws NullPointerException     if the sources are {@code null}
-     * @throws IllegalArgumentException if the revision is negative, a source id is used twice, or a source breaks its
-     *                                  rules
+     * @throws IllegalArgumentException if the revision is negative, a source id is used twice, a file path is stored
+     *                                  by more than one source, the file name of the manifest is used as a stored
+     *                                  path, or a source breaks its rules
      */
     public SourceManifest {
         Objects.requireNonNull(sources, "sources");
@@ -63,10 +65,27 @@ public record SourceManifest(long revision, List<Source> sources) {
         }
         sources = List.copyOf(sources);
         var ids = new HashSet<String>();
+        var paths = new HashSet<String>();
         for (var source : sources) {
             if (!ids.add(source.sourceId())) {
                 throw new IllegalArgumentException("The source id '%s' is used twice".formatted(source.sourceId()));
             }
+            for (var file : source.files()) {
+                requireDistinctPath(source.sourceId(), file.path(), paths);
+            }
+        }
+    }
+
+    /**
+     * The sources are one set of files of one directory, so a path is stored once: the second source that names it is
+     * refused here, where the manifest is built, instead of the move writing one file twice.
+     */
+    private static void requireDistinctPath(String sourceId, String path, Set<String> paths) {
+        if (SourceManifestCodec.FILE_NAME.equals(path) || path.startsWith(SourceManifestCodec.FILE_NAME + "/")) {
+            throw new IllegalArgumentException("The source '%s' stores the reserved path '%s'".formatted(sourceId, path));
+        }
+        if (!paths.add(path)) {
+            throw new IllegalArgumentException("The source file '%s' is stored by more than one source".formatted(path));
         }
     }
 

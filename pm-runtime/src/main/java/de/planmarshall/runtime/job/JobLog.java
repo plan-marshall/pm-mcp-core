@@ -205,11 +205,10 @@ public record JobLog(Path path) {
      * launcher-failure decision. The cut is not {@link LogState#TRUNCATED}: that state means the log is shorter than
      * what the runtime already read from it, and an over-cap log is longer, not shorter. The first line is looked for in
      * at most {@link #FIRST_LINE_MAX_BYTES} bytes read from the file start, so a report longer than the overshoot is
-     * kept; a first line longer than that head is not
-     * kept and the tail alone is answered, so a cut read never takes more than that head and the cap. A log that shrinks
-     * between the size read and the read of its content is {@link LogState#TRUNCATED} too: a short read is never
-     * reported as a complete log. A log that grows instead loses nothing and is answered as the content read, with the
-     * length read before.
+     * kept; a first line longer than that head is not kept and the tail alone is answered, so a cut read never takes
+     * more than that head and the cap. A log that shrinks between the size read and the read of its content is
+     * {@link LogState#TRUNCATED} too: a short read is never reported as a complete log. A log that grows instead loses
+     * nothing and is answered as the content read, with the length read before.
      *
      * @param observedLength the number of bytes the runtime already read from the log while the job ran; {@code 0} when
      *                       it read nothing
@@ -310,8 +309,9 @@ public record JobLog(Path path) {
 
     /**
      * Drops the head of a cut that begins inside a line, so the output after the first line starts at a line beginning.
-     * A cut with no line beginning in it is one long line and is kept as it is: emptying it would hide the only content
-     * the log has there. The same holds for a cut whose only line end is its last byte, because no line begins after it.
+     * A cut with no line beginning in it is one long line and is kept as it is: emptying it would hide the only
+     * content the log has there. The same holds for a cut whose only line end is its last byte, because no line begins
+     * after it.
      */
     static byte[] fromLineStart(byte[] bytes) {
         for (var index = 0; index < bytes.length - 1; index++) {

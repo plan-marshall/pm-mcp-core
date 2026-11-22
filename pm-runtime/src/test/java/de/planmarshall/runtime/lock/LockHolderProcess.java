@@ -33,8 +33,8 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
  * Its arguments are the base directory of the runtime, the project id, the plan id and optionally a {@link Mode}: none
  * for the plan key, or {@link #LEAF}, {@link #MAILBOX}, {@link #REPAIR}, {@link #SNAPSHOT} and {@link #JOURNAL}. In a
  * leaf mode it runs one store operation after acquiring the key, because a store write or read is what opens and closes
- * a channel on the guarded file; {@link #JOURNAL} takes the queue task id as a fifth argument. The lines it writes to its
- * standard output are the protocol with the process that started it and not log messages, so they go to the file
+ * a channel on the guarded file; {@link #JOURNAL} takes the queue task id as a fifth argument. The lines it writes to
+ * its standard output are the protocol with the process that started it and not log messages, so they go to the file
  * descriptor itself: the {@link #SNAPSHOT} mode first reports how many complete lines its whole-store snapshot
  * ({@code JsonlStoreFile.read(transaction)}) found ({@link #LINES_PREFIX}), and
  * every mode then writes {@link #HELD}. Standard input ends when the starting process closes it, and also when that

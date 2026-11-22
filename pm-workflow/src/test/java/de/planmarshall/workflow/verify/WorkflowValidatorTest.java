@@ -1283,8 +1283,8 @@ class WorkflowValidatorTest {
     }
 
     /**
-     * Rule 6 models the consumption of a slot: the bind removes the value at the first read, so a second read of the same
-     * slot can only fail at run time with {@code input_unbound}. The verifier refuses the second read instead.
+     * Rule 6 models the consumption of a slot: the bind removes the value at the first read, so a second read of the
+     * same slot can only fail at run time with {@code input_unbound}. The verifier refuses the second read instead.
      */
     @Nested
     @DisplayName("Slot consumption")

@@ -72,7 +72,6 @@ de/planmarshall/runtime/start/RecoveryStepFixtures.java#CopyReconciler#1
 de/planmarshall/runtime/start/RuntimeChildProcess.java#NeverQuiet#1
 de/planmarshall/runtime/start/RuntimeChildProcess.java#anonymous:RecoveryStep#1
 de/planmarshall/runtime/start/RuntimeChildProcess.java#anonymous:RecoveryStep#2
-de/planmarshall/runtime/start/RuntimeChildProcess.java#anonymous:SweepStep#1
 de/planmarshall/runtime/start/RuntimeDrainTest.java#FakeParticipant#1
 de/planmarshall/runtime/start/ServiceUnitInstallerTest.java#lambda:ProcessCall#1
 de/planmarshall/runtime/start/ServiceUnitInstallerTest.java#lambda:ProcessCall#2

@@ -46,8 +46,8 @@ import de.planmarshall.core.store.JobId;
  * The two reference expressions are the ported forms the rewrite replaced: the differential tests hold the rewrite to
  * their result over generated lines, so a rewrite that changes a verdict fails here before it reaches a fixture.
  * <p>
- * The copy cost of {@link UnparsedEvidence} on a log at the read's cap is measured here too, as an allocation bounded by
- * a multiple of the log's length.
+ * The copy cost of {@link UnparsedEvidence} on a log at the read's cap is measured here too, as an allocation bounded
+ * by a multiple of the log's length.
  */
 @EnableGeneratorController
 @DisplayName("Build log bounds")

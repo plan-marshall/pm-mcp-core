@@ -56,8 +56,8 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
  * <p>
  * The project, plan and queue task ids are generated and passed to the other process. The literals that stay are the
  * contract: the child-process protocol (its arguments, the mode argument, the {@link LockHolderProcess#HELD} line and
- * the {@link LockHolderProcess#LINES_PREFIX} line of the snapshot mode), its exit code 0 and the process and observation
- * bounds.
+ * the {@link LockHolderProcess#LINES_PREFIX} line of the snapshot mode), its exit code 0 and the process and
+ * observation bounds.
  */
 @EnableGeneratorController
 @Timeout(value = 120, unit = TimeUnit.SECONDS)

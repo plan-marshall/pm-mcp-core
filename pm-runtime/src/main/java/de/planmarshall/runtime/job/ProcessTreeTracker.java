@@ -223,10 +223,10 @@ public final class ProcessTreeTracker {
 
     /**
      * Signals one member through its own handle. A primitive that throws for one member does not end the sweep: the
-     * JDK's destroy throws {@link IllegalStateException} for the JVM's own PID and {@link UnsupportedOperationException}
-     * where the platform cannot signal, and either leaves the other members signalled, the escalation run and a member
-     * the throw left alive reported as a {@link Survivor}. The returned flag is ignored: a refused signal ends as a
-     * reported survivor too.
+     * JDK's destroy throws {@link IllegalStateException} for the JVM's own PID and
+     * {@link UnsupportedOperationException} where the platform cannot signal, and either leaves the other members
+     * signalled, the escalation run and a member the throw left alive reported as a {@link Survivor}. The returned flag
+     * is ignored: a refused signal ends as a reported survivor too.
      *
      * @param member    the member to signal
      * @param primitive {@link ProcessHandle#destroy()} or {@link ProcessHandle#destroyForcibly()}

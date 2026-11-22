@@ -1,0 +1,52 @@
+= ADR provider-git-primitive 001: The Commit Primitives Live in `pm-provider-git`
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+The sub-workflow `git.commit_and_push` routes on the outcomes of `git.resolve-message`, `git.template-message` and
+`git.stage-and-commit`, and its task state `git.compose-message` needs the return evaluation of the entity kind
+`commit-message`. None of them existed as code. The Module Structure Specification puts the `git.*` and `ci.*`
+primitives in the provider modules, which build against the primitive SPI of `pm-core`, and forbids a provider module to
+depend on `pm-workflow`. `pm-workflow` must not see JGit, and it holds the plan-domain primitives. The assembly
+`plan-marshall-mcp` is the only module that sees both.
+
+== Decision
+
+* The four primitives are classes of `pm-provider-git` in the new package `de.planmarshall.provider.git.primitive`:
+  `GitResolveMessagePrimitive`, `GitTemplateMessagePrimitive`, `GitStageAndCommitPrimitive` and
+  `CommitMessageEvaluatePrimitive`, beside the rules they apply (`CommitTrailer`, `CommitMessages`, `StagingSets`,
+  `FootprintBoundary`).
+* Each implements `Primitive` of `pm-core` with `awaitedEvent() = NONE` and passes the `PrimitiveRegistry` constructor
+  (id pattern, outcome wire names not reserved for the engine).
+* The return evaluation `commit-message.evaluate` lives here beside the other commit primitives; `pm-workflow` keeps
+  only the entity kind that names it (link:../../../../../pm-workflow/doc/adr/workflow-verify/043-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify/043]).
+* The assembly constructs the `PrimitiveRegistry` from them; that call is the only wrapper it owes.
+
+== Alternatives Considered
+
+* *The primitives in `pm-workflow`.* Not taken: the module must not see JGit, and the git contract is the provider's.
+* *The primitives in the assembly.* Not taken: the rules are pure and testable without a framework, and the module
+  structure names the provider modules as their home.
+
+== Consequences
+
+* `pm-provider-git` still depends on `pm-core` alone; no dependency and no plugin was added.
+* The product verification of the shipped unit against these primitives (every `git.*` state bound, the kind and its
+  return evaluation registered) cannot run here, because the provider enforcer bans `pm-workflow` even at test scope:
+  it is a check of the assembly, which sees both modules.
+* A new commit primitive joins this package and the registry the assembly builds.
+
+== Source
+
+* link:../../../../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification]
+* link:../../../../../doc/specification/workflow-dsl/05-primitives.adoc#primitive-spi-contract[Workflow DSL § `Primitive<P, R>` SPI Contract]
+* link:../../developer/provider-git-primitive.adoc[Commit Primitives Developer Guide]
+* Pull request of `PLAN-V2-20` (`git-commit-primitives`), decision 1

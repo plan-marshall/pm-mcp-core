@@ -1777,6 +1777,11 @@ Given a recorded size and SHA-256 (`read(store, recordedSize, recordedSha256)`),
 `StoreIntegrity` `VERIFIED` or `DIGEST_UNVERIFIED`; without them it is `UNCHECKED`. It never decides that a store was
 edited, because it may have seen a transaction in flight: only a reader holding the store's lock decides.
 
+A store that exists as a symbolic link whose target is missing is a *refused* read, never an absent store: the file
+exists under `NOFOLLOW_LINKS` and the read of its target raises `NoSuchFileException`, which `readIfPresent` turns into
+an `UncheckedIOException` naming the store. A dangling link is a broken store, and reading it as absent would let a
+`create` target take its place and a sweep judge it residue (`PLAN-V2-22`, recorded by `PLAN-V2-167`).
+
 Neither `AtomicStoreFile` nor `LeaseStore` creates the directory of a store; whoever creates the store's scope or
 starts the runtime does.
 
@@ -1970,7 +1975,10 @@ runs the five steps:
 . *Journal*: the journal, written by `AtomicStoreFile` with a temporary file named after the transaction id, and forced
   with its directory.
 . *Apply*: every staged file renamed over its store (`ATOMIC_MOVE`), every staged block appended and its staged file
-  deleted, every deleted store removed if it exists; then the directories of the stores are forced.
+  deleted, every deleted store removed if it exists; then the directories of the stores are forced. A parent directory
+  that is gone by then is skipped, not created: the commit's data is already written, and forcing a directory a
+  concurrent end removed would fail the commit for a store whose own rename already succeeded (`PLAN-V2-22`, recorded by
+  `PLAN-V2-167`).
 . *Digests*: the sidecar with the new digest of every replaced or appended store and without the entry of every deleted
   one; the other entries stay.
 . *Close*: the owed records handed to the sink, then the journal deleted and its directory forced. If the sink refuses a
@@ -2121,8 +2129,10 @@ records over again. A record handed over again carries the same `transaction_id`
 drops the duplicate (<<_audit_log>>). A process that stops between the mutation and the append leaves the intent in the
 same way.
 
-Tests: `AuditEventTest` (`core.service`), and the delivery tests of `JournalRecoveryTest`, `JsonlStoreFileTest`,
-`ScopeTransactionTest` and `OrderedWriteTest`.
+Tests: `AuditEventTest` (`core.service`, which carries the shape of every record — the pending-entry removal's
+`entry_id`, `store` and `removed_at` among them), and the delivery tests of `JournalRecoveryTest`, `JsonlStoreFileTest`,
+`ScopeTransactionTest` and `OrderedWriteTest`; the record the sweep owes is asserted end to end by
+`PendingEntryRecordsSweepTest.cutOffRemovalSwept` of `pm-runtime`.
 
 [#_testing_with_crash_points]
 === Testing with Crash Points
@@ -2704,6 +2714,14 @@ read and the aggregate carries its coverage.
   verified and discarded per entry; it supersedes ADR 036 for the record's form.
 * link:../adr/core-store/081-the-decision-log-rename-reads-no-old-name.adoc[ADR 081]: the renames of #427 read no old
   name, the clarified request heads the role's calls "Role's Calls", and `repairs` keeps no bound.
+* link:../adr/core-store/083-the-store-level-creation-carries-a-plans-sources-alone.adoc[ADR 083]: the store-level
+  creation carries a plan's sources alone and refuses an epic target, whose sources belong to its git-tracked ledger.
+* link:../adr/core-store/084-the-move-carries-the-manifests-files-and-no-other.adoc[ADR 084]: the move carries the
+  manifest's file set and no other, refuses a shared path and the manifest's own name, and never reads through a link.
+* link:../adr/core-store/085-the-pending-entry-record-keeps-format-version-1.adoc[ADR 085]: the pending-entry record
+  keeps `format_version` 1 across its in-place shape change, and a flat `pending/<entry_id>.json` is no entry.
+* link:../adr/core-store/086-the-cross-commit-window-belongs-to-the-assembly.adoc[ADR 086]: the recovery of a creation
+  cut between the new scope's commit and the workspace's is owed to the assembly's `start.create-scope`.
 
 == The Intent Record
 
@@ -2880,33 +2898,63 @@ written through the store. A file of `pending/` that is no entry directory (a st
 never an entry, and a name that is not an id is never listed.
 
 *Never expires*: an entry has no time limit, so no sweep reads its age. The periodic sweep removes only the directory
-of an entry whose record is gone: the removal its creation or its abandoning began deletes the entry's stores in one
-workspace transaction and the directory last, and a stop between the two leaves the directory behind with no record
-(link:../../../pm-runtime/doc/developer/runtime-start.adoc[Runtime Start Developer Guide]).
+of an entry whose removal is its evidence: the entry's four stores are absent from the workspace's digest sidecar and
+from the filesystem (`Integrity.Absent`), decided under the workspace lock, so a removal a creation or an abandon cut
+off and a crash before the creating transaction committed both leave exactly that state
+(link:../../../pm-runtime/doc/developer/runtime-start.adoc[Runtime Start Developer Guide], ADR
+`runtime-start/016`).
 
 *Integrity*: `verify` reads the entry's four stores against the workspace digest sidecar under the lock and answers
 `Verified`, `Absent` or `Tampered` with the store that differs. A tampered entry therefore holds that entry alone: the
-operator's `accept-edit` re-baselines the store through `ScopeIntegrity.rebaseline`, and abandoning the entry deletes
-its directory. Neither another entry nor the workspace workflow is affected.
+operator's `accept-edit entry <entry_id>` re-baselines the store through `ScopeIntegrity.rebaseline`, and abandoning the
+entry deletes its directory. Neither another entry nor the workspace workflow is affected.
 
-*Creation*: `PendingEntryCreation.move` is the store-level part of `start.create-scope`: it copies the source files
-(after verifying each against the size and SHA-256 of the manifest) and the manifest into the new scope's
-`sources/`, copies the transcript into its `chat/`, copies the decision store and deletes the entry's, moves the
-question log through `QuestionLog.moveEntryQuestions`, and composes `request.md` from the description texts and a
-reference to every other source; it creates the directories of the new scope first, because a transaction writes
-stores and not directories, and it refuses an entry that does not exist. The workspace transaction deletes the entry's
-record last; the caller commits the new scope first and the workspace second, so a stop before the workspace's commit
-leaves the record in place and a repeated move is refused by the create targets of the new scope's stores (the operator
-ends that entry by abandoning it), a stop after both commits leaves the record gone and the directory behind, the sweep
-removes that directory, and `finish` deletes the entry's directory as the last act.
+*Creation*: `PendingEntryCreation.move` is the store-level part of `start.create-scope`. It carries a plan's sources
+alone: an epic target is refused with a named reason, because an epic's sources belong to its git-tracked ledger and
+its machine store keeps none, and the ledger copy is owed to `PLAN-V2-133` D5
+(link:../adr/core-store/083-the-store-level-creation-carries-a-plans-sources-alone.adoc[ADR 083]). The caller holds the
+workspace lock and has verified the entry under it before the move; the move itself reads the record, the manifest and
+the stores without a verification.
+
+The move copies the source files and the manifest into the new scope's `sources/`, the transcript into its `chat/`,
+copies the decision store and deletes the entry's, moves the question log through `QuestionLog.moveEntryQuestions`, and
+composes `request.md` from the description texts and a reference to every other source; it creates the directories of
+the new scope first, because a transaction writes stores and not directories, and it refuses an entry that does not
+exist. The file set is exactly the manifest: a file or link of `sources/` that no manifest entry names refuses the move
+instead of being deleted with the directory, a stored file that is a symbolic link or whose canonical path leaves the
+source directory is refused, and the file is read with `NOFOLLOW_LINKS`. The manifest itself refuses a path two sources
+name and a path that is its own `sources.json`
+(link:../adr/core-store/084-the-move-carries-the-manifests-files-and-no-other.adoc[ADR 084]).
+
+The workspace transaction deletes the entry's record last; the caller commits the new scope first and the workspace
+second, so a stop before the workspace's commit leaves the record in place and a repeated move is refused by the create
+targets of the new scope's stores (the operator ends that entry by abandoning it; the recovery of this window is owed to
+the assembly's `start.create-scope`, link:../adr/core-store/086-the-cross-commit-window-belongs-to-the-assembly.adoc[ADR
+086]), a stop after both commits leaves the record gone and the directory behind, the sweep removes that directory, and
+`finish` deletes the entry's directory as the last act. A directory a concurrent sweep removed first is no error: the
+`discard` the finish calls reports that nothing was there, and a recursive delete that finds a directory gone stops
+there instead of failing.
+
+*Compatibility*: the record's `format_version` stays 1 — its shape changed in place (`recipe` and `requested_id`
+instead of the raw `source`, `hint` required, `from_epic` added) with no bump and no reader of an earlier shape — and a
+flat `pending/<entry_id>.json` is no entry: never listed, read, migrated, swept or deleted. There is no shim for the
+pre-directory shape (link:../adr/core-store/085-the-pending-entry-record-keeps-format-version-1.adoc[ADR 085]).
+
+*A known shadowing*: the identifier grammar of a project, a plan and an epic does not reserve the `ent-` prefix, so a
+plan whose id is `ent-<hex>` and an entry of that id can both exist; `QuestionLogRecordReader` resolves the plan or epic
+first, so the entry's question log is not the one read then. The plan id has to be chosen as an entry id for that to
+happen, and the fix — reserving the prefix or resolving entries first — is a change of the identifier grammar the
+entry's specification does not ask for (`PLAN-V2-167` reports it).
 
 *Failure modes*: a record of another `format_version`, an unreadable record, or a record that states another
 `entry_id` than its directory is a `StoreRefusal` naming the file; a stored file whose size or digest differs from its
-manifest entry refuses the move; an entry of another scope's transaction is refused; removing an entry that does not
-exist is no error.
+manifest entry, a file of `sources/` with no manifest entry, and a symbolic link in the source directory refuse the
+move; an entry of another scope's transaction is refused; removing an entry that does not exist is no error.
 
-Tested by `PendingEntryStoreTest` (creation, replacement, the manifest, removal and discard, the per-entry integrity
-verdict and its re-baseline, the listing, the id grammar), `PendingEntryCodecTest` and `PendingEntrySchemaParityTest`
-(the record and its schema), `SourceManifestCodecTest` (the manifest and its refusals), and `PendingEntryCreationTest`
-(the move, the composed request, the refused digest and the refused repeated move).
+Tested by `PendingEntryStoreTest` (creation in one transaction and its roll-forward after a stop, replacement, the
+manifest, removal and discard, the abandon end, the per-entry integrity verdict per store and its re-baseline, the
+listing, the id grammar), `PendingEntryCodecTest` and `PendingEntrySchemaParityTest` (the record and its schema),
+`SourceManifestCodecTest` (the manifest, the shared path, the reserved name and its refusals), and
+`PendingEntryCreationTest` (the move, the composed request, the refused epic target, the refused differing and unlisted
+source, the refused link and the refused repeated move).
 
