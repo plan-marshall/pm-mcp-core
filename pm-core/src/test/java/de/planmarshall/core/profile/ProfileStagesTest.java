@@ -44,21 +44,23 @@ class ProfileStagesTest {
     private static final String READ_ONLY_MODEL = WRITER_MODEL + "-b";
 
     @Test
-    @DisplayName("an endpoint verification refuses a stage list without the classes stage")
-    void endpointStagesWithoutClassesRefused() {
+    @DisplayName("an endpoint verification runs all four stages and refuses a null classes stage")
+    void endpointVerificationRefusesNullClasses() {
         var identity = new ProfileStages.EndpointIdentity(true, null, null, List.of(ENDPOINT_MODEL), Map.of());
         var launch = new ProfileStages.EndpointLaunch(true, true, "enforced", true,
                 Map.of("two_options_ascending", "valid", "one_option", "valid"));
         var limits = new ProfileStages.EndpointLimits(false, 0);
-        // The stage names are the wire names of the verification record.
-        var withoutClasses = List.of("identity", "launch", "limits");
 
         assertAll(
+                // The stage names are the wire names of the verification record.
                 () -> assertEquals(ProfileStages.ENDPOINT_STAGES, List.of("identity", "launch", "classes", "limits"),
                         "An endpoint runs all four stages"),
-                () -> assertThrows(IllegalArgumentException.class,
-                        () -> new ProfileStages.EndpointVerification(identity, launch, null, limits, withoutClasses),
-                        "A stage list without classes is refused"));
+                () -> {
+                    var refusal = assertThrows(NullPointerException.class,
+                            () -> new ProfileStages.EndpointVerification(identity, launch, null, limits),
+                            "A null classes stage is refused");
+                    assertEquals("classes", refusal.getMessage(), "the refusal names the classes stage");
+                });
     }
 
     private static LoadedProfile profile() {

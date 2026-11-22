@@ -44,9 +44,10 @@ class WorkerGenerationRecordsTest {
     @DisplayName("the builder builds the worker generation the constructor builds")
     void workerGenerationBuilderEqualsConstructor() throws Exception {
         var generationId = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
-        var role = Generators.letterStrings(1, 20).next();
-        var harness = Generators.letterStrings(1, 20).next();
-        var model = Generators.letterStrings(1, 20).next();
+        // the same-typed text components are drawn from disjoint domains, so a swap cannot hide behind a collision
+        var role = "role-" + Generators.letterStrings(1, 20).next();
+        var harness = "harness-" + Generators.letterStrings(1, 20).next();
+        var model = "model-" + Generators.letterStrings(1, 20).next();
         var form = Generators.enumValues(RoleForm.class).next();
         var workdirKind = LaunchRequest.WorkdirKind.PLAN_WORKTREE;
         var planId = RuntimeGenerators.planIds().next();
@@ -56,8 +57,8 @@ class WorkerGenerationRecordsTest {
         var jobId = new JobId(generationId);
         var slot = new ModelSlots.Lease(generationId, role);
         var lifecycle = Generators.enumValues(WorkerLifecycle.class).next();
-        var leasedTask = Generators.letterStrings(1, 40).next();
-        var servedTasks = List.of(Generators.letterStrings(1, 40).next());
+        var leasedTask = "leased-" + Generators.letterStrings(1, 40).next();
+        var servedTasks = List.of("served-" + Generators.letterStrings(1, 40).next());
         var idleWakeups = Generators.longs(1, 1_000).next();
         var contextTokens = WorkerState.ContextTokens.NOT_MEASURED;
         var worktreeMark = new WorkerState.WorktreeMark(RuntimeGenerators.sha256Digests().next(),
@@ -101,8 +102,8 @@ class WorkerGenerationRecordsTest {
     void workerGenerationBuilderRefusesMissingGenerationId() {
         var builder = WorkerGeneration.builder();
         var refusal = assertThrows(NullPointerException.class, builder::build,
-                "the builder names the missing generation");
+                "the builder refuses a missing generationId");
 
-        assertEquals("generationId", refusal.getMessage(), "the refusal names the generation id");
+        assertEquals("generationId", refusal.getMessage(), "the refusal names component generationId");
     }
 }

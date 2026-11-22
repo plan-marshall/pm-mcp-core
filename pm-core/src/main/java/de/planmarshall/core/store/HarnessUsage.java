@@ -121,18 +121,15 @@ Measurement cacheCreationInputTokens, Measurement reasoningTokens, Measurement t
      * is sent no tool, so it reports no tool use; the cache and reasoning figures are not part of the protocol's
      * {@code usage} object and are {@code not_applicable}.
      *
-     * @param promptTokens     the answer's {@code prompt_tokens}; empty when the answer lacks the figure
-     * @param completionTokens the answer's {@code completion_tokens}; empty when the answer lacks the figure
+     * @param promptTokens     the answer's {@code prompt_tokens}; {@code null} when the answer lacks the figure
+     * @param completionTokens the answer's {@code completion_tokens}; {@code null} when the answer lacks the figure
      * @return the usage of the answer
      */
-    public static HarnessUsage fromEndpoint(OptionalLong promptTokens, OptionalLong completionTokens) {
-        Objects.requireNonNull(promptTokens, "promptTokens");
-        Objects.requireNonNull(completionTokens, "completionTokens");
-        var missing = promptTokens.isEmpty() || completionTokens.isEmpty();
+    public static HarnessUsage fromEndpoint(@Nullable Long promptTokens, @Nullable Long completionTokens) {
+        var missing = promptTokens == null || completionTokens == null;
         return new HarnessUsage(
-                promptTokens.isPresent() ? Measurement.measured(promptTokens.getAsLong()) : Measurement.unmeasured(),
-                completionTokens.isPresent() ? Measurement.measured(completionTokens.getAsLong())
-                        : Measurement.unmeasured(),
+                promptTokens != null ? Measurement.measured(promptTokens) : Measurement.unmeasured(),
+                completionTokens != null ? Measurement.measured(completionTokens) : Measurement.unmeasured(),
                 Measurement.notApplicable(), Measurement.notApplicable(), Measurement.notApplicable(),
                 Measurement.measured(0), null, missing ? UnmeasuredReason.NOT_REPORTED_BY_HARNESS : null);
     }

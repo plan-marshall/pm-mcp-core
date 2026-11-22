@@ -41,6 +41,8 @@ import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.id.HarnessId;
+import de.planmarshall.core.id.IntegrationName;
 import de.planmarshall.core.id.RoleName;
 import de.planmarshall.core.store.PlanOverrides.Axis;
 import de.planmarshall.core.store.PlanOverrides.Channel;
@@ -162,7 +164,7 @@ public class PlanOverridesCodec {
             generator.writeObjectFieldStart(entry.getKey());
             var role = entry.getValue();
             if (role.harness() != null) {
-                generator.writeStringField(FIELD_HARNESS, requireRole(role.harness()));
+                generator.writeStringField(FIELD_HARNESS, requireHarness(role.harness()));
             }
             if (role.model() != null) {
                 generator.writeStringField(FIELD_MODEL, requireBounded(role.model(), MODEL_MAX_LENGTH, FIELD_MODEL));
@@ -188,7 +190,7 @@ public class PlanOverridesCodec {
             throws IOException {
         generator.writeObjectFieldStart(FIELD_INTEGRATIONS);
         for (var entry : integrations.entrySet()) {
-            requireRole(entry.getKey());
+            requireIntegration(entry.getKey());
             generator.writeStringField(entry.getKey(), entry.getValue().wireName());
         }
         generator.writeEndObject();
@@ -308,7 +310,7 @@ public class PlanOverridesCodec {
             var field = nextField(parser, seen);
             try {
                 switch (field) {
-                    case FIELD_HARNESS -> harness = requireRole(string(parser, field));
+                    case FIELD_HARNESS -> harness = requireHarness(string(parser, field));
                     case FIELD_MODEL -> model = requireBounded(string(parser, field), MODEL_MAX_LENGTH, FIELD_MODEL);
                     case FIELD_EFFORT -> effort = requireBounded(string(parser, field), EFFORT_MAX_LENGTH,
                             FIELD_EFFORT);
@@ -357,7 +359,9 @@ public class PlanOverridesCodec {
     }
 
     private static Integration integration(JsonParser parser, String name) throws IOException {
-        requireRoleName(name);
+        if (!IntegrationName.matches(name)) {
+            throw unreadable("not an integration name of the document: " + name);
+        }
         var wireName = string(parser, name);
         return Integration.of(wireName)
                 .orElseThrow(() -> unreadable("not an integration variant: " + wireName));
@@ -436,18 +440,36 @@ public class PlanOverridesCodec {
         return name;
     }
 
+    static String requireHarness(String harness) {
+        if (!HarnessId.matches(harness)) {
+            throw new IllegalArgumentException("Not a harness id of the document: " + harness);
+        }
+        return harness;
+    }
+
+    static String requireIntegration(String name) {
+        if (!IntegrationName.matches(name)) {
+            throw new IllegalArgumentException("Not an integration name of the document: " + name);
+        }
+        return name;
+    }
+
+    /** The bound counts code points, as the schema's {@code maxLength} does, never UTF-16 units. */
     static String requireBounded(String value, int maxLength, String field) {
-        if (value.isEmpty() || value.length() > maxLength) {
+        var length = value.codePointCount(0, value.length());
+        if (length == 0 || length > maxLength) {
             throw new IllegalArgumentException("'%s' is 1 to %d characters: %d"
-                    .formatted(field, maxLength, value.length()));
+                    .formatted(field, maxLength, length));
         }
         return value;
     }
 
+    /** The bound counts code points, as the schema's {@code maxLength} does, never UTF-16 units. */
     static String requireBaseBranch(String value) {
-        if (value.isEmpty() || value.length() > BASE_BRANCH_MAX_LENGTH) {
+        var length = value.codePointCount(0, value.length());
+        if (length == 0 || length > BASE_BRANCH_MAX_LENGTH) {
             throw new IllegalArgumentException("A base branch is 1 to %d characters: %d"
-                    .formatted(BASE_BRANCH_MAX_LENGTH, value.length()));
+                    .formatted(BASE_BRANCH_MAX_LENGTH, length));
         }
         return value;
     }

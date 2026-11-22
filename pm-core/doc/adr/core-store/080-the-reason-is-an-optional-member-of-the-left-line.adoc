@@ -47,5 +47,6 @@ closed schema in format version 1, read by `PlanHistoryCodec`, which refuses an 
 == Source
 
 * Pull request of `PLAN-V2-19` (`engine-carries-reasons`), deliverable 2
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]
 * link:../../../../doc/specification/store-schemas/02-workflow-state-store.adoc#plan-history[Store Schemas § The Plan's History]
 * link:../../developer/core-store.adoc#_the_reason_of_a_left_line[Scope Stores Developer Guide § The Reason of a `left` History Line]

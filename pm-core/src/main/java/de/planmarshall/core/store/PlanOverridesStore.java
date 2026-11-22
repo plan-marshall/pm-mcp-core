@@ -32,6 +32,11 @@ import de.planmarshall.core.store.PlanOverrides.UpdatedBy;
  * document, so nothing is merged and nothing is overwritten unseen. The write itself is the caller's act; composing the
  * instance version of the event {@code override}, auditing it and answering with that version are the transaction's, and
  * happen around this store.
+ * <p>
+ * A document that is unreadable or in another format version is refused by {@link #read()} and so by
+ * {@link #write}, and the {@link StoreRefusal} names the file {@code plans/<plan_id>/overrides.json}. No call repairs
+ * it: the operator deletes that file by hand, which leaves the plan with no own values, and sets them again
+ * (developer guide {@code core-store.adoc}, Plan Overrides).
  *
  * @since 0.1
  */

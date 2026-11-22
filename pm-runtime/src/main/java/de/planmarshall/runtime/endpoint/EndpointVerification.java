@@ -111,13 +111,12 @@ public final class EndpointVerification {
                     .launch(ProfileStages.EndpointLaunch.builder().passed(false).readiness(false).resultSchema(NONE)
                             .streamingOff(false).probes(Map.of()).build())
                     .classes(new ProfileStages.EndpointClasses(false, false))
-                    .limits(new ProfileStages.EndpointLimits(false, 0))
-                    .stages(ProfileStages.ENDPOINT_STAGES).build();
+                    .limits(new ProfileStages.EndpointLimits(false, 0)).build();
         }
         return ProfileStages.EndpointVerification.builder().identity(identity(profile, lookup))
                 .launch(launch(profile, model, baseTask, schema))
                 .classes(classes(profile, model, toolTask, decoyResult))
-                .limits(limits(profile, model, baseTask)).stages(ProfileStages.ENDPOINT_STAGES).build();
+                .limits(limits(profile, model, baseTask)).build();
     }
 
     /**

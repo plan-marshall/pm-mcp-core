@@ -138,7 +138,7 @@ public final class MachineConfigurationStore {
     public void writeProviders(ProviderDefaults providers, long revision) {
         Objects.requireNonNull(providers, "providers");
         transact(revision, current -> current == null
-                ? (Object) ProviderDefaults.none()
+                ? ProviderDefaults.none()
                 : current.providers(), bytes -> bytes == null
                 ? MachineConfigurationCodec.create(providers)
                 : MachineConfigurationCodec.write(storeFile.store(), bytes, providers, revision + 1));
@@ -213,13 +213,14 @@ public final class MachineConfigurationStore {
 
     /**
      * Writes one member in the document's transaction: it reads the document again, refuses a revision the document
-     * moved past, and writes what {@code compose} returns.
+     * moved past, and writes what {@code composer} returns.
      *
+     * @param <T>          the type of the member written
      * @param revision     the revision the caller read
      * @param currentValue the current value of the member, for the refusal
-     * @param compose      the new document, from the document as read ({@code null} when it does not exist)
+     * @param composer     the new document, from the document as read ({@code null} when it does not exist)
      */
-    private void transact(long revision, Function<MachineConfigurationCodec.@Nullable Document, Object> currentValue,
+    private <T> void transact(long revision, Function<MachineConfigurationCodec.@Nullable Document, T> currentValue,
             Composer composer) {
         try (var transaction = lockManager.openTransaction()) {
             transaction.acquire(storeFile.lockKey());

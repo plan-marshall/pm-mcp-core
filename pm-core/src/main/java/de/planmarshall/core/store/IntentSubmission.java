@@ -16,7 +16,8 @@ import java.util.Optional;
  * The entry point a submission of the intent record arrives through (Phase Workflows § The Intent Record; Store
  * Schemas § Intent Record): {@code submit:refine}, the light lane's {@code submit:outline}, and the re-planning action
  * that changes intent. All three accept the record as {@code intent:schema[intent-record]}; the entry point changes
- * which transaction accepts it, never the record or its checks.
+ * which transaction accepts it, never the record, and decides one check: check 7 refuses an empty
+ * {@code non_goals} only for a record submitted through {@code submit:refine} ({@link IntentAcceptance}).
  *
  * @since 0.1
  */

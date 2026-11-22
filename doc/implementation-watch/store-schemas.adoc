@@ -803,9 +803,15 @@ merge, or a body replaced by the lesson review recomputes the flag and turns it 
 stores a flagged lesson as trusted and a model reads it before the screener.
 Guard:: Scenario over a plan whose findings store holds one `github_pr` comment screened `clean`: its `lessons-capture`
 writes a lesson with `derived_from_untrusted: true`; a body revision by the lesson review that reads no untrusted text
-keeps it `true`; a merge of a flagged and an unflagged lesson is `true`; choosing it at a start passes level 1 and
-the screener, and with a screener verdict `suspicious` the start waits in `source-lesson.flagged`. Matched controls:
-a lesson of a plan whose facts held no untrusted text is `false` and stored without screening.
+keeps it `true`; choosing it at a start passes level 1 and the screener, and with a screener verdict `suspicious` the
+start waits in `source-lesson.flagged`. Matched controls: a lesson of a plan whose facts held no untrusted text is
+`false` and stored without screening. The citation rule is covered in `pm-core` by `LessonStoreUntrustedCitationTest`:
+a cited lesson that is unreadable, tampered, deleted out of band or untracked marks the revision, an absent one does
+not, and a clean and a marked citation are each other's matched control (`resolutionArms`, with
+`resolutionArmsCoverEveryVariant` and `untrustedSwitchHasNoDefaultArm`); the nested
+`CitationStatesThroughRevise` drives the same states through `revise`. A merge of a flagged and an unflagged lesson
+is not guarded here: no code writes the merge yet, and it belongs to the work package
+link:../plans/lesson-lifecycle.adoc[`lesson-lifecycle`].
 Source:: Article analysis `context-collapse` of plan-marshall-documentation (Copilot memory written from a summarized
 web page and reused in every later session).
 

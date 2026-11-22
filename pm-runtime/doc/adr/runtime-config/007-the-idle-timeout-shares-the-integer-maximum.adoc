@@ -23,8 +23,8 @@ make the refusal name the bound.
 Both. The schema gives `lsp_idle_timeout_seconds` the codec's bound, `"maximum": 2147483647`, so a document the schema
 admits is one the codec reads. The codec's bounded-integer reader refuses an integer outside the `int` range with the
 same refusal it gives an in-range value outside the bounds, `'lsp_idle_timeout_seconds' must be 60 to 2147483647:
-<value>`, so the refusal names the bound instead of the parser's coercion message. No other member and no default
-changes.
+<value>`, so the refusal names the bound instead of the parser's coercion message. No other schema bound and no default
+changes; the refusal does, because the reader is shared (see Consequences).
 
 == Alternatives Considered
 
@@ -40,6 +40,10 @@ changes.
 * The schema, the codec and the refusal state one range for the idle timeout.
 * `MachineConfigurationCodecTest` holds a value above the maximum that is refused naming the bound.
 * A later change of the range changes the schema and the codec together.
+* The bounded-integer reader `copyBoundedInteger` serves every bounded integer of `machine-config.json`, so every one
+  of them, not only the idle timeout, is now refused naming its bound when its value lies outside the `int` range;
+  before, the refusal was the parser's coercion message (recorded 2026-11-21 by PLAN-V2-163, carried item 60 (g):
+  the pull request of PLAN-V2-158 had said no wire format changed beyond the two maxima).
 
 == Source
 
