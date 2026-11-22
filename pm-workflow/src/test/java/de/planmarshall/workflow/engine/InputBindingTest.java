@@ -839,7 +839,8 @@ class InputBindingTest {
         @Test
         @DisplayName("Should refuse a second call that binds a consumed slot")
         void shouldRefuseAConsumedSlot() {
-            // the version in force carries the two-read unit; Rule 6 refuses that shape, so the bind is the safety net here
+            // the version in force carries the two-read unit; Rule 6 refuses that shape, so the bind is the safety
+            // net here
             var engine = versioned(slotPlan(FILL_AND_CALL), slotPlan(FILL_AND_CALL_TWICE),
                     parse("sub.commit.pmwf", SUB_COMMIT));
             var message = generatedMessage();

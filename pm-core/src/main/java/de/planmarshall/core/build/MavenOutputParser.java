@@ -116,10 +116,10 @@ public class MavenOutputParser {
      * The runner an execution header names, empty when the line carries none.
      * <p>
      * The answer is the ported expression's: the leftmost {@link #EXECUTION_HEADER_HEAD} whose rest of the line, up to
-     * the first line terminator {@code .} does not match, holds an {@code @} followed by {@code ---}. The scan is linear
-     * in the line's length, also for a line of repeated {@code --- a:b:c @} text: one pass from the line's end records,
-     * for every position, the next {@code @} and the last {@code ---} before the next terminator, so each head is
-     * decided by two array reads instead of a scan of its rest.
+     * the first line terminator {@code .} does not match, holds an {@code @} followed by {@code ---}. The scan is
+     * linear in the line's length, also for a line of repeated {@code --- a:b:c @} text: one pass from the line's end
+     * records, for every position, the next {@code @} and the last {@code ---} before the next terminator, so each head
+     * is decided by two array reads instead of a scan of its rest.
      *
      * @param line the line to inspect
      * @return the runner named by the header, or empty when the line is no execution header
@@ -185,9 +185,10 @@ public class MavenOutputParser {
     /**
      * Reads and parses a Maven build log.
      * <p>
-     * A log the read cuts ({@link BuildLogText#readLog(Path)}) reports a measured count as the tail's alone
-     * ({@link TestCounts.Measured#tailOnly()}): a summary block of a module in the lost head is not in it, so the figure
-     * is no count of the whole run (ADR {@code core-build/011}).
+     * A log the read cuts ({@link BuildLogText#readLog(Path)}) reports {@link TestCounts.Unmeasured}: a summary
+     * block of a module in the lost head is not in it, so the tail's figure is no count of the whole run, and a cut
+     * log never claims that no test ran. The failing count the tail reports is filed as one error diagnostic, because a
+     * visible failure is evidence whether or not the total is a measurement (ADR {@code core-build/011}).
      *
      * @param logFile the file to read
      * @return the parsed build
@@ -200,13 +201,34 @@ public class MavenOutputParser {
     private static ParsedBuild parseStripped(String logText, boolean cut) {
         String bounded = BuildLogText.boundLines(logText);
         List<String> lines = List.of(bounded.split("\n", -1));
+        var scan = new CountScan();
+        lines.forEach(scan::accept);
         List<Diagnostic> diagnostics = StackTraceCollector.attach(lines, extractDiagnostics(lines));
-        TestCounts testCounts = extractTestCounts(bounded, lines, cut).orElse(null);
+        if (cut && scan.visibleFailures() > 0) {
+            diagnostics = withVisibleFailures(diagnostics, scan.visibleFailures());
+        }
+        TestCounts testCounts = scan.result(bounded, cut).orElse(null);
         BuildStatus status = detectStatus(bounded);
         boolean successMarker = bounded.contains(SUCCESS_MARKER);
         boolean noTestsRan = ParsedBuild.noTestsRanFrom(status, successMarker, testCounts,
                 bounded.contains(NO_TESTS_MARKER));
         return new ParsedBuild(diagnostics, status, successMarker, testCounts, noTestsRan);
+    }
+
+    /**
+     * Adds the one finding a cut log keeps from a tail that reports failing tests: the total is no measurement, but the
+     * visible failing count is evidence a consumer must still see (ADR {@code core-build/011}).
+     *
+     * @param diagnostics the diagnostics the log filed
+     * @param failures    the failing tests the counted blocks report
+     * @return the diagnostics with the visible failing count filed as an error
+     */
+    private static List<Diagnostic> withVisibleFailures(List<Diagnostic> diagnostics, long failures) {
+        var withFailures = new ArrayList<>(diagnostics);
+        withFailures.add(Diagnostic.builder()
+                .message("the cut log's tail reports %d failing tests".formatted(failures))
+                .category(Category.TEST_FAILURE).severity(Severity.ERROR).build());
+        return withFailures;
     }
 
     private static List<Diagnostic> extractDiagnostics(List<String> lines) {
@@ -263,12 +285,6 @@ public class MavenOutputParser {
             return BuildStatus.FAILURE;
         }
         return logText.contains(SUCCESS_MARKER) ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
-    }
-
-    private static Optional<TestCounts> extractTestCounts(String logText, List<String> lines, boolean cut) {
-        var scan = new CountScan();
-        lines.forEach(scan::accept);
-        return scan.result(logText, cut);
     }
 
     /**
@@ -348,7 +364,16 @@ public class MavenOutputParser {
             }
         }
 
+        /** @return the failing tests the counted blocks report, 0 when no block was counted */
+        long visibleFailures() {
+            return (summaryLines.isEmpty() ? perClassLines : summaryLines).stream()
+                    .mapToLong(counts -> counts[1]).sum();
+        }
+
         Optional<TestCounts> result(String logText, boolean cut) {
+            if (cut) {
+                return Optional.of(TestCounts.unmeasured());
+            }
             if (summaryLines.isEmpty() && ambiguousLines.isEmpty() && perClassLines.isEmpty()) {
                 return Optional.empty();
             }
@@ -365,8 +390,7 @@ public class MavenOutputParser {
                     || logText.contains(PARALLEL_BUILD_BANNER)
                     ? Optional.empty()
                     : runnerCounts();
-            return Optional.of(
-                    TestCounts.from(total - failed - skipped, failed, skipped, byRunner.orElse(null), cut));
+            return Optional.of(TestCounts.from(total - failed - skipped, failed, skipped, byRunner.orElse(null)));
         }
 
         private Optional<Map<String, Integer>> runnerCounts() {

@@ -158,8 +158,8 @@ public class CoberturaReportParser {
 
         /**
          * Reads the root, where the zero rule is decided: {@code lines-valid="0"} refuses the report, and a root
-         * {@code branch-rate} of {@code 0} or none with a {@code branches-valid} of {@code 0} or none makes every branch
-         * metric of the report absent. A nonzero root {@code branch-rate} is a measurement without
+         * {@code branch-rate} of {@code 0} or none with a {@code branches-valid} of {@code 0} or none makes every
+         * branch metric of the report absent. A nonzero root {@code branch-rate} is a measurement without
          * {@code branches-valid}.
          *
          * @param reader the reader positioned on the root

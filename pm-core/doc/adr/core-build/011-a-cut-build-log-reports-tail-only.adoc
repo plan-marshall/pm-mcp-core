@@ -1,9 +1,12 @@
-= ADR 011: A Cut Build Log Reports Its Maven Test Count as the Tail's Alone
+= ADR 011: A Cut Build Log Reports Its Maven Test Count as Unmeasured
 :nofooter:
 
 == Status
 
-Accepted
+Accepted; amended 2026-11-22 (PLAN-V2-166): a cut log reports `TestCounts.Unmeasured`, not a tail-only `Measured`. The
+operator reversed the 2026-11-21 choice after the landing analysis found the flag read by no code of this repository
+(`landings/PLAN-V2-163.md`, C5). The file name keeps the first decision's slug, because ADR identity is the number and
+every link to this record names the file.
 
 == Date
 
@@ -19,34 +22,46 @@ lost head was missing from the figure, and the figure still read as the count of
 PLAN-V2-131 named the defect (M1), and PLAN-V2-163 carried it as item 11(b), an ask-at-refine decision. The operator
 chose the recommended option at refine (2026-11-21).
 
+The first decision carried the figure as a `Measured` value with a `tailOnly` flag. The landing of PLAN-V2-163 showed
+that no code of this repository read the flag, so the tail's figure still read as the run's at every consumer, and
+`population()` still answered `MEASURED` to the contradiction check the item named. PLAN-V2-166 put the two remaining
+answers to the operator (2026-11-22), who chose the explicit absence.
+
 == Decision
 
 * `BuildLogText.readLog(Path)` returns a `BuildLogText.LogRead`, the text and a `cut` flag that is `true` exactly when
   the log was longer than `BuildLogText.MAX_BYTES`. `BuildLogText.read(Path)` keeps returning the text alone for the
   parsers whose result the cut cannot falsify.
-* `MavenOutputParser.parse(Path)` reads through `readLog` and passes the flag to its count scan. A measured population of
-  a cut log is a `TestCounts.Measured` with `tailOnly` set: the figure is the tail's, and a consumer reads it as such.
-  An unmeasured population stays `Unmeasured`; the `String` overload, which receives no file, reports `tailOnly` as
-  `false`.
-* `TestCounts.Measured` carries the flag as a component, and `TestCounts.from` takes it as an argument; the five-argument
-  constructor and `from` of a whole log keep it `false`.
+* `MavenOutputParser.parse(Path)` reads through `readLog` and passes the flag to its count scan. A cut log reports
+  `TestCounts.Unmeasured`, whatever the tail carries: the summary blocks of the modules in the lost head are not in it,
+  so no number of the tail is a count of the whole run. The `String` overload, which receives no file, is never cut.
+* `TestCounts.Measured` carries the four counts and the per-runner map, and `TestCounts.from` takes them; the state that
+  says "no measurement" is `TestCounts.Unmeasured`, which has no count accessor, so the cut cannot be read as a zero.
 
 == Alternatives Considered
 
+* *A `Measured` value with a `tailOnly` flag* (the decision of 2026-11-21, reversed here). Not taken: a figure nobody
+  branches on reads as the run's at every consumer, and `population()` still answered `MEASURED`, so the contradiction
+  check the item named was unchanged.
 * *A `Measured` text that says "tail only" for a cut log.* Not taken: a figure carried in prose is read by nobody that
   branches on it, and a consumer that formats the counts would show the tail's sum as the run's.
-* *An `Unavailable`-style answer for a count the cut can falsify.* Not taken: the tail's counts are a true measurement
-  of the part that was read, and the operator sees the failing module of the tail; discarding them loses evidence the
-  flag can keep, at the cost of the head's modules, which neither option recovers.
+* *Keep the tail's counts as a measurement of the part that was read.* Not taken on the operator's word of 2026-11-22:
+  the figure cannot be told from the run's by any consumer this repository has, and `Unmeasured` states the absence the
+  read actually has. The tail's counts remain in the log the operator can open.
 
 == Consequences
 
-* A cut Maven log reports its count as `tailOnly`; a log at or below the cap, and every `String` parse, report `false`,
-  so no fixture changes.
+* A cut Maven log reports `TestCounts.Unmeasured`; a log at or below the cap reports its measured counts. No other
+  parser changes, because the flag is passed to the Maven count scan alone.
+* A cut log never reads as `noTestsRan`: `ParsedBuild.noTestsRanFrom` needs a null count, and the cut reports the
+  explicit absence instead, so a lost head cannot turn into a "no tests" verdict.
+* A cut log keeps the failing count its tail reports as one `TEST_FAILURE` diagnostic at error severity, so a visible
+  failure still contradicts a success banner even though the total is no measurement (the finding codereview raised
+  against the first form of this change). The diagnostic is evidence, not a count: `testCounts()` stays `Unmeasured`.
 * The other parsers read the text alone and do not carry the flag. A parser whose figure a cut can falsify takes the
   flag through `readLog` in the same way when a plan touches it.
 * The contradiction check of a consumer still sees only the tail: a failing module in the lost head is not in the
-  diagnostics. The flag says that the count is partial; it does not restore the head.
+  diagnostics. The absent measurement says that no whole-run figure exists; it does not restore the head.
 
 == Source
 

@@ -87,6 +87,13 @@ public final class ConsultationService {
     /** The compiled length of a question and of an answer, in characters. */
     public static final int MAX_TEXT_LENGTH = 4_000;
 
+    /**
+     * The compiled number of consecutive taken ids the seam may hand out for one consultation before the open is
+     * refused: a seam yields a free id after finitely many taken ones, and a seam that cannot is a stuck source, not a
+     * reason to spin.
+     */
+    public static final int MAX_ID_DRAWS = 64;
+
     private static final String NO_TASK = "the queue holds no task";
 
     private final QueueStore queue;
@@ -105,7 +112,8 @@ public final class ConsultationService {
     /**
      * Creates the service with an id seam: every consultation id is drawn from the supplier, so a harness that replays
      * a consultation names its id in advance (ADR 005). A drawn id the queue already holds is skipped and the next one
-     * is drawn, so the supplier must yield a free id after finitely many taken ones.
+     * is drawn, so the supplier must yield a free id after finitely many taken ones: after {@value #MAX_ID_DRAWS} taken
+     * ids in a row {@link #open} refuses {@code consultation_ids_exhausted} instead of drawing on.
      *
      * @param queue           the queue of the project the consultations belong to
      * @param consultationIds the source of the consultation ids
@@ -172,6 +180,11 @@ public final class ConsultationService {
             return early.get();
         }
         var consultationId = freeId();
+        if (consultationId.isEmpty()) {
+            return refused(ConsultationRefusal.CONSULTATION_IDS_EXHAUSTED,
+                    "the id seam handed out %d taken ids in a row".formatted(MAX_ID_DRAWS));
+        }
+        var id = consultationId.get();
         var recorded = new AtomicReference<QueueTaskRecord>();
         var outcome = new AtomicReference<ConsultationOutcome>();
         queue.updateAll(records -> {
@@ -188,7 +201,7 @@ public final class ConsultationService {
             var asker = askerFound.get();
             var consultations = new ArrayList<>(asker.consultations());
             consultations.add(Consultation.builder()
-                    .consultationId(consultationId)
+                    .consultationId(id)
                     .role(request.role())
                     .askedBy(request.generationId())
                     .askedAt(request.at())
@@ -200,13 +213,13 @@ public final class ConsultationService {
                     .build());
             var updated = asker.withConsultations(consultations).withStatus(Status.CONSULTING);
             recorded.set(updated);
-            outcome.set(new ConsultationOutcome.Opened(consultationId, updated));
+            outcome.set(new ConsultationOutcome.Opened(id, updated));
             return replace(records, updated);
         });
         if (outcome.get() instanceof ConsultationOutcome.Refused) {
             return outcome.get();
         }
-        queue.create(consultationTask(recorded.get(), request, consultationId));
+        queue.create(consultationTask(recorded.get(), request, id));
         return outcome.get();
     }
 
@@ -566,13 +579,14 @@ public final class ConsultationService {
                 .build();
     }
 
-    private String freeId() {
-        while (true) {
+    private Optional<String> freeId() {
+        for (var drawn = 0; drawn < MAX_ID_DRAWS; drawn++) {
             var candidate = consultationIds.get().value();
             if (queue.read(candidate).isEmpty()) {
-                return candidate;
+                return Optional.of(candidate);
             }
         }
+        return Optional.empty();
     }
 
     /**

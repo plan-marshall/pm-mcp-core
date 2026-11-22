@@ -1,0 +1,49 @@
+= ADR provider-git-primitive 002: One Port, `CommitSite`, Resolved per Call
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+A primitive receives a `WorkflowExecutionContext` that names only the scope (`scopeId()`) and reads and writes no store.
+The commit stages need much more from the world: the target checkout, its scope type, the epic's archive flag, the dirty
+paths, the operator's stored trailer and identity, the machine default of the trailer, the agent identity, the diff
+summary and the two breaches of the footprint check that read stores and the job runtime. The git contract has no
+`status` operation, so the dirty paths cannot come from `GitOperations`.
+
+== Decision
+
+* One interface, `CommitSite`, carries everything the primitives read. Every method takes the
+  `WorkflowExecutionContext`, so the assembly resolves each answer per call from the scope the context addresses, and one
+  stateless instance serves every scope.
+* Its value type `DiffSummary` (changed file count, module scope, suggested types) is a nested record; the stored trailer
+  halves are `CommitTrailer.Stored`. An absent answer is an `Optional` return; an absent value inside a record is
+  `@Nullable`, never an `Optional` component.
+* `pm-provider-git` declares the port and implements none of it: no store read and no second git command line is
+  added. The tests use EasyMock doubles of it, not a hand-written fixture.
+
+== Alternatives Considered
+
+* *One port per concern* (a trailer source, an identity source, a footprint source). Not taken: every primitive would
+  take several constructor arguments the assembly wires identically, and the scope resolution would repeat per port.
+* *A record of the site's values passed as a parameter.* Not taken: the parameters of a primitive are its bound inputs;
+  the engine does not hold these values.
+* *A hand-written `CommitSiteFixture`.* Not taken: no new hand-written test double is added
+  (link:../../../../../doc/adr/026-the-kept-hand-written-test-doubles-are-a-closed-list.adoc[ADR 026]).
+
+== Consequences
+
+* The implementation of `CommitSite` per scope is an external hand-off to the assembly's engine wiring.
+* A new value a commit stage needs is a new method of the port, implemented by the assembly in the same change.
+
+== Source
+
+* link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stages 3 and 4)
+* link:../../developer/provider-git-primitive.adoc#_the_commit_site[Commit Primitives Developer Guide § The Commit Site]
+* Pull request of `PLAN-V2-20` (`git-commit-primitives`), decision 2
