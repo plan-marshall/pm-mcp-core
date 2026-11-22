@@ -1,0 +1,66 @@
+= ADR 016: The Sweep Removes Pending Entry Residue by the End of the Entry
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-22
+
+== Context
+
+The periodic sweep removed pending entry records older than a compiled maximum age (24 hours). Store Schemas § Pending
+Entry and Timeouts § Pending Entry no longer give an entry a maximum age: an entry never expires and stays among the
+project's open entries until its scope is created, the operator abandons it, or the release of its project deletes it.
+The sweep's residue is now the directory of an entry whose removal a stop cut off
+(link:../../../../doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc#periodic-sweep[Runtime Lifecycle §
+Periodic Sweep]).
+
+== Decision
+
+* `PeriodicSweep` carries no maximum age. `runOnce(now)` passes the instant of the run to every step as the instant its
+  records carry, never an age to compare.
+* `PendingEntryRecordsSweep` decides by the end of the entry, not by its age: a directory whose record `entry.json`
+  exists is an open entry and is never removed, however old it is; a directory whose record is gone is the residue of a
+  removal a stop cut off, because the removal the creation or the abandoning began deletes the entry's stores in one
+  workspace transaction and the directory last.
+* The residue of a run is removed in one transaction of the workspace scope. Every candidate is re-judged under the
+  workspace lock before it is removed, so an entry opened between the listing and the lock is kept. The delete targets
+  are the entry's four stores, and the record is the last of them; the transaction owes one
+  `pending_entry_removed` record per directory, and the directories are deleted after the commit.
+* An entry whose record cannot be read is kept and reported as a failure of the step, so a tampered entry is held for
+  its operator instead of being swept.
+* The log record `PM_RUNTIME-23` (`PENDING_ENTRY_RECORDS_SWEPT`) is retired, and the sweep owes the audit record
+  alone.
+
+== Alternatives Considered
+
+1. *Keep a maximum age beside the evidence.*
+_Not taken_: the specification says an entry never expires; an age would delete an open entry.
+2. *Mark the entry as started or abandoned in its record and sweep the marked ones.*
+_Not taken_: a marker is a second form of the end that the removal's own transaction already expresses, and a record
+written before the deletion would be a store the sweep must trust.
+3. *Delete the directory inside the transaction.*
+_Not taken_: a transaction deletes stores, not directories, and the transcript and source files are not stores; the
+record's absence is the durable evidence, and the directory is the last act.
+
+== Consequences
+
+* An open entry older than a day is still offered; no run removes it.
+* A stop after the removal transaction leaves a record-less directory, which the next run removes; a stop before the
+  commit leaves the entry as it was, and the recovery of the workspace completes the journal. A candidate is re-judged
+  under the workspace lock before it is removed, so an entry opened between the listing and the lock is kept.
+* A tampered entry is never cleaned away: the step reports it and keeps it until the operator accepts the edit or
+  abandons the entry.
+* A creation cut between the new scope's commit and the workspace's is not recovered by this step: the record still
+  exists, and the new scope does not carry the entry id, so no evidence can derive it. The new scope holds the stores,
+  so a repeated move is refused by their create targets, and the operator ends that entry by abandoning it.
+
+== Source
+
+* Plan `PLAN-V2-22` of the epic `pm-mcp-core-m2-m4-v2`, deliverable 3
+* link:../../../../doc/specification/timeouts/02-runtime-leases-operator-web.adoc#pending-entry-max-age[Timeouts &
+  Budgets § Pending Entry]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java`, `PeriodicSweep.java`

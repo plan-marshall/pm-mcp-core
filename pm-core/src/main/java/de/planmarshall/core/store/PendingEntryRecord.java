@@ -23,22 +23,22 @@ import de.planmarshall.core.store.WorkflowStatus.CallFrame;
 import de.planmarshall.core.store.WorkflowStatus.PendingCondition;
 
 /**
- * The pending entry record {@code pending/<entry_id>.json} of the workspace scope (PM-CLIENT-1): what a client named
- * when it opened an entry for a scope that does not exist yet, and the state store of that entry's bootstrap until a
- * terminal of the bootstrap deletes it.
+ * The pending entry record {@code pending/<entry_id>/entry.json} of the workspace scope (PM-CLIENT-1): what a client
+ * named when it opened an entry for a scope that does not exist yet, and the state store of that entry's bootstrap
+ * until the creation of the scope deletes the entry's directory.
  * <p>
  * The envelope is typed: the id, the kind, what the user named ({@code requested_id}, {@code hint}, recorded as given
  * and validated only by the bootstrap), the parent epic of a plan the server starts, and the instants. Of the bootstrap
  * state the members the engine owns are typed as well: the state position, the call frames and the condition overlay,
- * in the shapes of the workflow state store, and the reason of the last refused re-check. The members a source unit and
- * the bootstrap's states own, {@code facts}, {@code source} and {@code options}, are kept as the raw JSON text they
- * were read with and written back unchanged, as the status document keeps the members the engine does not own
- * (ADR 001 of {@code core.store}).
+ * in the shapes of the workflow state store, the recipe chosen in {@code start.choose} with its parameters, and the
+ * reason of the last refused re-check. The members a source unit and the bootstrap's states own, {@code facts} and
+ * {@code options}, are kept as the raw JSON text they were read with and written back unchanged, as the status document
+ * keeps the members the engine does not own (ADR 001 of {@code core.store}).
  * <p>
- * The creation instant is the age the pending-record sweep compares with the pending entry record maximum age; the
+ * The creation instant is the instant the entry was opened. An entry never expires: no sweep removes it by age. The
  * update instant changes with every bootstrap transition and never makes a record younger.
  *
- * @param entryId     the id, which names the record
+ * @param entryId     the id, which names the entry's directory
  * @param kind        whether the entry starts a plan or an epic
  * @param requestedId the id the client named when it opened the entry, as given, at most 64 characters;
  *                    {@code null} when none
@@ -105,8 +105,8 @@ public record PendingEntryRecord(EntryId entryId, Kind kind, @Nullable String re
      * @param state            the fully qualified state id of the bootstrap entity
      * @param callStack        the call frames of the called source unit, at most {@value WorkflowStatus#MAX_CALL_DEPTH}
      * @param facts            the state facts of the bootstrap, a JSON object as raw text, kept unchanged
-     * @param source           the source record a source unit returned, a JSON object as raw text, kept unchanged;
-     *                         {@code null} until one returned
+     * @param recipe           the recipe chosen in {@code start.choose}; {@code null} for a plan from sources and for
+     *                         an epic
      * @param options          the commit options chosen in {@code start.ready}, a JSON object as raw text, kept
      *                         unchanged
      * @param pendingCondition the condition overlay of the bootstrap entity; {@code null} when there is none
@@ -116,7 +116,7 @@ public record PendingEntryRecord(EntryId entryId, Kind kind, @Nullable String re
      */
     @With
     @Builder(toBuilder = true)
-    public record Bootstrap(String state, List<CallFrame> callStack, String facts, @Nullable String source,
+    public record Bootstrap(String state, List<CallFrame> callStack, String facts, @Nullable Recipe recipe,
     String options, @Nullable PendingCondition pendingCondition, @Nullable String lastRefusal) {
 
         /**
@@ -135,9 +135,6 @@ public record PendingEntryRecord(EntryId entryId, Kind kind, @Nullable String re
                         .formatted(callStack.size(), WorkflowStatus.MAX_CALL_DEPTH));
             }
             requireObject(Objects.requireNonNull(facts, "facts"), "bootstrap.facts");
-            if (source != null) {
-                requireObject(source, "bootstrap.source");
-            }
             requireObject(Objects.requireNonNull(options, "options"), "bootstrap.options");
             if (lastRefusal != null && !REFUSAL.matcher(lastRefusal).matches()) {
                 throw new IllegalArgumentException("'bootstrap.last_refusal' is not a reason: " + lastRefusal);
@@ -149,11 +146,54 @@ public record PendingEntryRecord(EntryId entryId, Kind kind, @Nullable String re
             return Optional.ofNullable(pendingCondition);
         }
 
+        /** @return the recipe chosen in {@code start.choose}; empty when none was chosen */
+        public Optional<Recipe> chosenRecipe() {
+            return Optional.ofNullable(recipe);
+        }
+
         private static void requireObject(String raw, String name) {
             var text = raw.strip();
             if (!text.startsWith("{") || !text.endsWith("}")) {
                 throw new IllegalArgumentException("'%s' must be a JSON object: %s".formatted(name, raw));
             }
+            try (var parser = StrictJson.factory().createParser(text)) {
+                if (parser.nextToken() != com.fasterxml.jackson.core.JsonToken.START_OBJECT) {
+                    throw new IllegalArgumentException("'%s' must be a JSON object: %s".formatted(name, raw));
+                }
+                parser.skipChildren();
+                if (parser.nextToken() != null) {
+                    throw new IllegalArgumentException("'%s' has content after its object: %s".formatted(name, raw));
+                }
+            } catch (java.io.IOException _) {
+                throw new IllegalArgumentException("'%s' is not JSON: %s".formatted(name, raw));
+            }
+        }
+    }
+
+    /**
+     * The recipe chosen in {@code start.choose}, whose workflow is the plan's process.
+     *
+     * @param recipeKey the recipe key
+     * @param params    the recipe's parameters, validated against its descriptor, a JSON object as raw text
+     * @since 0.1
+     */
+    public record Recipe(String recipeKey, String params) {
+
+        /** The longest recipe key the schema admits. */
+        public static final int MAX_RECIPE_KEY = 37;
+
+        private static final Pattern RECIPE_KEY = Pattern.compile("[a-z][a-z0-9]*+(-[a-z0-9]++)*+");
+
+        /**
+         * @throws NullPointerException     if the key or the parameters are {@code null}
+         * @throws IllegalArgumentException if the key breaks its form or the parameters are no JSON object
+         */
+        public Recipe {
+            Objects.requireNonNull(recipeKey, "recipeKey");
+            if (!RECIPE_KEY.matcher(recipeKey).matches() || recipeKey.length() > MAX_RECIPE_KEY) {
+                throw new IllegalArgumentException("'recipe_key' is not a recipe key: " + recipeKey);
+            }
+            Bootstrap.requireObject(Objects.requireNonNull(params, "params"), "recipe.params");
         }
     }
 
@@ -185,13 +225,5 @@ public record PendingEntryRecord(EntryId entryId, Kind kind, @Nullable String re
                     createdAt));
         }
         Objects.requireNonNull(bootstrap, "bootstrap");
-    }
-
-    /**
-     * @param instant an instant, typically the instant the maximum age reaches back to
-     * @return whether the record was created before it
-     */
-    public boolean createdBefore(Instant instant) {
-        return createdAt.isBefore(Objects.requireNonNull(instant, "instant"));
     }
 }

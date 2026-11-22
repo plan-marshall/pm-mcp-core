@@ -52,7 +52,7 @@ public interface RecoveryStep {
         ENGINE_DEADLINES,
         /** Step 9: the drive of every non-terminal plan and epic resumes. */
         RESUME_DRIVE,
-        /** Step 10: pending entry records older than the maximum age are removed. */
+        /** Step 10: the directory of a pending entry whose removal a stop cut off is removed. */
         PENDING_RECORD_SWEEP,
         /** Step 11: baseline scratch worktrees of gone or terminal plans are removed. */
         BASELINE_WORKTREE_SWEEP

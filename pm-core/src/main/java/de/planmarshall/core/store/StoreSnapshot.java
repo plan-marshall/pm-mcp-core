@@ -12,6 +12,7 @@ package de.planmarshall.core.store;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -137,7 +138,10 @@ public final class StoreSnapshot {
     private static Optional<byte[]> readIfPresent(Path store) {
         try {
             return Optional.of(Files.readAllBytes(store));
-        } catch (NoSuchFileException _) {
+        } catch (NoSuchFileException e) {
+            if (Files.exists(store, LinkOption.NOFOLLOW_LINKS)) {
+                throw new UncheckedIOException("Store cannot be read, its target is missing: " + store, e);
+            }
             return Optional.empty();
         } catch (IOException e) {
             throw new UncheckedIOException("Store cannot be read: " + store, e);

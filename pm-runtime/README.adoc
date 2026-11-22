@@ -86,6 +86,7 @@ a `SNAPSHOT` that carries this suffix. The signatures `create(String)` and `dele
 * link:doc/developer/runtime-lock.adoc[Lock Manager and Stale Lease Sweep (`runtime.lock`)]
 * link:doc/developer/runtime-log.adoc[Log Messages (`runtime.log`)]
 * link:doc/developer/runtime-lsp.adoc[Language Server Client (`runtime.lsp`)]
+* link:doc/developer/runtime-entry.adoc[Pending Entry Reader (`runtime.entry`)]
 * link:doc/developer/runtime-question.adoc[Question Record Reader (`runtime.question`)]
 * link:doc/developer/runtime-security.adoc[Authentication Seams (`runtime.security`)]
 * link:doc/developer/runtime-start.adoc[Sweep Steps, the Audit Chain Seam, the Store Move Resume and Job Recovery (`runtime.start`)]

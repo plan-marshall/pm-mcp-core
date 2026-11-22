@@ -9,7 +9,6 @@
  */
 package de.planmarshall.runtime.start;
 
-import de.cuioss.tools.logging.CuiLogger;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -17,7 +16,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -25,35 +24,35 @@ import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScope;
-import de.planmarshall.core.store.PendingEntryRecord;
 import de.planmarshall.core.store.PendingEntryStore;
 import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.core.store.StoreRefusal;
-import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
 
 /**
- * The step {@link SweepStep.Name#PENDING_ENTRY_RECORDS} of the periodic sweep: every pending entry record
- * {@code pending/<entry_id>.json} of the project's workspace scope created before the instant the step is given is
- * removed (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Periodic Sweep).
+ * The step {@link SweepStep.Name#PENDING_ENTRY_RECORDS} of the periodic sweep: the directory
+ * {@code pending/<entry_id>/} of a pending entry whose removal a stop cut off is removed
+ * (doc/specification/runtime-lifecycle/01-startup-recovery-drain.adoc, Periodic Sweep).
  * <p>
- * The step follows the sweep rule. Its only evidence is the age: the creation instant a record states, read under the
- * workspace lock. A file of {@code pending/} whose name does not parse as an entry id is never an entry and is never
- * selected ({@link PendingEntryStore#entryIds()}), and a record that cannot be read states no age and is kept.
+ * The step follows the sweep rule: its evidence is the end of the entry, never the entry's age. An entry whose record
+ * {@code entry.json} exists is open and is never removed, however old it is. The creation of a scope and the
+ * abandoning of an entry remove the entry's stores in one transaction of the workspace and delete the directory last;
+ * a stop between the two leaves the directory behind, and the record is gone then. Such a directory is the residue the
+ * step removes. A file of {@code pending/} whose name does not parse as an entry id is never an entry and is never
+ * selected ({@link PendingEntryStore#entryIds()}), and an entry whose record cannot be read is kept and reported, so a
+ * tampered entry is held for its operator instead of being swept.
  * <p>
- * All the old records of a run are removed in one transaction of the workspace scope, each as a delete target, and
- * the transaction owes one {@code pending_entry_removed} record per removed record, carrying its entry id, its store
- * path, its creation instant and a {@code transaction_id} of its own ({@link ScopeTransaction#recordId()}), never the
- * id of the transaction: two records removed in one run carry two ids, and the id is the key by which the reader of
- * the audit log drops a record handed over again. A stopped removal is therefore completed by the recovery of the
- * workspace, which hands the owed records over again under the same ids. The step reports how many records it
- * removed; a record it could not read is reported as a failure of the step, after the readable old records were
- * removed.
+ * The residue of a run is removed in one transaction of the workspace scope: the entry's stores again as delete
+ * targets (they are absent), and one {@code pending_entry_removed} record per entry, carrying its entry id, its
+ * directory and the instant of the run, under a {@code transaction_id} of its own ({@link ScopeTransaction#recordId()}),
+ * never the id of the transaction. Every candidate is re-judged under the workspace lock before it is removed, so an
+ * entry opened between the listing and the lock is kept. The directories themselves are deleted after that
+ * transaction, each as the last act, so a stop before it leaves the residue for the next run. The step reports how
+ * many directories it removed; an entry it could not read is reported as a failure of the step, after the readable
+ * residue was removed.
  *
  * @since 0.1
  */
 public final class PendingEntryRecordsSweep implements SweepStep {
-
-    private static final CuiLogger LOGGER = new CuiLogger(PendingEntryRecordsSweep.class);
 
     private final Path base;
     private final LockManager lockManager;
@@ -79,83 +78,123 @@ public final class PendingEntryRecordsSweep implements SweepStep {
     }
 
     /**
-     * Removes every pending entry record of the project created before the instant.
+     * Removes the directories of the project's pending entries whose removal a stop cut off.
      *
      * @param projectId the id of the enrolled project, whose recovery has finished
-     * @param olderThan the instant before which a record is old enough to be removed
-     * @return how many records were removed; a failure if a record could not be read or the removal could not be
+     * @param at        the instant of the sweep's run, which the removal records carry
+     * @return how many directories were removed; a failure if an entry could not be read or the removal could not be
      *         written
      */
     @Override
-    public RecoveryStep.Outcome run(String projectId, Instant olderThan) {
-        Objects.requireNonNull(olderThan, "olderThan");
+    public RecoveryStep.Outcome run(String projectId, Instant at) {
+        Objects.requireNonNull(at, "at");
         var workspace = JournalScope.workspace(base, projectId);
         var store = new PendingEntryStore(workspace);
         try {
-            var candidates = store.entryIds();
-            if (candidates.isEmpty()) {
-                return new RecoveryStep.Outcome.Done("no pending entry record");
-            }
+            var candidates = new ArrayList<EntryId>();
             var unreadable = new ArrayList<String>();
-            var removed = remove(workspace, store, List.copyOf(candidates), olderThan, unreadable);
-            if (removed > 0) {
-                LOGGER.info(INFO.PENDING_ENTRY_RECORDS_SWEPT, removed, projectId);
+            for (var entryId : store.entryIds()) {
+                if (isResidue(store, entryId, unreadable)) {
+                    candidates.add(entryId);
+                }
             }
-            var report = "removed " + removed + " pending entry records";
+            var removal = candidates.isEmpty() ? new Removal(0, null) : remove(workspace, store, candidates, at);
+            var report = "removed " + removal.removed() + " pending entry directories";
             if (!unreadable.isEmpty()) {
-                return new RecoveryStep.Outcome.Failed(report + "; kept unreadable records " + unreadable);
+                return new RecoveryStep.Outcome.Failed(report + "; kept unreadable entries " + unreadable);
+            }
+            if (removal.failure() != null) {
+                return new RecoveryStep.Outcome.Failed(report + "; " + removal.failure());
             }
             return new RecoveryStep.Outcome.Done(report);
-        } catch (UncheckedIOException | IllegalStateException | InternalFaultException e) {
-            return new RecoveryStep.Outcome.Failed("pending entry records not swept: " + e.getMessage());
+        } catch (UncheckedIOException | IllegalStateException | InternalFaultException | StoreRefusal e) {
+            return new RecoveryStep.Outcome.Failed("pending entry directories not swept: " + e.getMessage());
         }
     }
 
     /**
-     * Removes the old records in one workspace transaction; the decision on the age is taken under the workspace
-     * lock, so a record created or replaced meanwhile is judged as it is now.
+     * Removes the residue in one workspace transaction and deletes the directories after it. Every candidate is
+     * re-judged under the workspace lock before it is removed, so an entry opened between the listing and the lock is
+     * kept: its record is applied by the creator's transaction before the sweep takes the lock.
      *
-     * @return the number of removed records
+     * @return what the removal did, and why its directories are still there when they are
      */
-    private int remove(JournalScope workspace, PendingEntryStore store, List<EntryId> candidates, Instant olderThan,
-            List<String> unreadable) {
+    private Removal remove(JournalScope workspace, PendingEntryStore store, List<EntryId> candidates, Instant at) {
         try (var lock = lockManager.openTransaction()) {
             lock.acquire(workspace.lockKey());
             var transaction = ScopeTransaction.open(lock, workspace, auditSink, clock);
-            var removed = 0;
+            var removed = new ArrayList<EntryId>();
+            var kept = new ArrayList<String>();
             for (var entryId : candidates) {
-                var entry = readCandidate(store, entryId, unreadable);
-                if (entry.isPresent() && entry.get().createdBefore(olderThan)) {
-                    store.remove(transaction, entryId);
-                    transaction.owe(AuditEvent.pendingEntryRemoved(entryId.value(),
-                            PendingEntryStore.storePath(entryId), entry.get().createdAt().toString(),
-                            transaction.recordId().value()));
-                    removed++;
+                if (!(store.verify(lock, entryId, auditSink) instanceof PendingEntryStore.Integrity.Absent)) {
+                    kept.add(entryId.value() + " (tampered)");
+                    continue;
+                }
+                store.remove(transaction, entryId);
+                transaction.owe(AuditEvent.pendingEntryRemoved(entryId.value(),
+                        PendingEntryStore.directoryPath(entryId), at, transaction.recordId().value()));
+                removed.add(entryId);
+            }
+            if (removed.isEmpty()) {
+                return new Removal(0, failure(kept, List.of()));
+            }
+            transaction.commit();
+            var discarded = new ArrayList<String>();
+            for (var entryId : removed) {
+                try {
+                    store.discard(entryId);
+                } catch (UncheckedIOException e) {
+                    discarded.add(entryId.value() + " (" + e.getMessage() + ")");
                 }
             }
-            if (removed > 0) {
-                transaction.commit();
-            }
-            return removed;
+            return new Removal(removed.size(), failure(kept, discarded));
+        }
+    }
+
+    private static @Nullable String failure(List<String> kept, List<String> discarded) {
+        var all = new ArrayList<String>(kept);
+        all.addAll(discarded);
+        return all.isEmpty() ? null : "kept or failed entries: " + all;
+    }
+
+    /**
+     * What one run removed, and the reason its directories remain when the discard failed after the commit.
+     *
+     * @param removed the number of removed directories
+     * @param failure the failure of the discard, or {@code null}
+     */
+    private record Removal(int removed, @Nullable String failure) {
+    }
+
+    /**
+     * Re-judges one candidate under the workspace lock. An entry opened since the listing has its record applied by
+     * then, so it is kept; a record that still cannot be read is kept as well.
+     *
+     * @return whether the directory is still residue
+     */
+    static boolean isResidue(PendingEntryStore store, EntryId entryId) {
+        try {
+            return store.read(entryId).isEmpty();
+        } catch (StoreRefusal | UncheckedIOException _) {
+            return false;
         }
     }
 
     /**
-     * Reads one candidate. A record that is refused, or that cannot be read at all, for example because it was removed
-     * or made unreadable after the listing, states no age: it is kept and named in the unreadable list, and the sweep
-     * goes on with the next candidate.
+     * Decides whether one entry directory is residue. A record that exists means the entry is open: it is kept. A
+     * record that is refused, or that cannot be read at all, is kept and named in the unreadable list, and the sweep
+     * goes on with the next entry. An absent record is the evidence of a removal a stop cut off.
      *
-     * @return the record; empty if it does not exist or could not be read
+     * @return whether the directory is residue
      */
-    private static Optional<PendingEntryRecord> readCandidate(PendingEntryStore store, EntryId entryId,
-            List<String> unreadable) {
+    private static boolean isResidue(PendingEntryStore store, EntryId entryId, List<String> unreadable) {
         try {
-            return store.read(entryId);
+            return store.read(entryId).isEmpty();
         } catch (StoreRefusal e) {
             unreadable.add(entryId.value() + " (" + e.outcome().code() + ")");
         } catch (UncheckedIOException e) {
             unreadable.add(entryId.value() + " (io: " + e.getMessage() + ")");
         }
-        return Optional.empty();
+        return false;
     }
 }

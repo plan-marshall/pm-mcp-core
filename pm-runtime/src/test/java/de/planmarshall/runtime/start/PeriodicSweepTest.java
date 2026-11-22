@@ -64,7 +64,6 @@ import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 class PeriodicSweepTest {
 
     private final Instant now = Instant.ofEpochSecond(Generators.longs(1_700_000_000L, 2_000_000_000L).next());
-    private final Instant olderThan = now.minusSeconds(86_400);
     private final Clock clock = Clock.fixed(now, ZoneOffset.UTC);
     private final String p1 = "first-" + name();
     private final String p2 = "second-" + name();
@@ -108,7 +107,7 @@ class PeriodicSweepTest {
         }
     }
 
-    /** @return an EasyMock step that records each call as {@code "TAG NAME project olderThan"} and then runs its body */
+    /** @return an EasyMock step that records each call as {@code "TAG NAME project at"} and then runs its body */
     private SweepStep step(SweepStep.Name name) {
         return step(name, "step");
     }
@@ -136,7 +135,7 @@ class PeriodicSweepTest {
     }
 
     private String call(String tag, String projectId) {
-        return tag + " PENDING_ENTRY_RECORDS " + projectId + " " + olderThan;
+        return tag + " PENDING_ENTRY_RECORDS " + projectId + " " + now;
     }
 
     private static void assertFinishedLogged(int swept, int skipped, int failed) {
@@ -147,13 +146,9 @@ class PeriodicSweepTest {
     }
 
     @Test
-    @DisplayName("the interval is 3600 seconds and the pending entry maximum age 86400 seconds (specified constants)")
+    @DisplayName("the interval is 3600 seconds and no step removes anything by time (specified constants)")
     void shouldHaveCompiledConstants() {
-        assertAll(
-                () -> assertEquals(PeriodicSweep.INTERVAL, Duration.ofSeconds(3600),
-                        "the sweep interval must be 3600 seconds"),
-                () -> assertEquals(PeriodicSweep.PENDING_ENTRY_MAX_AGE, Duration.ofSeconds(86_400),
-                        "the pending entry maximum age must be 86400 s"));
+        assertEquals(PeriodicSweep.INTERVAL, Duration.ofSeconds(3600), "the sweep interval must be 3600 seconds");
     }
 
     @Test
@@ -167,7 +162,7 @@ class PeriodicSweepTest {
     }
 
     @Test
-    @DisplayName("a run passes now minus the maximum age to every step, in order, for every enrolled project")
+    @DisplayName("a run passes the instant of the run to every step, in order, for every enrolled project")
     void shouldRunEveryStepForEveryProject() {
         var summary = sweep(() -> List.of(p1, p2), _ -> true,
                 step(SweepStep.Name.PENDING_ENTRY_RECORDS, "first"),

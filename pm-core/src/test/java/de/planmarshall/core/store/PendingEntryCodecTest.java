@@ -13,7 +13,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -36,7 +35,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.store.PendingEntryRecord.Bootstrap;
 import de.planmarshall.core.store.PendingEntryRecord.Kind;
@@ -44,7 +42,7 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
 
 /**
  * The pending entry record (PM-CLIENT-1, PM-IMPL-2): written in the order of its schema, read back equal, its raw
- * members {@code facts}, {@code source} and {@code options} written back byte for byte, and every other shape refused
+ * members {@code facts}, the recipe's {@code params} and {@code options} written back byte for byte, and every other shape refused
  * as a {@link StoreRefusal} naming the file. The member names, the raw members, the call frame, the condition overlay
  * and the refusal tables are wire contracts; the entry id, the requested id, the hint and the instants are generated.
  */
@@ -53,11 +51,12 @@ import de.planmarshall.core.store.StoreRefusal.Outcome;
 class PendingEntryCodecTest {
 
     // Fixture path: the file a refusal names.
-    private static final Path FILE = Path.of("/base/projects/pm-mcp-core/pending/ent-0123456789abcdef.json");
+    private static final Path FILE =
+            Path.of("/base/projects/pm-mcp-core/pending/ent-0123456789abcdef/entry.json");
 
     /** Raw members spelled with spaces, newlines and an order no writer of this codec would choose. */
     private static final String FACTS = "{ \"setup\" : {\"z\":1, \"a\" : [ 2,1 ]} ,\n \"candidates\":[] }";
-    private static final String SOURCE = "{\"kind\":\"issue\" , \"ref\":\"42\",\"payload\":{\"title\":\"T\"}}";
+    private static final String RECIPE = "{\"recipe_key\":\"fix-bug\",\"params\":{ \"speed\" : \"fast\" }}";
     private static final String OPTIONS = "{ \"posture\":\"standard\" }";
     private static final String FRAME = "{\"caller_workflow_id\":\"bootstrap-plan\",\"caller_state_id\":"
             + "\"start.choose\",\"subworkflow_id\":\"source-issue\","
@@ -113,7 +112,7 @@ class PendingEntryCodecTest {
         members.put("state", "\"source-issue.screen\"");
         members.put("call_stack", "[" + FRAME + "]");
         members.put("facts", FACTS);
-        members.put("source", SOURCE);
+        members.put("recipe", RECIPE);
         members.put("options", OPTIONS);
         members.put("pending_condition", CONDITION);
         members.put("last_refusal", "\"config_dirty\"");
@@ -136,6 +135,11 @@ class PendingEntryCodecTest {
     /** @return every required member of the record besides the format version */
     static Stream<String> requiredMembers() {
         return PendingEntryCodec.MEMBERS.stream().filter(member -> !"format_version".equals(member));
+    }
+
+    /** @return every member of the bootstrap state, derived from the codec's own list */
+    static Stream<String> requiredBootstrapMembers() {
+        return PendingEntryCodec.BOOTSTRAP_MEMBERS.stream();
     }
 
     private static StoreRefusal assertRefused(Outcome outcome, byte[] document) {
@@ -164,7 +168,10 @@ class PendingEntryCodecTest {
                     () -> assertArrayEquals(document, PendingEntryCodec.write(entry),
                             "the record should be written byte for byte"),
                     () -> assertEquals(FACTS, entry.bootstrap().facts(), "the raw facts should be kept verbatim"),
-                    () -> assertEquals(SOURCE, entry.bootstrap().source(), "the raw source should be kept verbatim"),
+                    () -> assertEquals("fix-bug", entry.bootstrap().recipe().recipeKey(),
+                            "the recipe key should be read from its member"),
+                    () -> assertEquals("{ \"speed\" : \"fast\" }", entry.bootstrap().recipe().params(),
+                            "the raw recipe params should be kept verbatim"),
                     () -> assertEquals(OPTIONS, entry.bootstrap().options(),
                             "the raw options should be kept verbatim"));
         }
@@ -197,7 +204,7 @@ class PendingEntryCodecTest {
             members.put("from_epic", quoted(epicId));
             members.put("hint", "null");
             var inner = bootstrapMembers();
-            inner.put("source", "null");
+            inner.put("recipe", "null");
             inner.put("call_stack", "[]");
             inner.put("pending_condition", "null");
             inner.put("last_refusal", "null");
@@ -208,42 +215,9 @@ class PendingEntryCodecTest {
 
             assertAll(
                     () -> assertEquals(epicId, entry.fromEpic(), "the epic of the entry should be read"),
-                    () -> assertNull(entry.bootstrap().source(), "a server-started plan has no source"),
+                    () -> assertNull(entry.bootstrap().recipe(), "a plan from sources chooses no recipe"),
                     () -> assertArrayEquals(document, PendingEntryCodec.write(entry),
                             "the entry should round-trip byte for byte"));
-        }
-
-        @Test
-        @DisplayName("the members are those of the record before this deliverable, less the removed session member")
-        void membersWithoutSession() {
-            // The work package removes exactly the member `session` of the pending entry record; every other member
-            // stays for the work package start-source-intake, which gives the record its directory form.
-            assertEquals(PendingEntryCodec.MEMBERS, List.of("format_version", "entry_id", "kind", "requested_id", "hint", "from_epic", "created_at",
-                    "updated_at", "bootstrap"), "the members should be the schema's members");
-        }
-
-        @Test
-        @DisplayName("a stored record without a session member is written and read back byte for byte")
-        void withoutSession() {
-            var members = members();
-            members.remove("session");
-            var document = document(members);
-
-            var entry = PendingEntryCodec.read(FILE, document);
-
-            assertArrayEquals(document, PendingEntryCodec.write(entry), "the record should round-trip unchanged");
-        }
-
-        @Test
-        @DisplayName("a stored record that still carries the removed session member is refused as undeclared")
-        void sessionMemberIsRefused() {
-            var members = members();
-            members.remove("session");
-            members.put("session", "{\"format_version\":1}");
-
-            var refusal = assertRefused(Outcome.UNREADABLE, document(members));
-
-            assertTrue(refusal.getMessage().contains("session"), "the refusal should name the session member");
         }
 
         @Test
@@ -288,7 +262,7 @@ class PendingEntryCodecTest {
         }
 
         @ParameterizedTest(name = "bootstrap without {0}")
-        @ValueSource(strings = {"state", "call_stack", "facts", "source", "options", "pending_condition", "last_refusal"})
+        @MethodSource("de.planmarshall.core.store.PendingEntryCodecTest#requiredBootstrapMembers")
         @DisplayName("a bootstrap without a required member is refused naming it")
         void missingBootstrapMember(String member) {
             var inner = bootstrapMembers();
@@ -328,7 +302,10 @@ class PendingEntryCodecTest {
                 undeclared bootstrap member | note              | 1
                 blank state                 | state             | " "
                 facts as an array           | facts             | []
-                source as a string          | source            | "issue"
+                recipe as a string          | recipe            | "issue"
+                recipe without a key        | recipe            | {"params":{}}
+                recipe params as an array   | recipe            | {"recipe_key":"fix-bug","params":[]}
+                recipe key of another form  | recipe            | {"recipe_key":"Fix Bug","params":{}}
                 options as null             | options           | null
                 refusal of another form     | last_refusal      | "Config-Dirty"
                 unknown condition kind      | pending_condition | {"kind":"x","remedy_attempts":0,"integrity":null,"facts":{},"raised_at":"2026-10-13T08:02:00Z"}
@@ -379,19 +356,5 @@ class PendingEntryCodecTest {
 
             assertRefused(Outcome.UNREADABLE, document(members));
         }
-    }
-
-    @Test
-    @DisplayName("a record is older than an instant exactly when it was created before it")
-    void createdBefore() {
-        var entry = PendingEntryCodec.read(FILE, document(members()));
-        var created = entry.createdAt();
-
-        assertAll(
-                () -> assertTrue(entry.createdBefore(created.plusSeconds(1)),
-                        "a later instant should be after the creation"),
-                () -> assertFalse(entry.createdBefore(created), "the creation instant should not count"),
-                () -> assertFalse(entry.createdBefore(created.minusSeconds(1)),
-                        "an earlier instant should not count"));
     }
 }
