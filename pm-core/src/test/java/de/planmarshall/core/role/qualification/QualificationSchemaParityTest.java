@@ -289,7 +289,8 @@ class QualificationSchemaParityTest {
             var document = SchemaParity.document(QualificationRecordCodec.write(withItem()));
             var form = firstValue(document.get(FORMS));
             var formMembers = SchemaParity.members(form);
-            var itemMembers = SchemaParity.members(SchemaParity.object(SchemaParity.array(document.get(ITEMS)).getFirst()));
+            var itemMembers = SchemaParity.members(
+                    SchemaParity.object(SchemaParity.array(document.get(ITEMS)).getFirst()));
             var topicMembers = SchemaParity.members(firstValue(form.get(TOPICS)));
             var formSchema = definition(schema, "formResult");
             var itemSchema = itemOf(schema, ITEMS);
@@ -402,7 +403,8 @@ class QualificationSchemaParityTest {
             var schema = schema(JUDGE_CHECK);
             var document = SchemaParity.document(JudgeCheckCodec.write(sample()));
             var members = SchemaParity.members(document);
-            var itemMembers = SchemaParity.members(SchemaParity.object(SchemaParity.array(document.get(ITEMS)).getFirst()));
+            var itemMembers = SchemaParity.members(
+                    SchemaParity.object(SchemaParity.array(document.get(ITEMS)).getFirst()));
             var itemSchema = itemOf(schema, ITEMS);
 
             assertAll(

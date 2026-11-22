@@ -48,9 +48,10 @@ coordinates, and the classes the tests rely on — `SchemaRegistry`, `Schema`, `
   (`pm-core/src/test/java/de/planmarshall/core/SchemaValidation.java`): `compile(String)` builds a schema from schema
   text through a cached `SchemaRegistry` with draft 2020-12 as the default dialect, and `validate(Schema, String)`
   returns the `List` of `Error` items. The fourteen schema tests — the nine of the work package plus the five the head
-  added — call it, and so does the one test that consumes `ItemGeneratorTest.violations`, `CorpusImportTest` (B5, operator "b use
-  helper"; the orchestrator had recommended the edit per class). The helper is in
-  the test tree and deliberately not in the published `pm-core:tests` artifact, which carries the generator package,
+  added — call it; the one test that reads `ItemGeneratorTest.violations`, `CorpusImportTest`, consumes their output
+  and calls no helper of its own (B5, operator "b use helper"; the orchestrator had recommended the edit per class).
+  The helper is in the test tree and deliberately not in the published `pm-core:tests` artifact, which carries the
+  generator package,
   the assertion-message scanner and `SchemaResource` (ADR link:012-generator-artifacts.adoc[012]): the library's types
   are not handed to a consumer.
 * *The validator stays out of production.* It is `test` scope in `pm-core` alone, on no production classpath of this
@@ -70,7 +71,7 @@ coordinates, and the classes the tests rely on — `SchemaRegistry`, `Schema`, `
   `com.networknt.schema.Error`, whose `getMessage()` carries the same text.
 * No change of what a schema accepts was observed. The positive checks and the negative controls of the schema tests
   pass with their schema files, specification blocks, codecs and expected values unchanged, so no `format`, `$ref` or
-  `unevaluatedProperties` difference surfaced. The helper `SchemaValidation` has fifteen calling classes; each holds
+  `unevaluatedProperties` difference surfaced. The helper `SchemaValidation` has fourteen calling classes; each holds
   positive checks (an assertion that a written document has no violation), and most hold negative controls (an
   assertion that a changed document has one). The figure this record once gave for the checks was not derived by a
   stated method and is not repeated; the guarantee is the two kinds of check, not their number. The `date-time` change the 3.0.9 notes mention is not exercised: at draft 2020-12 a `format`

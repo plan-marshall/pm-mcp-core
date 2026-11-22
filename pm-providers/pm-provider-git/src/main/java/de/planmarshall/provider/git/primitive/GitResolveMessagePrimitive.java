@@ -186,11 +186,11 @@ public final class GitResolveMessagePrimitive
          */
         FINALIZE_SETTLE_COMMIT("finalize.settle-commit") {
 
-            @Override
-            Optional<String> message(Params parameters) {
-                return Optional.of(settleMessage(parameters.stepId()));
-            }
-        },
+        @Override
+        Optional<String> message(Params parameters) {
+            return Optional.of(settleMessage(parameters.stepId()));
+        }
+    },
         /**
          * The pull-request title as the subject and the bound server sections, if any, as the body, separated by one
          * blank line of line feeds.

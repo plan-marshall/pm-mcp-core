@@ -369,7 +369,7 @@ class GitStageAndCommitPrimitiveTest {
                     () -> assertFalse(source.containsValue(trailer.name()), "the trailer name is not in the fact"),
                     () -> assertFalse(source.containsValue(trailer.email()), "the trailer email is not in the fact"),
                     () -> assertEquals(Set.of(GitStageAndCommitPrimitive.COMMIT_FACT,
-                            GitStageAndCommitPrimitive.TRAILER_SOURCE_FACT), result.updatedFacts().keySet(),
+                                    GitStageAndCommitPrimitive.TRAILER_SOURCE_FACT), result.updatedFacts().keySet(),
                             "committed carries the commit and the source"));
         }
 
@@ -478,7 +478,7 @@ class GitStageAndCommitPrimitiveTest {
 
             // the exhaustion outcome is the wire name the state catalogue routes
             var exhaustion = Arrays.stream(Outcome.values())
-                    .filter(outcome -> outcome.wireName().equals("attempts_exhausted")).findFirst();
+                    .filter(outcome -> "attempts_exhausted".equals(outcome.wireName())).findFirst();
             assertAll("registration",
                     () -> assertTrue(registry.find(GitStageAndCommitPrimitive.PRIMITIVE_ID).isPresent(),
                             "the registry holds git.stage-and-commit"),

@@ -45,10 +45,11 @@ import de.planmarshall.core.id.RoleName;
  * {@code core/id/ShortName.java}, which writes the text once, is excluded; the guard has no exemption for another
  * production file (test sources are not scanned at all).
  * <p>
- * Every JSON file below a {@code src/main/resources} of the reactor is scanned as well: each JSON string, member name or
- * value, that carries a spelling of the grammar must equal the definition {@code RoleName.PATTERN} once its JSON
- * escapes are decoded, so a schema that restates the grammar in another form — unanchored, with an escaped hyphen, a
- * reordered class or the grammar inside a larger pattern — fails naming the file and the line. A schema cannot point
+ * Every JSON file below a {@code src/main/resources} of the reactor is scanned as well: each JSON string, member
+ * name or value, that carries a spelling of the grammar must equal the definition {@code RoleName.PATTERN} once its
+ * JSON escapes are decoded, so a schema that restates the grammar in another form — unanchored, with an escaped
+ * hyphen, a reordered class or the grammar inside a larger pattern — fails naming the file and the line. A schema
+ * cannot point
  * at the definition, so the schemas keep the text and this scan keeps them equal to it. A string that carries the
  * grammar inside a larger pattern of another kind cannot be compared and is recorded with its reason in
  * {@code NOT_COMPARABLE}.
@@ -85,7 +86,8 @@ class RoleNameSingleDefinitionTest {
     private static final Map<String, String> NOT_COMPARABLE = Map.of(
             "pm-core/src/main/resources/de/planmarshall/core/domain/domain-descriptor-v1.schema.json "
                     + "^skill://pm/domain/[a-z][a-z0-9-]{1,31}/[a-z0-9][a-z0-9-]*$",
-            "the grammar is one segment of the skill URI pattern of a domain descriptor, not a name pattern of its own");
+            "the grammar is one segment of the skill URI pattern of a domain descriptor, not a name pattern of its "
+                    + "own");
 
     /** The same spellings as a schema string carries them once its JSON escapes are decoded. */
     private static final List<String> SCHEMA_SPELLINGS = List.of("[a-z][a-z0-9-]{1,31}", "[a-z][a-z0-9\\-]{1,31}",
@@ -238,7 +240,8 @@ class RoleNameSingleDefinitionTest {
 
         assertAll(
                 () -> assertEquals(1, occurrences.size(), "The other form is found as an occurrence"),
-                () -> assertNotEquals(DEFINITION, occurrences.getFirst().value(), "The other form is not the definition"));
+                () -> assertNotEquals(DEFINITION, occurrences.getFirst().value(),
+                        "The other form is not the definition"));
     }
 
     @Test
