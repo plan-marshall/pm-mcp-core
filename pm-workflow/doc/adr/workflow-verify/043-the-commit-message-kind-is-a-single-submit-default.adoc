@@ -26,8 +26,9 @@ the fixture unit `git-commit-and-push.pmwf` against the four commit primitives; 
   whose one outcome is `valid`. `infeasible` and `lost` stay the reserved engine outcomes the state already routes to
   `git.template-message`.
 * The product check `GitCommitPrimitivesVerificationTest` moves to the assembly `plan-marshall-mcp`, which sees both
-  modules; this repository keeps the kind, the evaluation primitive and the extended defaults test
-  (`RegistriesAndRecordsTest.entityKindRegistry`).
+  modules; this repository keeps the kind, the evaluation primitive and the extended defaults tests of
+  `RegistriesAndRecordsTest` (`entityKindRegistryDefaultsLookup`, `entityKindRegistryDefaultsUnitsAndEvaluations`,
+  `entityKindRegistryDefaultsNameNoTestIdentifier`, `entityKindRegistryWith` and `entityKindRegistryNullValidation`).
 
 == Alternatives Considered
 

@@ -128,8 +128,10 @@ commit of the rest of the scope, while a path that runs through a link to outsid
 legal entry of the dirty paths: the commit refuses a directory
 (link:../adr/provider-git/004-a-directory-is-refused-and-emptiness-is-typed.adoc[ADR provider-git 004]), so a
 `newdir/` in the staging set would fail the commit with `commit_failed` and hide the files below it, `newdir/.env`
-among them, from a review that matches paths by name. The site is the one that expands an untracked directory to its
-files (<<_the_commit_site>>); this package expands none:
+among them, from a review that matches paths by name. A derived path that begins with `:`, for which `derive` has no
+rule, is refused by the git contract at the commit as `PATH_REFUSED`, before anything is staged, and
+`git.stage-and-commit` returns it as `failed` with the reason `commit_failed` and the `git_outcome` `PATH_REFUSED`. The
+site is the one that expands an untracked directory to its files (<<_the_commit_site>>); this package expands none:
 
 [cols="1,3",options="header"]
 |===

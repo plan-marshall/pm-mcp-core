@@ -460,9 +460,10 @@ public final class JGitOperations implements GitOperations {
      * pathspec magic (a path that begins with {@code :}), an absolute one, one with a backslash, a control character or
      * an empty, {@code .} or {@code ..} segment, one that normalises to outside the root, one whose parent directory a
      * symbolic link carries outside the real root (the parent, or its nearest existing ancestor, is resolved with
-     * {@link Path#toRealPath}), one that is no legal path of the file system, and a directory (JGit's pathspec is prefix-based and would commit every path below it). Neither
-     * check follows a final symbolic link: git records a link as a link, so a link to a directory, a link to a target
-     * outside the root and a dangling link are each committed as that link.
+     * {@link Path#toRealPath}), one that is no legal path of the file system, and a directory (JGit's pathspec is
+     * prefix-based and would commit every path below it). Neither the directory check nor the parent confinement
+     * follows a final symbolic link: git records a link as a link, so a link to a directory, a link to a target outside
+     * the root and a dangling link are each committed as that link.
      * <p>
      * The glob characters {@code *}, {@code ?} and {@code [} are admitted: JGit's {@code addFilepattern} and
      * {@code setOnly} stage a path literally, so a file named {@code app/[slug]/page.tsx} is committed under that name
