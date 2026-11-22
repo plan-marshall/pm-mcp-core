@@ -461,7 +461,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /**
      * The parser of a job's log: what it finds in the output of an ended job, the launch report stripped. It receives
-     * the job record, because the build tool that wrote a log is known from its budget key, not from the log alone.
+     * the job record, because the build tool that wrote a log is known from its budget key, not from the log alone, and
+     * whether the read cut the log, because a figure the lost middle can falsify is no measurement of the run.
      *
      * @since 0.1
      */
@@ -469,11 +470,13 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     public interface OutputParser {
 
         /**
-         * @param job    the record of the ended job, whose kind and budget key select the parser
-         * @param output the job's output, the job log after its launch report
+         * @param job       the record of the ended job, whose kind and budget key select the parser
+         * @param output    the job's output, the job log after its launch report
+         * @param outputCut whether the log was longer than {@link JobLog#MAX_BYTES}, so the output is its first line and
+         *                  its tail alone
          * @return what the parser found
          */
-        ParseResult parse(JobRecord job, String output);
+        ParseResult parse(JobRecord job, String output, boolean outputCut);
     }
 
     /**
@@ -1579,7 +1582,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 logState = LogState.READABLE;
                 launcherFailure = LaunchReport.isLauncherFailure(complete.reading(), ended.exitValue());
                 parse = !withParser || current.kind() == JobId.Kind.PROBE || launcherFailure ? ParseResult.NOTHING
-                        : parser.parse(current, complete.reading().jobOutput());
+                        : parser.parse(current, complete.reading().jobOutput(), complete.cut());
             }
             case JobLog.Unavailable unavailable -> {
                 logState = unavailable.state();

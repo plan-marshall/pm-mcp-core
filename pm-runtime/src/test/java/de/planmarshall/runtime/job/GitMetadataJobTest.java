@@ -126,7 +126,7 @@ class GitMetadataJobTest {
                 .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                 .termination(new TerminationProtocol(ProcessGroupSignals.system())).environment(environment())
                 .probeEnvironment((candidate, jobId) -> ENVIRONMENT)
-                .parser((kind, output) -> new JobEvidence.ParseResult(true, 0, false, null))
+                .parser((kind, output, cut) -> new JobEvidence.ParseResult(true, 0, false, null))
                 .primitives(request -> Optional.empty()).jobTokens(tokens).audit(fixture.sink)
                 .gitMetadataGuard(guard).gitMetadataSink(changes::add).build();
     }
@@ -176,7 +176,7 @@ class GitMetadataJobTest {
                 .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                 .termination(new TerminationProtocol(ProcessGroupSignals.system())).environment(environment())
                 .probeEnvironment((candidate, jobId) -> ENVIRONMENT)
-                .parser((kind, output) -> new JobEvidence.ParseResult(true, 0, false, null))
+                .parser((kind, output, cut) -> new JobEvidence.ParseResult(true, 0, false, null))
                 .primitives(request -> Optional.empty()).jobTokens(tokens)
                 .audit(_ -> {
                     throw new IllegalStateException("the audit sink refused the record");

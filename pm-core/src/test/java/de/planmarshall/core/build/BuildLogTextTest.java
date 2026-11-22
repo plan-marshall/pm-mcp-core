@@ -268,6 +268,52 @@ class BuildLogTextTest {
     }
 
     @Test
+    @DisplayName("a cut log counts the failing tests of a summary whose Results marker was cut")
+    void cutMavenLogCountsAnAmbiguousFailingSummary(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // no Results marker: it lies in the lost head, the failing summary line is in the tail
+        var failingTail = """
+                [WARNING] Tests run: 5, Failures: 2, Errors: 0, Skipped: 0
+                [INFO] BUILD SUCCESS
+                """;
+        Path log = directory.resolve("cut-ambiguous-failing.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                                diagnostic.severity() == Severity.ERROR
+                                        && diagnostic.message().contains("2 failing tests")),
+                        "the ambiguous failing count is still an error"));
+    }
+
+    @Test
+    @DisplayName("a cut log files the failing count once, beside the count line it already filed")
+    void cutMavenLogFilesTheFailingCountOnce(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        var failingTail = """
+                [ERROR] Results:
+                [ERROR] Tests run: 5, Failures: 2, Errors: 0, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-filed-failing.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertEquals(1, build.diagnostics().stream()
+                                .filter(diagnostic -> diagnostic.category() == Category.TEST_FAILURE).count(),
+                        "the failing count is one test-failure diagnostic"));
+    }
+
+    @Test
     @DisplayName("a whole Maven log reports its count as the whole run's")
     void wholeMavenLogReportsTheWholeRun(@TempDir Path directory) throws Exception {
         Path log = directory.resolve("whole-maven.log");

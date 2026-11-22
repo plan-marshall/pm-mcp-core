@@ -9,7 +9,10 @@
  */
 package de.planmarshall.core.build;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +47,22 @@ class MavenOutputParserTest extends ParsedBuildPortedTest {
         assertEquals(1, build.diagnostics().size(), "The coloured error line is filed once");
         assertEquals(Category.COMPILATION_ERROR, build.diagnostics().getFirst().category(),
                 "The stripped line keeps its category");
+    }
+
+    @Test
+    @DisplayName("a text a read cut reports its count as unmeasured")
+    void cutTextReportsUnmeasured() {
+        var tail = """
+                [INFO] Results:
+                [INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0
+                [INFO] BUILD SUCCESS
+                """;
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, MavenOutputParser.parse(tail, true).testCounts(),
+                        "a cut text's count is unmeasured"),
+                () -> assertInstanceOf(TestCounts.Measured.class, MavenOutputParser.parse(tail, false).testCounts(),
+                        "an uncut text keeps its measured count"));
     }
 
     @Override

@@ -83,6 +83,22 @@ class BuildOutputParserTest {
     }
 
     @Test
+    @DisplayName("a cut Maven log's visible failing count contradicts the success banner")
+    void cutMavenLogContradicts() {
+        var tail = """
+                [WARNING] Tests run: 5, Failures: 2, Errors: 0, Skipped: 0
+                [INFO] BUILD SUCCESS
+                """;
+
+        var cut = PARSER.parse(job(JobId.Kind.BUILD, maven()), tail, true);
+        var whole = PARSER.parse(job(JobId.Kind.BUILD, maven()), tail, false);
+
+        assertAll(
+                () -> assertTrue(cut.contradictingEvidence(), "a cut log keeps its visible failing count"),
+                () -> assertFalse(whole.contradictingEvidence(), "an uncut tail without a marker is no evidence"));
+    }
+
+    @Test
     @DisplayName("a Maven BUILD SUCCESS log decides succeeded")
     void mavenSuccess() {
         var parse = PARSER.parse(job(JobId.Kind.BUILD, maven()), """
