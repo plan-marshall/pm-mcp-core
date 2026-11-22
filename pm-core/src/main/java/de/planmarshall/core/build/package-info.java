@@ -47,7 +47,8 @@
  * {@code pm-core/doc/developer/core-build.adoc}. The decisions of the package are recorded in
  * {@code pm-core/doc/adr/core-build/}; the coverage model is {@code core-build/005}, and the reader of the coverage
  * reports, its XML hardening and its bounds are {@code core-build/008}. A build log the read cuts reports its Maven
- * test count as the tail's alone ({@code core-build/011}).
+ * test count as unmeasured, never as the tail's alone, and the failing count its tail still shows is one error
+ * diagnostic ({@code core-build/011}).
  */
 @NullMarked
 package de.planmarshall.core.build;

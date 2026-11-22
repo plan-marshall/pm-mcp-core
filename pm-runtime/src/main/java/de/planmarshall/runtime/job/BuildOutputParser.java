@@ -103,20 +103,26 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
     private static final String CLEAN_INSTALL_VERB = "clean-install";
 
     /**
-     * Parses the log of an ended job.
+     * Parses the log of an ended job whose read may have cut it.
+     * <p>
+     * The cut fact reaches the Maven parser alone, because it is the one parser of the dispatch that reports a figure
+     * the lost head can falsify: a cut Maven log reports {@link TestCounts.Unmeasured} instead of a tail-only count
+     * (ADR {@code core-build/011}). The other parsers read their count lines from the tail as well, but their results
+     * carry no population whose absence the dispatcher could state.
      *
-     * @param job    the job record, whose kind and budget key select the parser
-     * @param output the job's output after its launch report
+     * @param job       the job record, whose kind and budget key select the parser
+     * @param output    the job's output after its launch report
+     * @param outputCut whether the job log was longer than {@code JobLog.MAX_BYTES}
      * @return what the selected parser found, or {@link JobEvidence.ParseResult#NOTHING}
      */
     @Override
-    public JobEvidence.ParseResult parse(JobRecord job, String output) {
+    public JobEvidence.ParseResult parse(JobRecord job, String output, boolean outputCut) {
         if (job.kind() != JobId.Kind.BUILD) {
             return JobEvidence.ParseResult.NOTHING;
         }
         var text = BuildLogText.boundLines(BuildLogText.stripAnsi(output));
         var verb = verb(job.budgetKey());
-        return system(job).flatMap(buildSystem -> parse(buildSystem, verb, text))
+        return system(job).flatMap(buildSystem -> parse(buildSystem, verb, text, outputCut))
                 .orElse(JobEvidence.ParseResult.NOTHING);
     }
 
@@ -136,9 +142,10 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
         return module < 0 ? key.substring(separator + 1) : key.substring(separator + 1, module);
     }
 
-    private static Optional<JobEvidence.ParseResult> parse(BuildSystem buildSystem, String verb, String output) {
+    private static Optional<JobEvidence.ParseResult> parse(BuildSystem buildSystem, String verb, String output,
+            boolean outputCut) {
         return switch (buildSystem) {
-            case MAVEN -> Optional.of(result(MavenOutputParser.parse(output)));
+            case MAVEN -> Optional.of(result(MavenOutputParser.parse(output, outputCut)));
             case GRADLE -> Optional.of(result(GradleOutputParser.parse(output)));
             case NPM -> npm(verb, output);
             case PYPROJECT -> Optional.of(result(PyprojectOutputParser.parse(output)));

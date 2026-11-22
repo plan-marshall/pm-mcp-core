@@ -3,7 +3,10 @@
 
 == Status
 
-Accepted
+Accepted. Amended 2026-11-22 (PLAN-V2-170): the parser seam gained the third parameter `boolean outputCut` — the
+runner passes `JobLog.Complete.cut()` — so a cut job log reaches the Maven parser as `TestCounts.Unmeasured` (ADR
+`core-build/011`). The assembly `plan-marshall-mcp` adapts its `OutputParser` lambda after the `SNAPSHOT` deploy, the
+same follow-up the decision below records.
 
 Superseded in part by link:016-the-npm-passing-summary-is-the-success-marker.adoc[ADR `runtime-job/016`] (2026-11-10):
 the rule of the last bullet of Consequences stays, its list of tools without a positive success marker shrinks to
