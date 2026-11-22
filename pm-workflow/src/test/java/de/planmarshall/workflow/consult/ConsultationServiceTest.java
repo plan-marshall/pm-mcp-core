@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 import org.junit.jupiter.api.BeforeEach;
@@ -38,6 +39,7 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import de.planmarshall.core.queue.QueueStore;
 import de.planmarshall.core.queue.QueueTaskId;
+import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.queue.QueueTaskRecord.AttemptEnd;
 import de.planmarshall.core.queue.QueueTaskRecord.ConsultationStatus;
 import de.planmarshall.core.queue.QueueTaskRecord.DeliveredTo;
@@ -137,6 +139,32 @@ class ConsultationServiceTest {
         var refused = assertInstanceOf(ConsultationOutcome.Refused.class, outcome, "the stuck seam is refused");
         assertEquals(ConsultationRefusal.CONSULTATION_IDS_EXHAUSTED, refused.refusal(),
                 "the refusal names the exhausted seam");
+    }
+
+    @Test
+    @DisplayName("an id recorded on another task is drawn past, never handed out twice")
+    void recordedConsultationIdIsNotReused() {
+        // the three ids are queue-task ids in the wire format; the orphan has no task behind it
+        var orphanId = "qt-00000000000000cc";
+        var orphanAskerId = "qt-0000000000000002";
+        var freeId = "qt-00000000000000dd";
+        var orphan = new QueueTaskRecord.Consultation(orphanId, ConsultationFixtures.REVIEWER,
+                ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.AT, ConsultationStatus.OPEN,
+                null, null, null, null);
+        queue.create(ConsultationFixtures.executing(orphanAskerId, ConsultationFixtures.ASKER_ROLE,
+                ConsultationFixtures.ASKING_GENERATION).withConsultations(List.of(orphan)));
+        // the seam hands out the recorded id twice before it offers a free one
+        var draws = new AtomicInteger();
+        var seam = new ConsultationService(queue,
+                () -> new QueueTaskId(draws.incrementAndGet() <= 2 ? orphanId : freeId));
+
+        var outcome = seam.open(ConsultationFixtures.request(ConsultationFixtures.REVIEWER, RoleClass.READ_ONLY));
+
+        var opened = assertInstanceOf(ConsultationOutcome.Opened.class, outcome,
+                "the free id opens the consultation");
+        assertAll(
+                () -> assertEquals(freeId, opened.consultationId(), "the recorded id is drawn past"),
+                () -> assertTrue(queue.read(orphanId).isEmpty(), "no task is created under the recorded id"));
     }
 
     @Test
