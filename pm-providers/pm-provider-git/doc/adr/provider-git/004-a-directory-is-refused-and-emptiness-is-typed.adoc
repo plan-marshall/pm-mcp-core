@@ -40,9 +40,10 @@ it stood:
 
 == Consequences
 
-* A directory, a magic pathspec and a glob are refused before the index is touched, so a refused commit leaves the
-  worktree as it was, and the emptiness read that precedes staging leaves the index untouched on `NOTHING_TO_COMMIT`
-  (`JGitOperationsTest`, `nothingToCommitLeavesTheIndexUntouched`).
+* A directory and a magic pathspec are refused before the index is touched, so a refused commit leaves the worktree as
+  it was; a name carrying `*`, `?` or `[` is admitted since the amendment below, and the emptiness read that precedes
+  staging leaves the index untouched on `NOTHING_TO_COMMIT` (`JGitOperationsTest`,
+  `nothingToCommitLeavesTheIndexUntouched`).
 * The three construction sites that build a `CommitInput` without `paths` keep their expectation and no longer can fail
   with a `NullPointerException`.
 
