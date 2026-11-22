@@ -1,0 +1,56 @@
+= ADR 011: A Cut Build Log Reports Its Maven Test Count as the Tail's Alone
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-21
+
+== Context
+
+ADR link:007-the-read-and-the-patterns-are-bounded.adoc[`core-build/007`] caps the read of a build log at
+`pm.core.build.log-max-bytes` (16 MiB) and reads an over-cap log from its end. `BuildLogText.read` returned the text
+alone, so nothing after the read knew that the log had been cut. A multi-module Maven log over the cap then parsed as a
+`TestCounts.Measured` population summed over the tail's summary blocks only: a module whose `Results:` block lay in the
+lost head was missing from the figure, and the figure still read as the count of the whole run. The landing of
+PLAN-V2-131 named the defect (M1), and PLAN-V2-163 carried it as item 11(b), an ask-at-refine decision. The operator
+chose the recommended option at refine (2026-11-21).
+
+== Decision
+
+* `BuildLogText.readLog(Path)` returns a `BuildLogText.LogRead`, the text and a `cut` flag that is `true` exactly when
+  the log was longer than `BuildLogText.MAX_BYTES`. `BuildLogText.read(Path)` keeps returning the text alone for the
+  parsers whose result the cut cannot falsify.
+* `MavenOutputParser.parse(Path)` reads through `readLog` and passes the flag to its count scan. A measured population of
+  a cut log is a `TestCounts.Measured` with `tailOnly` set: the figure is the tail's, and a consumer reads it as such.
+  An unmeasured population stays `Unmeasured`; the `String` overload, which receives no file, reports `tailOnly` as
+  `false`.
+* `TestCounts.Measured` carries the flag as a component, and `TestCounts.from` takes it as an argument; the five-argument
+  constructor and `from` of a whole log keep it `false`.
+
+== Alternatives Considered
+
+* *A `Measured` text that says "tail only" for a cut log.* Not taken: a figure carried in prose is read by nobody that
+  branches on it, and a consumer that formats the counts would show the tail's sum as the run's.
+* *An `Unavailable`-style answer for a count the cut can falsify.* Not taken: the tail's counts are a true measurement
+  of the part that was read, and the operator sees the failing module of the tail; discarding them loses evidence the
+  flag can keep, at the cost of the head's modules, which neither option recovers.
+
+== Consequences
+
+* A cut Maven log reports its count as `tailOnly`; a log at or below the cap, and every `String` parse, report `false`,
+  so no fixture changes.
+* The other parsers read the text alone and do not carry the flag. A parser whose figure a cut can falsify takes the
+  flag through `readLog` in the same way when a plan touches it.
+* The contradiction check of a consumer still sees only the tail: a failing module in the lost head is not in the
+  diagnostics. The flag says that the count is partial; it does not restore the head.
+
+== Source
+
+* Specification: link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc[Job Runtime § Native Build Output Parsers]
+* Developer guide: link:../../developer/core-build.adoc[`core.build`]
+* Origin: the landing of PLAN-V2-131 (M1), carried as item 11(b) of PLAN-V2-163; the operator's answer at refine
+  (2026-11-21, adopt the recommendation)

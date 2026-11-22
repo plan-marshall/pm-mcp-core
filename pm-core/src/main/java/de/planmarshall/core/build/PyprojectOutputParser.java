@@ -29,23 +29,23 @@ import org.jspecify.annotations.Nullable;
 /**
  * The native parse of a pyproject (Python) build log, ported from {@code build-pyproject/_pyproject_cmd_parse.py}.
  * <p>
- * A pyproject log commonly carries the output of several tools of one verify run, so the parser detects each tool by its
- * own content marker and combines the results: mypy ({@code path:line: error: message}), whose category is the first match
- * of the original's Python pattern table (a type error by default, an import failure for an import message, and a lint or
- * test-failure category for a message that table places so), ruff ({@code path:line:column: CODE message}) as
- * {@link Category#LINT_ERROR}, and pytest's {@code FAILED} and {@code ERROR} short-summary lines as
+ * A pyproject log commonly carries the output of several tools of one verify run, so the parser detects each tool by
+ * its own content marker and combines the results: mypy ({@code path:line: error: message}), whose category is the
+ * first match of the original's Python pattern table (a type error by default, an import failure for an import message,
+ * and a lint or test-failure category for a message that table places so), ruff ({@code path:line:column: CODE message})
+ * as {@link Category#LINT_ERROR}, and pytest's {@code FAILED} and {@code ERROR} short-summary lines as
  * {@link Category#TEST_FAILURE} and {@link Category#TEST_COLLECTION_ERROR}.
  * <p>
- * The pytest parse follows the original: a block under the {@code FAILURES} or {@code ERRORS} banner supplies the location
- * (the deepest {@code path.py:NN} frame of its traceback, ahead of any captured-output section) and, for a collection error
- * whose summary line carries no message tail, the message from the block's {@code E} gutter. The summary line supplies the
- * counts.
+ * The pytest parse follows the original: a block under the {@code FAILURES} or {@code ERRORS} banner supplies the
+ * location (the deepest {@code path.py:NN} frame of its traceback, ahead of any captured-output section) and, for a
+ * collection error whose summary line carries no message tail, the message from the block's {@code E} gutter. The
+ * summary line supplies the counts.
  * <p>
- * Three behaviours are deliberate changes against the original, all recorded in ADR {@code core-build/003}: the location is
- * the deepest traceback frame rather than the test file's frame; a pytest-xdist {@code @<group>} suffix is stripped before
- * test identity matching; and every pytest summary block of a multi-run log is summed rather than the last one read. A
- * filter that matched nothing is held as in the original: pytest's {@code no tests ran} summary carries no count, so the
- * port reports no count at all rather than a zero.
+ * Three behaviours are deliberate changes against the original, all recorded in ADR {@code core-build/003}: the
+ * location is the deepest traceback frame rather than the test file's frame; a pytest-xdist {@code @<group>} suffix is
+ * stripped before test identity matching; and every pytest summary block of a multi-run log is summed rather than the
+ * last one read. A filter that matched nothing is held as in the original: pytest's {@code no tests ran} summary
+ * carries no count, so the port reports no count at all rather than a zero.
  *
  * @since 0.1
  */
@@ -64,7 +64,9 @@ public class PyprojectOutputParser {
 
     private static final String NO_TESTS_MARKER = "no tests ran";
 
-    /** The message of a diagnostic whose text is only whitespace or invisible characters: the error is still an error. */
+    /**
+     * The message of a diagnostic whose text is only whitespace or invisible characters: the error is still an error.
+     */
     private static final String NO_VISIBLE_MESSAGE = "error (no visible message)";
 
     private static final String PY_FILE = ".py";
@@ -99,11 +101,6 @@ public class PyprojectOutputParser {
 
     private static final Pattern SUMMARY_WORD = Pattern.compile("\\b(?:passed|failed|skipped)\\b");
 
-    /** The ported summary expression, kept for the rare line that carries a line terminator (see {@link #isSummaryLine}). */
-    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
-    private static final Pattern PORTED_SUMMARY_LINE =
-            Pattern.compile("^.*\\b(?:passed|failed|skipped)\\b.*\\bin\\s+[\\d.]+s.*$");
-
     /**
      * The count part of a pytest summary line, after its verdict word. Both quantifiers are possessive: giving back a
      * whitespace cannot make the next character a digit, and giving back a digit or a dot cannot make it the {@code s},
@@ -117,12 +114,14 @@ public class PyprojectOutputParser {
 
     private static final Pattern SKIPPED_COUNT = Pattern.compile("\\b(\\d+) skipped\\b");
 
-    /** The metacharacters that make a pattern of the original's Python table a regular expression rather than a literal. */
+    /**
+     * The metacharacters that make a pattern of the original's Python table a regular expression rather than a literal.
+     */
     private static final Pattern PATTERN_METACHARACTERS = Pattern.compile("[\\\\^$.*+?{}\\[\\]|()]");
 
     /**
-     * The original's {@code PYTHON_PATTERNS} table, in its order: the first category whose pattern matches a mypy message
-     * wins, and a message that matches none stays a {@link Category#TYPE_ERROR}.
+     * The original's {@code PYTHON_PATTERNS} table, in its order: the first category whose pattern matches a mypy
+     * message wins, and a message that matches none stays a {@link Category#TYPE_ERROR}.
      */
     private static final List<PythonCategory> PYTHON_CATEGORIES = List.of(
             new PythonCategory(Category.TYPE_ERROR,
@@ -191,29 +190,83 @@ public class PyprojectOutputParser {
      * {@code skipped}) and, later on it, the {@code in <seconds>s} that closes the summary.
      * <p>
      * The ported form was one expression, {@code ^.*\b(?:passed|failed|skipped)\b.*\bin\s+[\d.]+s.*$}, matched against
-     * the whole line. For a line without a line terminator it is answered here in two steps, because that expression
-     * rescans the rest of the line for every verdict word it holds, which costs the square of the line's length. The
-     * earliest verdict word suffices: if any pair of a verdict word and a later {@code in <seconds>s} exists, so does
-     * the pair of the earliest word with that same tail.
+     * the whole line. It is answered here in two steps, because that expression rescans the rest of the line for every
+     * verdict word it holds, which costs the square of the line's length. The earliest verdict word suffices: if any
+     * pair of a verdict word and a later {@code in <seconds>s} exists, so does the pair of the earliest word with that
+     * same tail.
      * <p>
-     * A line that carries a line terminator is answered by the ported expression itself. There the two forms differ: its
-     * {@code .} cannot cross the terminator while its {@code \s} can, so {@code 1 passed in\r0.12s} matches the ported
-     * form through the {@code \s+}. That line is rare, and the ported form is linear for the one line it meets.
+     * A line that carries a line terminator is answered by {@link #isSummaryLineAcrossTerminators}, which gives the
+     * ported expression's answer in one pass too: there its {@code .} cannot cross the terminator while its {@code \s}
+     * can, so {@code 1 passed in\r0.12s} matches through the {@code \s+}.
      *
      * @param line the line to inspect
      * @return whether the line is a pytest summary line
      */
     static boolean isSummaryLine(String line) {
-        if (carriesLineTerminator(line)) {
-            return PORTED_SUMMARY_LINE.matcher(line).matches();
+        var firstTerminator = firstLineTerminator(line);
+        if (firstTerminator >= 0) {
+            return isSummaryLineAcrossTerminators(line, firstTerminator);
         }
         Matcher word = SUMMARY_WORD.matcher(line);
         return word.find() && SUMMARY_COUNTS.matcher(line).find(word.end());
     }
 
-    private static boolean carriesLineTerminator(String line) {
-        return line.indexOf('\n') >= 0 || line.indexOf('\r') >= 0 || line.indexOf('\u0085') >= 0
-                || line.indexOf('\u2028') >= 0 || line.indexOf('\u2029') >= 0;
+    /**
+     * The ported expression's answer for a line that carries a line terminator, in one pass over the line.
+     * <p>
+     * Only the {@code \s+} after {@code in} can cross a terminator, the verdict word and {@code in} stand before the first
+     * one, and nothing after the seconds may carry one. So the whitespace run that holds the first terminator must also
+     * hold every later one, {@code in} must stand directly before that run with a word boundary ahead of it and after the
+     * earliest verdict word, and {@code [\d.]+s} must follow the run.
+     */
+    private static boolean isSummaryLineAcrossTerminators(String line, int firstTerminator) {
+        Matcher word = SUMMARY_WORD.matcher(line);
+        if (!word.find() || word.start() >= firstTerminator) {
+            return false;
+        }
+        var runStart = firstTerminator;
+        while (runStart > 0 && isPatternWhitespace(line.charAt(runStart - 1))) {
+            runStart--;
+        }
+        var runEnd = firstTerminator;
+        while (runEnd < line.length() && isPatternWhitespace(line.charAt(runEnd))) {
+            runEnd++;
+        }
+        var in = runStart - 2;
+        if (in < word.end() || !line.startsWith("in", in)
+                || (in > 0 && isPatternWordCharacter(line.charAt(in - 1)))) {
+            return false;
+        }
+        var seconds = runEnd;
+        while (seconds < line.length() && (Character.isDigit(line.charAt(seconds)) && line.charAt(seconds) < 128
+                || line.charAt(seconds) == '.')) {
+            seconds++;
+        }
+        return seconds > runEnd && seconds < line.length() && line.charAt(seconds) == 's'
+                && firstLineTerminator(line.substring(seconds)) < 0;
+    }
+
+    /** The index of the first character {@code .} does not match, or {@code -1}. */
+    private static int firstLineTerminator(String line) {
+        for (var index = 0; index < line.length(); index++) {
+            var character = line.charAt(index);
+            if (character == '\n' || character == '\r' || character == '\u0085' || character == '\u2028'
+                    || character == '\u2029') {
+                return index;
+            }
+        }
+        return -1;
+    }
+
+    /** Whether {@code \s} of a pattern compiled without flags matches the character. */
+    private static boolean isPatternWhitespace(char character) {
+        return character == ' ' || character == '\t' || character == '\n' || character == '\u000B'
+                || character == '\f' || character == '\r';
+    }
+
+    /** Whether {@code \w} of a pattern compiled without flags matches the character. */
+    private static boolean isPatternWordCharacter(char character) {
+        return character < 128 && (Character.isLetterOrDigit(character) || character == '_');
     }
 
     private static List<Diagnostic> mypyDiagnostics(List<String> lines) {

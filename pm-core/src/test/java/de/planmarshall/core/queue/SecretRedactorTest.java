@@ -318,7 +318,8 @@ class SecretRedactorTest {
     void escapedQuoteIsNoCloseInAnAssignment() {
         var redacted = redactValue("password=\"abc\\\"def");
 
-        assertEquals("password=\"" + SecretRedactor.REDACTED, redacted, "the escaped quote does not close the value");
+        assertEquals("password=\"" + SecretRedactor.REDACTED, redacted,
+                "the escaped quote does not close the value");
     }
 
     @Test
@@ -326,7 +327,8 @@ class SecretRedactorTest {
     void closeFollowedByAWordCharacterIsUnclosed() {
         var redacted = redactValue("password=\"my pass\"x");
 
-        assertEquals("password=\"" + SecretRedactor.REDACTED, redacted, "the refused close masks the rest of the line");
+        assertEquals("password=\"" + SecretRedactor.REDACTED, redacted,
+                "the refused close masks the rest of the line");
     }
 
     @Test

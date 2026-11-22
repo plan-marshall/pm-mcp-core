@@ -30,9 +30,9 @@ import de.planmarshall.core.config.LimitProperties;
  * the plain-text patterns of {@link JvmCategoryPatterns}, which is why every parser strips its text through here or
  * through the {@code String} overload of its own {@code parse}.
  * <p>
- * Three forms are removed: an OSC string ({@code ESC ]} … terminated by BEL or {@code ESC \}), whose payload is the hyperlink
- * text an OSC 8 sequence wraps around a path; the two-character escapes such as the SGR colour codes; and the CSI
- * sequences, which also cover cursor movement.
+ * Three forms are removed: an OSC string ({@code ESC ]} … terminated by BEL or {@code ESC \}), whose payload is the
+ * hyperlink text an OSC 8 sequence wraps around a path; the two-character escapes such as the SGR colour codes; and the
+ * CSI sequences, which also cover cursor movement.
  * <p>
  * Undecodable bytes are replaced rather than refused: a build log is untrusted text, and one broken byte must not make
  * the whole parse fail.
@@ -40,9 +40,10 @@ import de.planmarshall.core.config.LimitProperties;
  * <em>A log longer than {@link #MAX_BYTES} is cut.</em> The read of a file takes at most {@link #MAX_BYTES} bytes, counted
  * from the end, and starts at the first line beginning inside them, so a parser sees the log's tail whole-lined: the
  * count lines, the summary and the failure tail are at the end, which is the part a parser needs and the part a build
- * tool cannot be trusted to keep short. A log at or below the cap, with every line inside the per-line bound, is read as
- * it was written, so no parser result changes for one. The cap is data of {@link #LIMITS}, never a literal, and only
- * editing that resource changes it.
+ * tool cannot be trusted to keep short. {@link #readLog(Path)} says whether it cut, so a figure the lost head
+ * can falsify — the Maven test count — is reported as the tail's alone. A log at or below the cap, with every line
+ * inside the per-line bound, is read as it was written, so no parser result changes for one. The cap is data of
+ * {@link #LIMITS}, never a literal, and only editing that resource changes it.
  * <p>
  * <em>Every line is cut at {@link #MAX_LINE_LENGTH} characters</em> by {@link #boundLines(String)}, which a parser applies
  * before its patterns see the text. A build log is untrusted text, and one long line of repeated tokens can make a
@@ -93,20 +94,57 @@ public class BuildLogText {
     }
 
     /**
-     * Reads a build log and strips its ANSI escape sequences.
+     * Reads a build log and strips its ANSI escape sequences, for a parser whose result the cut cannot falsify.
      * <p>
-     * A log longer than {@link #MAX_BYTES} is cut: at most {@link #MAX_BYTES} bytes are taken, counted from its end and
-     * from the first line beginning inside them.
+     * A log longer than {@link #MAX_BYTES} is cut as {@link #readLog(Path)} cuts it; whether it was cut is not returned.
      *
      * @param logFile the file to read
      * @return the file content without escapes, undecodable bytes replaced; the tail of a log longer than the cap
      * @throws UncheckedIOException if the file cannot be read
      */
     public static String read(Path logFile) {
-        try {
-            return stripAnsi(new String(readAtMostCap(logFile), StandardCharsets.UTF_8));
+        return readLog(logFile).text();
+    }
+
+    /**
+     * Reads a build log, strips its ANSI escape sequences and says whether the read cut it.
+     * <p>
+     * A log longer than {@link #MAX_BYTES} is cut: at most {@link #MAX_BYTES} bytes are taken, counted from its end and
+     * from the first line beginning inside them, and the result says so through {@link LogRead#cut()}, so a parser whose
+     * figure the lost head can falsify reports that figure as the tail's alone (ADR {@code core-build/011}).
+     *
+     * @param logFile the file to read
+     * @return the file content without escapes, undecodable bytes replaced, with whether the log was cut; the tail of a
+     *         log longer than the cap
+     * @throws UncheckedIOException if the file cannot be read
+     */
+    public static LogRead readLog(Path logFile) {
+        try (var channel = FileChannel.open(logFile, StandardOpenOption.READ)) {
+            var size = channel.size();
+            var cut = size > MAX_BYTES;
+            var bytes = cut ? tail(channel, size) : read(channel, 0, size);
+            return new LogRead(stripAnsi(new String(bytes, StandardCharsets.UTF_8)), cut);
         } catch (IOException e) {
             throw new UncheckedIOException("cannot read the build log " + logFile, e);
+        }
+    }
+
+    /**
+     * The text of one build-log read and whether the read cut the log.
+     *
+     * @param text the text read, ANSI escapes stripped
+     * @param cut  whether the log was longer than {@link #MAX_BYTES}, so {@code text} is its tail alone
+     * @since 0.1
+     */
+    public record LogRead(String text, boolean cut) {
+
+        /**
+         * Checks the text.
+         *
+         * @throws NullPointerException if the text is {@code null}
+         */
+        public LogRead {
+            Objects.requireNonNull(text, "text");
         }
     }
 
@@ -144,16 +182,6 @@ public class BuildLogText {
         }
     }
 
-    private static byte[] readAtMostCap(Path logFile) throws IOException {
-        try (var channel = FileChannel.open(logFile, StandardOpenOption.READ)) {
-            var size = channel.size();
-            if (size <= MAX_BYTES) {
-                return read(channel, 0, size);
-            }
-            return tail(channel, size);
-        }
-    }
-
     /**
      * The last {@link #MAX_BYTES} bytes, starting at a line beginning: at the window's own start when the byte before
      * it ends a line, else after the first line end inside it. A window with no line end is one long line and is kept.
@@ -185,10 +213,11 @@ public class BuildLogText {
 
     /**
      * Drops the head of a cut that begins inside a line, so the parsers see whole lines. A cut with no line beginning in
-     * it is one long line and is kept as it is: emptying it would hide the only content the log has there.
+     * it is one long line and is kept as it is: emptying it would hide the only content the log has there. The same holds
+     * for a cut whose only line end is its last byte, because no line begins after it.
      */
-    private static byte[] fromLineStart(byte[] bytes) {
-        for (var index = 0; index < bytes.length; index++) {
+    static byte[] fromLineStart(byte[] bytes) {
+        for (var index = 0; index < bytes.length - 1; index++) {
             if (bytes[index] == '\n') {
                 return Arrays.copyOfRange(bytes, index + 1, bytes.length);
             }

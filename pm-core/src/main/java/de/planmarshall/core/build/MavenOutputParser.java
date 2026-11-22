@@ -78,9 +78,14 @@ public class MavenOutputParser {
     private static final Pattern TESTS_RUN = Pattern.compile(
             "Tests run:\\s*(\\d+),\\s*Failures:\\s*(\\d+),\\s*Errors:\\s*(\\d+),\\s*Skipped:\\s*(\\d+)");
 
-    @SuppressWarnings("java:S8786") // ported pattern; the fixtures pin its behaviour, a rewrite risks a silent change
-    private static final Pattern EXECUTION_HEADER =
-            Pattern.compile("---\\s+([\\w.\\-]+):[\\w.\\-]+:[\\w.\\-]+\\s.*@.*---");
+    /**
+     * The head of an execution header, {@code --- group:plugin:goal }: the part of the ported
+     * {@code ---\s+([\w.\-]+):[\w.\-]+:[\w.\-]+\s.*@.*---} before its {@code .*@.*---} tail. The quantifiers are
+     * possessive, which changes no match because each class excludes the character that follows it, and the tail is
+     * checked by {@link #executionHeaderRunner(String)} with index scans, so a header costs one pass over its line.
+     */
+    private static final Pattern EXECUTION_HEADER_HEAD =
+            Pattern.compile("---\\s++([\\w.\\-]++):[\\w.\\-]++:[\\w.\\-]++\\s");
 
     private static final Pattern RESULTS_MARKER = Pattern.compile("^(?:\\[(?:INFO|ERROR|WARNING)\\]\\s*)?Results\\s*:\\s*$");
 
@@ -108,9 +113,13 @@ public class MavenOutputParser {
             Pattern.compile(FAILURE_MARKER));
 
     /**
-     * The runner an execution header names, empty when the line carries none. Asked before the expression runs: the
-     * header's template needs an {@code @}, so a line without one cannot match, and a line of repeated
-     * {@code --- a:b:c } text no longer costs one scan per {@code ---} it holds.
+     * The runner an execution header names, empty when the line carries none.
+     * <p>
+     * The answer is the ported expression's: the leftmost {@link #EXECUTION_HEADER_HEAD} whose rest of the line, up to
+     * the first line terminator {@code .} does not match, holds an {@code @} followed by {@code ---}. The scan is linear
+     * in the line's length, also for a line of repeated {@code --- a:b:c @} text: one pass from the line's end records,
+     * for every position, the next {@code @} and the last {@code ---} before the next terminator, so each head is
+     * decided by two array reads instead of a scan of its rest.
      *
      * @param line the line to inspect
      * @return the runner named by the header, or empty when the line is no execution header
@@ -119,8 +128,38 @@ public class MavenOutputParser {
         if (line.indexOf('@') < 0) {
             return Optional.empty();
         }
-        Matcher header = EXECUTION_HEADER.matcher(line);
-        return header.find() ? Optional.of(header.group(1)) : Optional.empty();
+        var length = line.length();
+        var nextAt = new int[length + 1];
+        var lastClose = new int[length + 1];
+        nextAt[length] = -1;
+        lastClose[length] = -1;
+        for (var index = length - 1; index >= 0; index--) {
+            if (isLineTerminator(line.charAt(index))) {
+                nextAt[index] = -1;
+                lastClose[index] = -1;
+            } else {
+                nextAt[index] = line.charAt(index) == '@' ? index : nextAt[index + 1];
+                lastClose[index] = lastClose[index + 1] < 0 && line.startsWith("---", index)
+                        ? index
+                        : lastClose[index + 1];
+            }
+        }
+        Matcher head = EXECUTION_HEADER_HEAD.matcher(line);
+        var from = 0;
+        while (from < length && head.find(from)) {
+            var rest = head.end();
+            if (nextAt[rest] >= 0 && lastClose[rest] > nextAt[rest]) {
+                return Optional.of(head.group(1));
+            }
+            from = head.start() + 1;
+        }
+        return Optional.empty();
+    }
+
+    /** Whether {@code .} of a pattern compiled without flags does not match the character. */
+    private static boolean isLineTerminator(char character) {
+        return character == '\r' || character == '\n' || character == '\u0085' || character == ' '
+                || character == ' ';
     }
 
     /**
@@ -133,24 +172,29 @@ public class MavenOutputParser {
      */
     public static ParsedBuild parse(String logText) {
         Objects.requireNonNull(logText, "logText");
-        return parseStripped(BuildLogText.stripAnsi(logText));
+        return parseStripped(BuildLogText.stripAnsi(logText), false);
     }
 
     /**
      * Reads and parses a Maven build log.
+     * <p>
+     * A log the read cuts ({@link BuildLogText#readLog(Path)}) reports a measured count as the tail's alone
+     * ({@link TestCounts.Measured#tailOnly()}): a summary block of a module in the lost head is not in it, so the figure
+     * is no count of the whole run (ADR {@code core-build/011}).
      *
      * @param logFile the file to read
      * @return the parsed build
      */
     public static ParsedBuild parse(Path logFile) {
-        return parseStripped(BuildLogText.read(logFile));
+        var read = BuildLogText.readLog(logFile);
+        return parseStripped(read.text(), read.cut());
     }
 
-    private static ParsedBuild parseStripped(String logText) {
+    private static ParsedBuild parseStripped(String logText, boolean cut) {
         String bounded = BuildLogText.boundLines(logText);
         List<String> lines = List.of(bounded.split("\n", -1));
         List<Diagnostic> diagnostics = StackTraceCollector.attach(lines, extractDiagnostics(lines));
-        TestCounts testCounts = extractTestCounts(bounded, lines).orElse(null);
+        TestCounts testCounts = extractTestCounts(bounded, lines, cut).orElse(null);
         BuildStatus status = detectStatus(bounded);
         boolean successMarker = bounded.contains(SUCCESS_MARKER);
         boolean noTestsRan = ParsedBuild.noTestsRanFrom(status, successMarker, testCounts,
@@ -214,10 +258,10 @@ public class MavenOutputParser {
         return logText.contains(SUCCESS_MARKER) ? BuildStatus.SUCCESS : BuildStatus.FAILURE;
     }
 
-    private static Optional<TestCounts> extractTestCounts(String logText, List<String> lines) {
+    private static Optional<TestCounts> extractTestCounts(String logText, List<String> lines, boolean cut) {
         var scan = new CountScan();
         lines.forEach(scan::accept);
-        return scan.result(logText);
+        return scan.result(logText, cut);
     }
 
     /**
@@ -227,10 +271,10 @@ public class MavenOutputParser {
      * Counts are read and summed as {@code long}, so a count or a sum outside the {@code int} range is reported as
      * {@link TestCounts.Unmeasured} instead of wrapping into a figure that passes as a measurement. A count a line
      * carries beyond the {@code int} range marks the scan unrepresentable, and that mark makes the result guard report
-     * {@code Unmeasured}; the values a representable scan adds are each at most {@link Integer#MAX_VALUE}, and the input
-     * holds fewer than 2^26 count lines (a count line takes more than 40 characters, the {@code Path} overload reads at
-     * most {@link BuildLogText#MAX_BYTES} bytes and the {@code String} overload is bounded by the length of a Java
-     * {@code String}), so each sum of the added values stays below 2^58.
+     * {@code Unmeasured}; the values a representable scan adds are each at most {@link Integer#MAX_VALUE}, and the
+     * input holds fewer than 2^26 count lines (a count line takes more than 40 characters, the {@code Path} overload
+     * reads at most {@link BuildLogText#MAX_BYTES} bytes and the {@code String} overload is bounded by the length of a
+     * Java {@code String}), so each sum of the added values stays below 2^58.
      */
     private static final class CountScan {
 
@@ -297,7 +341,7 @@ public class MavenOutputParser {
             }
         }
 
-        Optional<TestCounts> result(String logText) {
+        Optional<TestCounts> result(String logText, boolean cut) {
             if (summaryLines.isEmpty() && ambiguousLines.isEmpty() && perClassLines.isEmpty()) {
                 return Optional.empty();
             }
@@ -314,7 +358,8 @@ public class MavenOutputParser {
                     || logText.contains(PARALLEL_BUILD_BANNER)
                     ? Optional.empty()
                     : runnerCounts();
-            return Optional.of(TestCounts.from(total - failed - skipped, failed, skipped, byRunner.orElse(null)));
+            return Optional.of(
+                    TestCounts.from(total - failed - skipped, failed, skipped, byRunner.orElse(null), cut));
         }
 
         private Optional<Map<String, Integer>> runnerCounts() {

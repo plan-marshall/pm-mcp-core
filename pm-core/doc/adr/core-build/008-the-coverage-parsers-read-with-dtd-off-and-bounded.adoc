@@ -12,6 +12,9 @@ of both cannot overflow, a refusal echoes at most 256 characters of report conte
 sets `ACCESS_EXTERNAL_DTD` and `ACCESS_EXTERNAL_SCHEMA` where the implementation accepts them; the rest of this record
 stands.
 
+Amended (PLAN-V2-163, 2026-11-21): the Cobertura branch rule of Decision 5 is narrowed to the specification's
+`branch-rate="0"` rule, and the Consequences name the Istanbul `pct`-only refusal and the stream-limit seam.
+
 == Date
 
 2026-11-12
@@ -70,8 +73,11 @@ settled the byte cap at 256 MiB.
    four formats an item whose line counter is `0/0` is no item, a branch, function or instruction counter of `0/0` is
    `null`, and a report whose overall line counter is `0/0` is refused with `no lines measured`. Cobertura's `class`
    elements carry no `lines-valid` or `branches-valid`, so its rule is decided at the root: `lines-valid="0"` refuses the
-   report, a `branches-valid` of `0` or none makes the overall branch metric and every class branch rate `null`, and a
-   `branch-rate="0"` under a root that measured branches stays a measured `0.0`. Istanbul reads each metric's `total`
+   report, a root `branch-rate="0"` (or none) with a `branches-valid` of `0` or none makes the overall branch metric and
+   every class branch rate `null`, and a `branch-rate="0"` under a root that measured branches stays a measured `0.0`.
+   A root whose `branch-rate` is above `0` measured branches with or without a `branches-valid`, so its rate is kept
+   (amended by PLAN-V2-163, item 15(a): as first built, any root without a `branches-valid` above `0` made the branch
+   metric `null`, wider than the specification's `branch-rate="0"` rule). Istanbul reads each metric's `total`
    beside its `pct`, and refuses a metric object that carries no `total` (`total.lines.total is absent`), so a metric is
    never read from its `pct` alone. Rates are read as text through `BigDecimal` and checked to `0..1`, so `NaN`, `Infinity` and the
    hexadecimal forms are refused.
@@ -123,8 +129,14 @@ settled the byte cap at 256 MiB.
 * A report past 256 MiB, an LCOV line past 8192 characters, an Istanbul document with a duplicate key or a metric object without `total`, a JaCoCo report
   with a counter type repeated at the root or within one class and an LCOV record with a repeated counter line are
   refused.
-  A report inside the bounds that carries a measured counter yields the same figures as before; the ported fixtures are
-  unchanged.
+  A report inside the bounds that carries a measured counter yields the same figures as before, with one exception: an
+  Istanbul metric that carries a `pct` and no `total` was read from its `pct` before and is now refused
+  (`total.<metric>.total is absent`). A Cobertura report with a nonzero root `branch-rate` keeps its branch metric
+  whether or not it carries `branches-valid`; only a `branch-rate="0"` with no `branches-valid` above `0` has none. The
+  ported fixtures are unchanged.
+* Every path overload delegates to a package-private `parse(Path, long limit)` that opens the file through
+  `CoverageReportStream` with the given bound, so a test passes a small limit and proves, per parser, that the file is
+  read through the stream (PLAN-V2-163, item 15(b)); no production behaviour changes.
 * The bounds are data: editing `coverage-limits.properties` changes them, and the specification includes both values by
   tag.
 

@@ -93,8 +93,20 @@ public class JacocoReportParser {
      *         naming its file name only
      */
     public static CoverageParseResult parse(Path reportFile) {
+        return parse(reportFile, CoverageReportStream.MAX_BYTES);
+    }
+
+    /**
+     * Parses a JaCoCo XML report from a file, streaming it within the given bound; the seam through which a test proves
+     * that the file is read through {@link CoverageReportStream}.
+     *
+     * @param reportFile the report file
+     * @param limit      the most bytes of the report that are read
+     * @return the parsed report, or a refusal naming the format and the reason
+     */
+    static CoverageParseResult parse(Path reportFile, long limit) {
         Objects.requireNonNull(reportFile, "reportFile");
-        try (InputStream source = new CoverageReportStream(Files.newInputStream(reportFile))) {
+        try (InputStream source = new CoverageReportStream(Files.newInputStream(reportFile), limit)) {
             return CoverageXmlReader.parse(source, FORMAT, new Walk());
         } catch (IOException e) {
             return CoverageRefusals.of(FORMAT, reportFile, e);
