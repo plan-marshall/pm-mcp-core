@@ -160,8 +160,8 @@ public final class PendingEntryRecordsSweep implements SweepStep {
     }
 
     /**
-     * Removes one candidate whose stores are absent, or keeps it as tampered. The directories themselves are deleted
-     * after the transaction commits.
+     * Removes one candidate whose stores are absent, keeps it as tampered when a store differs, and keeps it silently
+     * when it is verified: an entry opened between the lock-free listing and the lock is intact, which is no failure.
      */
     private void removeIfResidue(ScopeTransaction transaction, PendingEntryStore store, EntryId entryId,
             PendingEntryStore.Integrity integrity, Instant at, List<EntryId> removed, List<String> kept) {
@@ -170,7 +170,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
             transaction.owe(AuditEvent.pendingEntryRemoved(entryId.value(),
                     PendingEntryStore.directoryPath(entryId), at, transaction.recordId().value()));
             removed.add(entryId);
-        } else {
+        } else if (integrity instanceof PendingEntryStore.Integrity.Tampered) {
             kept.add(entryId.value() + " (tampered)");
         }
     }
