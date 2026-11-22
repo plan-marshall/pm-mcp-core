@@ -211,16 +211,16 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     public static final String REASON_NOT_CONFIRMED = "not_confirmed";
 
     /**
-     * The name of the event that records a pending entry record removed by the pending-record sweep because it is
-     * older than the pending entry record maximum age.
+     * The name of the event that records the directory of a pending entry the sweep removed as residue: the entry was
+     * started or abandoned, and the removal its end began was cut off before the directory was gone.
      */
     public static final String PENDING_ENTRY_REMOVED = "pending_entry_removed";
 
-    /** The detail of a removed pending entry record that names the entry by its id. */
+    /** The detail of a removed pending entry that names the entry by its id. */
     public static final String DETAIL_ENTRY_ID = "entry_id";
 
-    /** The detail of a removed pending entry record that holds the instant the record was created. */
-    public static final String DETAIL_CREATED_AT = "created_at";
+    /** The detail of a removed pending entry that holds the instant the residue was removed. */
+    public static final String DETAIL_REMOVED_AT = "removed_at";
 
     /**
      * The name of the record a stalled plan or epic appends once per episode (PM-ARCH-8; Store Schemas § Audit Log,
@@ -317,26 +317,25 @@ public record AuditEvent(String event, String category, String outcome, Map<Stri
     }
 
     /**
-     * The record a pending-record sweep owes for every pending entry record it removes, as the evidence of its
-     * removal: the entry, the creation instant the age was measured from, and the store path. It is owed by the
-     * workspace transaction that removes the record, under an id of its own, so two records removed in one run carry
-     * two ids.
+     * The record the sweep owes for every pending entry whose directory it removes as residue: the entry, the
+     * directory, and the instant of the sweep's run. It is owed by the workspace transaction that removes the residue,
+     * under an id of its own, so two directories removed in one run carry two ids.
      *
-     * @param entryId       the id of the removed entry
-     * @param store         the record, relative to the path base of the workspace scope
-     * @param createdAt     the creation instant of the record, in its one wire shape
-     * @param transactionId the id of this one record, issued by the transaction that removes the record and distinct
+     * @param entryId       the id of the entry
+     * @param directory     the directory, relative to the path base of the workspace scope
+     * @param removedAt     the instant of the sweep's run
+     * @param transactionId the id of this one record, issued by the transaction that removes the residue and distinct
      *                      from its own id; the deduplication key by which a record handed over again is recognised
      *                      as the same
      * @return the record of the removal
      * @throws NullPointerException if an argument is {@code null}
      */
-    public static AuditEvent pendingEntryRemoved(String entryId, String store, String createdAt,
+    public static AuditEvent pendingEntryRemoved(String entryId, String directory, Instant removedAt,
             String transactionId) {
         return new AuditEvent(PENDING_ENTRY_REMOVED, CATEGORY_STORE, OUTCOME_SUCCEEDED,
                 Map.of(DETAIL_ENTRY_ID, Objects.requireNonNull(entryId, "entryId"), DETAIL_STORE,
-                        Objects.requireNonNull(store, DETAIL_STORE), DETAIL_CREATED_AT,
-                        Objects.requireNonNull(createdAt, "createdAt"), DETAIL_TRANSACTION_ID,
+                        Objects.requireNonNull(directory, DETAIL_STORE), DETAIL_REMOVED_AT,
+                        Objects.requireNonNull(removedAt, "removedAt").toString(), DETAIL_TRANSACTION_ID,
                         Objects.requireNonNull(transactionId, TRANSACTION_ID_ARGUMENT)));
     }
 

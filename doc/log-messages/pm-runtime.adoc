@@ -27,7 +27,6 @@
 |PM_RUNTIME-20 |Enrolment of project '%s' removed, its project store kept
 |PM_RUNTIME-21 |Enrolment of project '%s' re-baselined
 |PM_RUNTIME-22 |Owed audit record '%s' of transaction '%s' for project '%s' handed over after an earlier refusal or stop
-|PM_RUNTIME-23 |Periodic sweep removed %s pending entry records of project '%s'
 |PM_RUNTIME-25 |Audit log rotated to '%s' with %s records
 |PM_RUNTIME-26 |Credential store '%s' recorded by %s, machine configuration revision %s
 |PM_RUNTIME-27 |Credential store move from '%s' to '%s' started
