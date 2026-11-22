@@ -148,9 +148,13 @@ baseline line alone is not the permission: the reason below is, as the Consequen
 * `pm-workflow` `scenario.ScenarioFixtures.Locks` and its anonymous `LockTransaction` — S2, the semantics of F3: an
   in-memory `LockManager` whose `holds` follows the `acquire` and `close` of each open transaction. It is a fifth
   declaration of the accepted kind, because no artifact publishes a shared fixture (ADR link:012-generator-artifacts.adoc[012]).
-* `pm-workflow` `scenario.ScenarioFixtures.QueueTasks` — S2, the shape of F1: the replay's queue-task port answers each
-  `create` from the counter of the requests it has already served and writes the real record into the replay's queue,
-  so a mock would have to restate that state in `andAnswer`.
+* `pm-workflow` `scenario.ScenarioFixtures.QueueTasks` — S2, the shape of F1: the replay's queue-task port is the
+  adapter between the engine and the replay's real `QueueStore`, not a recorder. It writes the engine's request as a
+  real queue record, so the queue the replay reads holds what the engine created; its counter starts at the number of records
+  the store already holds, so a replay resumed over a store continues the ids; and the replay sets the scope of the
+  records after the port is built. (The reason this amendment first gave, that a mock would restate the counter in
+  `andAnswer`, did not hold: the replaced mock already counted through its `Capture`. Corrected 2026-11-21,
+  PLAN-V2-163.)
 
 Neither is convertible without losing the property the fixture is for: the lock manager's answers follow its own
 transaction history, and the queue-task port's id and its record are one state. The sentence of the 2026-11-14
@@ -180,6 +184,24 @@ lists the outcome enums of `EngineFixtures`, `TestPrimitives` and `InvariantFixt
   reason wire name with a hyphen (`MALFORMED_REASON_WIRE_NAME`, ADR core-spi/013), beside the other malformed reason
   fixtures of `ReasonPrimitives` the baseline already lists. The registry reads the outcome set and the reason set from
   enum classes, so the same type-system constraint holds; no conversion is possible.
+
+=== The 2026-11-21 amendment
+
+A pull request of PLAN-V2-163 (`core-and-doc-statement-residue`, deliverable 4, item 31d) adds two more enums to the
+scan's population of `pm-core`, by the operator's decision of 2026-11-21 to amend this ADR. They are the two additions
+of this plan to the closed list, and, like those of the 2026-11-20 amendment, they are no doubles by this ADR's
+definition (an enum constant keeps no state and records no call) but are listed by the scan because they implement
+production interfaces.
+
+* `pm-core` `spi.ReasonPrimitives.NumberConditionReason` and `NumberConditionReasonOutcome` — the refusal case of a
+  reason whose condition kind is a number: `NumberConditionReason#conditionKind()` hands a number out through a raw
+  `OutcomeReason`, the way code compiled against the raw type can, and the registry has a branch that refuses it. The
+  registry reads the outcome set and the reason set from enum classes, and `PrimitiveOutcome#reasonType()` answers an
+  enum class of `OutcomeReason`, so the same type-system constraint holds as for the fixtures above: EasyMock cannot
+  create an enum, and an enum is what the registry needs to reach that branch with a numeric condition kind. No
+  conversion is possible. Both sit beside the other malformed reason fixtures of `ReasonPrimitives` (for example
+  `NullConditionReason` and `UnmappableConditionReason`) and carry a line each in
+  `pm-core/src/test/resources/hand-written-doubles.txt`, so the scan baseline entry exists.
 
 == Alternatives Considered
 

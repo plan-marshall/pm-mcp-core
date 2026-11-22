@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -21,8 +22,12 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 import de.planmarshall.core.SchemaResource;
+import de.planmarshall.core.id.HarnessId;
+import de.planmarshall.core.id.IntegrationName;
+import de.planmarshall.core.id.RoleName;
 import de.planmarshall.core.store.PlanOverrides.Axis;
 import de.planmarshall.core.store.PlanOverrides.Channel;
 import de.planmarshall.core.store.PlanOverrides.Integration;
@@ -114,6 +119,33 @@ class PlanOverridesSchemaParityTest {
                 () -> assertEquals(SchemaResource.object(deviceId).get("pattern"),
                         "^" + PlanOverridesCodec.DEVICE_ID.pattern() + "$",
                         "the device id grammar is the schema's"));
+    }
+
+    @Test
+    @DisplayName("the variant grammar and the role, harness and integration grammars are the schema's")
+    void nameGrammars() {
+        var properties = SchemaResource.object(SchemaResource.load(SCHEMA).get("properties"));
+        var roles = SchemaResource.object(properties.get("roles"));
+        var harness = SchemaResource.object(SchemaResource.object(SchemaResource.object(
+                roles.get("additionalProperties")).get("properties")).get("harness"));
+        var integrations = SchemaResource.object(properties.get("integrations"));
+        var axisProperties = SchemaResource.object(SchemaResource.object(properties.get("axes")).get("properties"));
+
+        var checks = new ArrayList<Executable>();
+        for (var axis : Axis.values()) {
+            checks.add(() -> assertEquals(
+                    "^" + axis.prefix() + "\\." + PlanOverridesCodec.VARIANT_NAME.pattern() + "$",
+                    SchemaResource.object(axisProperties.get(axis.key())).get("pattern"),
+                    "the variant grammar of an axis is the schema's"));
+        }
+        checks.add(() -> assertEquals(RoleName.PATTERN.pattern(),
+                SchemaResource.object(roles.get("propertyNames")).get("pattern"), "the role grammar is the schema's"));
+        checks.add(() -> assertEquals(HarnessId.PATTERN.pattern(), harness.get("pattern"),
+                "the harness grammar is the schema's"));
+        checks.add(() -> assertEquals(IntegrationName.PATTERN.pattern(),
+                SchemaResource.object(integrations.get("propertyNames")).get("pattern"),
+                "the integration grammar is the schema's"));
+        assertAll(checks.stream());
     }
 
     private Map<?, ?> written() {

@@ -369,9 +369,9 @@ class IntentRecordTest {
                 "the refusal names the field and its reason");
     }
 
-    @DisplayName("A decision with a question id but a model decider is refused")
+    @DisplayName("A choice with a question id but a role decider is refused")
     @Test
-    void refusesModelDecisionWithQuestionId() {
+    void refusesRoleDecisionWithQuestionId() {
         var why = Generators.letterStrings(10, 60).next();
         var choices = options();
         assertThrows(IllegalArgumentException.class,

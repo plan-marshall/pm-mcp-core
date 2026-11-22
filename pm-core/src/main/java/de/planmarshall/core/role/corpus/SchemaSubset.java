@@ -38,7 +38,9 @@ import de.planmarshall.core.role.corpus.JsonValue.JsonString;
  * {@code \n} only, {@code \d}, {@code \w} and {@code \s} are Python's Unicode classes);
  * {@code maxLength} counts code points and is checked before {@code pattern}, so an over-long value is reported as such
  * and its pattern is not evaluated; two numbers are equal by value, and a boolean equals no number. Each violation
- * is reported as a message that starts with the path of the value, {@code $} for the document.
+ * is reported as a message that starts with the path of the value, {@code $} for the document. A message that echoes
+ * the document (the value an {@code enum} refuses, an unknown key) echoes it cut by
+ * {@link SourceManifest#fragment(String)}.
  *
  * @since 0.1
  */
@@ -103,7 +105,8 @@ public class SchemaSubset {
                 .ifPresent(constant -> errors.add("%s: must be %s".formatted(path, constant.toJson())));
         schema.get("enum").filter(JsonList.class::isInstance).map(JsonList.class::cast)
                 .filter(members -> members.elements().stream().noneMatch(member -> same(value, member)))
-                .ifPresent(members -> errors.add("%s: %s not in %s".formatted(path, value.toJson(), members.toJson())));
+                .ifPresent(members -> errors.add("%s: %s not in %s".formatted(path,
+                        SourceManifest.fragment(value.toJson()), members.toJson())));
         switch (value) {
             case JsonString(var string) -> checkString(string, schema, path, errors);
             case JsonNumber number -> checkNumber(number, schema, path, errors);
@@ -194,7 +197,7 @@ public class SchemaSubset {
             if (property.isPresent()) {
                 check(member.getValue(), property.get(), "%s.%s".formatted(path, member.getKey()), errors);
             } else if (closed) {
-                errors.add("%s: unknown key %s".formatted(path, member.getKey()));
+                errors.add("%s: unknown key %s".formatted(path, SourceManifest.fragment(member.getKey())));
             }
         }
     }

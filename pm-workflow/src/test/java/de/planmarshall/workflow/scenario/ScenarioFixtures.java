@@ -41,6 +41,7 @@ import org.easymock.CaptureType;
 import de.planmarshall.core.profile.WorkerParameters;
 import de.planmarshall.core.queue.FencedGenerations;
 import de.planmarshall.core.queue.QueueStore;
+import de.planmarshall.core.queue.QueueTaskId;
 import de.planmarshall.core.queue.QueueTaskRecord;
 import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.service.LockManager;
@@ -89,7 +90,8 @@ import de.planmarshall.workflow.verify.WorkflowValidator;
  * with the store of a scope in a directory the test gives.
  * <p>
  * Everything a replay writes is fixed by the script: the clock starts at {@link #T0} and moves by {@link #STEP} per
- * step, job ids, queue task ids and generation ids come from counters, and every primitive returns one fixed outcome.
+ * step, job ids, queue task ids, consultation ids and generation ids come from counters, and every primitive returns
+ * one fixed outcome.
  * Two replays of one script with fresh fixtures therefore write the same bytes. One instance serves one replay.
  */
 // Every datum in this class is a contract: the fixture DSL documents and the replay's fixed identity.
@@ -231,6 +233,7 @@ final class ScenarioFixtures {
     private TaskProtocol protocol;
     private List<String> consultRoles = List.of();
     private int generations;
+    private int consultationIds;
 
     private final Path directory;
 
@@ -254,7 +257,7 @@ final class ScenarioFixtures {
 
     private void buildRuntime() {
         fences = new FencedGenerations(queue.directory(), queue.lockKey(), locks);
-        consultations = new ConsultationService(queue);
+        consultations = new ConsultationService(queue, this::consultationId);
         queueTasks = new QueueTasks(queue, clock, this::roleClass);
         protocol = TaskProtocol.builder(queue, locks)
                 .fences(fences)
@@ -273,6 +276,18 @@ final class ScenarioFixtures {
     String generation() {
         generations++;
         return "l-%016x".formatted(generations);
+    }
+
+    /**
+     * The id seam of the replay's consultation service (ADR {@code workflow-consult/005}): {@code qt-c} and 15 hex
+     * digits from a counter, a range apart from the ids {@link QueueTasks} hands out, so a script names the id of its
+     * consultation and two replays write the same bytes.
+     *
+     * @return the next consultation id of the replay
+     */
+    QueueTaskId consultationId() {
+        consultationIds++;
+        return new QueueTaskId("qt-c%015x".formatted(consultationIds));
     }
 
     /** @return the roles the unit of the replay declares with {@code consult role} */
@@ -815,6 +830,11 @@ final class ScenarioFixtures {
     /**
      * A lock manager for the replay's queue and fence store: it takes no lock of the operating system and answers
      * {@link LockTransaction#holds(LockKey)} for the keys a transaction acquired until it closes.
+     * <p>
+     * It repeats {@code de.planmarshall.workflow.task.TestLocks} on purpose: that double is package-private in the test
+     * tree of {@code workflow.task}, so this package cannot reach it, and making it public would open the task tests'
+     * fixture to every package of the module; the scenario package keeps its own fixtures (ADR
+     * {@code workflow-scenario/006}).
      */
     static final class Locks implements LockManager {
 

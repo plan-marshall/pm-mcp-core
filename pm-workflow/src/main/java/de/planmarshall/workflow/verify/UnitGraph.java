@@ -18,6 +18,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -55,6 +56,12 @@ final class UnitGraph {
 
     /** The prefix of the atom of a {@code predicate:} guard, followed by the primitive's identifier. */
     static final String PREDICATE_PREFIX = "predicate:";
+
+    /**
+     * The largest number of simple cycles {@link #findSimpleCycles(WorkflowDefinition)} enumerates for one unit,
+     * {@code 2^16}: a unit that carries more is refused by Rule 11 instead of being searched to the end (ADR 041).
+     */
+    static final int CYCLE_CAP = 1 << 16;
 
     private final Map<String, Set<String>> successors;
 
@@ -334,17 +341,34 @@ final class UnitGraph {
     }
 
     /**
-     * Finds all elementary simple cycles in the unit graph.
-     * <p>
-     * The search runs inside the strongly connected component of its start state: a state outside that component lies
-     * on no cycle through the start, and the depth-first search would still walk every simple path from the start that
-     * keeps to a larger index. The components are computed once, and the search keeps the declaration order of the
-     * states and of their successors, so the returned list is the one an unrestricted search finds.
+     * Finds the elementary simple cycles of the unit graph, at most {@link #CYCLE_CAP} of them (ADR 041).
      *
      * @param definition the workflow definition
-     * @return the list of simple cycles, each represented as a sequence of state IDs ending in the start state
+     * @return the simple cycles as {@link #findSimpleCycles(WorkflowDefinition, int)} finds them under
+     *         {@link #CYCLE_CAP}; empty when the unit carries more
      */
-    static List<List<String>> findSimpleCycles(WorkflowDefinition definition) {
+    static Optional<List<List<String>>> findSimpleCycles(WorkflowDefinition definition) {
+        return findSimpleCycles(definition, CYCLE_CAP);
+    }
+
+    /**
+     * Finds the elementary simple cycles of the unit graph, and stops as soon as it finds one more than the cap.
+     * <p>
+     * The search starts from every state in declaration order and descends only into states whose index is greater
+     * than the index of its start state, so each cycle is found once, from its first state. It runs inside the
+     * strongly connected component of its start state: a state outside that component lies on no cycle through the
+     * start, and the depth-first search would still walk every simple path from the start that keeps to a larger
+     * index. The components are computed once, and the search keeps the declaration order of the states and of their
+     * successors, so the returned list is the one an unrestricted search finds. The number of simple cycles can grow
+     * exponentially with the states (a chain of {@code n} diamonds closed by one loop-back carries {@code 2^n}), so the
+     * search stops at the cap instead of materialising every cycle.
+     *
+     * @param definition the workflow definition
+     * @param cap        the largest number of cycles the search returns
+     * @return the list of simple cycles, each represented as a sequence of state IDs ending in the start state; empty
+     *         when the unit carries more than {@code cap} of them
+     */
+    static Optional<List<List<String>>> findSimpleCycles(WorkflowDefinition definition, int cap) {
         var stateIds = new ArrayList<>(definition.states().keySet());
         var graph = of(definition);
         var cyclic = cyclicComponents(stateIds, graph);
@@ -364,27 +388,36 @@ final class UnitGraph {
             path.add(startId);
             var inPath = new LinkedHashSet<String>();
             inPath.add(startId);
-            dfsCycles(graph, startId, new CycleScope(i, stateIndex, component), path, inPath, cycles);
+            if (!dfsCycles(graph, startId, new CycleScope(i, stateIndex, component, cap), path, inPath, cycles)) {
+                return Optional.empty();
+            }
         }
-        return cycles;
+        return Optional.of(Collections.unmodifiableList(cycles));
     }
 
     /**
-     * The part of one cycle search that every step of it shares: the index of the start state, the index of every state
-     * and the component of the start state, which is the only place the search descends into.
+     * The part of one cycle search that every step of it shares: the index of the start state, the index of every
+     * state, the component of the start state, which is the only place the search descends into, and the cap.
      *
      * @param startIndex the index of the start state in declaration order
      * @param stateIndex the index of every state in declaration order
      * @param component  the strongly connected component of the start state
+     * @param cap        the largest number of cycles the search collects
      */
-    private record CycleScope(int startIndex, Map<String, Integer> stateIndex, Set<String> component) {
+    private record CycleScope(int startIndex, Map<String, Integer> stateIndex, Set<String> component, int cap) {
     }
 
-    private static void dfsCycles(UnitGraph graph, String current, CycleScope scope, List<String> path,
+    /**
+     * @return {@code false} once the search has found more cycles than the cap, {@code true} otherwise
+     */
+    private static boolean dfsCycles(UnitGraph graph, String current, CycleScope scope, List<String> path,
             Set<String> inPath, List<List<String>> cycles) {
         var start = path.getFirst();
         for (var next : graph.successors(current)) {
             if (next.equals(start)) {
+                if (cycles.size() == scope.cap()) {
+                    return false;
+                }
                 var cycle = new ArrayList<>(path);
                 cycle.add(start);
                 cycles.add(Collections.unmodifiableList(cycle));
@@ -393,12 +426,16 @@ final class UnitGraph {
                 if (nextIndex != null && nextIndex > scope.startIndex() && scope.component().contains(next)
                         && inPath.add(next)) {
                     path.add(next);
-                    dfsCycles(graph, next, scope, path, inPath, cycles);
+                    var withinCap = dfsCycles(graph, next, scope, path, inPath, cycles);
                     path.removeLast();
                     inPath.remove(next);
+                    if (!withinCap) {
+                        return false;
+                    }
                 }
             }
         }
+        return true;
     }
 
     /**

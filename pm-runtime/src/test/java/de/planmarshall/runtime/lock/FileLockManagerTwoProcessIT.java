@@ -56,7 +56,7 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
  * <p>
  * The project, plan and queue task ids are generated and passed to the other process. The literals that stay are the
  * contract: the child-process protocol (its arguments, the mode argument, the {@link LockHolderProcess#HELD} line and
- * the {@link LockHolderProcess#LINES_PREFIX} line of the read mode), its exit code 0 and the process and observation
+ * the {@link LockHolderProcess#LINES_PREFIX} line of the snapshot mode), its exit code 0 and the process and observation
  * bounds.
  */
 @EnableGeneratorController
@@ -303,20 +303,20 @@ class FileLockManagerTwoProcessIT {
     }
 
     /**
-     * The last-line read of an append-only store opens and closes a channel on it too, so the OS lock must survive the
-     * read (ADR 068).
+     * The whole-store snapshot of an append-only store ({@code JsonlStoreFile.read(transaction)}) opens and closes a
+     * channel on it too, so the OS lock must survive the read (ADR 068).
      * <p>
      * Enabled on Linux and macOS only: the POSIX rule that closing any channel on a file releases the process's OS
      * locks is what the test shows.
      */
     @Test
     @EnabledOnOs({OS.LINUX, OS.MAC})
-    @DisplayName("a last-line read on a leaf key in another process keeps its OS lock against this process")
-    void leafLastLineReadKeepsTheOsLock() throws Exception {
+    @DisplayName("a whole-store snapshot on a leaf key in another process keeps its OS lock against this process")
+    void leafSnapshotReadKeepsTheOsLock() throws Exception {
         Files.createDirectories(base.resolve("logs"));
         var key = LockKey.auditLog(base);
         Files.write(key.lockFile(), COMPLETE_LINE);
-        startHolder(LockHolderProcess.READ);
+        startHolder(LockHolderProcess.SNAPSHOT);
 
         var sidecarLockedWhileHeld = Files.exists(sidecar(key)) && lockedByAnotherProcess(sidecar(key));
         var storeLockedWhileHeld = lockedByAnotherProcess(key.lockFile());
@@ -331,7 +331,7 @@ class FileLockManagerTwoProcessIT {
                 () -> assertFalse(sidecarLockedAfterRelease,
                         "the audit sidecar is free after the child released it"),
                 () -> assertEquals(List.of(LockHolderProcess.LINES_PREFIX + 1), protocolLines,
-                        "the child read the one complete line of the log"));
+                        "the child's snapshot held the one complete line"));
     }
 
     /**

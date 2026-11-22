@@ -55,6 +55,17 @@ it—a per-module copy of the scanner class was the alternative, and a `pm-core`
 sources by relative path was the other. The scanner reads a package path and a source root, so a module's guard names
 its own base package and reads its own `src/test/java`; nothing of a consumer's tree is compiled into the artifact.
 
+The scanner of the assertion-message family (PLAN-V2-160, #532 to #534) is four parts behind the entry point
+`AssertionMessages`: the lexer `CodeView` (code, comments, strings and text blocks apart), the argument splitter
+`ArgumentSpans`, the constant resolver `ConstantScopes` and the verdict on one call `MessageMeasurement`. A message is
+measured when it is one string literal, a supplier whose body is one string literal, or the name of a
+`static final String` constant of the same file that the name binds to at the assertion. Every other message shape is
+accepted unmeasured and listed in the scan's `unmeasured` report with its line and shape; the guards do not fail on
+the report, which counts what the rule does not reach. The heading of an `assertAll` is exempt from the 20-to-60 rule:
+it labels a group whose assertions carry their own messages, which are measured. The rewording of the family's
+first pull request, #451, changed 45 message literals (measured at `19b0ae6b`); its merge message sums its table to 44
+and its text to 29 plus 15, and neither figure is the measured one.
+
 The rule for later work: **a test that needs a generator for a type of another module takes it from that module's
 artifact; a new generator for a type of this module goes into this module's artifact, not into a test class.**
 
@@ -96,6 +107,11 @@ artifact; a new generator for a type of this module goes into this module's arti
   `pm-provider-git:tests`. Like the other new artifacts, the two carry only their generator package. In PLAN-V2-92
   neither `pm-provider-github` nor `pm-provider-gitlab` declares `pm-provider-ci:tests`, and no module of this
   repository consumes `pm-provider-git:tests`.
+* The "if cheap" sub-items of the scanner work (item 46(b) of PLAN-V2-114) are closed without a change (recorded
+  2026-11-21, PLAN-V2-163): the class Javadoc of the schema helper `SchemaValidation` of `pm-core` no longer carries an
+  upstream changelog statement, and its claim that the registry is thread-safe while its configuration is not modified
+  is the library's own documented contract, which no test of this repository measures; the check count that
+  ADR link:028-the-json-schema-validator-is-on-the-3-line.adoc[028] shipped was removed by #537 and is not restored.
 
 == Source
 

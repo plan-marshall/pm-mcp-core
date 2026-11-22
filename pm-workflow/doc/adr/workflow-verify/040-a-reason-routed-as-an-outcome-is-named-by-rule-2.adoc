@@ -49,6 +49,7 @@ also stated that no verifier reads a reason.
 == Source
 
 * Pull request of `PLAN-V2-19` (`engine-carries-reasons`), deliverable 3
+* link:../../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5]
 * link:../../../../pm-core/doc/adr/core-spi/011-reasons-are-data-only-and-never-routable.adoc[ADR core-spi/011]
 * link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL § Static AST Verification Rules] (Rule 2)
 * link:../../developer/workflow-verify.adoc#_rule_2_outcome_coverage[Workflow Verification Developer Guide § Rule 2]

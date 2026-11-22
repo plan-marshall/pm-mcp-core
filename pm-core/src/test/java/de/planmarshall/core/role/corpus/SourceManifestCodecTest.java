@@ -12,6 +12,7 @@ package de.planmarshall.core.role.corpus;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -312,5 +313,35 @@ class SourceManifestCodecTest {
                 () -> assertEquals(atBound, SourceManifestCodec.read(FILE, SourceManifestCodec.write(atBound)),
                         "the value at the bound round-trips unchanged"),
                 () -> assertUnreadable(refusalOf(with(bound.field(), bound.overBound())), bound.refusal()));
+    }
+
+    @Test
+    @DisplayName("an over-long malformed repository is refused by its length before it is parsed")
+    void overLongMalformedRepository() {
+        var refusal = refusalOf(with("repository", quoted("https://h.test/" + "p q".repeat(700))));
+
+        assertAll(
+                () -> assertUnreadable(refusal, "'repository' is longer than 2048 characters"),
+                () -> assertFalse(refusal.getMessage().contains("p q".repeat(100)),
+                        "the refusal does not echo the URI"));
+    }
+
+    @Test
+    @DisplayName("a malformed repository inside the bound is refused by the URI parser")
+    void malformedRepositoryInsideTheBound() {
+        assertUnreadable(refusalOf(with("repository", quoted("https://h.test/p q"))), "Illegal character");
+    }
+
+    @Test
+    @DisplayName("an undeclared fetch kind is echoed cut to its first 256 characters")
+    void echoedFetchKindIsCut() {
+        var refusal = refusalOf(with("fetch", quoted("x".repeat(300))));
+
+        assertAll(
+                () -> assertUnreadable(refusal, "'fetch' has the undeclared value"),
+                () -> assertTrue(refusal.getMessage().contains("x".repeat(256)),
+                        "the echo keeps the first 256 characters"),
+                () -> assertFalse(refusal.getMessage().contains("x".repeat(257)),
+                        "the echo holds no more than 256 characters"));
     }
 }

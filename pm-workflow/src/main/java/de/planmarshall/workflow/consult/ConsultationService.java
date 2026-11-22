@@ -21,6 +21,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import de.planmarshall.core.queue.QueueStore;
@@ -90,11 +91,28 @@ public final class ConsultationService {
 
     private final QueueStore queue;
 
+    private final Supplier<QueueTaskId> consultationIds;
+
     /**
+     * Creates the service that draws every consultation id from {@link QueueTaskId#random()}.
+     *
      * @param queue the queue of the project the consultations belong to
      */
     public ConsultationService(QueueStore queue) {
+        this(queue, QueueTaskId::random);
+    }
+
+    /**
+     * Creates the service with an id seam: every consultation id is drawn from the supplier, so a harness that replays
+     * a consultation names its id in advance (ADR 005). A drawn id the queue already holds is skipped and the next one
+     * is drawn, so the supplier must yield a free id after finitely many taken ones.
+     *
+     * @param queue           the queue of the project the consultations belong to
+     * @param consultationIds the source of the consultation ids
+     */
+    public ConsultationService(QueueStore queue, Supplier<QueueTaskId> consultationIds) {
         this.queue = Objects.requireNonNull(queue, "queue");
+        this.consultationIds = Objects.requireNonNull(consultationIds, "consultationIds");
     }
 
     /**
@@ -550,7 +568,7 @@ public final class ConsultationService {
 
     private String freeId() {
         while (true) {
-            var candidate = QueueTaskId.random().value();
+            var candidate = consultationIds.get().value();
             if (queue.read(candidate).isEmpty()) {
                 return candidate;
             }

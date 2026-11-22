@@ -799,6 +799,9 @@ public final class LessonStore {
     }
 
     /**
+     * The switch names every variant of the sealed {@link LessonResolution} and carries no {@code default} arm, so a
+     * new variant fails to compile here instead of counting as trusted (ADR {@code core-store/079}).
+     *
      * @param resolution how a cited lesson resolved
      * @return whether the citation marks the revision {@code derived_from_untrusted}: the front matter's own mark for
      *         a lesson that decodes, and {@code true} for every state in which the trust of the cited lesson cannot be

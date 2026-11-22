@@ -9,6 +9,7 @@
  */
 package de.planmarshall.core.role.corpus;
 
+import static de.planmarshall.core.role.corpus.SourceManifest.fragment;
 import static de.planmarshall.core.store.StrictJson.string;
 import static de.planmarshall.core.store.StrictJson.unreadable;
 
@@ -59,7 +60,8 @@ class CorpusJson {
 
     /**
      * Accepts the one spelling of a date the schemas admit and the writer produces: {@code YYYY-MM-DD} with a
-     * four-digit year ({@link #DATE_PATTERN}), naming a day of the calendar.
+     * four-digit year ({@link #DATE_PATTERN}), naming a day of the calendar. A refusal echoes the text cut by
+     * {@link SourceManifest#fragment(String)}.
      *
      * @param parser the parser, positioned on the value of the field
      * @param field  the name of the field
@@ -69,7 +71,8 @@ class CorpusJson {
     static LocalDate date(JsonParser parser, String field) throws IOException {
         var text = string(parser, field);
         if (!DATE_PATTERN.matcher(text).matches()) {
-            throw unreadable("'%s' is not in the one shape of a date (YYYY-MM-DD): %s".formatted(field, text));
+            throw unreadable(
+                    "'%s' is not in the one shape of a date (YYYY-MM-DD): %s".formatted(field, fragment(text)));
         }
         try {
             return LocalDate.parse(text);
@@ -137,7 +140,7 @@ class CorpusJson {
             throws IOException {
         var wireName = string(parser, field);
         return lookup.apply(wireName).orElseThrow(
-                () -> unreadable("'%s' has the undeclared value '%s'".formatted(field, wireName)));
+                () -> unreadable("'%s' has the undeclared value '%s'".formatted(field, fragment(wireName))));
     }
 
     /**

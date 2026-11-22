@@ -12,11 +12,12 @@ Accepted.
 == Context
 
 The role-name grammar `^[a-z][a-z0-9-]{1,31}$` (2 to 32 characters) was written out as a private `Pattern` in
-twenty-two classes of `pm-core`, `pm-workflow` and `pm-runtime` — seventeen role names, six harness ids and one constant
-that served both — each with its own field and error text. The specification defines the text once (Identifiers §
-General Rules & Registry, entry `id-role-name`) and gives the harness id the same text under its own entry
-`id-harness-id`, so a change of the grammar was a change in twenty-two classes (twenty-four literals), and a new record
-that carries a role copied the text again. The operator decided on 2026-10-29 (decision 17 of 18, option 1) on a small
+twenty-three classes of `pm-core`, `pm-workflow` and `pm-runtime` — role names, harness ids and one constant that served
+both — each with its own field and error text; the twenty-third, `HarnessCandidate`, came with #412 before the
+refactor merged. The specification defines the text once (Identifiers § General Rules & Registry, entry
+`id-role-name`) and gives the harness id the same text under its own entry `id-harness-id`, so a change of the grammar
+was a change in twenty-three classes (twenty-five literals), and a new record that carries a role copied the text
+again. The operator decided on 2026-10-29 (decision 17 of 18, option 1) on a small
 refactor that gives the pattern one definition, replaces the copies, and adds a test that fails if a copy is added.
 
 The package `de.planmarshall.core.id` existed and held `package-info.java` only; it is the package the Module Structure
@@ -34,10 +35,27 @@ exception type and its message. Where one constant served two members (`WorkerSt
 `worker.harness`), the helper takes the pattern as a parameter and the two calls pass `RoleName.PATTERN` and
 `HarnessId.PATTERN`.
 
+A third public type reads the same text: `IntegrationName`, the name of a git or provider integration that a plan's
+overrides key their variant by, added by `PLAN-V2-163` so that `PlanOverridesCodec` validates an integration name with
+the grammar of the thing validated rather than with `RoleName`. With it, twenty-four classes carry the grammar — the
+twenty-three whose copies the refactor replaced and `IntegrationName` — and the text is still one literal,
+`ShortName.TEXT`.
+
 A JUnit source scan, `RoleNameSingleDefinitionTest` of the guard package, reads the string literals of every
 `src/main/java` file of the reactor and fails for the grammar text outside `core/id/ShortName.java`, naming file, line
-and the two classes. It has no exemption map: the grammars that stay local (1-to-32, 1-to-63, the underscore form) do
-not match the text, so no entry can go stale.
+and the classes of the package. It has no exemption map: the grammars that stay local do not match the text, so no
+entry can go stale. They are:
+
+* the one-to-32 form `^[a-z][a-z0-9-]{0,31}$` of the harness profile and role artifact schemas, in
+  `ProfileValidator.CLIENT_ID` and `ProfileValidator.BUNDLED_ICON`, `ShippedProfiles.CLIENT_ID`,
+  `RoleArtifactValidator.CLIENT_ID` and, unanchored, `GradedConfiguration.HARNESS_NAME` — 1 to 32, not the registry's
+  2 to 32;
+* the 1-to-63 form of `QualificationRecord.SOURCE` and the underscore form of `QuestionRecord.BRANCH_KEY` and
+  `AnswerFact.BRANCH`;
+* the other lower-case identifier grammars the sweep of the refactor read and left in place because they carry
+  another text: `SourceManifest.NAME_PATTERN`, `PrimitiveRegistry.IDENTIFIER`, `WorkflowParser.SEGMENT` and
+  `WorkflowParser.PARAM_NAME`, `UnitFrontmatterReader.ICON_ID` and `HeaderSchemaCheck.PHASE_6_STEP`, beside those the
+  developer guide names.
 
 == Alternatives Considered
 
@@ -55,7 +73,7 @@ not match the text, so no entry can go stale.
 
 == Consequences
 
-A caller imports `core.id` for the two types; no dependency changes, because every module that carries the grammar
+A caller imports `core.id` for the type of the name it holds; no dependency changes, because every module that carries the grammar
 already depends on `pm-core`. The guard fails any later plan that adds a copy, so the new records that carry a role or a
 harness (`PLAN-V2-23`, `PLAN-V2-60`, `PLAN-V2-09`) take `RoleName` and `HarnessId` instead of the text.
 

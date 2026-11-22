@@ -58,8 +58,8 @@ class LaunchReportRecordsTest {
 
         var builder = LaunchReport.builder().pid(pid).confinement(confinement);
         var refusal = assertThrows(NullPointerException.class, builder::build,
-                "the builder names the missing start instant");
+                "the builder refuses a missing processStartedAt");
 
-        assertEquals("processStartedAt", refusal.getMessage(), "the refusal names the start instant");
+        assertEquals("processStartedAt", refusal.getMessage(), "the refusal names component processStartedAt");
     }
 }

@@ -1071,7 +1071,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 // step 3a: the descendants a probe or a worker may leave the group with, recorded while it runs.
                 // A worker is wired here rather than by the supervisor because this runner starts every job it is
                 // given, a worker included (ADR runtime-job/013, decision of PLAN-29).
-                job.tracks(new ProcessTreeTracker(launched.pid(), termination.signals()));
+                job.tracks(new ProcessTreeTracker(launched.pid()));
                 job.refreshTree();
             }
             var awaited = awaitReport(job, launched.process(), log, spawnedAt.plus(reportWait(job.budget)));
@@ -1230,10 +1230,13 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
 
     /**
      * The same decision over the seam a test replaces: where the handle of the PID is read. No single platform produces
-     * the four answers with real handles deterministically: a platform that reports no start instant yields the
-     * unreadable state but cannot produce the two readable rows, and on Linux and macOS the unreadable state arises only
-     * through the exit race between the handle lookup and the info read. The decision is therefore taken over the
-     * lookup, and the table of its four answers is exercised through this overload.
+     * the four answers with real handles deterministically. On Linux and macOS an empty own instant is the normal
+     * signature of a reuse: the JDK answers the info of a handle with an empty instant whenever the handle's own start
+     * time differs from the one the PID now carries, so the stale handle of the started process reads no instant once
+     * its PID names another process. Two readable instants that differ arise on the own side only through a read race,
+     * which makes that row the rarer one; a platform that reports no start instant yields the unreadable state on both
+     * sides. The decision is therefore taken over the lookup, and the table of its four answers is exercised through
+     * this overload.
      *
      * @param launched the started process, with the PID the caller recorded
      * @param handles  where the handle of a PID is read; {@link ProcessHandle#of(long)} in production

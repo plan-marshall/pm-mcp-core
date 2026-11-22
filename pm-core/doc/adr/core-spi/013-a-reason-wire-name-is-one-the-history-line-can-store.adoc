@@ -22,8 +22,9 @@ done, and a retry ran the primitive again.
 
 The stored format is the fixed side. The registry checks a reason's wire name with a grammar of its own: a lower-case
 letter, then at most 31 lower-case letters, digits and underscores. It refuses any other name with
-`MALFORMED_REASON_WIRE_NAME`, so every reason a registry admits is one the history line can store. The check of an
-outcome's wire name, `PlanHistoryLine` and the schema are unchanged.
+`MALFORMED_REASON_WIRE_NAME`, so every reason a registry admits is one the history line can store. The grammar of an
+outcome's wire name, and the grammar `PlanHistoryLine` and the schema give the `reason` member, are unchanged by this
+decision.
 
 == Alternatives Considered
 
@@ -38,9 +39,13 @@ outcome's wire name, `PlanHistoryLine` and the schema are unchanged.
 * A reason enum with a hyphenated wire name is refused at registration, before any workflow runs, and the refusal
   names the grammar.
 * `OutcomeReason.wireName()` and the specification state the reason grammar instead of referring to an outcome's.
-* *Known open point*: the wire name of an outcome has the same mismatch. The registry admits a hyphen in it, while
-  `PlanHistoryLine.OUTCOME_PATTERN` refuses one in the `outcome` member. It predates `PLAN-V2-19` and is not changed
-  here; a later plan decides whether the outcome grammar or the stored format moves.
+* The wire name of an outcome had the same mismatch: the registry admits a hyphen in it, and
+  `PlanHistoryLine.OUTCOME_PATTERN` refused one in the `outcome` member. `PLAN-V2-163` aligned the stored side: the
+  grammar of the `outcome` member of the history line is the registry's outcome grammar, `^[a-z][a-z0-9_-]*$` in
+  `PlanHistoryLine.OUTCOME_PATTERN` and `history-line.schema.json` alike, so a hyphenated outcome writes its `left`
+  line. The `reason` member keeps the hyphen-free grammar of this decision in a pattern of its own,
+  `PlanHistoryLine.REASON_PATTERN`. Widening the `outcome` member changes no stored datum: every stored line stays
+  valid.
 
 == Source
 

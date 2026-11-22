@@ -53,12 +53,11 @@ import de.planmarshall.core.store.PlanOverrides.UpdatedBy;
 @DisplayName("Plan overrides store")
 class PlanOverridesStoreTest {
 
-    private static final Clock CLOCK = Clock.fixed(
-            Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next()), ZoneOffset.UTC);
-
     @TempDir
     Path base;
 
+    /** The fixed clock of one test, drawn under the test's own generator controller. */
+    private Clock clock;
     private JournalScope scope;
     private PlanOverridesStore store;
     private RecordingLockManager locks;
@@ -68,6 +67,8 @@ class PlanOverridesStoreTest {
 
     @BeforeEach
     void createScope() throws IOException {
+        clock = Clock.fixed(Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next()),
+                ZoneOffset.UTC);
         project = "project-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
         plan = "plan-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
         scope = JournalScope.plan(base, project, plan);
@@ -95,8 +96,8 @@ class PlanOverridesStoreTest {
     private PlanOverrides write(PlanOverrides values, long revision) {
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(scope.lockKey());
-            var write = ScopeTransaction.open(transaction, scope, audit, CLOCK);
-            var written = store.write(write, values, revision, new UpdatedBy(Channel.CLI, null), CLOCK.instant());
+            var write = ScopeTransaction.open(transaction, scope, audit, clock);
+            var written = store.write(write, values, revision, new UpdatedBy(Channel.CLI, null), clock.instant());
             write.commit();
             return written;
         }
@@ -139,11 +140,11 @@ class PlanOverridesStoreTest {
                 .axes(Map.of(Axis.LANDING, "landing.files"))
                 .build();
         var stamp = new UpdatedBy(Channel.CLI, null);
-        var now = CLOCK.instant();
+        var now = clock.instant();
         SettingsConflict conflict;
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(scope.lockKey());
-            var write = ScopeTransaction.open(transaction, scope, audit, CLOCK);
+            var write = ScopeTransaction.open(transaction, scope, audit, clock);
 
             conflict = assertThrows(SettingsConflict.class,
                     () -> store.write(write, refused, PlanOverrides.NO_DOCUMENT, stamp, now),
@@ -165,11 +166,11 @@ class PlanOverridesStoreTest {
                 .providers(new Providers(List.of("x"), List.of()))
                 .build();
         var stamp = new UpdatedBy(Channel.CLI, null);
-        var now = CLOCK.instant();
+        var now = clock.instant();
 
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(scope.lockKey());
-            var write = ScopeTransaction.open(transaction, scope, audit, CLOCK);
+            var write = ScopeTransaction.open(transaction, scope, audit, clock);
 
             assertThrows(IllegalArgumentException.class,
                     () -> store.write(write, invalid, PlanOverrides.NO_DOCUMENT, stamp, now),
@@ -185,12 +186,12 @@ class PlanOverridesStoreTest {
                 "epic-" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT));
         Files.createDirectories(epic.journalFile().getParent());
         var stamp = new UpdatedBy(Channel.CLI, null);
-        var now = CLOCK.instant();
+        var now = clock.instant();
         var proposed = values();
 
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(epic.lockKey());
-            var write = ScopeTransaction.open(transaction, epic, audit, CLOCK);
+            var write = ScopeTransaction.open(transaction, epic, audit, clock);
 
             assertThrows(IllegalArgumentException.class,
                     () -> store.write(write, proposed, PlanOverrides.NO_DOCUMENT, stamp, now),
@@ -210,11 +211,11 @@ class PlanOverridesStoreTest {
     void oneWritePerTransaction() {
         var values = values();
         var stamp = new UpdatedBy(Channel.CLI, null);
-        var now = CLOCK.instant();
+        var now = clock.instant();
 
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(scope.lockKey());
-            var write = ScopeTransaction.open(transaction, scope, audit, CLOCK);
+            var write = ScopeTransaction.open(transaction, scope, audit, clock);
             write.replace(PlanOverridesStore.FILE_NAME,
                     PlanOverridesCodec.write(values.toBuilder().revision(1).updatedAt(now).updatedBy(stamp).build()));
 

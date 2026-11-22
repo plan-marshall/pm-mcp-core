@@ -74,6 +74,9 @@ final class InstanceHeaderReader {
 
     private static final String ROOT = "";
 
+    /** The column of a refusal whose defect concerns an object as a whole and lies at no column. */
+    private static final int NO_COLUMN = 0;
+
     private static final JsonFactory JSON = new JsonFactory();
 
     /**
@@ -239,7 +242,7 @@ final class InstanceHeaderReader {
             if (!seen.contains(field)) {
                 throw new HeaderRefusal(
                         "member '%s' of the instance header is missing".formatted(qualify(path, field)),
-                        OptionalInt.empty());
+                        NO_COLUMN);
             }
         }
     }
@@ -286,21 +289,21 @@ final class InstanceHeaderReader {
         return "%s[%d]".formatted(path, index);
     }
 
-    /** The 1-based column of the JSON text at which the current token starts. */
-    private static OptionalInt tokenColumn(JsonParser parser) {
+    /** The 1-based column of the JSON text at which the current token starts, or {@link #NO_COLUMN}. */
+    private static int tokenColumn(JsonParser parser) {
         return column(parser.currentTokenLocation().getColumnNr());
     }
 
-    /** The 1-based column of the JSON text at which jackson-core stopped reading, if it names one. */
-    private static OptionalInt errorColumn(IOException e) {
+    /** The 1-based column of the JSON text at which jackson-core stopped reading, or {@link #NO_COLUMN}. */
+    private static int errorColumn(IOException e) {
         if (e instanceof JsonProcessingException malformed && malformed.getLocation() != null) {
             return column(malformed.getLocation().getColumnNr());
         }
-        return OptionalInt.empty();
+        return NO_COLUMN;
     }
 
-    private static OptionalInt column(int columnNr) {
-        return columnNr >= 1 ? OptionalInt.of(columnNr) : OptionalInt.empty();
+    private static int column(int columnNr) {
+        return columnNr >= 1 ? columnNr : NO_COLUMN;
     }
 
     /** Names where the line stops being JSON, without the source excerpt the parser may append. */
@@ -324,14 +327,23 @@ final class InstanceHeaderReader {
         /** The 1-based column, or {@code 0} when the defect has none. */
         private final int column;
 
-        private HeaderRefusal(String message, OptionalInt column) {
+        /**
+         * @param message the defect and the member it lies in
+         * @param column  the 1-based column, or {@code 0} when the defect has none
+         */
+        private HeaderRefusal(String message, int column) {
             super(message);
-            this.column = column.orElse(0);
+            this.column = column;
         }
 
-        private HeaderRefusal(String message, OptionalInt column, Throwable cause) {
+        /**
+         * @param message the defect and the member it lies in
+         * @param column  the 1-based column, or {@code 0} when the defect has none
+         * @param cause   the jackson-core failure the refusal maps
+         */
+        private HeaderRefusal(String message, int column, Throwable cause) {
             super(message, cause);
-            this.column = column.orElse(0);
+            this.column = column;
         }
 
         /**

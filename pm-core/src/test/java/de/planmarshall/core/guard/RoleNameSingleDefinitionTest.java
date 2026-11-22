@@ -12,6 +12,7 @@ package de.planmarshall.core.guard;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -25,11 +26,15 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+
+import de.planmarshall.core.id.RoleName;
 
 /**
  * Guards that the grammar of a role name and of a harness id is written once.
@@ -39,6 +44,14 @@ import org.junit.jupiter.params.provider.ValueSource;
  * definition ({@code RoleName} and {@code HarnessId}) of the {@code core.id} package. Only
  * {@code core/id/ShortName.java}, which writes the text once, is excluded; the guard has no exemption for another
  * production file (test sources are not scanned at all).
+ * <p>
+ * Every JSON file below a {@code src/main/resources} of the reactor is scanned as well: each JSON string, member name or
+ * value, that carries a spelling of the grammar must equal the definition {@code RoleName.PATTERN} once its JSON
+ * escapes are decoded, so a schema that restates the grammar in another form — unanchored, with an escaped hyphen, a
+ * reordered class or the grammar inside a larger pattern — fails naming the file and the line. A schema cannot point
+ * at the definition, so the schemas keep the text and this scan keeps them equal to it. A string that carries the
+ * grammar inside a larger pattern of another kind cannot be compared and is recorded with its reason in
+ * {@code NOT_COMPARABLE}.
  * <p>
  * A source scan rather than an ArchUnit rule: ArchUnit does not see string constants, and the class-file scan of
  * {@code ProfileNeutralityArchTest} reaches one module. <b>Limit:</b> a grammar composed at run time (two literals
@@ -56,8 +69,26 @@ class RoleNameSingleDefinitionTest {
 
     private static final List<String> MODULES = List.of("pm-core", "pm-workflow", "pm-runtime");
 
+    private static final String PRODUCTION_RESOURCES = "src/main/resources";
+
+    /** The one definition as the schemas must state it: the anchored text the public types compile. */
+    private static final String DEFINITION = RoleName.PATTERN.pattern();
+
     /** The spellings of the two-to-32 name grammar the scan finds, as the source writes them. */
     private static final List<String> SPELLINGS = List.of("[a-z][a-z0-9-]{1,31}", "[a-z][a-z0-9\\\\-]{1,31}",
+            "[a-z][-a-z0-9]{1,31}");
+
+    /**
+     * The schema strings that carry the grammar but cannot be compared with the definition, keyed by the file and the
+     * decoded string, each with its reason. The scan fails for an entry it no longer finds, so none goes stale.
+     */
+    private static final Map<String, String> NOT_COMPARABLE = Map.of(
+            "pm-core/src/main/resources/de/planmarshall/core/domain/domain-descriptor-v1.schema.json "
+                    + "^skill://pm/domain/[a-z][a-z0-9-]{1,31}/[a-z0-9][a-z0-9-]*$",
+            "the grammar is one segment of the skill URI pattern of a domain descriptor, not a name pattern of its own");
+
+    /** The same spellings as a schema string carries them once its JSON escapes are decoded. */
+    private static final List<String> SCHEMA_SPELLINGS = List.of("[a-z][a-z0-9-]{1,31}", "[a-z][a-z0-9\\-]{1,31}",
             "[a-z][-a-z0-9]{1,31}");
 
     @Test
@@ -67,7 +98,7 @@ class RoleNameSingleDefinitionTest {
         var offenders = new ArrayList<String>();
         var emptyRoots = new ArrayList<Path>();
         var scannedRoots = new ArrayList<Path>();
-        for (var productionRoot : productionRoots(root)) {
+        for (var productionRoot : roots(root, PRODUCTION_SOURCE)) {
             var scan = scan(root, productionRoot);
             scannedRoots.add(root.relativize(productionRoot));
             if (scan.files() == 0) {
@@ -150,6 +181,72 @@ class RoleNameSingleDefinitionTest {
                 "    Pattern P = Pattern.compile(\"[a-z][a-z0-9-]{1,31}\");", "}");
 
         assertFalse(offences(source).isEmpty(), "A copy after an escaped literal is an offence");
+    }
+
+    @Test
+    @DisplayName("every schema occurrence of the name grammar is the one definition")
+    void schemasCarryTheDefinition() {
+        var root = repositoryRoot();
+        var occurrences = new ArrayList<String>();
+        var offenders = new ArrayList<String>();
+        var notComparableFound = new ArrayList<String>();
+        var resourceRoots = roots(root, PRODUCTION_RESOURCES);
+        for (var resourceRoot : resourceRoots) {
+            for (var file : schemaFiles(resourceRoot)) {
+                var relative = root.relativize(file).toString().replace('\\', '/');
+                for (var occurrence : schemaOccurrences(read(file))) {
+                    occurrences.add(relative + ":" + occurrence.line());
+                    if (NOT_COMPARABLE.containsKey(relative + " " + occurrence.value())) {
+                        notComparableFound.add(relative + " " + occurrence.value());
+                    } else if (!DEFINITION.equals(occurrence.value())) {
+                        offenders.add(relative + ":" + occurrence.line() + " states '" + occurrence.value() + "'");
+                    }
+                }
+            }
+        }
+
+        assertAll(
+                () -> assertTrue(resourceRoots.contains(root.resolve("pm-core").resolve(PRODUCTION_RESOURCES)),
+                        "The scan reaches the resources of pm-core"),
+                () -> assertFalse(occurrences.isEmpty(), "The scan finds the grammar in a schema"),
+                () -> assertEquals(List.of(), offenders, "A schema states the grammar unlike RoleName"),
+                () -> assertEquals(NOT_COMPARABLE.keySet(), Set.copyOf(notComparableFound),
+                        "Every recorded uncomparable form is still found"));
+    }
+
+    @Test
+    @DisplayName("a schema string equal to the definition is an occurrence that matches it")
+    void schemaDefinitionMatches() {
+        var schema = "{\"name\": {\"type\": \"string\", \"pattern\": \"" + DEFINITION + "\"}}";
+
+        var occurrences = schemaOccurrences(schema);
+
+        assertAll(
+                () -> assertEquals(1, occurrences.size(), "The anchored pattern is one occurrence"),
+                () -> assertEquals(DEFINITION, occurrences.getFirst().value(), "The occurrence is the definition"));
+    }
+
+    // the patterns are the contract the scan compares, so they are literals
+    @ParameterizedTest
+    @ValueSource(strings = {"[a-z][a-z0-9-]{1,31}", "^[a-z][a-z0-9\\\\-]{1,31}$", "^[a-z][-a-z0-9]{1,31}$",
+            "^[a-z][a-z0-9-]{1,31}(/[a-z]+)?$"})
+    @DisplayName("a schema string that carries the grammar in another form differs from the definition")
+    void schemaOtherFormDiffers(String pattern) {
+        var schema = "{\"propertyNames\": {\"pattern\": \"" + pattern + "\"}}";
+
+        var occurrences = schemaOccurrences(schema);
+
+        assertAll(
+                () -> assertEquals(1, occurrences.size(), "The other form is found as an occurrence"),
+                () -> assertNotEquals(DEFINITION, occurrences.getFirst().value(), "The other form is not the definition"));
+    }
+
+    @Test
+    @DisplayName("a schema string with another bound is not an occurrence")
+    void schemaOtherBoundIsNoOccurrence() {
+        var schema = "{\"harness\": {\"pattern\": \"^[a-z][a-z0-9-]{0,31}$\"}}";
+
+        assertTrue(schemaOccurrences(schema).isEmpty(), "Another bound is not the name grammar");
     }
 
     /** @param lines the source as its lines; a trailing newline is not needed by the scan */
@@ -325,7 +422,71 @@ class RoleNameSingleDefinitionTest {
         return fail("the root of the pm-mcp-core reactor was not found");
     }
 
-    private static List<Path> productionRoots(Path root) {
+    private static List<Path> schemaFiles(Path resourceRoot) {
+        try (var walk = Files.walk(resourceRoot)) {
+            return walk.filter(Files::isRegularFile).filter(path -> path.toString().endsWith(".json")).sorted()
+                    .toList();
+        } catch (IOException exception) {
+            throw new UncheckedIOException(exception);
+        }
+    }
+
+    /**
+     * Reads every JSON string of a document — member names and values alike — and keeps the ones that carry a spelling
+     * of the grammar, decoded from their JSON escapes so they compare with the definition.
+     *
+     * @param document the JSON text
+     * @return each string that carries the grammar, with the line it starts on
+     */
+    private static List<SchemaString> schemaOccurrences(String document) {
+        var occurrences = new ArrayList<SchemaString>();
+        var value = new StringBuilder();
+        var line = 1;
+        var valueLine = 1;
+        var inString = false;
+        for (var index = 0; index < document.length(); index++) {
+            var character = document.charAt(index);
+            if (character == '\n') {
+                line++;
+            }
+            if (!inString) {
+                if (character == '"') {
+                    inString = true;
+                    valueLine = line;
+                    value.setLength(0);
+                }
+                continue;
+            }
+            if (character == '\\' && index + 1 < document.length()) {
+                index++;
+                value.append(unescape(document.charAt(index)));
+                continue;
+            }
+            if (character == '"') {
+                inString = false;
+                var text = value.toString();
+                if (SCHEMA_SPELLINGS.stream().anyMatch(text::contains)) {
+                    occurrences.add(new SchemaString(text, valueLine));
+                }
+                continue;
+            }
+            value.append(character);
+        }
+        return occurrences;
+    }
+
+    private static char unescape(char escaped) {
+        return switch (escaped) {
+            case 'n' -> '\n';
+            case 't' -> '\t';
+            case 'r' -> '\r';
+            case 'b' -> '\b';
+            case 'f' -> '\f';
+            default -> escaped;
+        };
+    }
+
+    private static List<Path> roots(Path root, String suffix) {
         var roots = new ArrayList<Path>();
         try {
             Files.walkFileTree(root, new SimpleFileVisitor<Path>() {
@@ -334,7 +495,7 @@ class RoleNameSingleDefinitionTest {
                     if (!directory.equals(root) && isSkipped(directory)) {
                         return FileVisitResult.SKIP_SUBTREE;
                     }
-                    if (directory.endsWith(PRODUCTION_SOURCE)) {
+                    if (directory.endsWith(suffix)) {
                         roots.add(directory);
                     }
                     return FileVisitResult.CONTINUE;
@@ -353,5 +514,12 @@ class RoleNameSingleDefinitionTest {
 
     /** @param offences one repo-root-relative file, line and reason per copy found */
     private record Scan(List<String> offences, int files) {
+    }
+
+    /**
+     * @param value the decoded JSON string
+     * @param line  the line it starts on
+     */
+    private record SchemaString(String value, int line) {
     }
 }

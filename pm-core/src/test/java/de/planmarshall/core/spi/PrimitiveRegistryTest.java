@@ -53,6 +53,35 @@ class PrimitiveRegistryTest {
     }
 
     @Nested
+    @DisplayName("The condition kind of a reason is read without a cast")
+    class ConditionKindBranches {
+
+        @Test
+        @DisplayName("a condition kind that is no Optional is refused as unmappable, and the detail says so")
+        void noOptionalConditionKind() {
+            var refusal = refusalOf(List.of(ReasonPrimitives.noOptionalCondition()));
+
+            assertAll(
+                    () -> assertEquals(Reason.UNMAPPABLE_REASON_CONDITION, refusal.getReason(),
+                            "a missing Optional is an unmappable condition"),
+                    () -> assertTrue(refusal.getMessage().contains("condition kind that is no Optional"),
+                            "the detail names the missing Optional"));
+        }
+
+        @Test
+        @DisplayName("a condition kind whose payload is no string is refused as unmappable, and the detail says so")
+        void nonStringConditionKind() {
+            var refusal = refusalOf(List.of(ReasonPrimitives.nonStringCondition()));
+
+            assertAll(
+                    () -> assertEquals(Reason.UNMAPPABLE_REASON_CONDITION, refusal.getReason(),
+                            "a number payload is an unmappable condition"),
+                    () -> assertTrue(refusal.getMessage().contains("condition kind that is no string"),
+                            "the detail names the payload that is no string"));
+        }
+    }
+
+    @Nested
     @DisplayName("Well-formed primitives register")
     class Registration {
 

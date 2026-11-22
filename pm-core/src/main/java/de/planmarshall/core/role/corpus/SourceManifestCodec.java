@@ -24,7 +24,6 @@ import com.fasterxml.jackson.core.JsonToken;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.URI;
 import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
@@ -139,8 +138,9 @@ public class SourceManifestCodec {
         var sourceLicence = licence;
         var sourceFetch = fetch;
         var sourceFiles = files;
-        return CorpusJson.construct(() -> new SourceManifest(sourceName, URI.create(sourceRepository), sourceCommit,
-                sourceLicence, sourceFetch, sourceFiles));
+        return CorpusJson.construct(() -> new SourceManifest(sourceName,
+                SourceManifest.parseRepository(sourceRepository), sourceCommit, sourceLicence, sourceFetch,
+                sourceFiles));
     }
 
     private static SourceFile readFile(JsonParser parser, String name) throws IOException {
