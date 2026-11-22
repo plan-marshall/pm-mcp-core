@@ -57,7 +57,7 @@ The unit has no operator wait: every state is server logic or a task of a role, 
 |the caller's phase value
 |`auto`
 |`git.detect-artifacts`, `git.artifact-escalate` (`clean_or_safe_deleted`), `git.artifact-review` (`resolved`).
-|Resolves the deterministic message for `auto_deliverable` / `step_or_fallback`. Under `step_or_fallback` it is the fixed message of the caller (one per call site), or the call's bound input `message` (`commit_message[1..2000]?`, a slot binding) when the call site binds one; a `Co-Authored-By:` line is refused where the slot is filled (`invalid_link_args`, the rule `input.commit-message`).
+|Resolves the deterministic message for `auto_deliverable` / `step_or_fallback`. Under `step_or_fallback` it is the fixed message of the caller (one per call site), or the call's bound input `message` (`commit_message[1..2000]?`, a slot binding) when the call site binds one; a `Co-Authored-By:` line is refused where the slot is filled (`invalid_link_args`, the rule `input.commit-message`). On a clean checkout `none_assert_clean` resolves `ready` without a message, which `git.stage-and-commit` answers as `nothing_to_commit` before a message is read; with a non-empty set an absent message is `failed` with the reason `commit_failed`.
 |`ready` -> `git.stage-and-commit`; `needs_interactive` -> `git.compose-message`.
 |link:../workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL Specification, Stage 3]; link:../../../pm-providers/pm-provider-git/doc/developer/provider-git-primitive.adoc#_the_message_primitives[Commit Primitives Developer Guide]
 

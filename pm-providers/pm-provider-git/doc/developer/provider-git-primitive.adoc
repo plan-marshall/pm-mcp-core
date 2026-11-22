@@ -168,7 +168,8 @@ sorted offending files, at most `OFFENDING_FILES_LIMIT` (50), and the count of a
 the fixed message of the input `callSite` (below), else, with no call site bound, `chore(finalize): apply <step_id>
 changes`, or `chore(finalize): settle changes` for a caller that is no step; `interactive` is always
 `needs_interactive`; `none_assert_clean` is `ready` without a message on a clean checkout and `needs_interactive` with
-dirty files. A bound `message` and `callSite` are read only under `step_or_fallback`. A message
+dirty files; the `ready` reaches `git.stage-and-commit`, whose empty staging set is `nothing_to_commit` before a
+message is read. A bound `message` and `callSite` are read only under `step_or_fallback`. A message
 `CommitMessages.validate` refuses, or a call site without an input its message names, goes to `needs_interactive`.
 
 `GitResolveMessagePrimitive.CallSite` is the closed set of the call sites of Stage 3, bound by the assembly with the
@@ -207,7 +208,10 @@ message without the trailer and the optional `files`. The order of work is fixed
   `path.staging`), so an entry outside the set is dropped and the rest is committed
   (link:{adr}/003-the-staging-set-is-derived-from-the-scope.adoc[ADR 003]).
 . The message given the resolved trailer by `withTrailer`, which refuses a message that already holds a trailer line,
-  and checked by `CommitMessages.validate`; a refusal is `failed` with the reason `message_refused`.
+  and checked by `CommitMessages.validate`; a refusal is `failed` with the reason `message_refused`. An absent message
+  is the clean-tree route of `none_assert_clean`: the empty staging set above is `nothing_to_commit` before the message
+  is read, and a non-empty one is `failed` with the reason `commit_failed` and a `detail` naming the absent message
+  (link:{adr}/009-an-absent-message-is-the-primitives-clean-tree-route.adoc[ADR 009]).
 . One call of `GitOperations.commit` with `CommitInput.paths` set to exactly the files to commit
   (link:../adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR provider-git 003]), the operator's
   `commit_identity` as the author and the agent identity, else the compiled `plan-marshall-mcp <noreply@cuioss.de>`, as
@@ -333,4 +337,6 @@ link:{adr}/005-one-failed-outcome-with-a-closed-reason.adoc[ADR 005],
 link:{adr}/006-the-primitive-checks-the-boundary-half.adoc[ADR 006],
 link:{adr}/007-the-template-message-renders-from-facts.adoc[ADR 007],
 link:{adr}/008-the-staging-set-refuses-what-the-commit-refuses.adoc[ADR 008],
+link:{adr}/009-an-absent-message-is-the-primitives-clean-tree-route.adoc[ADR 009],
+link:{adr}/010-the-specification-follows-the-closed-reason-of-the-missing-identity.adoc[ADR 010],
 link:../../../../pm-workflow/doc/adr/workflow-verify/043-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify 043]

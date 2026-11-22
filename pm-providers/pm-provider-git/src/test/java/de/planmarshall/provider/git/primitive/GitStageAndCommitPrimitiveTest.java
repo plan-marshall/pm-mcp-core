@@ -206,6 +206,38 @@ class GitStageAndCommitPrimitiveTest {
         }
 
         @Test
+        @DisplayName("a clean tree is nothing to commit before the message is read")
+        void cleanTreeCommitsNothing() throws Exception {
+            // the clean-tree route: none_assert_clean resolves ready without a message, so none is bound here
+            stub(ScopeType.PLAN, false, List.of(), Optional.of(agent));
+
+            var result = run(new GitStageAndCommitPrimitive(untouchedGit(), site), new Params(null, null));
+
+            assertAll("clean tree",
+                    () -> assertEquals(Outcome.NOTHING_TO_COMMIT, result.outcome(),
+                            "A clean staging set commits nothing"),
+                    () -> assertNull(result.reason(), "nothing_to_commit carries no reason"),
+                    () -> assertTrue(result.updatedFacts().isEmpty(), "nothing_to_commit carries no facts"));
+        }
+
+        @Test
+        @DisplayName("a non-empty staging set without a message fails as commit_failed")
+        void missingMessageFails() throws Exception {
+            var dirty = file();
+            write(dirty);
+            stub(ScopeType.PLAN, false, List.of(dirty), Optional.of(agent));
+
+            var result = run(new GitStageAndCommitPrimitive(untouchedGit(), site), new Params(null, null));
+
+            assertAll("missing message",
+                    () -> assertEquals(Outcome.FAILED, result.outcome(), "A missing message fails the commit"),
+                    () -> assertEquals(Reason.COMMIT_FAILED, result.reason(), "The reason is commit_failed"),
+                    () -> assertEquals("no commit message is resolved",
+                            result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                            "The detail names the missing message"));
+        }
+
+        @Test
         @DisplayName("a bound path outside the staging set is narrowed away, never refused")
         void boundPathOutsideTheSetIsDropped() throws Exception {
             var listed = file();

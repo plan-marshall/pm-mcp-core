@@ -52,7 +52,10 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
  * ({@code input_refused}, the rule {@code path.staging});</li>
  * <li>the message given the resolved trailer by {@link CommitMessages#withTrailer(String, CommitTrailer)}, which
  * refuses a message that already holds a trailer line, and checked by {@link CommitMessages#validate(String)}; a
- * refusal is {@code failed} with the reason {@code message_refused};</li>
+ * refusal is {@code failed} with the reason {@code message_refused}. The message may be absent: the clean-tree route of
+ * {@code none_assert_clean} resolves {@code ready} without one, so the empty staging set above is
+ * {@code nothing_to_commit} before the message is read; with a non-empty staging set an absent message is
+ * {@code failed} with the reason {@code commit_failed} and the {@value #DETAIL_FACT} {@value #NO_MESSAGE_DETAIL};</li>
  * <li>one call of {@link GitOperations#commit(CommitInput)} with exactly the files to commit, the operator's
  * {@code commit_identity} as the author and the agent identity, else the compiled
  * {@code plan-marshall-mcp <noreply@cuioss.de>}, as the committer; the operator's git {@code user.*} settings are never
@@ -110,6 +113,9 @@ public final class GitStageAndCommitPrimitive
 
     /** The fact of {@code commit_failed}: the detail of the contract's outcome. */
     public static final String DETAIL_FACT = "detail";
+
+    /** The detail of a call whose staging set is not empty but whose message was never resolved. */
+    static final String NO_MESSAGE_DETAIL = "no commit message is resolved";
 
     /** The committer while no agent identity resolves. */
     static final Identity COMPILED_COMMITTER = new Identity("plan-marshall-mcp", "noreply@cuioss.de");
@@ -186,11 +192,15 @@ public final class GitStageAndCommitPrimitive
         if (toCommit.isEmpty()) {
             return result(Outcome.NOTHING_TO_COMMIT, Map.of());
         }
+        var message = parameters.message();
+        if (message == null) {
+            return failed(Reason.COMMIT_FAILED, Map.of(DETAIL_FACT, NO_MESSAGE_DETAIL));
+        }
         var resolution = CommitTrailer.resolve(site.localTrailer(context).orElse(null),
                 site.machineTrailer(context).orElse(null));
-        return switch (CommitMessages.withTrailer(parameters.message(), resolution.trailer())) {
+        return switch (CommitMessages.withTrailer(message, resolution.trailer())) {
             case Refused(var violation) -> messageRefused(violation);
-            case Appended(var withTrailer) -> validated(context, worktree, parameters.message(), withTrailer,
+            case Appended(var withTrailer) -> validated(context, worktree, message, withTrailer,
                     List.copyOf(toCommit), resolution);
         };
     }
@@ -261,20 +271,21 @@ public final class GitStageAndCommitPrimitive
     /**
      * The bound inputs of the call.
      *
-     * @param message the final message, without the trailer
+     * @param message the final message, without the trailer; {@code null} when the call resolved none, which a clean
+     *                staging set answers as {@code nothing_to_commit} and which a non-empty set refuses as
+     *                {@code failed} with the reason {@code commit_failed}
      * @param files   the files that narrow the commit to a subset of the staging set, {@code null} for the whole
      *                staging set; an entry outside the staging set is dropped, because the bind refuses such an entry
      *                ({@code path.staging}) and this primitive narrows only
      * @since 0.1
      */
-    public record Params(String message, @Nullable List<String> files) {
+    public record Params(@Nullable String message, @Nullable List<String> files) {
 
         /**
          * @param message the message
          * @param files   the files, copied
          */
         public Params {
-            Objects.requireNonNull(message, "message");
             files = files == null ? null : List.copyOf(files);
         }
     }
