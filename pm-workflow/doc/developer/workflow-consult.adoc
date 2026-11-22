@@ -28,9 +28,12 @@ constructed over the project's `QueueStore` and holds no state of its own beyond
 The consultation id is the consultation task's `queue_task_id`, and the service draws it from an id seam, a
 `Supplier<QueueTaskId>` (link:../adr/workflow-consult/005-the-consultation-id-comes-from-a-seam.adoc[ADR 005]). The
 one-argument constructor draws from `QueueTaskId.random()`; a caller that must know the ids in advance, as the scenario
-replay harness does, passes its own supplier to the two-argument constructor. A drawn id the queue already holds is
-skipped and the next one drawn, so a supplier yields a free id after finitely many taken ones; a supplier that keeps
-handing out taken ids is refused `consultation_ids_exhausted` after
+replay harness does, passes its own supplier to the two-argument constructor. The draw runs inside the transaction that
+records the consultation, against the records it sees: a task's id and every consultation id an asking task records count
+as taken, also while the consultation task of that entry does not exist yet, so two opens that draw the same id cannot
+both record it, and a failed creation leaves none of them behind in the id namespace. A drawn id the records already
+hold is skipped and the next one drawn, so a supplier yields a free id after finitely many taken ones; a supplier that
+keeps handing out taken ids is refused `consultation_ids_exhausted` after
 `ConsultationService.MAX_ID_DRAWS` (`64`) draws in a row instead of looping.
 
 `ConsultationRequest`::

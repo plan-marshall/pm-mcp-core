@@ -3,7 +3,9 @@
 
 == Status
 
-Accepted
+Accepted; amended 2026-11-22 (PLAN-V2-170): the free-id check moved into the transaction that records the consultation
+and counts recorded consultation ids, and the draw is bounded by `MAX_ID_DRAWS` with the refusal
+`consultation_ids_exhausted`.
 
 == Date
 
@@ -22,8 +24,11 @@ The accepted-submit half of regression scenario 14 therefore ran as a direct `va
 
 * `ConsultationService` takes the source of its consultation ids as a `Supplier<QueueTaskId>` in a second constructor.
   The one-argument constructor keeps `QueueTaskId::random`, so production draws its ids as before.
-* A drawn id the queue already holds is skipped and the next one is drawn, as for the random source; a supplier
-  therefore has to yield a free id after finitely many taken ones.
+* A drawn id the queue already holds is skipped and the next one is drawn, as for the random source. The check runs in
+  the same transaction that records the consultation, and counts a consultation id any asking task records as taken
+  whether or not its consultation task exists yet, so two opens that draw the same id cannot both record it. After
+  `ConsultationService.MAX_ID_DRAWS` (`64`) taken draws in a row the open is refused `consultation_ids_exhausted`
+  instead of spinning: a seam that cannot yield a free id is a stuck source, not a reason to loop (PLAN-V2-170).
 * The scenario replay harness passes a counter of its fixtures that hands out `qt-c000000000000001`,
   `qt-c000000000000002`, … in order, a range apart from the counter of the other queue tasks, so a script names the id
   its submit lists and the replay writes the same stores every time.
