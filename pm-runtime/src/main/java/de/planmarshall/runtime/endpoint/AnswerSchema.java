@@ -47,6 +47,12 @@ public final class AnswerSchema {
             "additionalProperties", "items", "minItems", "maxItems", "minLength", "maxLength", "minimum", "maximum",
             "$ref");
 
+    /** The keywords whose value is an integer bound, which the guard refuses when it is not one the check can read. */
+    private static final Set<String> INTEGER_BOUNDS = Set.of("minItems", "maxItems", "minLength", "maxLength");
+
+    /** The keywords whose value is a decimal bound, which the guard refuses when it is not a number. */
+    private static final Set<String> DECIMAL_BOUNDS = Set.of("minimum", "maximum");
+
     /**
      * @param schema the role's result schema
      * @param answer the parsed answer
@@ -103,8 +109,9 @@ public final class AnswerSchema {
     }
 
     /**
-     * @return the refusal of a schema that uses a member outside the supported keywords and annotations, or whose
-     *         {@code type} is neither a string nor an array, or {@link Check#ok()}
+     * @return the refusal of a schema that uses a member outside the supported keywords and annotations, whose
+     *         {@code type} is neither a string nor an array, or whose keyword value is of a kind the check cannot
+     *         enforce, or {@link Check#ok()}
      */
     private static Check guardKeywords(JsonNode schema, String pointer) {
         var unsupported = schema.members().keySet().stream()
@@ -117,7 +124,51 @@ public final class AnswerSchema {
         if (declaredType != null && !declaredType.isString() && !declaredType.isArray()) {
             return Check.refused(pointer, "the result schema's type is neither a string nor an array");
         }
+        var malformed = malformedValue(schema);
+        if (malformed.isPresent()) {
+            return Check.refused(pointer, malformed.get());
+        }
         return Check.ok();
+    }
+
+    /**
+     * @return the refusal of a keyword value of a kind the check would otherwise skip: a bound that is not an integer
+     *         the check can read, a {@code required}, {@code enum} or {@code properties} member of another kind — the
+     *         silent skip that reads a schema as unbounded and lets an answer through
+     */
+    private static Optional<String> malformedValue(JsonNode schema) {
+        for (var name : INTEGER_BOUNDS) {
+            var value = schema.member(name);
+            if (value.isEmpty()) {
+                continue;
+            }
+            var integer = value.get().integerValue();
+            if (!value.get().isInteger() || integer.getAsLong() > Integer.MAX_VALUE
+                    || integer.getAsLong() < Integer.MIN_VALUE) {
+                return Optional.of(
+                        "the result schema's '%s' is not an integer bound the check enforces".formatted(name));
+            }
+        }
+        for (var name : DECIMAL_BOUNDS) {
+            var value = schema.member(name);
+            if (value.isPresent() && value.get().decimalValue().isEmpty()) {
+                return Optional.of(
+                        "the result schema's '%s' is not a number the check enforces".formatted(name));
+            }
+        }
+        if (schema.member("required").isPresent() && !schema.member("required").get().isArray()) {
+            return Optional.of("the result schema's 'required' is not an array");
+        }
+        if (schema.member("properties").isPresent() && !schema.member("properties").get().isObject()) {
+            return Optional.of("the result schema's 'properties' is not an object");
+        }
+        if (schema.member("enum").isPresent() && !schema.member("enum").get().isArray()) {
+            return Optional.of("the result schema's 'enum' is not an array");
+        }
+        if (schema.member("items").isPresent() && !schema.member("items").get().isObject()) {
+            return Optional.of("the result schema's 'items' is not an object");
+        }
+        return Optional.empty();
     }
 
     /**

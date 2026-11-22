@@ -37,6 +37,7 @@ import de.planmarshall.runtime.launch.HarnessEnrolment;
 import de.planmarshall.runtime.launch.HarnessVerification;
 import de.planmarshall.runtime.launch.HeadlessBlock;
 import de.planmarshall.runtime.launch.LaunchComposer;
+import de.planmarshall.runtime.launch.LaunchRefusal;
 import de.planmarshall.runtime.launch.LaunchRequest;
 import de.planmarshall.runtime.launch.WorkerLaunch;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
@@ -274,6 +275,7 @@ public final class WorkerSupervisor {
         }
         var verification = environment.harnessVerifier().verify(role.harness(), block);
         if (verification instanceof HarnessVerification.Refused refused) {
+            countStoreRefusal(role, refused);
             refuse(role, generationId, refused);
             environment.slots().release(slot.get());
             return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
@@ -355,8 +357,23 @@ public final class WorkerSupervisor {
         return generation;
     }
 
-    private void refuse(EffectiveRole role, String generationId, HarnessVerification.Refused refused) {
-        environment.starter().refuseWorker(WorkerStart.Refusal.builder()
+    /**
+     * Counts a launch the runtime refused on the enrolment store into the role's start-failure guard: the store being
+     * unreadable or tampered means the launch of the role on that harness failed before its spawn, which the
+     * specification counts as a start failure. Every other refusal is a decision about this one start and is not
+     * counted.
+     *
+     * @param role    the role whose launch was refused
+     * @param refused the refusal of the launch
+     */
+    private void countStoreRefusal(EffectiveRole role, HarnessVerification.Refused refused) {
+        if (refused.reason() == LaunchRefusal.HARNESS_STORE_UNREADABLE
+                || refused.reason() == LaunchRefusal.HARNESS_TAMPERED) {
+            environment.startGuard().startFailed(role.artifact().name(), role.harness(), refused.detail());
+        }
+    }
+
+    private void refuse(EffectiveRole role, String generationId, HarnessVerification.Refused refused) {        environment.starter().refuseWorker(WorkerStart.Refusal.builder()
                 .generationId(generationId)
                 .role(role)
                 .enrolment(environment.enrolment())

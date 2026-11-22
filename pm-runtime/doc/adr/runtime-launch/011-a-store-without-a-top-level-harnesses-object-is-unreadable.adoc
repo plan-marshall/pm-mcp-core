@@ -41,7 +41,7 @@ Making `harnesses` optional in the schema was rejected: the schema is the closed
 states the requirement through it, and a store without its map is a truncated document, not a smaller one.
 
 Reading a missing member as empty and refusing only a present non-object was rejected: the two are the same fault — the
-document does not read as the store — and the store cannot tell a truncated write from a hand-written file.
+document does not read as the store — and a store that carries no map is not a smaller store.
 
 Validating the whole document with a JSON-schema validator was rejected for this fix: the module carries no validator,
 `harnesses.schema.json` is read by `HarnessEnrolmentSchemaParityTest` for parity of the members the store writes, and the
@@ -55,9 +55,8 @@ every read with `harness_tampered` before `decode` runs. A document that passes 
 the store, until a new enrolment re-baselines the file.
 
 Store Schemas § Unreadable Store also requires such a refusal to count as a start failure of the role on that harness.
-The launch refusal path records the fate without calling `StartFailureGuard.startFailed`, which no production code calls
-today, so that part of the requirement — shared with the tampered-file refusal — remains owed and is reported in the
-run's landing rather than changed here.
+`WorkerSupervisor` now calls `StartFailureGuard.startFailed` for the `harness_store_unreadable` and `harness_tampered`
+refusals, so the store refusal counts and reaches the hold threshold (PLAN-V2-162, D1).
 
 A later writer that adds a top-level member adds it to `harnesses.schema.json`, which declares
 `additionalProperties: false`. This guard checks only that `harnesses` is present and is an object: a top-level member

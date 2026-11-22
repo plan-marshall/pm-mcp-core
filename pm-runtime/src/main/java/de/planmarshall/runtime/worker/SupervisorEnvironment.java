@@ -277,6 +277,20 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
         }
 
         /**
+         * Counts one start failure of the role on the harness and reports it. The open guard counts nothing; it reports
+         * the text so a caller reads the same value either way.
+         *
+         * @param role    the role whose start failed
+         * @param harness the harness id of the harness the start failed on
+         * @param logTail the failed worker's own error text, which the report bounds and redacts
+         * @return the bounded, redacted report of this failure
+         */
+        default StartFailureReport startFailed(String role, String harness, String logTail) {
+            // the open guard counts no failure
+            return StartFailureReport.of(role, harness, logTail);
+        }
+
+        /**
          * Records that the probe {@link #holds} admitted never started, so the caller declined it before any worker
          * made its first call. The open guard runs no probe and has nothing to decline.
          *

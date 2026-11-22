@@ -299,7 +299,7 @@ public final class EndpointVerification {
         }
         try {
             var document = JsonDocument.parse(response.body().getBytes(StandardCharsets.UTF_8), "models");
-            return JsonPointer.resolve(document, profile.endpoint().modelsPointer(), "models listing");
+            return EndpointHarness.atModelsPointer(document, profile);
         } catch (ProfileRefusal _) {
             return JsonNode.nullValue();
         }

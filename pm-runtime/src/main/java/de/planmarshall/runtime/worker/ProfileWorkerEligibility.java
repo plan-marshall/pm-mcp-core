@@ -35,9 +35,10 @@ import de.planmarshall.core.role.RoleClass;
  * compiled its document — while a machine or project profile makes exactly three claims that the gate examines:
  * {@code worker.eligible: true} is honoured only when the record carries {@code faults} with at least ten trials, the
  * confinement its operating system's verification records — Landlock on Linux, the sandbox profile on macOS —
- * {@code paths} and {@code egress} as {@code passed} (or an {@code egress} recorded {@code unenforced} that the machine
- * has accepted), a non-null {@code zero_tool} class only when {@code classes} and {@code isolation} passed, and an {@code enforced} tool set on {@code writer} or {@code read_only} only when the record
- * measured the {@code classes} and {@code isolation} stages that establish it. The record must be the one written for
+ * {@code paths} and {@code egress} as {@code passed} (or an {@code egress} recorded {@code unenforced} that the
+ * machine has accepted), a non-null {@code zero_tool} class only when {@code classes} and {@code isolation} passed, and
+ * an {@code enforced} tool set on {@code writer} or {@code read_only} only when the record measured the {@code classes}
+ * and {@code isolation} stages that establish it. The record must be the one written for
  * this document: its {@code profile_digest} is compared with the canonical-JSON digest of the loaded profile. Beyond the
  * claim's own stages, every stage the record carries must be {@code passed}: a record that measured a failure anywhere
  * does not establish the profile's claims. A record written on another operating system or architecture refuses,
