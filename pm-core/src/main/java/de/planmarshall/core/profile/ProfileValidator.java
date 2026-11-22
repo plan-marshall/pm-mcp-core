@@ -23,7 +23,7 @@ import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Validates a client profile as a whole against the client profile schema and the rules stated with its blocks
+ * Validates a harness profile as a whole against the harness profile schema and the rules stated with its blocks
  * (PM-CLIENT-5).
  * <p>
  * The validator accepts every mechanism the schema names and no other: every object is closed, every enumeration is
@@ -55,8 +55,13 @@ public class ProfileValidator {
     /** The smallest long-context threshold of the schema, the {@code long_context_thresholds} minimum. */
     private static final long LONG_CONTEXT_MINIMUM_TOKENS = 10_000;
 
-    // The member names of the client profile schema, named once each (ADR core-profile/005).
+    // The member names of the harness profile schema, named once each (ADR core-profile/005).
     private static final String NAME_SCHEMA_VERSION = "schema_version";
+    private static final String NAME_HARNESS_ID = "harness_id";
+    /**
+     * The member the harness id carried before the rename. It is read where {@code harness_id} is absent, never written,
+     * and a document that carries both is refused.
+     */
     private static final String NAME_CLIENT_ID = "client_id";
     private static final String NAME_DISPLAY_NAME = "display_name";
     private static final String NAME_ICON = "icon";
@@ -170,7 +175,7 @@ public class ProfileValidator {
     // The pointer segments a refusal names, with their leading slash.
     private static final String PTR_DISPLAY_NAME = "/display_name";
     private static final String PTR_SCHEMA_VERSION = "/schema_version";
-    private static final String PTR_CLIENT_ID = "/client_id";
+    private static final String PTR_HARNESS_ID = "/harness_id";
     private static final String PTR_MIN_DAEMON_VERSION = "/min_daemon_version";
     private static final String PTR_IDENTITY = "/identity";
     private static final String PTR_EXECUTABLE = "/executable";
@@ -193,9 +198,12 @@ public class ProfileValidator {
     /** The one refusal detail that names a JSON Pointer, used wherever a pointer is read from the document. */
     private static final String MSG_NOT_A_POINTER = "not a JSON Pointer: '%s'";
 
-    private static final Set<String> TOP_LEVEL = Set.of(NAME_SCHEMA_VERSION, NAME_CLIENT_ID, NAME_DISPLAY_NAME, NAME_ICON,
+    private static final Set<String> TOP_LEVEL = Set.of(NAME_SCHEMA_VERSION, NAME_DISPLAY_NAME, NAME_ICON,
             NAME_MIN_DAEMON_VERSION, NAME_TOOLS, NAME_SKILL_LOADING, NAME_HEADLESS, NAME_CONNECTION, NAME_WORKER, NAME_DETECTION,
             NAME_IDENTITY);
+
+    /** The members a top-level document may carry: the required ones and the harness id under either spelling. */
+    private static final Set<String> TOP_LEVEL_ALLOWED = withIdentifier(TOP_LEVEL);
 
     /** The one value of {@code profile_kind} a document of the profile sets declares. */
     public static final String PROFILE_KIND_ENDPOINT = "endpoint";
@@ -203,9 +211,24 @@ public class ProfileValidator {
     /** The tool-set value that makes a harness limit a worker to its role's tools. */
     private static final String ENFORCED = "enforced";
 
-    private static final Set<String> ENDPOINT_TOP_LEVEL = Set.of(NAME_PROFILE_KIND, NAME_SCHEMA_VERSION, NAME_CLIENT_ID,
+    private static final Set<String> ENDPOINT_TOP_LEVEL = Set.of(NAME_PROFILE_KIND, NAME_SCHEMA_VERSION,
             NAME_DISPLAY_NAME, NAME_MIN_DAEMON_VERSION, NAME_ICON, NAME_EXECUTABLE, NAME_IDENTITY, NAME_UPDATE_EVIDENCE,
             NAME_ENDPOINT, NAME_MODEL_TIERS, NAME_WEIGHTS_PROBE);
+
+    /** The members an endpoint document may carry: the required ones and the harness id under either spelling. */
+    private static final Set<String> ENDPOINT_TOP_LEVEL_ALLOWED = withIdentifier(ENDPOINT_TOP_LEVEL);
+
+    /**
+     * @param required the members a document must carry
+     * @return the members it may carry: those, plus the harness id under the new spelling and the one it carried before
+     *         the rename
+     */
+    private static Set<String> withIdentifier(Set<String> required) {
+        var allowed = new HashSet<>(required);
+        allowed.add(NAME_HARNESS_ID);
+        allowed.add(NAME_CLIENT_ID);
+        return Set.copyOf(allowed);
+    }
 
     private static final Set<String> ENDPOINT_BLOCK = Set.of(NAME_PROTOCOL, NAME_BASE_URL, NAME_READINESS_PATH,
             NAME_MODELS_PATH, NAME_MODELS_POINTER, NAME_RESULT_SCHEMA, NAME_CONTEXT_TOKENS, NAME_ANSWER_RESERVE_TOKENS,
@@ -249,7 +272,7 @@ public class ProfileValidator {
 
     private static final String MODEL_READABLE_CHARACTERS = " _.:/-$=,()\"{}<>";
 
-    private static final Pattern CLIENT_ID = Pattern.compile("^[a-z][a-z0-9-]{0,31}$");
+    private static final Pattern HARNESS_ID = Pattern.compile("^[a-z][a-z0-9-]{0,31}$");
     private static final Pattern VARIABLE = Pattern.compile("^[A-Z][A-Z0-9_]{0,63}$");
     private static final Pattern VERSION = Pattern.compile("^\\d+\\.\\d+\\.\\d+(-[A-Za-z0-9.-]+)?$");
     private static final Pattern EXECUTABLE = Pattern.compile("^[a-z][a-z0-9-]*$");
@@ -298,10 +321,11 @@ public class ProfileValidator {
 
     /**
      * @param profile a validated profile
-     * @return its {@code client_id}
+     * @return its {@code harness_id}, or the {@code client_id} of a document written before the rename
      */
-    public static String clientId(JsonNode profile) {
-        return profile.member(NAME_CLIENT_ID).flatMap(JsonNode::text).orElse("");
+    public static String harnessId(JsonNode profile) {
+        return profile.member(NAME_HARNESS_ID).or(() -> profile.member(NAME_CLIENT_ID))
+                .flatMap(JsonNode::text).orElse("");
     }
 
     /**
@@ -335,14 +359,16 @@ public class ProfileValidator {
                 throw invalid("/profile_kind",
                         "'profile_kind' has the undeclared value '%s'".formatted(kind));
             }
-            object(profile, "", "profile", TOP_LEVEL, TOP_LEVEL);
+            object(profile, "", "profile", TOP_LEVEL, TOP_LEVEL_ALLOWED);
             if (integer(required(profile, "", NAME_SCHEMA_VERSION), PTR_SCHEMA_VERSION, NAME_SCHEMA_VERSION, 1,
                     SCHEMA_VERSION) != SCHEMA_VERSION) {
                 throw invalid(PTR_SCHEMA_VERSION, "'schema_version' must be %d".formatted(SCHEMA_VERSION));
             }
-            var clientId = text(required(profile, "", NAME_CLIENT_ID), PTR_CLIENT_ID, NAME_CLIENT_ID, 32);
-            if (!CLIENT_ID.matcher(clientId).matches()) {
-                throw invalid(PTR_CLIENT_ID, "not a client id: '%s'".formatted(clientId));
+            var idMember = identifierMember(profile);
+            var idPointer = "/" + idMember;
+            var harnessId = text(required(profile, "", idMember), idPointer, idMember, 32);
+            if (!HARNESS_ID.matcher(harnessId).matches()) {
+                throw invalid(idPointer, "not a harness id: '%s'".formatted(harnessId));
             }
             var displayName = text(required(profile, "", NAME_DISPLAY_NAME), PTR_DISPLAY_NAME, NAME_DISPLAY_NAME, 64);
             if (displayName.isEmpty()) {
@@ -365,19 +391,37 @@ public class ProfileValidator {
         }
 
         /**
+         * @param profile a top-level document
+         * @return the member that carries its harness id: {@code harness_id}, or the {@code client_id} of a document
+         *         written before the rename
+         * @throws ProfileRefusal if the document carries both spellings, which is ambiguous and refused
+         */
+        private String identifierMember(JsonNode profile) {
+            var declared = profile.member(NAME_HARNESS_ID).isPresent();
+            var former = profile.member(NAME_CLIENT_ID).isPresent();
+            if (declared && former) {
+                throw invalid(PTR_HARNESS_ID,
+                        "'harness_id' and its former name 'client_id' are never both declared");
+            }
+            return former ? NAME_CLIENT_ID : NAME_HARNESS_ID;
+        }
+
+        /**
          * Validates an endpoint profile (Client Profiles § Endpoint Profile Schema): the same sets and hardening rules as
-         * a client profile, a closed document of its own members, the serving program with its identity, and the
+         * a harness profile, a closed document of its own members, the serving program with its identity, and the
          * loopback URL of its endpoint.
          */
         private void checkEndpointProfile(JsonNode profile) {
-            object(profile, "", "endpoint profile", ENDPOINT_TOP_LEVEL, ENDPOINT_TOP_LEVEL);
+            object(profile, "", "endpoint profile", ENDPOINT_TOP_LEVEL, ENDPOINT_TOP_LEVEL_ALLOWED);
             if (integer(required(profile, "", NAME_SCHEMA_VERSION), PTR_SCHEMA_VERSION, NAME_SCHEMA_VERSION, 1,
                     SCHEMA_VERSION) != SCHEMA_VERSION) {
                 throw invalid(PTR_SCHEMA_VERSION, "'schema_version' must be %d".formatted(SCHEMA_VERSION));
             }
-            var clientId = text(required(profile, "", NAME_CLIENT_ID), PTR_CLIENT_ID, NAME_CLIENT_ID, 32);
-            if (!CLIENT_ID.matcher(clientId).matches()) {
-                throw invalid(PTR_CLIENT_ID, "not a client id: '%s'".formatted(clientId));
+            var idMember = identifierMember(profile);
+            var idPointer = "/" + idMember;
+            var harnessId = text(required(profile, "", idMember), idPointer, idMember, 32);
+            if (!HARNESS_ID.matcher(harnessId).matches()) {
+                throw invalid(idPointer, "not a harness id: '%s'".formatted(harnessId));
             }
             var displayName = text(required(profile, "", NAME_DISPLAY_NAME), PTR_DISPLAY_NAME, NAME_DISPLAY_NAME, 64);
             if (displayName.isEmpty()) {
@@ -679,7 +723,7 @@ public class ProfileValidator {
         }
 
         /**
-         * The weights probe of the endpoint-profile definition, which a client profile references: null, or a closed
+         * The weights probe of the endpoint-profile definition, which a harness profile references: null, or a closed
          * object that reads the weights identity from the models listing or from an argv probe with the model slot.
          */
         private void weightsProbe(JsonNode probe, String pointer) {

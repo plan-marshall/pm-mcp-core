@@ -50,10 +50,10 @@ class ShippedProfilesTest {
         var shipped = ShippedProfiles.read().shipped();
 
         assertFalse(shipped.isEmpty(), "pm-api ships a profile under classpath:/profiles/");
-        assertAll(shipped.keySet().stream().map(clientId -> (Executable) () -> {
-            var document = shipped.get(clientId).document();
-            var profile = ProfileValidator.validate(document, "profiles/" + clientId + ".json", ProfileRules.none());
-            assertEquals(clientId, ProfileValidator.clientId(profile), "client id equals its resource name");
+        assertAll(shipped.keySet().stream().map(harnessId -> (Executable) () -> {
+            var document = shipped.get(harnessId).document();
+            var profile = ProfileValidator.validate(document, "profiles/" + harnessId + ".json", ProfileRules.none());
+            assertEquals(harnessId, ProfileValidator.harnessId(profile), "client id equals its resource name");
         }).toList());
     }
 

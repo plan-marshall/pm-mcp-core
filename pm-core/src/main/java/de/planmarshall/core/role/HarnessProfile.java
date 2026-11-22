@@ -25,14 +25,14 @@ import de.planmarshall.core.profile.LoadedProfile;
 import de.planmarshall.core.profile.ProfileValidator;
 
 /**
- * The facts of a validated client profile that role validation reads (PM-CLIENT-2, Client Profile Schema): the worker
+ * The facts of a validated harness profile that role validation reads (PM-CLIENT-2, Client Profile Schema): the worker
  * eligibility, the models that accept a restricted tool set, the classes the harness runs, the effort values per model,
  * the model tiers, the context-budget fallback, the idle wakeups, the resumability and the tool that asks the user.
  * <p>
  * The projection keeps {@code core.role} independent of the shape of the profile document: the port of the effective
  * configuration supplies it, and the production wiring projects a {@link LoadedProfile} through {@link #of(LoadedProfile)}.
  *
- * @param clientId                the client id of the harness
+ * @param harnessId                the harness id of the harness
  * @param eligible                whether the harness may host workers
  * @param restrictedModelsDeclared whether {@code worker.restricted_models} is non-null
  * @param restrictedModels        the models that accept an enforced tool set; empty when not declared
@@ -46,7 +46,7 @@ import de.planmarshall.core.profile.ProfileValidator;
  * @since 0.1
  */
 @Builder
-public record HarnessProfile(String clientId, boolean eligible, boolean restrictedModelsDeclared,
+public record HarnessProfile(String harnessId, boolean eligible, boolean restrictedModelsDeclared,
 Set<String> restrictedModels, Map<RoleClass, ToolSet> classes, Map<String, List<String>> modelEfforts,
 Map<String, String> modelTiers, @Nullable Integer contextBudgetTokens, @Nullable Integer idleWakeups,
 Resumability resumability, String askUserTool) {
@@ -155,7 +155,7 @@ Resumability resumability, String askUserTool) {
                 ? restricted.elements().stream().map(value -> value.text().orElse("")).filter(text -> !text.isEmpty())
                 .collect(Collectors.toUnmodifiableSet())
                 : Set.<String>of();
-        return new HarnessProfile(profile.clientId(),
+        return new HarnessProfile(profile.harnessId(),
                 worker.member("eligible").flatMap(JsonNode::booleanValue).orElse(false),
                 declared, restrictedModels, classes, efforts(headless), tiers(headless),
                 headless.isNull() ? null : integer(headless, "context_budget_tokens").orElse(null),
@@ -176,7 +176,7 @@ Resumability resumability, String askUserTool) {
      */
     private static HarnessProfile endpoint(LoadedProfile profile, JsonNode document) {
         var endpoint = EndpointProfile.of(document);
-        return new HarnessProfile(profile.clientId(), true, false, Set.of(),
+        return new HarnessProfile(profile.harnessId(), true, false, Set.of(),
                 Map.of(RoleClass.ZERO_TOOL, ToolSet.ENFORCED), Map.of(), endpoint.modelTiers(),
                 endpoint.endpoint().contextBudgetTokens(), null,
                 Resumability.builder().hold(false).maxHoldSeconds(null).resume(false).maxResumeAgeSeconds(null).build(),

@@ -40,7 +40,7 @@ class VerificationRecordBuilderContractTest {
                 new VerificationRecord.HarnessBuild("acme", "1.2.3", DIGEST, List.of("acme-1")),
                 new VerificationRecord.Platform("linux", "x86_64", "landlock"), Map.of("identity", stage));
         var built = VerificationRecord.builder().formatVersion(canonical.formatVersion())
-                .clientId(canonical.clientId()).profileDigest(canonical.profileDigest())
+                .harnessId(canonical.harnessId()).profileDigest(canonical.profileDigest())
                 .verifiedAt(canonical.verifiedAt()).tool(canonical.tool()).harness(canonical.harness())
                 .platform(canonical.platform()).stages(canonical.stages()).build();
 

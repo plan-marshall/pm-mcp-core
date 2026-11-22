@@ -32,12 +32,13 @@ import de.planmarshall.core.SchemaResource;
  * where the two are built: the document the validator accepts is the file's required member set, the schema version is
  * the validator's, and the validator's usage figures are the file's minus the two members it does not implement. The
  * file is {@code harness-profile-v1.schema.json} in {@code pm-core/src/main/resources/de/planmarshall/core/profile/},
- * read through {@link SchemaResource}. Three deviations are pinned, each with its owner: the id member
- * ({@code harness_id} in the file, {@code client_id} in the validator, owned by the staged harness-rename packages);
+ * read through {@link SchemaResource}. Three deviations are pinned, each with its owner:
  * {@code headless.inline_settings} and {@code headless.loaded} (owned by the {@code client-profile-measured-values}
  * package), {@code headless.readable_paths} (owned by the
  * {@code job-confinement-and-environment} package); {@code headless.usage.model} (owned by PLAN-V2-135); and
- * {@code headless.usage.accumulation} (owned by PLAN-V2-147). The comparison is structural: the file's relative
+ * {@code headless.usage.accumulation} (owned by PLAN-V2-147). The id member is no longer a deviation: the validator's
+ * canonical member is the file's {@code harness_id}, and the {@code client_id} of a document written before the rename
+ * is read beside it, never instead of it. The comparison is structural: the file's relative
  * {@code $ref} to
  * {@code endpoint-profile.json} is not resolved here, and the validator's demand for each required member is the generic
  * required check, not a per-member case. The file also requires the three members the validator does not implement, so
@@ -58,11 +59,10 @@ class HarnessProfileSchemaParityTest {
     void membersAreTheValidatedDocument() {
         var schema = SchemaResource.load(SCHEMA);
         var required = names(SchemaResource.array(schema.get("required")));
-        var expected = required.stream().map(member -> ID_MEMBER.equals(member) ? READER_ID_MEMBER : member).toList();
         var document = document();
 
         assertAll(
-                () -> assertEquals(Set.copyOf(expected), Set.copyOf(names(document.keySet())),
+                () -> assertEquals(Set.copyOf(required), Set.copyOf(names(document.keySet())),
                         "The document's members are the file's"),
                 () -> assertDoesNotThrow(HarnessProfileSchemaParityTest::validate,
                         "The validator accepts its own document"));

@@ -30,6 +30,8 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.function.Consumer;
 import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -104,7 +106,7 @@ class PendingEntryCreationTest {
 
     private SourceFile stored(byte[] content) {
         return new SourceFile("description-1.md", content.length,
-                de.planmarshall.core.store.StoreDigest.of(content).sha256());
+                StoreDigest.of(content).sha256());
     }
 
     /** Creates the entry with a description, an issue, a transcript, a question and a decision. */
@@ -131,7 +133,7 @@ class PendingEntryCreationTest {
         return manifest;
     }
 
-    private void inWorkspace(java.util.function.Consumer<ScopeTransaction> work) {
+    private void inWorkspace(Consumer<ScopeTransaction> work) {
         try (var transaction = locks.openTransaction()) {
             transaction.acquire(workspace.lockKey());
             var write = ScopeTransaction.open(transaction, workspace, audit, clock);
@@ -156,7 +158,7 @@ class PendingEntryCreationTest {
 
     @Test
     @DisplayName("the sources, transcript, questions and decisions move into the new scope, the directory last")
-    void movesIntoTheNewScope() throws IOException {
+    void movesIntoTheNewScope() throws Exception {
         var manifest = prepareEntry();
 
         var moved = move();
@@ -181,12 +183,12 @@ class PendingEntryCreationTest {
                         "the composed request should open with the description"),
                 () -> assertTrue(discarded, "the entry directory should exist until the last act"),
                 () -> assertFalse(Files.exists(store.entryDirectory(entryId)), "the directory should be gone last"),
-                () -> assertEquals(java.util.Optional.empty(), store.read(entryId), "the record should be gone"));
+                () -> assertEquals(Optional.empty(), store.read(entryId), "the record should be gone"));
     }
 
     @Test
     @DisplayName("the request document is composed from the descriptions and references every other source")
-    void composesTheRequest() throws IOException {
+    void composesTheRequest() throws Exception {
         var manifest = prepareEntry();
 
         var document = PendingEntryCreation.composeRequest(store.sourcesDirectory(entryId), manifest);
@@ -203,7 +205,7 @@ class PendingEntryCreationTest {
 
     @Test
     @DisplayName("a stored file that differs from its manifest entry refuses the move")
-    void refusesADifferingSource() throws IOException {
+    void refusesADifferingSource() throws Exception {
         prepareEntry();
         Files.writeString(store.sourcesDirectory(entryId).resolve("description-1.md"), "changed", UTF_8);
 
@@ -226,7 +228,7 @@ class PendingEntryCreationTest {
 
     @Test
     @DisplayName("a creation cut after the new scope's commit is refused on a retry, never carried twice")
-    void refusesARetryAfterTheTargetCommitted() throws IOException {
+    void refusesARetryAfterTheTargetCommitted() throws Exception {
         prepareEntry();
         moveTargetOnly();
 
@@ -243,7 +245,7 @@ class PendingEntryCreationTest {
 
     @Test
     @DisplayName("a second move of the consumed entry is refused, so its stores are never carried twice")
-    void refusesARepeatedMove() throws IOException {
+    void refusesARepeatedMove() throws Exception {
         prepareEntry();
         move();
 

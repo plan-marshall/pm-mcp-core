@@ -10,7 +10,9 @@
 package de.planmarshall.core.store;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -60,7 +62,7 @@ public record SourceManifest(long revision, List<Source> sources) {
             throw new IllegalArgumentException("'revision' must not be negative: " + revision);
         }
         sources = List.copyOf(sources);
-        var ids = new java.util.HashSet<String>();
+        var ids = new HashSet<String>();
         for (var source : sources) {
             if (!ids.add(source.sourceId())) {
                 throw new IllegalArgumentException("The source id '%s' is used twice".formatted(source.sourceId()));
@@ -93,7 +95,7 @@ public record SourceManifest(long revision, List<Source> sources) {
         if (this.source(source.sourceId()).isPresent()) {
             throw new IllegalArgumentException("The source id '%s' is used already".formatted(source.sourceId()));
         }
-        var added = new java.util.ArrayList<>(sources);
+        var added = new ArrayList<>(sources);
         added.add(source);
         return new SourceManifest(revision + 1, added);
     }

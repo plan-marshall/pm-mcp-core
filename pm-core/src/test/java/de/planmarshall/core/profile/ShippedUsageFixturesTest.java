@@ -52,16 +52,16 @@ class ShippedUsageFixturesTest {
         var exercised = new ArrayList<String>();
 
         for (var entry : shipped.entrySet()) {
-            var clientId = entry.getKey();
+            var harnessId = entry.getKey();
             var bytes = entry.getValue().document();
-            var tree = ProfileValidator.validate(bytes, "profiles/" + clientId + ".json", ProfileRules.none());
-            var profile = new LoadedProfile(clientId, ProfileSetKind.SHIPPED, tree, bytes,
+            var tree = ProfileValidator.validate(bytes, "profiles/" + harnessId + ".json", ProfileRules.none());
+            var profile = new LoadedProfile(harnessId, ProfileSetKind.SHIPPED, tree, bytes,
                     LoadedProfile.State.VERIFIED, null);
             var usage = profile.headless("/usage").orElse(null);
             if (usage == null || declaresNoPointer(usage)) {
                 continue;
             }
-            exercised.add(clientId);
+            exercised.add(harnessId);
 
             var assigned = new LinkedHashMap<String, Long>();
             var notApplicable = new HashSet<String>();
@@ -86,7 +86,7 @@ class ShippedUsageFixturesTest {
             var expectedTotal = totalOrEmpty(assigned, notApplicable);
             var expectedIn = splitOrEmpty(assigned, notApplicable, "input_tokens", "cache_read", "cache_creation");
             var expectedOut = splitOrEmpty(assigned, notApplicable, "output_tokens", "reasoning");
-            assertAll(clientId,
+            assertAll(harnessId,
                     () -> assertEquals(assigned.getOrDefault("input_tokens", null),
                             measured(row.inputTokens()), "the input token figure is read from its pointer"),
                     () -> assertEquals(assigned.getOrDefault("output_tokens", null),

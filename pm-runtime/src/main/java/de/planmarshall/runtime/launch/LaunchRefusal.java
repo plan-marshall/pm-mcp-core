@@ -62,10 +62,10 @@ public enum LaunchRefusal {
     }
 
     /**
-     * @param clientId the harness the refusal concerns
+     * @param harnessId the harness the refusal concerns
      * @return the act that resolves it, as both clients show it
      */
-    public String resolvingAct(String clientId) {
-        return act.formatted(Objects.requireNonNull(clientId, "clientId"));
+    public String resolvingAct(String harnessId) {
+        return act.formatted(Objects.requireNonNull(harnessId, "harnessId"));
     }
 }

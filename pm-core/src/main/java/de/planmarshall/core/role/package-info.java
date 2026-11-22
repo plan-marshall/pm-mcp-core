@@ -9,7 +9,7 @@
  */
 /**
  * The role sets: the schema of a role artifact, the shipped, machine and project sets with their override and
- * validation against the client profiles, and the qualification records.
+ * validation against the harness profiles, and the qualification records.
  * <p>
  * Specification: {@code doc/specification/model-work/01-roles-and-configuration.adoc}.
  */

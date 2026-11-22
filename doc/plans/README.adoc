@@ -21,12 +21,6 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |
 |
 
-|link:harness-renames.adoc[`harness-renames`]
-|The harness side named harness in the code: `client_id` becomes `harness_id` in the profiles, verification records, enrolment store and audit details, `clientId` becomes `harnessId`; records with the old names stay readable
-|`open`
-|nothing
-|Milestone 4 (rename of code already built)
-
 |link:harness-names-in-code.adoc[`harness-names-in-code`]
 |The harness named harness in the engine's refusal messages, Javadoc and tests; no stored or wire name changes (the harness detection and the wire names are renamed in `pm-mcp-clients` and `plan-marshall-mcp`)
 |`open`

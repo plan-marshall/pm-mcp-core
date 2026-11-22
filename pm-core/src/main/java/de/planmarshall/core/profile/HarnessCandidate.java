@@ -26,7 +26,7 @@ import de.planmarshall.core.id.HarnessId;
  * with {@code headless: null} or {@code worker.eligible: false} is a candidate that is shown and marked, never one that is
  * offered as a worker or as the default, which is why {@code workerEligible} implies {@code found} and {@code supported}.
  *
- * @param harnessId      the id of the profile, the {@code client_id} of the schema until the harness renames land
+ * @param harnessId      the id of the profile, the {@code harness_id} of the schema
  * @param displayName    the profile's display name
  * @param found          whether the executable was found in the login {@code PATH} or the profile's install locations
  * @param version        the exact version the version probe printed; {@code null} where nothing was found

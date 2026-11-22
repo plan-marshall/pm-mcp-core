@@ -72,7 +72,7 @@ public final class SupervisorCalls implements WorkerCalls {
      * @param supervisor  the supervisor whose registry every call resolves its generation from
      * @param ending      the one end path of a generation
      * @param recycling   the recycling decisions of a wait and a closed task
-     * @param parameters  the worker values of the harness's client profile
+     * @param parameters  the worker values of the harness profile
      * @param roleClasses the class of a role, by its name
      * @throws NullPointerException if an argument is {@code null}
      */
@@ -256,11 +256,11 @@ public final class SupervisorCalls implements WorkerCalls {
     }
 
     @Override
-    public synchronized void harnessEnrolled(String clientId) {
-        Objects.requireNonNull(clientId, "clientId");
+    public synchronized void harnessEnrolled(String harnessId) {
+        Objects.requireNonNull(harnessId, "harnessId");
         var guard = supervisor.environment().startGuard();
-        for (var role : rolesOf(clientId)) {
-            guard.clear(role, clientId);
+        for (var role : rolesOf(harnessId)) {
+            guard.clear(role, harnessId);
         }
     }
 
@@ -370,10 +370,10 @@ public final class SupervisorCalls implements WorkerCalls {
         return supervisor.generation(generationId).filter(generation -> !generation.terminal());
     }
 
-    private List<String> rolesOf(String clientId) {
+    private List<String> rolesOf(String harnessId) {
         var roles = new LinkedHashSet<String>();
         for (var generation : supervisor.generations()) {
-            if (generation.harness().equals(clientId)) {
+            if (generation.harness().equals(harnessId)) {
                 roles.add(generation.role());
             }
         }

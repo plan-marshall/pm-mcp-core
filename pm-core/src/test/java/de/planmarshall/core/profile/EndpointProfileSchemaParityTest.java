@@ -10,6 +10,7 @@
 package de.planmarshall.core.profile;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -38,9 +39,9 @@ import de.planmarshall.core.SchemaValidation;
  * Profiles § Endpoint Profile Schema: the {@code endpoint}, {@code identity} and {@code weights_probe} blocks are the
  * projection's records, member for member, and the two constants are the reader's. The file is
  * {@code endpoint-profile.schema.json} in {@code pm-core/src/main/resources/de/planmarshall/core/profile/}, read through
- * {@link SchemaResource}. The file requires {@code harness_id} while the validator reads {@code client_id}; the drift is
- * pinned here and owned by the staged harness-rename packages (the profiles follow the file's name once that package
- * lands). The {@code icon}, {@code update_evidence} and {@code model_tiers} blocks are the harness profile's definitions
+ * {@link SchemaResource}. The file and the validator name the id member {@code harness_id}; a document written with the
+ * former {@code client_id} is read beside it and is not schema-valid, which is the compatibility the rename keeps. The
+ * {@code icon}, {@code update_evidence} and {@code model_tiers} blocks are the harness profile's definitions
  * of the same names, compared here without their descriptions; the reader additionally accepts a {@code null}
  * {@code update_evidence}, a leniency owned by the endpoint reader's package. The member names are the wire format; they
  * are literals here for that reason.
@@ -51,7 +52,7 @@ class EndpointProfileSchemaParityTest {
     private static final String SCHEMA = "de/planmarshall/core/profile/endpoint-profile.schema.json";
     private static final String HARNESS = "de/planmarshall/core/profile/harness-profile-v1.schema.json";
     private static final String ID_MEMBER = "harness_id";
-    private static final String READER_ID_MEMBER = "client_id";
+    private static final String LEGACY_ID_MEMBER = "client_id";
 
     @Test
     @DisplayName("the endpoint block is the Endpoint record, member for member")
@@ -103,7 +104,7 @@ class EndpointProfileSchemaParityTest {
     void topLevelRequired() {
         var schema = SchemaResource.load(SCHEMA);
         var required = names(SchemaResource.array(schema.get("required")));
-        var document = SchemaResource.object(SchemaResource.parse(renamed(EndpointProfileFixtures.VALID)));
+        var document = SchemaResource.object(SchemaResource.parse(EndpointProfileFixtures.VALID));
 
         assertEquals(Set.copyOf(required), Set.copyOf(names(document.keySet())),
                 "The file requires exactly the reader's members");
@@ -144,7 +145,7 @@ class EndpointProfileSchemaParityTest {
         var properties = SchemaResource.object(SchemaResource.load(SCHEMA).get("properties"));
         var endpoint = SchemaResource.object(SchemaResource.object(properties.get("endpoint")).get("properties"));
         var other = EndpointProfileFixtures.variant("\"protocol\": \"openai_chat\"", "\"protocol\": \"system_one\"");
-        var fileAcceptsOther = schemaValid(renamed(other));
+        var fileAcceptsOther = schemaValid(other);
 
         assertAll(
                 () -> assertEquals(Set.of("openai_chat"),
@@ -157,36 +158,35 @@ class EndpointProfileSchemaParityTest {
     }
 
     @Test
-    @DisplayName("the id member is the one pinned difference between the file and the reader")
-    void idMemberDrift() {
+    @DisplayName("the id member is the file's and the reader's, and the former name is read beside it")
+    void idMemberParity() {
         var properties = names(SchemaResource.object(SchemaResource.load(SCHEMA).get("properties")).keySet());
         var projected = components(EndpointProfile.class);
         var expected = new ArrayList<>(projected);
-        expected.remove(READER_ID_MEMBER);
-        var readerDocument = EndpointProfileFixtures.VALID;
-        var harnessDocument = renamed(readerDocument);
-        var fileRefusesReader = !schemaValid(readerDocument);
-        var fileAcceptsHarness = schemaValid(harnessDocument);
+        expected.remove(ID_MEMBER);
+        var canonical = EndpointProfileFixtures.VALID;
+        var legacy = legacy(canonical);
         var profile = EndpointProfileFixtures.valid();
 
         assertAll(
                 () -> assertTrue(properties.contains(ID_MEMBER), "The file names the id as the harness does"),
-                () -> assertFalse(properties.contains(READER_ID_MEMBER), "The file does not name the reader's id"),
+                () -> assertFalse(properties.contains(LEGACY_ID_MEMBER),
+                        "The file does not name the former member"),
                 () -> assertTrue(properties.containsAll(expected), "The projection's members are the file's"),
-                () -> assertTrue(fileRefusesReader, "The file refuses the reader's document (pinned drift)"),
-                () -> assertEquals("local-runner", EndpointProfile.of(profile).clientId(),
-                        "The reader accepts the reader's document"),
-                () -> assertTrue(fileAcceptsHarness, "The file accepts the harness-named document"),
-                () -> assertThrows(ProfileRefusal.class, () -> EndpointProfileFixtures.validate(harnessDocument),
-                        "The reader refuses the harness-named document (pinned drift)"));
+                () -> assertTrue(schemaValid(canonical), "The file accepts the harness-named document"),
+                () -> assertEquals("local-runner", EndpointProfile.of(profile).harnessId(),
+                        "The reader accepts the harness-named document"),
+                () -> assertFalse(schemaValid(legacy), "The file refuses the former member"),
+                () -> assertDoesNotThrow(() -> EndpointProfileFixtures.validate(legacy),
+                        "The reader still reads the former member"));
     }
 
     @Test
     @DisplayName("an undeclared member is refused by the file and the reader")
     void unknownMember() {
-        var harnessDocument = renamed(EndpointProfileFixtures.VALID);
-        var fileRefusesHarness = !schemaValid(undeclared(harnessDocument));
-        var readerDocument = undeclared(EndpointProfileFixtures.VALID);
+        var harnessDocument = undeclared(EndpointProfileFixtures.VALID);
+        var readerDocument = harnessDocument;
+        var fileRefusesHarness = !schemaValid(harnessDocument);
 
         assertAll(
                 () -> assertTrue(fileRefusesHarness, "The file refuses the undeclared member"),
@@ -240,8 +240,8 @@ class EndpointProfileSchemaParityTest {
         };
     }
 
-    private static String renamed(String document) {
-        return document.replace("\"" + READER_ID_MEMBER + "\":", "\"" + ID_MEMBER + "\":");
+    private static String legacy(String document) {
+        return document.replace("\"" + ID_MEMBER + "\":", "\"" + LEGACY_ID_MEMBER + "\":");
     }
 
     private static String undeclared(String document) {

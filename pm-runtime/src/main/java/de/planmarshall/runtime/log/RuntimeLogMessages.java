@@ -469,7 +469,7 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
-         * Logged once the job runner reported the started job; names the worker generation, the role and the client id
+         * Logged once the job runner reported the started job; names the worker generation, the role and the harness id
          * of the harness.
          * <p>
          * The component is {@code WorkerSupervisor}.

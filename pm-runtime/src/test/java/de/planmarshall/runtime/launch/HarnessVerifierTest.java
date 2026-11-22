@@ -186,7 +186,7 @@ class HarnessVerifierTest {
         var verification = verifier().verify(client, HeadlessBlock.of(LaunchFixtures.profileForClient(client)));
         var accepted = assertInstanceOf(HarnessVerification.Accepted.class, verification,
                 "an operator-added harness is accepted");
-        assertEquals(client, accepted.enrolment().clientId(), "the accepted entry is the operator's client");
+        assertEquals(client, accepted.enrolment().harnessId(), "the accepted entry is the operator's client");
     }
 
     @Test

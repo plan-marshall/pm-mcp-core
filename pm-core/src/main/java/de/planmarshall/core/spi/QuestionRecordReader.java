@@ -13,6 +13,8 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.store.EntryId;
+
 /**
  * The engine port that reads a question record of a scope (PM-ARCH-4, bullets 4 and 5: a question state rests on the
  * persisted record, never on the memory of a running engine). The engine reads the record a {@code question} state
@@ -73,7 +75,7 @@ public interface QuestionRecordReader {
          * @return the request of the entry's question
          * @throws NullPointerException if the entry is {@code null}
          */
-        public static ReadRequest ofEntry(de.planmarshall.core.store.EntryId entryId, String questionId) {
+        public static ReadRequest ofEntry(EntryId entryId, String questionId) {
             return new ReadRequest(Objects.requireNonNull(entryId, "entryId").value(), questionId);
         }
     }

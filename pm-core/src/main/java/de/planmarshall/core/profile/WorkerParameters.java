@@ -14,7 +14,7 @@ import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The worker and connection values of one loaded client profile, typed (PM-WORK-3, PM-CLIENT-2; Client Profiles, Worker
+ * The worker and connection values of one loaded harness profile, typed (PM-WORK-3, PM-CLIENT-2; Client Profiles, Worker
  * Block).
  * <p>
  * The worker block holds the per-host values of the task protocol and of supervision, and the connection block the
@@ -131,6 +131,6 @@ int silenceGraceSeconds, int idleWakeups, int boundedWaitSeconds, boolean progre
     }
 
     private static ProfileRefusal refusal(LoadedProfile profile, String pointer, String detail) {
-        return ProfileRefusal.invalid(profile.clientId() + PROFILE_SUFFIX, pointer, detail);
+        return ProfileRefusal.invalid(profile.harnessId() + PROFILE_SUFFIX, pointer, detail);
     }
 }

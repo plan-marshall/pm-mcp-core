@@ -407,7 +407,7 @@ class PendingEntryStoreTest {
 
         @Test
         @DisplayName("a tampered record holds that entry alone, and its edit is accepted by a re-baseline")
-        void tamperedEntryAlone() throws IOException {
+        void tamperedEntryAlone() throws Exception {
             var first = enter(new ScriptedRandom(Generators.longs(0, Long.MAX_VALUE - 2).next()));
             var second = enter(new ScriptedRandom(Generators.longs(0, Long.MAX_VALUE - 2).next(),
                     Generators.longs(0, Long.MAX_VALUE - 2).next()));
@@ -428,9 +428,10 @@ class PendingEntryStoreTest {
                     () -> assertEquals(new PendingEntryStore.Integrity.Verified(first), verify(first),
                             "the re-baseline should accept the edit"));
         }
+
         @Test
         @DisplayName("a store that no transaction wrote is tampered, never verified")
-        void untrackedIsTampered() throws IOException {
+        void untrackedIsTampered() throws Exception {
             Files.createDirectories(store.sourcesDirectory(entryId));
             Files.write(store.store(entryId), PendingEntryCodec.write(entry(entryId, state)));
             Files.write(store.sourcesStore(entryId), SourceManifestCodec.write(SourceManifest.empty()));

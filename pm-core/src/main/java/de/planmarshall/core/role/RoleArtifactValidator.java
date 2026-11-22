@@ -60,7 +60,7 @@ public final class RoleArtifactValidator {
 
     private static final Set<String> OFF_TRACK_MEMBERS = Set.of("threshold", "action");
 
-    private static final Pattern CLIENT_ID = Pattern.compile("^[a-z][a-z0-9-]{0,31}$");
+    private static final Pattern HARNESS_ID = Pattern.compile("^[a-z][a-z0-9-]{0,31}$");
     private static final Pattern TOOL = Pattern.compile("^[A-Za-z][A-Za-z0-9_.-]{0,63}$");
     private static final Pattern SKILL_URI = Pattern.compile("^skill://pm/[a-z0-9][a-z0-9_/-]*/SKILL\\.md$");
     private static final Pattern SKILL_SEGMENT = Pattern.compile("[a-z0-9][a-z0-9_-]*");
@@ -145,8 +145,8 @@ public final class RoleArtifactValidator {
             var roleClass = roleClass(required(artifact, "class"));
             var tools = tools(required(artifact, "tools"));
             var harness = string(required(artifact, "harness"), "/harness", "harness", 32);
-            if (!CLIENT_ID.matcher(harness).matches()) {
-                throw invalid("/harness", "not a client id: '%s'".formatted(harness));
+            if (!HARNESS_ID.matcher(harness).matches()) {
+                throw invalid("/harness", "not a harness id: '%s'".formatted(harness));
             }
             var model = text(required(artifact, "model"), "/model", "model", 128);
             if (model.isEmpty()) {

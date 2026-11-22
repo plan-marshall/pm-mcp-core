@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
  * past the bound the next start proceeds.
  * <p>
  * The instance is shared by every supervisor of the runtime, so the spacing spans the supervisors of all projects: the
- * class keys on the client id of the harness alone and holds no per-project state. A caller announces the start's
+ * class keys on the harness id of the harness alone and holds no per-project state. A caller announces the start's
  * outcome through {@link #firstCall} or {@link #ended}; both release the next waiter at once.
  *
  * @since 0.1
@@ -65,7 +65,7 @@ public final class HarnessStartSpacing {
      * Waits until the previous worker of the harness made its first call or ended, at most the bound, and then records
      * this caller's start as the harness's pending one. A start with no pending worker proceeds at once.
      *
-     * @param harness the client id of the harness the worker starts on
+     * @param harness the harness id of the harness the worker starts on
      * @throws InterruptedException if the wait is interrupted
      * @throws NullPointerException if the harness is {@code null}
      */
@@ -87,7 +87,7 @@ public final class HarnessStartSpacing {
     /**
      * Records that the pending worker of the harness made its first call, which releases the next start at once.
      *
-     * @param harness the client id of the harness
+     * @param harness the harness id of the harness
      * @throws NullPointerException if the harness is {@code null}
      */
     public void firstCall(String harness) {
@@ -98,7 +98,7 @@ public final class HarnessStartSpacing {
      * Records that the pending start of the harness is over — its worker ended, or the runtime refused the launch
      * before its spawn, so no worker of it is left to make a first call. The next start is released at once.
      *
-     * @param harness the client id of the harness
+     * @param harness the harness id of the harness
      * @throws NullPointerException if the harness is {@code null}
      */
     public void ended(String harness) {

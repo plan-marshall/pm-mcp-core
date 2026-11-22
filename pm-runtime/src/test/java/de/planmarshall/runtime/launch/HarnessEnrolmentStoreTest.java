@@ -73,7 +73,7 @@ class HarnessEnrolmentStoreTest {
     @Test
     @DisplayName("writes and reads an enrolment, with the canonical file and its sidecar")
     void writeAndRead() {
-        var client = clientId();
+        var client = harnessId();
         var version = version();
         store.enrol(enrolment(client, version));
         assertEquals(version, store.find(client).orElseThrow().version(), "the enrolled version is read back");
@@ -84,7 +84,7 @@ class HarnessEnrolmentStoreTest {
     @Test
     @DisplayName("a tampered file is refused and never parsed")
     void tampered() throws Exception {
-        var client = clientId();
+        var client = harnessId();
         store.enrol(enrolment(client, version()));
         // an empty store document in the store's wire format
         Files.writeString(base.resolve(STORE_FILE), "{\"format_version\":1,\"harnesses\":{}}",
@@ -97,14 +97,14 @@ class HarnessEnrolmentStoreTest {
     @Test
     @DisplayName("a new enrolment re-baselines a tampered file with the named client only")
     void rebaseline() throws Exception {
-        var client = clientId();
-        var other = client + "-" + clientId();
+        var client = harnessId();
+        var other = client + "-" + harnessId();
         var newer = version() + "." + Generators.integers(0, 99).next();
         store.enrol(enrolment(client, version()));
         store.enrol(enrolment(other, version()));
         Files.writeString(base.resolve(STORE_FILE), "{}", StandardCharsets.UTF_8);
         store.enrol(enrolment(client, newer));
-        assertEquals(List.of(client), store.all().stream().map(HarnessEnrolment::clientId).toList(),
+        assertEquals(List.of(client), store.all().stream().map(HarnessEnrolment::harnessId).toList(),
                 "only the named client survives the re-baseline");
         assertEquals(newer, store.find(client).orElseThrow().version(), "the re-baselined entry has the new version");
         assertTrue(store.find(other).isEmpty(), "the other client is gone after the re-baseline");
@@ -113,8 +113,8 @@ class HarnessEnrolmentStoreTest {
     @Test
     @DisplayName("a new enrolment re-baselines a verified file that does not read as the store")
     void rebaselineUnreadable() throws Exception {
-        var client = clientId();
-        var other = client + "-" + clientId();
+        var client = harnessId();
+        var other = client + "-" + harnessId();
         store.enrol(enrolment(client, version()));
         var file = base.resolve(STORE_FILE);
         // format_version is the store's version member; 2 is a version the store does not read
@@ -123,7 +123,7 @@ class HarnessEnrolmentStoreTest {
         Files.write(file, bytes);
         Files.write(base.resolve(SIDECAR_FILE), EnrolmentHmac.sidecar(key, bytes).write());
         store.enrol(enrolment(other, version()));
-        assertEquals(List.of(other), store.all().stream().map(HarnessEnrolment::clientId).toList(),
+        assertEquals(List.of(other), store.all().stream().map(HarnessEnrolment::harnessId).toList(),
                 "only the new client is in the re-baselined store");
     }
 
@@ -189,7 +189,7 @@ class HarnessEnrolmentStoreTest {
     @Test
     @DisplayName("an accepted self-update rewrites the version and the digest")
     void selfUpdate() {
-        var client = clientId();
+        var client = harnessId();
         var newer = version() + "." + Generators.integers(0, 99).next();
         var digest = RuntimeGenerators.sha256Digests().next();
         var seconds = Generators.integers(1, 100_000).next();
@@ -204,13 +204,13 @@ class HarnessEnrolmentStoreTest {
     @Test
     @DisplayName("an unenrol removes only the named client")
     void unenrol() {
-        var client = clientId();
-        var other = client + "-" + clientId();
+        var client = harnessId();
+        var other = client + "-" + harnessId();
         store.enrol(enrolment(client, version()));
         store.enrol(enrolment(other, version()));
         assertTrue(store.unenrol(client), "an enrolled client is unenrolled");
         assertFalse(store.unenrol(client), "an unenrolled client is not unenrolled again");
-        assertEquals(List.of(other), store.all().stream().map(HarnessEnrolment::clientId).toList(),
+        assertEquals(List.of(other), store.all().stream().map(HarnessEnrolment::harnessId).toList(),
                 "only the other client remains enrolled");
     }
 
@@ -241,8 +241,8 @@ class HarnessEnrolmentStoreTest {
         assertEquals("1.5.0", store.find("claude").orElseThrow().version(), "the program entry is read");
     }
 
-    private HarnessEnrolment enrolment(String clientId, String version) {
-        return new HarnessEnrolment(clientId, Path.of("/usr/local/bin/" + clientId).toAbsolutePath(),
+    private HarnessEnrolment enrolment(String harnessId, String version) {
+        return new HarnessEnrolment(harnessId, Path.of("/usr/local/bin/" + harnessId).toAbsolutePath(),
                 RuntimeGenerators.sha256Digests().next(), version, now, now,
                 new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of("input", "reported")),
                 Map.of("text", "reported"), Map.of());
@@ -262,7 +262,7 @@ class HarnessEnrolmentStoreTest {
     @Test
     @DisplayName("the start context of a verified usage report round-trips")
     void startContextRoundTrip() {
-        var client = clientId();
+        var client = harnessId();
         var model = shortWords().next();
         var report = new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.VERIFIED,
                 Map.of("input", "reported", "cache_creation", "not_applicable"), List.of(
@@ -278,7 +278,7 @@ class HarnessEnrolmentStoreTest {
     }
 
     /** @return a client id of the store's pattern: a lower-case letter first, at most 32 characters */
-    private static String clientId() {
+    private static String harnessId() {
         return "c" + shortWords().next();
     }
 

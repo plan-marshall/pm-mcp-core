@@ -34,7 +34,7 @@ class HarnessEnrolmentRecordsTest {
     @Test
     @DisplayName("the builder builds the harness enrolment the constructor builds")
     void harnessEnrolmentBuilderEqualsConstructor() {
-        var clientId = "claude";
+        var harnessId = "claude";
         var executablePath = Path.of("/tmp", Generators.letterStrings(1, 12).next(), "claude");
         var sha256 = RuntimeGenerators.sha256Digests().next();
         var version = "1.5.0";
@@ -45,10 +45,10 @@ class HarnessEnrolmentRecordsTest {
         var weights = Map.of(Generators.letterStrings(1, 20).next(), new HarnessEnrolment.Weights(
                 Generators.letterStrings(1, 64).next(), enrolledAt));
 
-        var constructed = new HarnessEnrolment(clientId, executablePath, sha256, version, enrolledAt, updatedAt,
+        var constructed = new HarnessEnrolment(harnessId, executablePath, sha256, version, enrolledAt, updatedAt,
                 usageReport, events, weights);
         var built = HarnessEnrolment.builder()
-                .clientId(clientId)
+                .harnessId(harnessId)
                 .executablePath(executablePath)
                 .sha256(sha256)
                 .version(version)
@@ -64,11 +64,11 @@ class HarnessEnrolmentRecordsTest {
 
     @Test
     @DisplayName("the builder refuses a missing client id like the constructor")
-    void harnessEnrolmentBuilderRefusesMissingClientId() {
+    void harnessEnrolmentBuilderRefusesMissingHarnessId() {
         var builder = HarnessEnrolment.builder();
         var refusal = assertThrows(NullPointerException.class, builder::build,
                 "the builder names the missing client id");
 
-        assertEquals("clientId", refusal.getMessage(), "the refusal names the client id");
+        assertEquals("harnessId", refusal.getMessage(), "the refusal names the client id");
     }
 }

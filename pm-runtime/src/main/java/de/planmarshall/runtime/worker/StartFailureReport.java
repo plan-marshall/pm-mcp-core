@@ -16,7 +16,7 @@ import org.jspecify.annotations.Nullable;
 import de.planmarshall.core.store.WorkerState;
 
 /**
- * The report of one start failure of a role on a harness (PM-WORK-3, Start-Failure Guard): the role, the client id of
+ * The report of one start failure of a role on a harness (PM-WORK-3, Start-Failure Guard): the role, the harness id of
  * the harness and the failed worker's own error text, bounded and redacted.
  * <p>
  * The error text is the last lines of the failed worker's output, cut to its tail of at most {@value #MAX_DETAIL}
@@ -29,7 +29,7 @@ import de.planmarshall.core.store.WorkerState;
  * model.
  *
  * @param role    the role whose start failed
- * @param harness the client id of the harness the start failed on
+ * @param harness the harness id of the harness the start failed on
  * @param detail  the bounded, redacted error text of the failed worker, never blank
  * @since 0.1
  */
@@ -78,7 +78,7 @@ public record StartFailureReport(String role, String harness, String detail) {
      * cut by the same bound as the text around it, and then cut to its tail of at most {@value #MAX_DETAIL} characters.
      *
      * @param role    the role whose start failed
-     * @param harness the client id of the harness the start failed on
+     * @param harness the harness id of the harness the start failed on
      * @param logTail the failed worker's own error text; {@code null} and blank both report {@link #NO_OUTPUT}
      * @return the bounded, redacted report
      * @throws NullPointerException     if the role or the harness is {@code null}

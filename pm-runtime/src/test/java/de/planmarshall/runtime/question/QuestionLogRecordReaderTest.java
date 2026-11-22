@@ -383,7 +383,7 @@ class QuestionLogRecordReaderTest {
         @ParameterizedTest
         @EnumSource(EndOfLine.class)
         @DisplayName("reads a pending entry's log for the entry address")
-        void readsAnEntryScope(EndOfLine endOfLine) throws IOException {
+        void readsAnEntryScope(EndOfLine endOfLine) throws Exception {
             var entryId = new EntryId("ent-" + Generators.strings("0123456789abcdef", 16, 16).next());
             var log = QuestionLog.ofEntry(workspace, entryId);
             Files.createDirectories(log.store().getParent());

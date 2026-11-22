@@ -29,7 +29,7 @@ public final class EndpointProfileFixtures {
             {
               "profile_kind": "endpoint",
               "schema_version": 1,
-              "client_id": "local-runner",
+              "harness_id": "local-runner",
               "display_name": "%1$s",
               "min_daemon_version": "0.1.0",
               "icon": null,

@@ -31,16 +31,16 @@ import de.planmarshall.core.profile.EnrolledHarness;
 public interface RoleEnvironment {
 
     /**
-     * @param clientId the client id of a harness
-     * @return the facts of the effective client profile of the harness
+     * @param harnessId the harness id of a harness
+     * @return the facts of the effective harness profile of the harness
      */
-    Optional<HarnessProfile> profile(String clientId);
+    Optional<HarnessProfile> profile(String harnessId);
 
     /**
-     * @param clientId the client id of a harness
+     * @param harnessId the harness id of a harness
      * @return the enrolled build of the harness
      */
-    Optional<EnrolledHarness> enrolledHarness(String clientId);
+    Optional<EnrolledHarness> enrolledHarness(String harnessId);
 
     /** @return the machine's model catalogue, {@code <PM_MCP_BASE>/model-catalogue.json} */
     Optional<ModelCatalogue> machineCatalogue();
@@ -61,11 +61,11 @@ public interface RoleEnvironment {
     Optional<RoleSkill> resolveSkill(String uri);
 
     /**
-     * @param clientId the client id of a harness
+     * @param harnessId the harness id of a harness
      * @param model    a model identifier
      * @return the weights identity of the model as the enrolment records it; empty when the harness reports none
      */
-    Optional<String> weightsIdentity(String clientId, String model);
+    Optional<String> weightsIdentity(String harnessId, String model);
 
     /** @return the machine configuration, {@code <PM_MCP_BASE>/machine-config.json} */
     Optional<MachineConfiguration> machineConfiguration();

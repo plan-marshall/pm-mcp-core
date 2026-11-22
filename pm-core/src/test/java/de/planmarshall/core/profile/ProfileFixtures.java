@@ -45,7 +45,7 @@ final class ProfileFixtures {
     private static Map<String, Object> base() {
         var root = new LinkedHashMap<String, Object>();
         root.put("schema_version", 1);
-        root.put("client_id", "acme-cli");
+        root.put("harness_id", "acme-cli");
         root.put("display_name", "Acme CLI");
         root.put("icon", null);
         root.put("min_daemon_version", "0.1.0");

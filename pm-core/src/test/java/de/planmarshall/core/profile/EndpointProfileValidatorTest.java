@@ -40,7 +40,7 @@ class EndpointProfileValidatorTest {
         var profile = EndpointProfile.of(EndpointProfileFixtures.valid());
 
         assertAll(
-                () -> assertEquals("local-runner", profile.clientId(), "The client id is projected"),
+                () -> assertEquals("local-runner", profile.harnessId(), "The client id is projected"),
                 () -> assertEquals("ollama", profile.executable(), "The serving program is projected"),
                 () -> assertEquals(List.of("--version"), profile.identity().versionProbe(),
                         "The version probe is projected"),
@@ -82,7 +82,7 @@ class EndpointProfileValidatorTest {
                     + "| /tools",
             "a headless block is present | \"executable\": \"ollama\", | \"headless\": null, \"executable\": "
                     + "\"ollama\", | /headless",
-            "the client member long-context thresholds | \"client_id\": \"local-runner\", | \"client_id\": "
+            "the harness member long-context thresholds | \"harness_id\": \"local-runner\", | \"harness_id\": "
                     + "\"local-runner\", \"long_context_thresholds\": {}, | /long_context_thresholds",
             "the answer reserve does not stay below the context | \"answer_reserve_tokens\": 1024 | "
                     + "\"answer_reserve_tokens\": 8192 | /endpoint/answer_reserve_tokens",

@@ -8,12 +8,12 @@
  * the root of this repository.
  */
 /**
- * The client profiles: the loader of the profile documents of {@code pm-api}, their validation, the placeholders
+ * The harness profiles: the loader of the profile documents of {@code pm-api}, their validation, the placeholders
  * and the vocabulary translation. No class names a harness.
  * <p>
  * A harness exists for the system as its profile document and as nothing else. The package reads the whole documents of
  * the shipped, machine and project sets with the streaming API of {@code jackson-core}, validates each against the
- * client profile schema and the hardening rules as a whole, resolves the nearest set that counts, and binds a machine
+ * harness profile schema and the hardening rules as a whole, resolves the nearest set that counts, and binds a machine
  * or project profile to its verification record and its HMAC sidecar. The stages {@code isolation}, {@code egress} and
  * {@code usage} of the profile verification are recorded here as the values a profile is loaded with.
  * <p>

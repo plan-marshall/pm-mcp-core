@@ -20,7 +20,7 @@ import java.util.OptionalLong;
 import org.jspecify.annotations.Nullable;
 
 /**
- * One value of a client profile or of a profile verification record (PM-CLIENT-5): the profile package's own tree,
+ * One value of a harness profile or of a profile verification record (PM-CLIENT-5): the profile package's own tree,
  * because a profile is read with the streaming API of {@code jackson-core} and validated value by value.
  * <p>
  * A value is one of the seven JSON kinds. An object keeps its members in document order and refuses a member twice; an
