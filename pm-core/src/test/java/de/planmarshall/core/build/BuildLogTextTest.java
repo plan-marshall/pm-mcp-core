@@ -388,6 +388,56 @@ class BuildLogTextTest {
     }
 
     @Test
+    @DisplayName("a cut log keeps a failure whose execution reports only a passing summary")
+    void cutMavenLogKeepsAFailureWhoseSummaryIsPassing(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the failing execution's own summary lies in the lost head; the visible summary belongs to a later module
+        var failingTail = """
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %s
+                [INFO] Results:
+                [INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0
+                [INFO] BUILD SUCCESS
+                """.formatted(Generators.letterStrings(3, 12).next() + "Test");
+        Path log = directory.resolve("cut-passing-summary-failing-class.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                                diagnostic.severity() == Severity.ERROR
+                                        && diagnostic.message().contains("1 failing test")),
+                        "the per-class failure stays an error"));
+    }
+
+    @Test
+    @DisplayName("a cut log files no second failure for a per-class line already filed")
+    void cutMavenLogFilesNoSecondFailureForAFiledPerClassLine(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        var failingTail = """
+                [ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %s
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                [INFO] BUILD SUCCESS
+                """.formatted(Generators.letterStrings(3, 12).next() + "Test");
+        Path log = directory.resolve("cut-filed-per-class-failing.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertEquals(1, build.diagnostics().stream()
+                                .filter(diagnostic -> diagnostic.severity() == Severity.ERROR
+                                        && diagnostic.category() == Category.TEST_FAILURE).count(),
+                        "the filed per-class failure is the only one"));
+    }
+
+    @Test
     @DisplayName("a whole Maven log reports its count as the whole run's")
     void wholeMavenLogReportsTheWholeRun(@TempDir Path directory) throws Exception {
         Path log = directory.resolve("whole-maven.log");

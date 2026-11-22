@@ -413,22 +413,23 @@ public class MavenOutputParser {
          * <p>
          * A cut log's tail may hold summary lines whose {@code Results:} marker is in the lost head; they are filed as
          * ambiguous by the scan, and for a cut log they count here too, so a failure the tail shows is never reported as
-         * a passing run (ADR {@code core-build/011}). The blocks follow the precedence {@link #result} uses: the summary
-         * blocks are the figure when the tail holds one, else an ambiguous summary line is that figure because its
-         * marker was cut, and only without both is a per-class line the figure. A per-class line and a summary line of
-         * the same run are never added together, so a tail that holds both reports its failing tests once. An
-         * {@code [ERROR]} count line is already filed as a diagnostic by the collector, so its failures are not filed a
-         * second time as the synthetic finding; the line's own finding is the evidence.
+         * a passing run (ADR {@code core-build/011}). Two figures describe the tail: the summary side — summary and
+         * ambiguous blocks — and the per-class lines. The larger of the two is the tail's visible failure count, because
+         * a per-class block beyond what the summaries report belongs to an execution whose summary the cut removed,
+         * while a per-class line of an execution that does report its summary adds nothing. The figure of the side chosen
+         * is then reduced by the {@code [ERROR]} lines the diagnostic collector already filed, so a failure is never
+         * filed twice. A per-class line and its summary are therefore never added together, and a failure of an
+         * execution whose summary is missing is not lost.
          *
          * @return the failing tests of the tail that are not yet a filed diagnostic
          */
         long unfiledFailures() {
-            if (!summaryLines.isEmpty()) {
-                return failuresOf(summaryLines) - failuresOf(filed(summaryLines))
-                        + failuresOf(ambiguousLines) - failuresOf(filed(ambiguousLines));
+            long summarySide = failuresOf(summaryLines) + failuresOf(ambiguousLines);
+            long perClassSide = failuresOf(perClassLines);
+            if (perClassSide >= summarySide) {
+                return perClassSide - failuresOf(filed(perClassLines));
             }
-            var counted = ambiguousLines.isEmpty() ? perClassLines : ambiguousLines;
-            return failuresOf(counted) - failuresOf(filed(counted));
+            return summarySide - failuresOf(filed(summaryLines)) - failuresOf(filed(ambiguousLines));
         }
 
         /**

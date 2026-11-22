@@ -243,11 +243,11 @@ public record JobLog(Path path) {
     }
 
     /**
-     * The whole read over an open channel: the comparison is of the bytes the read returned against the length the
-     * channel reported, never of a second {@code size()} against the first. A log that shrinks between the size read and
-     * the read of its content returns fewer bytes than the size promised, and a log that shrank and regrew returns fewer
-     * bytes still, so a short read is never reported as a complete log; a log that only grows loses nothing and is
-     * answered with the length read before.
+     * The whole read over an open channel. Two comparisons guard the answer: the bytes the reads returned against the
+     * length the channel reported, and a second {@code size()} after the reads against the first. The first catches a
+     * log that shrank under a read, a log that shrank and regrew included; the second catches a shrink that lands after
+     * the last read, when every requested byte still came back. A log that only grows loses nothing and is answered with
+     * the length read before.
      *
      * @param channel        the open job log
      * @param observedLength the number of bytes the runtime already read from the log while the job ran
@@ -260,6 +260,10 @@ public record JobLog(Path path) {
             return truncated(size, observedLength);
         }
         var content = size <= MAX_BYTES ? whole(channel, size) : capped(channel, size);
+        var remaining = channel.size();
+        if (remaining < size) {
+            return truncated(remaining, size);
+        }
         if (!content.complete()) {
             return shortRead(content);
         }
@@ -332,7 +336,7 @@ public record JobLog(Path path) {
         var text = end < 0
                 ? tail.text()
                 : new String(head, 0, end + 1, StandardCharsets.UTF_8) + tail.text();
-        return new Window(text, (long) head.length + tail.read(), headExpected + tail.expected());
+        return new Window(text, head.length + tail.read(), headExpected + tail.expected());
     }
 
     /**
