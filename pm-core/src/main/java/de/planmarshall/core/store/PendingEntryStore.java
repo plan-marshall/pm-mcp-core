@@ -296,9 +296,12 @@ public final class PendingEntryStore {
      * the workspace sidecar no longer covers them; a directory whose record still exists is refused, because deleting
      * it would leave the four stores in the sidecar without their files. A symbolic link below the entry's directory is
      * removed as a link and never followed; a link that IS the entry directory is removed as a link too.
+     * <p>
+     * A directory a concurrent sweep removed first is no error: the deletion began after that removal, so it reports
+     * that the directory did not exist and leaves the sweep's work as it is.
      *
      * @param entryId the entry
-     * @return whether the directory existed
+     * @return whether the directory existed when the deletion began
      * @throws IllegalStateException if the entry's record still exists in the directory
      * @throws UncheckedIOException  if the directory or a file in it cannot be removed
      */
@@ -308,6 +311,8 @@ public final class PendingEntryStore {
             try {
                 Files.delete(directory);
                 return true;
+            } catch (NoSuchFileException _) {
+                return false;
             } catch (IOException e) {
                 throw new UncheckedIOException("The pending entry link cannot be removed: " + directory, e);
             }
@@ -459,6 +464,8 @@ public final class PendingEntryStore {
                 }
             }
             Files.deleteIfExists(directory);
+        } catch (NoSuchFileException _) {
+            // A concurrent sweep removed the directory (or the one below it) first: the end is the same
         } catch (IOException e) {
             throw new UncheckedIOException("The pending entry directory cannot be removed: " + directory, e);
         }
