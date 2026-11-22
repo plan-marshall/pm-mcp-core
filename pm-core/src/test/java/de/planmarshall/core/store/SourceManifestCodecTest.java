@@ -240,6 +240,67 @@ class SourceManifestCodecTest {
                             "the refusal should name the source that stored it"));
         }
 
+        @Test
+        @DisplayName("two paths that differ only in case are refused: one file on a case-insensitive filesystem")
+        void caseVariantPaths() {
+            var variant = path.toUpperCase(Locale.ROOT);
+            var second = new Source(sourceId + "x", Kind.ISSUE, "ref", "forge", Trust.UNTRUSTED,
+                    List.of(new SourceFile(variant, size, digest)), addedAt, Verdict.CLEAN, null);
+
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> new SourceManifest(2, List.of(trusted(), second)),
+                    "two paths in one case-fold should be refused");
+
+            assertAll(
+                    () -> assertTrue(refusal.getMessage().contains(variant),
+                            "the refusal should name the path in its own case"),
+                    () -> assertTrue(refusal.getMessage().contains(path),
+                            "the refusal should name the path stored before it"));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"file first", "nested path first"})
+        @DisplayName("a file and a path below it are refused: one stored path is no directory of another")
+        void nestedPaths(String order) {
+            var below = path + "/inner.md";
+            var first = "file first".equals(order) ? path : below;
+            var second = "file first".equals(order) ? below : path;
+            var sources = List.of(
+                    new Source(sourceId, Kind.DESCRIPTION, "ref", "operator", Trust.TRUSTED,
+                            List.of(new SourceFile(first, size, digest)), addedAt, null, null),
+                    new Source(sourceId + "x", Kind.ISSUE, "ref", "forge", Trust.UNTRUSTED,
+                            List.of(new SourceFile(second, size, digest)), addedAt, Verdict.CLEAN, null));
+
+            var refusal = assertThrows(IllegalArgumentException.class, () -> new SourceManifest(2, sources),
+                    "a file and a path below it should be refused");
+
+            assertAll(
+                    () -> assertTrue(refusal.getMessage().contains(first), "the refusal should name the first path"),
+                    () -> assertTrue(refusal.getMessage().contains(second), "the refusal should name the second path"));
+        }
+
+        @Test
+        @DisplayName("the manifest's own name is reserved in every case, so no source overwrites it")
+        void reservedNameInAnotherCase() {
+            var reserved = new Source(sourceId, Kind.DESCRIPTION, "ref", "operator", Trust.TRUSTED,
+                    List.of(new SourceFile("Sources.json", size, digest)), addedAt, null, null);
+
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> new SourceManifest(1, List.of(reserved)),
+                    "the manifest name should be reserved in every case");
+
+            assertTrue(refusal.getMessage().contains("Sources.json"), "the refusal should name the reserved path");
+        }
+
+        @Test
+        @DisplayName("a path with a NUL is refused as no path of this platform, never carried to the move")
+        void invalidCharacters() {
+            var refusal = assertThrows(IllegalArgumentException.class,
+                    () -> new SourceFile("a\u0000b.md", size, digest), "a NUL in a path should be refused");
+
+            assertTrue(refusal.getMessage().contains("path"), "the refusal should name the path rule");
+        }
+
         @ParameterizedTest(name = "{0}")
         @CsvSource(delimiter = '|', textBlock = """
                 an unknown kind    | "revision":0,"sources":[%s]
