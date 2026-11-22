@@ -2,10 +2,10 @@
   "id": "PLAN-V2-142",
   "slug": "harness-verification-residue",
   "workstream": "WS-04",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-142-harness-verification-residue",
+  "pr": "#552, #548",
+  "landing": "landings/PLAN-V2-142.md",
   "seq": 130
 }
