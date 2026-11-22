@@ -28,8 +28,13 @@ Periodic Sweep]).
   its first transaction — decided under the workspace lock by `PendingEntryStore.verify` (refined by PLAN-V2-167).
 * The residue of a run is removed in one transaction of the workspace scope. Every candidate is re-judged under the
   workspace lock before it is removed, so an entry opened between the listing and the lock is kept. The delete targets
-  are the entry's four stores, and the record is the last of them; the transaction owes one
-  `pending_entry_removed` record per directory, and the directories are deleted after the commit.
+  are the entry's four stores, and the record is the first of them: `remove` deletes all four in one transaction the
+  journal completes, whereas the creation's move deletes the record last, where it is the evidence the creation passed.
+  The transaction owes one `pending_entry_removed` record per directory, and the directories are deleted after the
+  commit.
+* The step reports every entry it keeps in one report: an unreadable record and a held entry are both named, and a
+  directory the discard cannot remove — the record is present again, or the delete failed — is named with the count of
+  the directories that were removed, so no failure drops another from the report.
 * An entry whose record cannot be read is kept and reported as a failure of the step, so a tampered entry is held for
   its operator instead of being swept.
 * The log record `PM_RUNTIME-23` (`PENDING_ENTRY_RECORDS_SWEPT`) is retired, and the sweep owes the audit record

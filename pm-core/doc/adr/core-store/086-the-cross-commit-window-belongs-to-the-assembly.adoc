@@ -26,7 +26,9 @@ scope, which is a contract between `pm-core` and the assembly that runs `start.c
 == Decision
 
 The recovery of the window is owed to the assembly `plan-marshall-mcp`, whose `start.create-scope` unit creates the
-scope: it makes the new scope carry the entry id it was created from, and then derives the deletion of the entry. Until
+scope: it makes the new scope carry the entry id it was created from, and then derives the deletion of the entry. The
+live-plan enumerator such a derivation reads — the list of the plans that are live for the entry — belongs to the
+assembly too; no store-level type enumerates it. Until
 it does, the operator ends such an entry by abandoning it, and the store-level move keeps its current behaviour — it
 refuses the repeated move and writes nothing.
 
