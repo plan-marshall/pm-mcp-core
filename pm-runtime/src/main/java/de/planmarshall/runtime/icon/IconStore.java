@@ -47,8 +47,9 @@ import de.planmarshall.runtime.start.PosixModes;
  * <p>
  * One file per harness, {@code icons/<harness_id>.<ext>} with extension {@code svg} or {@code png} and mode
  * {@code 0600}, and the index {@code icons/index.json}. Both are written under {@code locks/icons.lock} with an atomic
- * write: the content is staged in a file in the same directory and moved onto its name, so a reader sees the old file
- * or the new one and never a partial one.
+ * write where the file system supports one: the content is staged in a file in the same directory and moved onto its
+ * name with {@code ATOMIC_MOVE}, and a provider that refuses that move falls back to a replacing move, which the
+ * served-file match then covers (ADR 013).
  * <p>
  * The store takes the candidate bytes from a caller and never fetches them: the outbound fetch belongs to the profile
  * that declares the {@code source} form, and no shipped profile does, so the store stays empty until then. A
@@ -109,6 +110,9 @@ public final class IconStore {
     public IconIndex index() {
         if (!Files.exists(indexFile, LinkOption.NOFOLLOW_LINKS)) {
             return IconIndex.empty();
+        }
+        if (Files.isSymbolicLink(indexFile)) {
+            throw new IconRefusal(IconRefusal.TARGET_IS_LINK, "The icon index is a symbolic link: " + indexFile);
         }
         return decode(readBytes(indexFile));
     }
@@ -199,11 +203,16 @@ public final class IconStore {
     }
 
     private void deleteOtherMedia(String harnessId, IconMediaType kept) {
-        var other = fileFor(harnessId, kept == IconMediaType.SVG ? IconMediaType.PNG : IconMediaType.SVG);
-        try {
-            Files.deleteIfExists(other);
-        } catch (IOException e) {
-            throw new UncheckedIOException("The icon store cannot remove the replaced icon: " + other, e);
+        for (var mediaType : IconMediaType.values()) {
+            if (mediaType == kept) {
+                continue;
+            }
+            var other = fileFor(harnessId, mediaType);
+            try {
+                Files.deleteIfExists(other);
+            } catch (IOException e) {
+                throw new UncheckedIOException("The icon store cannot remove the replaced icon: " + other, e);
+            }
         }
     }
 

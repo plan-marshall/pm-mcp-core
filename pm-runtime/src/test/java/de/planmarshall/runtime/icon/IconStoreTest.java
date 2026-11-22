@@ -250,6 +250,19 @@ class IconStoreTest {
     }
 
     @Test
+    @DisplayName("refuses an index that is a symbolic link")
+    void refusesASymlinkedIndex() throws Exception {
+        var outside = base.resolve("outside-index.json");
+        Files.writeString(outside, "{\"format_version\":1,\"entries\":{}}", StandardCharsets.UTF_8);
+        Files.createDirectories(base.resolve("icons"));
+        Files.createSymbolicLink(base.resolve("icons").resolve("index.json"), outside);
+
+        var refusal = assertThrows(IconRefusal.class, () -> store.index(), "a linked index is refused");
+
+        assertEquals(IconRefusal.TARGET_IS_LINK, refusal.code(), "the refusal names the link");
+    }
+
+    @Test
     @DisplayName("refuses an index that does not read as the store's index")
     void refusesUnreadableIndex() throws Exception {
         Files.createDirectories(base.resolve("icons"));

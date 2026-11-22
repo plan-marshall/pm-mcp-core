@@ -13,6 +13,7 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
@@ -52,13 +53,16 @@ public class SvgSanitiser {
     private static final String XLINK_NAMESPACE = "http://www.w3.org/1999/xlink";
     private static final byte[] BOM = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
 
-    private static final Set<String> REFUSED_ELEMENTS = Set.of("script", "foreignObject", "use");
+    private static final Map<String, String> REFUSED_ELEMENTS = Map.of(
+            "script", IconRefusal.SVG_SCRIPT,
+            "foreignObject", IconRefusal.SVG_FOREIGN_OBJECT,
+            "use", IconRefusal.SVG_USE);
 
-    private static final Set<String> ALLOWED_ELEMENTS = Set.of("svg", "g", "title", "desc", "defs", "clipPath",
+    static final Set<String> ALLOWED_ELEMENTS = Set.of("svg", "g", "title", "desc", "defs", "clipPath",
             "mask", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "linearGradient",
             "radialGradient", "stop", "pattern", "image", "text", "tspan");
 
-    private static final Set<String> ALLOWED_ATTRIBUTES = Set.of("id", "class", "style", "fill", "fill-opacity",
+    static final Set<String> ALLOWED_ATTRIBUTES = Set.of("id", "class", "style", "fill", "fill-opacity",
             "fill-rule", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin", "stroke-dasharray",
             "stroke-dashoffset", "stroke-opacity", "stroke-miterlimit", "opacity", "color", "display", "visibility",
             "d", "points", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "ry", "width", "height", "viewBox",
@@ -214,21 +218,14 @@ public class SvgSanitiser {
         }
 
         private static void requireAllowedElement(String local) {
-            if (REFUSED_ELEMENTS.contains(local)) {
-                throw new IconRefusal(refusalOf(local), "The SVG carries the refused element '%s'".formatted(local));
+            var refused = REFUSED_ELEMENTS.get(local);
+            if (refused != null) {
+                throw new IconRefusal(refused, "The SVG carries the refused element '%s'".formatted(local));
             }
             if (!ALLOWED_ELEMENTS.contains(local)) {
                 throw new IconRefusal(IconRefusal.SVG_ELEMENT_NOT_ALLOWED,
                         "The SVG carries an element outside the allow-list");
             }
-        }
-
-        private static String refusalOf(String element) {
-            return switch (element) {
-                case "script" -> IconRefusal.SVG_SCRIPT;
-                case "foreignObject" -> IconRefusal.SVG_FOREIGN_OBJECT;
-                default -> IconRefusal.SVG_USE;
-            };
         }
 
         private static void appendAttributes(StringBuilder out, StartElement element) {
@@ -284,6 +281,10 @@ public class SvgSanitiser {
         }
 
         private static void requireLocalUrls(String value) {
+            if (value.indexOf('\\') >= 0 && value.indexOf('(') >= 0) {
+                throw new IconRefusal(IconRefusal.SVG_EXTERNAL_REFERENCE,
+                        "An SVG attribute that escapes a function name is refused");
+            }
             var lower = value.toLowerCase(Locale.ROOT);
             var index = lower.indexOf("url(");
             while (index >= 0) {

@@ -87,7 +87,8 @@ package renames `clientId` and `client_id` only and names neither class.
 == How the parts work together
 
 [source,text]
-----LaunchRequest ──> LaunchComposer ──> WorkerVectorCheck ──> WorkerLaunch ──> job runner (kind llm)
+----
+LaunchRequest ──> LaunchComposer ──> WorkerVectorCheck ──> WorkerLaunch ──> job runner (kind llm)
       │                  │
       │                  ├── PromptComposer ──> prompt file, prompt digest, delivered skills
       │                  ├── HeadlessBlock  ──> argv, env, MCP configuration

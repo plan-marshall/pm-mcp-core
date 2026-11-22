@@ -24,7 +24,9 @@ import lombok.experimental.UtilityClass;
  * height, at least one {@code IDAT} must carry the image, the last chunk must be {@code IEND}, and no byte may follow
  * it. A critical chunk the format does not define, a broken checksum or a truncated chunk is refused. The chunks that
  * carry free text ({@code tEXt}, {@code zTXt}, {@code iTXt}) and the {@code eXIf} chunk, whose description and comment
- * fields carry free text, are dropped; every other chunk is copied with its own checksum, so the image is unchanged.
+ * fields carry free text, are dropped; every other chunk is copied with its own checksum, so the image is unchanged —
+ * that includes a private ancillary chunk, which a maker can fill with text and which this sanitiser therefore does not
+ * claim to clean (ADR 012 states the bound).
  *
  * @since 0.1
  */
@@ -141,6 +143,8 @@ public class PngSanitiser {
             if (!header) {
                 requireHeader(type, length);
                 header = true;
+            } else if ("IHDR".equals(type)) {
+                throw malformed("a second header");
             }
             if ("IDAT".equals(type)) {
                 data = true;
