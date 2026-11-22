@@ -12,12 +12,12 @@ package de.planmarshall.workflow.ast;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,7 +45,7 @@ class ReservedKeywordsSpecificationParityTest {
 
     @Test
     @DisplayName("the reserved words are the specification's list")
-    void shouldMatchTheSpecification() throws IOException {
+    void shouldMatchTheSpecification() throws Exception {
         var bullet = Files.readAllLines(SPECIFICATION, UTF_8).stream()
                 .filter(line -> line.startsWith(BULLET))
                 .findFirst()

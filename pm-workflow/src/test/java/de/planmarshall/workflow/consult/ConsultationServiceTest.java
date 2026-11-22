@@ -150,7 +150,7 @@ class ConsultationServiceTest {
                 "the answer is accepted");
 
         var answer = protocol.wait(new WaitRequest(ConsultationFixtures.ASKING_GENERATION,
-                ConsultationFixtures.ASKER_ROLE, ConsultationFixtures.DIGEST, ConsultationFixtures.DIGEST, 3),
+                        ConsultationFixtures.ASKER_ROLE, ConsultationFixtures.DIGEST, ConsultationFixtures.DIGEST, 3),
                 ConsultationFixtures.AT.plusSeconds(1));
         var offered = assertInstanceOf(WaitAnswer.Offered.class, answer,
                 "the asker's next wait is offered its own task");
