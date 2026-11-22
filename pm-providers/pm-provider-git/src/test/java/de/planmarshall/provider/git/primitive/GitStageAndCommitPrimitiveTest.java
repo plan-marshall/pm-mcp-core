@@ -120,7 +120,7 @@ class GitStageAndCommitPrimitiveTest extends GitStageAndCommitPrimitiveFixtures 
 
     @Test
     @DisplayName("a clean tree is nothing to commit before the message is read")
-    void cleanTreeCommitsNothing() throws Exception {
+    void cleanTreeCommitsNothing() {
         // the clean-tree route: none_assert_clean resolves ready without a message, so none is bound here
         stub(ScopeType.PLAN, false, List.of(), Optional.of(agent));
 
