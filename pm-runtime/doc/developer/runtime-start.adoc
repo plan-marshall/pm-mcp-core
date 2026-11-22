@@ -64,7 +64,8 @@ PeriodicSweep.runOnce(now)
     │    PendingEntryStore.entryIds()                      (lock-free, only names that parse as entry ids)
     │    read each entry's record                          (absent = residue of a cut-off removal)
     │    workspace lock ─► ScopeTransaction of the workspace
-    │      for each residue directory:
+    │      for each candidate, re-read under the lock:
+    │        a record that exists now keeps its entry      (an entry opened since the listing)
     │        PendingEntryStore.remove(transaction, id)     (the four stores as delete targets)
     │        transaction.owe(pending_entry_removed)        (one audit record per directory)
     │      commit (journal, apply, digests, close: owed records handed over)
@@ -83,7 +84,8 @@ The evidence that nobody will come back for a pending entry is the end of the en
 scope and the abandoning of the entry delete the entry's stores in one transaction of the workspace and the directory
 last, so an entry whose record `entry.json` exists is open and an entry whose record is gone left only its directory
 behind. The step lists the entries without a lock, reads each record, then opens one lock transaction on the workspace
-lock and one `ScopeTransaction` of the workspace for the residue it found.
+lock and one `ScopeTransaction` of the workspace, and re-reads every candidate's record under that lock before it
+removes it, so an entry opened between the listing and the lock is kept.
 
 * A directory whose record is absent is removed: its four stores again as delete targets of that transaction (they are
   absent), and the transaction owes one `pending_entry_removed` record (category `store`, details `entry_id`, `store`

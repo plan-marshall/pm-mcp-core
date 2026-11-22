@@ -26,9 +26,10 @@ Periodic Sweep]).
   exists is an open entry and is never removed, however old it is; a directory whose record is gone is the residue of a
   removal a stop cut off, because the removal the creation or the abandoning began deletes the entry's stores in one
   workspace transaction and the directory last.
-* The residue is removed in one workspace transaction (the entry's four stores again as delete targets, and one
-  `pending_entry_removed` record per entry with the run instant under an id of its own), and the directory is deleted
-  after that transaction.
+* The residue of a run is removed in one transaction of the workspace scope. Every candidate is re-judged under the
+  workspace lock before it is removed, so an entry opened between the listing and the lock is kept. The delete targets
+  are the entry's four stores, and the record is the last of them; the transaction owes one
+  `pending_entry_removed` record per directory, and the directories are deleted after the commit.
 * An entry whose record cannot be read is kept and reported as a failure of the step, so a tampered entry is held for
   its operator instead of being swept.
 * The log record `PM_RUNTIME-23` (`PENDING_ENTRY_RECORDS_SWEPT`) is retired, and the sweep owes the audit record

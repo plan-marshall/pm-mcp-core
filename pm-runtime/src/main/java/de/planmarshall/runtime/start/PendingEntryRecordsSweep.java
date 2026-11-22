@@ -45,9 +45,11 @@ import de.planmarshall.core.store.StoreRefusal;
  * The residue of a run is removed in one transaction of the workspace scope: the entry's stores again as delete
  * targets (they are absent), and one {@code pending_entry_removed} record per entry, carrying its entry id, its
  * directory and the instant of the run, under a {@code transaction_id} of its own ({@link ScopeTransaction#recordId()}),
- * never the id of the transaction. The directories themselves are deleted after that transaction, each as the last act,
- * so a stop before it leaves the residue for the next run. The step reports how many directories it removed; an entry
- * it could not read is reported as a failure of the step, after the readable residue was removed.
+ * never the id of the transaction. Every candidate is re-judged under the workspace lock before it is removed, so an
+ * entry opened between the listing and the lock is kept. The directories themselves are deleted after that
+ * transaction, each as the last act, so a stop before it leaves the residue for the next run. The step reports how
+ * many directories it removed; an entry it could not read is reported as a failure of the step, after the readable
+ * residue was removed.
  *
  * @since 0.1
  */
