@@ -560,7 +560,8 @@ final class HeaderJson {
 
     /**
      * The one member a slot-reference argument carries: a typed object, so no enum value of the same text can be read
-     * back as a reference (link:../adr/workflow-dsl/017-a-slot-reference-is-typed-in-the-header.adoc[ADR workflow-dsl/017]).
+     * back as a reference
+     * (link:../adr/workflow-dsl/017-a-slot-reference-is-typed-in-the-header.adoc[ADR workflow-dsl/017]).
      */
     static final String SLOT_REF_MEMBER = "slot";
 

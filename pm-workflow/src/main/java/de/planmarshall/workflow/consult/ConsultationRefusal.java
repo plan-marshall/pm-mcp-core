@@ -34,7 +34,9 @@ public enum ConsultationRefusal {
     /** The task followed the compiled number of consultation links over all its attempts. */
     CONSULTATION_BOUND_SPENT("consultation_bound_spent"),
     /** A consultation task offers no consultation; a consulted task never consults. */
-    CONSULTATION_DEPTH("consultation_depth");
+    CONSULTATION_DEPTH("consultation_depth"),
+    /** The id seam handed out the compiled number of taken ids in a row, so no free consultation id was drawn. */
+    CONSULTATION_IDS_EXHAUSTED("consultation_ids_exhausted");
 
     private final String wireName;
 

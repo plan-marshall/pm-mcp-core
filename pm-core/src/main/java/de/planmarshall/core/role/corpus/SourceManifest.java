@@ -229,8 +229,8 @@ List<SourceFile> files) {
     }
 
     /**
-     * Requires a value to match a pattern. A refusal echoes the value cut by {@link #fragment(String)}, because a caller
-     * of this overload (the oid of an {@link LfsPointer}) may not have bounded its length first.
+     * Requires a value to match a pattern. A refusal echoes the value cut by {@link #fragment(String)}, because a
+     * caller of this overload (the oid of an {@link LfsPointer}) may not have bounded its length first.
      *
      * @param value   the value
      * @param pattern the pattern of the value

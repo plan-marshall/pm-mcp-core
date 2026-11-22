@@ -169,11 +169,11 @@ public class TapOutputParser {
      * an earlier run is missing. A run finished its plan when it announced no top-level plan line, or when the summed
      * count of its own top-level plan lines equals its own number of top-level test points ({@code ok} or
      * {@code not ok} at the start of a line, followed by a space, a tab or the line's end: no number is required, so a
-     * prose line such as {@code ok then proceed} counts as a point too, see {@link #TOP_LEVEL_POINT}). A top-level plan
-     * line whose count is too large for a {@code long}, or whose count makes the run's sum overflow one, leaves that run
-     * unfinished. An indented (subtest) plan line and an indented test point belong to a subtest and are not read. The
-     * plan counts test points, not the {@code # tests} total: {@code node --test} prints one top-level point per suite
-     * and counts the tests inside them in {@code # tests}.
+     * prose line such as {@code ok then proceed} counts as a point too, see {@link #TOP_LEVEL_POINT}). A top-level
+     * plan line whose count is too large for a {@code long}, or whose count makes the run's sum overflow one, leaves
+     * that run unfinished. An indented (subtest) plan line and an indented test point belong to a subtest and are not
+     * read. The plan counts test points, not the {@code # tests} total: {@code node --test} prints one top-level point
+     * per suite and counts the tests inside them in {@code # tests}.
      *
      * @param lines the log lines
      * @return whether no run's top-level plan lines contradict that run's top-level test points
