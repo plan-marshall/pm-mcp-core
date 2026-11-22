@@ -22,6 +22,7 @@ import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
+import lombok.Builder;
 
 import de.planmarshall.core.store.SourceManifest.Kind;
 import de.planmarshall.core.store.SourceManifest.Source;
@@ -36,8 +37,11 @@ import de.planmarshall.core.store.SourceManifest.SourceFile;
  * The move is the store-level part of {@code start.create-scope}: the unit calls {@link #move} between its own writes
  * of the new scope, commits the new scope's transaction first and the workspace's second, and then calls
  * {@link #finish}, which deletes the entry's directory. A stop before the second commit leaves the entry's stores in
- * place and a repeated move is refused by the creation of the target stores, never appended twice; a stop between the
- * second commit and {@link #finish} leaves a directory the sweep removes by the evidence of its absent record.
+ * place; the new scope already exists then, so a repeated move is refused — the entry's record is gone, and a second
+ * move of a consumed entry moves nothing twice — and the operator ends the entry by abandoning it, which deletes its
+ * directory. A stop between the second commit and {@link #finish} leaves a directory the sweep removes by the evidence
+ * of its absent record. The directories of the new scope ({@code sources/}, {@code chat/} and the parents of the stored
+ * files) are created before the stores are staged, because a transaction writes stores and never directories.
  * <p>
  * The sources are copied, never moved file by file: every file is verified against the size and SHA-256 of the
  * manifest before it is written, a file that differs is refused, and the entry's directory goes whole in
@@ -73,8 +77,8 @@ public final class PendingEntryCreation {
      * @param target               an open transaction of the plan or epic scope the entry creates
      * @param entryId              the entry
      * @return what the move carried
-     * @throws IllegalArgumentException if a transaction belongs to another scope, the target is no plan or epic, or a
-     *                                  store is a target of its transaction already
+     * @throws IllegalArgumentException if a transaction belongs to another scope, the target is no plan or epic, the
+     *                                  entry does not exist, or a store is a target of its transaction already
      * @throws IllegalStateException    if a transaction was committed
      * @throws StoreRefusal             if the manifest is unreadable, or a stored file differs from its manifest entry
      * @throws UncheckedIOException     if the entry's files cannot be read
@@ -88,22 +92,25 @@ public final class PendingEntryCreation {
         if (type != JournalScopeType.PLAN && type != JournalScopeType.EPIC) {
             throw new IllegalArgumentException("An entry creates a plan or an epic, not a " + type.wireName());
         }
+        if (entries.read(entryId).isEmpty()) {
+            throw new IllegalArgumentException("The pending entry %s does not exist".formatted(entryId));
+        }
         var manifest = entries.readSources(entryId).orElse(SourceManifest.empty());
         var sourceDirectory = entries.sourcesDirectory(entryId);
         var files = 0;
         for (var source : manifest.sources()) {
             for (var stored : source.files()) {
-                target.create(SOURCE_DIRECTORY + "/" + stored.path(), verified(sourceDirectory, stored));
+                put(target, SOURCE_DIRECTORY + "/" + stored.path(), verified(sourceDirectory, stored));
                 files++;
             }
         }
-        target.create(SOURCE_DIRECTORY + "/" + SourceManifestCodec.FILE_NAME, SourceManifestCodec.write(manifest));
+        put(target, SOURCE_DIRECTORY + "/" + SourceManifestCodec.FILE_NAME, SourceManifestCodec.write(manifest));
         workspaceTransaction.delete(PendingEntryStore.directoryPath(entryId) + "/"
                 + PendingEntryStore.SOURCE_MANIFEST);
         var chat = copyChat(target, entryId);
         var decisions = copyDecision(workspaceTransaction, target, entryId);
         var questions = QuestionLog.moveEntryQuestions(workspaceTransaction, entryId, target);
-        target.create(REQUEST, composeRequest(sourceDirectory, manifest).getBytes(StandardCharsets.UTF_8));
+        put(target, REQUEST, composeRequest(sourceDirectory, manifest).getBytes(StandardCharsets.UTF_8));
         // The record is the last store the workspace transaction deletes: it drives the recovery of the removal
         workspaceTransaction.delete(PendingEntryStore.storePath(entryId));
         return new Moved(manifest.sources().size(), files, chat, questions, decisions);
@@ -202,7 +209,7 @@ public final class PendingEntryCreation {
         }
         for (var file : files) {
             var relative = directory.relativize(file).toString().replace(file.getFileSystem().getSeparator(), "/");
-            target.create(CHAT_DIRECTORY + "/" + relative, read(file));
+            put(target, CHAT_DIRECTORY + "/" + relative, read(file));
         }
         return files.size();
     }
@@ -227,6 +234,21 @@ public final class PendingEntryCreation {
         }
     }
 
+    /**
+     * Adds one store of the new scope as a create target, after creating its directory: a transaction writes stores,
+     * never directories, and the target scope's {@code sources/} and {@code chat/} exist only once the caller or this
+     * method creates them.
+     */
+    private static void put(ScopeTransaction target, String relativePath, byte[] content) {
+        var store = target.scope().resolve(relativePath);
+        try {
+            Files.createDirectories(store.getParent());
+        } catch (IOException e) {
+            throw new UncheckedIOException("The directory of '%s' cannot be created".formatted(relativePath), e);
+        }
+        target.create(relativePath, content);
+    }
+
     private void requireOwnWorkspace(ScopeTransaction transaction) {
         if (!transaction.scope().equals(workspace)) {
             throw new IllegalArgumentException("A transaction of %s does not write the pending entries of %s"
@@ -244,6 +266,7 @@ public final class PendingEntryCreation {
      * @param decisionStores  the decision stores written into the scope, 0 or 1
      * @since 0.1
      */
+    @Builder
     public record Moved(int sources, int sourceFiles, int chatFiles, int questionLines, int decisionStores) {
     }
 }

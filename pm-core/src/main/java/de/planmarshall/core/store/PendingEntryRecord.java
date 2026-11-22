@@ -215,12 +215,4 @@ public record PendingEntryRecord(EntryId entryId, Kind kind, @Nullable String re
         }
         Objects.requireNonNull(bootstrap, "bootstrap");
     }
-
-    /**
-     * @param instant an instant
-     * @return whether the record was created before it
-     */
-    public boolean createdBefore(Instant instant) {
-        return createdAt.isBefore(Objects.requireNonNull(instant, "instant"));
-    }
 }

@@ -26,8 +26,9 @@ import de.planmarshall.core.store.EntryId;
  * The read is tri-state: an entry that is gone (the creation of its scope deleted it, or the operator abandoned it) is
  * {@link EntryRead.Deleted}, and an entry that exists but cannot be read is the explicit result
  * {@link EntryRead.Unreadable}, never taken for a live one, so a broken store is never mistaken for a bootstrap that
- * can be addressed. A store of the entry that differs from its digest sidecar entry makes that entry alone unreadable:
- * no other entry and no workspace workflow is affected.
+ * can be addressed. The read judges the record's shape and never decides integrity: a store of the entry that differs
+ * from its digest sidecar entry is decided by the store's locked verification
+ * ({@link de.planmarshall.core.store.PendingEntryStore#verify}), which pauses that entry alone.
  * <p>
  * The entries are kept by {@link de.planmarshall.core.store.PendingEntryStore} of {@code core.store}; the port is
  * implemented over that store, outside the engine packages:

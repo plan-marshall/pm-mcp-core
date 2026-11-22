@@ -280,18 +280,32 @@ public final class PendingEntryStore {
     /**
      * Deletes an entry's directory with everything in it, the last act of its end: the abandoning of the entry, the
      * completion of a creation, or the sweep of an entry whose removal a stop cut off. It takes no lock and is no
-     * transaction target: it is called after the transaction that wrote the entry's end, so a crash before it leaves
-     * the directory the sweep or the recovery removes by the end's evidence. A symbolic link below the entry's
-     * directory is removed as a link and never followed.
+     * transaction target: it is called after the transaction that deleted the entry's stores, so the record is gone and
+     * the workspace sidecar no longer covers them; a directory whose record still exists is refused, because deleting
+     * it would leave the four stores in the sidecar without their files. A symbolic link below the entry's directory is
+     * removed as a link and never followed; a link that IS the entry directory is removed as a link too.
      *
      * @param entryId the entry
      * @return whether the directory existed
-     * @throws UncheckedIOException if the directory or a file in it cannot be removed
+     * @throws IllegalStateException if the entry's record still exists in the directory
+     * @throws UncheckedIOException  if the directory or a file in it cannot be removed
      */
     public boolean discard(EntryId entryId) {
         var directory = directory(entryId);
+        if (Files.isSymbolicLink(directory)) {
+            try {
+                Files.delete(directory);
+                return true;
+            } catch (IOException e) {
+                throw new UncheckedIOException("The pending entry link cannot be removed: " + directory, e);
+            }
+        }
         if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) {
             return false;
+        }
+        if (exists(entryId)) {
+            throw new IllegalStateException("The pending entry %s still has its record; its stores are not deleted"
+                    .formatted(entryId));
         }
         deleteRecursively(directory);
         return true;
@@ -358,8 +372,8 @@ public final class PendingEntryStore {
     /**
      * Verifies the stores of one entry against the digest sidecar of the workspace, under the workspace lock, so that a
      * mismatch pauses only that entry: its record, its manifest, its question store and its decision store. A store
-     * that was edited outside a transaction is named with its recorded and current digest; no other entry and no
-     * workspace store is read.
+     * that was edited outside a transaction is named with its recorded and current digest — a store that exists
+     * although no transaction wrote it is such an edit too, never verified.
      *
      * @param transaction a transaction that holds the key of the workspace scope
      * @param entryId     the entry
@@ -375,14 +389,14 @@ public final class PendingEntryStore {
         Objects.requireNonNull(entryId, "entryId");
         Objects.requireNonNull(auditSink, "auditSink");
         var record = ScopeIntegrity.verify(transaction, scope, storePath(entryId), auditSink);
-        if (record instanceof ScopeIntegrity.Mismatch || record instanceof JournalRecovery.InvariantViolation) {
+        if (edited(record)) {
             return new Integrity.Tampered(entryId, record);
         }
         var absent = record instanceof ScopeIntegrity.Absent;
         for (var path : List.of(directoryPath(entryId) + "/" + SOURCE_MANIFEST,
                 directoryPath(entryId) + "/" + QUESTIONS, directoryPath(entryId) + "/" + DECISION_LOG)) {
             var verification = ScopeIntegrity.verify(transaction, scope, path, auditSink);
-            if (verification instanceof ScopeIntegrity.Mismatch) {
+            if (edited(verification)) {
                 return new Integrity.Tampered(entryId, verification);
             }
             absent &= verification instanceof ScopeIntegrity.Absent;
@@ -391,6 +405,13 @@ public final class PendingEntryStore {
             return new Integrity.Absent(entryId);
         }
         return new Integrity.Verified(entryId);
+    }
+
+    /** A store differs from its sidecar, or exists although no transaction wrote it, or the recovery broke. */
+    private static boolean edited(ScopeIntegrity.Verification verification) {
+        return verification instanceof ScopeIntegrity.Mismatch
+                || verification instanceof ScopeIntegrity.Untracked
+                || verification instanceof JournalRecovery.InvariantViolation;
     }
 
     private void prepareDirectories(EntryId entryId) {

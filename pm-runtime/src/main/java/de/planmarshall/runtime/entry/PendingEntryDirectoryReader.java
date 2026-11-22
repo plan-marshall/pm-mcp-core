@@ -36,8 +36,8 @@ import de.planmarshall.core.store.StoreRefusal;
  * <li>The read does not verify the digest sidecar. A lock-free read cannot decide an edit outside a transaction: it
  * would see a transaction in flight as a difference ({@code ScopeIntegrity.snapshot} reports
  * {@code digest_unverified} while a journal exists and never decides). Integrity is decided by
- * {@link PendingEntryStore#verify} under the workspace lock, whose {@code Tampered} answer the runtime maps onto the
- * entry's own integrity hold; that answer pauses the entry alone.</li>
+ * {@link PendingEntryStore#verify} under the workspace lock, whose {@code Tampered} answer names the entry and its
+ * store; the caller raises the entry's own hold from that answer.</li>
  * <li>An absent record is {@link EntryRead.Deleted}: the entry's scope was created, the entry was abandoned, or the
  * record was already removed by a removal a stop cut off. The directory that a cut-off removal left behind is the
  * sweep's residue, never a live entry, and the reader does not remove it.</li>

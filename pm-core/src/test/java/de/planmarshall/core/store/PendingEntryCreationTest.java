@@ -69,6 +69,9 @@ class PendingEntryCreationTest {
     private final String decision = Generators.letterStrings(10, 40).next();
     private final String reference = "https://github.com/example/repo/issues/"
             + Generators.integers(1, 100_000).next();
+    private final String descriptionSourceId = "source_" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    private final String issueSourceId = "source_" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    private final String origin = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
 
     private JournalScope workspace;
     private JournalScope plan;
@@ -108,9 +111,9 @@ class PendingEntryCreationTest {
     private SourceManifest prepareEntry() throws IOException {
         var descriptionFile = description.getBytes(UTF_8);
         var manifest = new SourceManifest(2, List.of(
-                new Source("description_1", SourceManifest.Kind.DESCRIPTION, "the operator", "operator",
+                new Source(descriptionSourceId, SourceManifest.Kind.DESCRIPTION, "the operator", origin,
                         Trust.TRUSTED, List.of(stored(descriptionFile)), at, null, null),
-                new Source("issue_1", SourceManifest.Kind.ISSUE, reference, "forge", Trust.UNTRUSTED,
+                new Source(issueSourceId, SourceManifest.Kind.ISSUE, reference, origin, Trust.UNTRUSTED,
                         List.of(new SourceFile("issue.md", 2, StoreDigest.of("{}".getBytes(UTF_8)).sha256())), at,
                         Verdict.CLEAN, null)));
         Files.createDirectories(plan.pathBase().resolve("sources"));
@@ -192,9 +195,9 @@ class PendingEntryCreationTest {
                 () -> assertTrue(document.startsWith("# Request\n\n" + description + "\n\n"),
                         "the description should open the document as written"),
                 () -> assertTrue(document.contains("## Sources"), "the sources should be listed"),
-                () -> assertTrue(document.contains("`issue_1` (issue) — " + reference),
+                () -> assertTrue(document.contains("`" + issueSourceId + "` (issue) — " + reference),
                         "an issue should be referenced by its URL"),
-                () -> assertTrue(document.contains("`description_1` (description)"),
+                () -> assertTrue(document.contains("`" + descriptionSourceId + "` (description)"),
                         "a description should be referenced too"));
     }
 
@@ -210,12 +213,19 @@ class PendingEntryCreationTest {
     }
 
     @Test
-    @DisplayName("a second move into the same scope is refused, so the records are never appended twice")
+    @DisplayName("an entry that does not exist is refused, never moved as an empty one")
+    void refusesAnAbsentEntry() {
+        assertThrows(IllegalArgumentException.class, this::move,
+                "a missing entry cannot be moved");
+    }
+
+    @Test
+    @DisplayName("a second move of the consumed entry is refused, so its stores are never carried twice")
     void refusesARepeatedMove() throws IOException {
         prepareEntry();
         move();
 
-        assertThrows(IllegalStateException.class, this::move,
-                "the target stores refuse a repeated move");
+        assertThrows(IllegalArgumentException.class, this::move,
+                "the consumed entry cannot be moved again");
     }
 }

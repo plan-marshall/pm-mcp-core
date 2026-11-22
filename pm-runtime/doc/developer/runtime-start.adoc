@@ -460,8 +460,8 @@ with what was applied so far, and the remaining reconcilers do not run.
 
 |`PeriodicSweep`
 |The periodic sweep: `start(executor)` schedules a run every `INTERVAL` (3600 seconds), `runOnce(now)` runs every
-`SweepStep` for every enrolled project that `recovered` accepts with `olderThan = now − PENDING_ENTRY_MAX_AGE` (86400
-seconds) and answers a `Summary` (swept, skipped, failed), and `stop()` cancels the schedule for the drain.
+`SweepStep` for every enrolled project that `recovered` accepts with the instant of the run and answers a `Summary`
+(swept, skipped, failed), and `stop()` cancels the schedule for the drain.
 
 |`RelayVersionCheck`
 |`observe(relayVersion)` with the value of the `PM-MCP-Relay-Version` header (`HEADER`) of every relayed request, and
@@ -470,7 +470,7 @@ alone (link:{docs}/user/operator.adoc#relay-version-mismatch[User Guide § Relay
 |===
 
 Every log message of the package is a `LogRecord` of `RuntimeLogMessages` (prefix `PM_RUNTIME`): `PM_RUNTIME-12` to
-`PM_RUNTIME-18`, `PM_RUNTIME-23`, `PM_RUNTIME-29`, `PM_RUNTIME-32` to `PM_RUNTIME-34`, `PM_RUNTIME-108` to
+`PM_RUNTIME-18`, `PM_RUNTIME-29`, `PM_RUNTIME-32` to `PM_RUNTIME-34`, `PM_RUNTIME-108` to
 `PM_RUNTIME-115`, `PM_RUNTIME-121`, `PM_RUNTIME-135`, `PM_RUNTIME-136` and `PM_RUNTIME-203` to `PM_RUNTIME-205`
 (link:../../../doc/LogMessages.adoc[Log Messages]). The one exception is the DEBUG line of `PeriodicSweep` for a
 skipped project.

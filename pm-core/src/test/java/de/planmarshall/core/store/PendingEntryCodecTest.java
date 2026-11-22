@@ -218,39 +218,6 @@ class PendingEntryCodecTest {
         }
 
         @Test
-        @DisplayName("the members are those of the record before this deliverable, less the removed session member")
-        void membersWithoutSession() {
-            // The work package removes exactly the member `session` of the pending entry record; every other member
-            // stays for the work package start-source-intake, which gives the record its directory form.
-            assertEquals(PendingEntryCodec.MEMBERS, List.of("format_version", "entry_id", "kind", "requested_id", "hint", "from_epic", "created_at",
-                    "updated_at", "bootstrap"), "the members should be the schema's members");
-        }
-
-        @Test
-        @DisplayName("a stored record without a session member is written and read back byte for byte")
-        void withoutSession() {
-            var members = members();
-            members.remove("session");
-            var document = document(members);
-
-            var entry = PendingEntryCodec.read(FILE, document);
-
-            assertArrayEquals(document, PendingEntryCodec.write(entry), "the record should round-trip unchanged");
-        }
-
-        @Test
-        @DisplayName("a stored record that still carries the removed session member is refused as undeclared")
-        void sessionMemberIsRefused() {
-            var members = members();
-            members.remove("session");
-            members.put("session", "{\"format_version\":1}");
-
-            var refusal = assertRefused(Outcome.UNREADABLE, document(members));
-
-            assertTrue(refusal.getMessage().contains("session"), "the refusal should name the session member");
-        }
-
-        @Test
         @DisplayName("a record built in code is written and read back equal")
         void builtRecord() {
             var entry = PendingEntryRecord.builder()
@@ -386,19 +353,5 @@ class PendingEntryCodecTest {
 
             assertRefused(Outcome.UNREADABLE, document(members));
         }
-    }
-
-    @Test
-    @DisplayName("a record is older than an instant exactly when it was created before it")
-    void createdBefore() {
-        var entry = PendingEntryCodec.read(FILE, document(members()));
-        var created = entry.createdAt();
-
-        assertAll(
-                () -> assertTrue(entry.createdBefore(created.plusSeconds(1)),
-                        "a later instant should be after the creation"),
-                () -> assertFalse(entry.createdBefore(created), "the creation instant should not count"),
-                () -> assertFalse(entry.createdBefore(created.minusSeconds(1)),
-                        "an earlier instant should not count"));
     }
 }

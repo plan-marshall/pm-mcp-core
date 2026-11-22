@@ -242,14 +242,14 @@ link:../pm-runtime/doc/adr/runtime-worker/009-transport-notifications-and-the-pr
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-10[PM-ARCH-10]
 
 Implementation (of the fourth bullet, the pass of the periodic sweep of the running runtime; the residue kinds it
-removes and the cleanup of the first three bullets are not traced here. The removal of pending entry records older than
-a maximum age that `PendingEntryRecordsSweep` performs diverges from the specification, which discards no pending entry
-by time (link:specification/timeouts/02-runtime-leases-operator-web.adoc#pending-entry-max-age[Timeouts & Budgets
-Specification, Pending Entry]), and is therefore not listed as implemented): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java[PeriodicSweep]
+removes and the cleanup of the first three bullets are not traced here): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PeriodicSweep.java[PeriodicSweep],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/PendingEntryRecordsSweep.java[PendingEntryRecordsSweep]
 
-Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepTest.java[PeriodicSweepTest]
+Verified by: link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepTest.java[PeriodicSweepTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PendingEntryRecordsSweepTest.java[PendingEntryRecordsSweepTest]
 
-Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_start_drain_and_recovery[Runtime Start Developer Guide § The Start Sequence, the Drain and the Recovery]
+Documentation: link:../pm-runtime/doc/developer/runtime-start.adoc#_start_drain_and_recovery[Runtime Start Developer Guide § The Start Sequence, the Drain and the Recovery],
+link:../pm-runtime/doc/adr/runtime-start/016-the-sweep-removes-pending-entry-residue-by-evidence.adoc[ADR runtime-start/016]
 
 [#PM-ARCH-11]
 === PM-ARCH-11: The Operator's Two Clients & Their Contract

@@ -108,8 +108,9 @@ public final class PendingEntryRecordsSweep implements SweepStep {
     }
 
     /**
-     * Removes the residue in one workspace transaction and deletes the directories after it; the decision is taken
-     * under the workspace lock, so an entry opened meanwhile is judged as it is now.
+     * Removes the residue in one workspace transaction and deletes the directories after it. Every candidate is
+     * re-judged under the workspace lock before it is removed, so an entry opened between the listing and the lock is
+     * kept: its record is applied by the creator's transaction before the sweep takes the lock.
      *
      * @return the number of removed directories
      */
@@ -119,6 +120,9 @@ public final class PendingEntryRecordsSweep implements SweepStep {
             var transaction = ScopeTransaction.open(lock, workspace, auditSink, clock);
             var removed = new ArrayList<EntryId>();
             for (var entryId : candidates) {
+                if (!stillResidue(store, entryId)) {
+                    continue;
+                }
                 store.remove(transaction, entryId);
                 transaction.owe(AuditEvent.pendingEntryRemoved(entryId.value(),
                         PendingEntryStore.directoryPath(entryId), at, transaction.recordId().value()));
@@ -128,8 +132,33 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                 return 0;
             }
             transaction.commit();
-            removed.forEach(store::discard);
+            var discarded = new ArrayList<String>();
+            for (var entryId : removed) {
+                try {
+                    store.discard(entryId);
+                } catch (UncheckedIOException e) {
+                    discarded.add(entryId.value() + " (" + e.getMessage() + ")");
+                }
+            }
+            if (!discarded.isEmpty()) {
+                throw new IllegalStateException("the entry's stores are removed but the directories are not: "
+                        + discarded);
+            }
             return removed.size();
+        }
+    }
+
+    /**
+     * Re-judges one candidate under the workspace lock. An entry opened since the listing has its record applied by
+     * then, so it is kept; a record that still cannot be read is kept as well.
+     *
+     * @return whether the directory is still residue
+     */
+    private static boolean stillResidue(PendingEntryStore store, EntryId entryId) {
+        try {
+            return store.read(entryId).isEmpty();
+        } catch (StoreRefusal | UncheckedIOException _) {
+            return false;
         }
     }
 

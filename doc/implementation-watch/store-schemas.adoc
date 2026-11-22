@@ -101,8 +101,10 @@ is written, and the capture ref of a `local_changes` plan is set right after it;
 completed by the startup recovery (<<PM-WATCH-STORE-44>>; a missing capture ref is re-created at `snapshot_sha`), and a crash
 before the plan scope leaves only the pending record; a record whose digest mismatches pauses only its own entry; an entry is never removed by time (an aged entry
 fixture is still offered in both clients after any number of runtime restarts and periodic sweeps). Present in
-`pm-mcp-core`: two concurrent entries never share a record (`PendingEntryStoreTest`); the directory form, the ends,
-and the crash-point scenarios stay for the start.
+`pm-mcp-core`: two concurrent entries never share a directory (`PendingEntryStoreTest`); the directory form, the record
+deleted last, the per-entry digest verification and the sweep of the residue a cut-off removal left
+(`PendingEntryStoreTest`, `PendingEntryCreationTest`, `PendingEntryRecordsSweepTest`); the ends' routes and the
+client-side hold stay for the start.
 Source:: design review.
 
 == Workflow State Store (`mcp/status.json`)

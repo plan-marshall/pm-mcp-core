@@ -348,6 +348,15 @@ class PendingEntryStoreTest {
         }
 
         @Test
+        @DisplayName("whose record still exists is never discarded: the stores must be deleted by a transaction")
+        void discardRefusesALiveEntry() {
+            run(write -> store.create(write, entry(entryId, state)));
+
+            assertThrows(IllegalStateException.class, () -> store.discard(entryId),
+                    "a live record blocks the discard");
+        }
+
+        @Test
         @DisplayName("of another scope's transaction is refused")
         void otherScope() throws Exception {
             var plan = JournalScope.plan(base, PROJECT, "plan-" + lowerName());
@@ -419,6 +428,18 @@ class PendingEntryStoreTest {
                             "the other entry should stay verified"),
                     () -> assertEquals(new PendingEntryStore.Integrity.Verified(first), verify(first),
                             "the re-baseline should accept the edit"));
+        }
+        @Test
+        @DisplayName("a store that no transaction wrote is tampered, never verified")
+        void untrackedIsTampered() throws IOException {
+            Files.createDirectories(store.sourcesDirectory(entryId));
+            Files.write(store.store(entryId), PendingEntryCodec.write(entry(entryId, state)));
+            Files.write(store.sourcesStore(entryId), SourceManifestCodec.write(SourceManifest.empty()));
+
+            var tampered = assertInstanceOf(PendingEntryStore.Integrity.Tampered.class, verify(entryId),
+                    "a hand-written store should be tampered");
+            assertInstanceOf(ScopeIntegrity.Untracked.class, tampered.cause(),
+                    "the cause should be the untracked store");
         }
     }
 
