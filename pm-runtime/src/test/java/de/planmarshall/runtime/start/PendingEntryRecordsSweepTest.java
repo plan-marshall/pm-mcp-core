@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import org.easymock.Capture;
@@ -47,6 +48,7 @@ import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.PendingEntryCodec;
+import de.planmarshall.core.store.PendingEntryCreation;
 import de.planmarshall.core.store.PendingEntryRecord;
 import de.planmarshall.core.store.PendingEntryStore;
 import de.planmarshall.core.store.ScopeTransaction;
@@ -57,9 +59,10 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
 /**
  * The pending-entry step of the periodic sweep over the workspace scope of a project in a test base, on the lock
  * manager of the runtime: an entry whose record exists is kept however old it is, the directory of an entry whose
- * removal a stop cut off is removed in a workspace transaction with its audit record, a name that is no entry id is
- * never touched, and what cannot be done is reported as a failure. The reports, the audit record name and its detail
- * keys are the specified contract; the project, the instants and the entry ids are generated.
+ * removal a stop cut off — or of a creation that never committed — is removed in a workspace transaction with its audit
+ * record, a name that is no entry id is never touched, and what cannot be done is reported as a failure. The reports,
+ * the audit record name and its detail keys are the specified contract; the project, the instants and the entry ids are
+ * generated.
  */
 @EnableGeneratorController
 @DisplayName("Pending entry records sweep")
@@ -216,6 +219,39 @@ class PendingEntryRecordsSweepTest {
     }
 
     @Test
+    @DisplayName("the directory of a creation cut after both its commits is removed by the evidence of its absent record")
+    void creationCutAfterBothCommits() throws Exception {
+        create(entry(residue, now));
+        var plan = JournalScope.plan(base, projectId, "plan-" + Generators.letterStrings(3, 12).next()
+                .toLowerCase(Locale.ROOT));
+        Files.createDirectories(plan.journalFile().getParent());
+        var creation = new PendingEntryCreation(workspace);
+        try (var lock = lockManager.openTransaction()) {
+            lock.acquire(workspace.lockKey());
+            lock.acquire(plan.lockKey());
+            var workspaceWrite = ScopeTransaction.open(lock, workspace, auditSink, clock);
+            var target = ScopeTransaction.open(lock, plan, auditSink, clock);
+            creation.move(workspaceWrite, target, residue);
+            target.commit();
+            workspaceWrite.commit();
+        }
+        var before = auditEvents.getValues().size();
+
+        var outcome = sweep.run(projectId, now);
+
+        var removals = auditEvents.getValues().subList(before, auditEvents.getValues().size());
+        assertAll(
+                () -> assertEquals(Optional.empty(), store.read(residue), "the move must delete the record"),
+                () -> assertEquals(new Outcome.Done("removed 1 pending entry directories"), outcome,
+                        "the sweep must remove the cut creation's directory"),
+                () -> assertFalse(Files.exists(store.entryDirectory(residue)),
+                        "the directory of the cut creation must be gone"),
+                () -> assertTrue(Files.exists(plan.pathBase().resolve("request.md")),
+                        "the created scope must stay"),
+                () -> assertEquals(1, removals.size(), "one audit record must be owed for the removal"));
+    }
+
+    @Test
     @DisplayName("a name whose directory is no entry id is never touched, however old")
     void unparsableNamesUntouched() throws Exception {
         // Fixture paths: a name without the prefix, one with upper-case digits and one with too few digits, each a
@@ -297,6 +333,33 @@ class PendingEntryRecordsSweepTest {
                 () -> assertTrue(Files.exists(store.entryDirectory(openEntry)),
                         "the tampered entry's directory is kept"),
                 () -> assertEquals(before, auditEvents.getValues().size(), "no removal record is owed"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a store path through a symbolic link holds that entry, and the readable residue is still removed")
+    void symlinkedStoreHeld() throws Exception {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        var linked = entryId();
+        create(entry(linked, now));
+        cutOffRemoval(linked);
+        var sources = store.sourcesDirectory(linked);
+        var elsewhere = Files.createDirectory(base.resolve("elsewhere"));
+        Files.delete(sources);
+        Files.createSymbolicLink(sources, elsewhere);
+
+        var outcome = sweep.run(projectId, now);
+
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a linked store path fails the step").reason();
+        assertAll(
+                () -> assertTrue(reason.startsWith("removed 1 pending entry directories; kept or failed entries:"),
+                        "the report must count the removed directory"),
+                () -> assertTrue(reason.contains(linked.value() + " (held: "),
+                        "the report must name the held entry"),
+                () -> assertFalse(Files.exists(store.entryDirectory(residue)), "the readable residue is removed"),
+                () -> assertTrue(Files.exists(store.entryDirectory(linked)), "the linked entry is kept"),
+                () -> assertTrue(Files.isSymbolicLink(sources), "the link is left as it is"));
     }
 
     @Test

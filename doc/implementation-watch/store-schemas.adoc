@@ -100,13 +100,15 @@ epic queue row, and the lesson claim; no lesson claim, queue-row change, or capt
 is written, and the capture ref of a `local_changes` plan is set right after it; the startup recovery completes the
 queue row and the lesson claim (<<PM-WATCH-STORE-44>>; a missing capture ref is re-created at `snapshot_sha`), and a
 crash before the plan scope leaves only the pending record; a crash between the plan's commit and the entry's deletion
-leaves the entry, which the operator ends by abandoning it (the new scope does not carry the entry id, so no recovery
-derives it); a record whose digest mismatches pauses only its own entry; an entry is never removed by time (an aged
-entry fixture is still offered in both clients after any number of runtime restarts and periodic sweeps). Present in
-`pm-mcp-core`: two concurrent entries never share a directory (`PendingEntryStoreTest`); the directory form, the record
-deleted last, the per-entry digest verification and the sweep of the residue a cut-off removal left
-(`PendingEntryStoreTest`, `PendingEntryCreationTest`, `PendingEntryRecordsSweepTest`); the ends' routes and the
-client-side hold stay for the start.
+leaves the entry, which the operator ends by abandoning it — the recovery of that window is owed to the assembly's
+`start.create-scope`, which must make the new scope carry the entry id (the new scope does not carry it today, so no
+store-level recovery derives it; ADR `core-store/086`); a record whose digest mismatches pauses only its own entry; an
+entry is never removed by time (an aged entry fixture is still offered in both clients after any number of runtime
+restarts and periodic sweeps). Present in `pm-mcp-core`: two concurrent entries never share a directory
+(`PendingEntryStoreTest`); the directory form, the record deleted last, the per-entry digest verification, the creation
+of the entry's four stores in one transaction and the sweep of the residue a cut-off removal left
+(`PendingEntryStoreTest`, `PendingEntryCreationTest`, `PendingEntryRecordsSweepTest`, `PeriodicSweepKilledRuntimeIT`);
+the ends' routes and the client-side hold stay for the start.
 Source:: design review.
 
 == Workflow State Store (`mcp/status.json`)

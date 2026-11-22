@@ -49,6 +49,11 @@ import de.planmarshall.core.store.SourceManifest.SourceFile;
  * manifest before it is written, a file that differs is refused, and the entry's directory goes whole in
  * {@link #finish}. The transcript is copied file by file; the question log is moved by
  * {@link QuestionLog#moveEntryQuestions}; the decision store is copied and deleted with the entry.
+ * <p>
+ * The move targets a plan's scope alone: an epic's sources belong to its git-tracked ledger and its machine store keeps
+ * none, so an epic target is refused until the ledger copy of the sources exists. The caller holds the workspace lock
+ * and verifies the entry under it ({@link PendingEntryStore#verify}) before the move, and the source directory is the
+ * whole of what is carried: a file no manifest entry names refuses the move instead of being dropped.
  *
  * @since 0.1
  */
@@ -74,15 +79,22 @@ public final class PendingEntryCreation {
      * Adds the entry's source directory, transcript, decision store, question log and composed request document to the
      * new scope's transaction, and the deletions of the entry's question and decision stores to the workspace's
      * transaction.
+     * <p>
+     * The caller holds the workspace lock and has verified the entry under it ({@link PendingEntryStore#verify})
+     * before the move: the move itself reads the record, the manifest and the stores without a verification, so a
+     * digest mismatch the caller did not verify would be carried as it is. It is called between the caller's own writes
+     * of the new scope, in the same lock session, so an entry verified there cannot change under the move.
      *
-     * @param workspaceTransaction an open transaction of the workspace scope
-     * @param target               an open transaction of the plan or epic scope the entry creates
+     * @param workspaceTransaction an open transaction of the workspace scope, whose lock the caller holds
+     * @param target               an open transaction of the plan scope the entry creates
      * @param entryId              the entry
      * @return what the move carried
-     * @throws IllegalArgumentException if a transaction belongs to another scope, the target is no plan or epic, the
-     *                                  entry does not exist, or a store is a target of its transaction already
+     * @throws IllegalArgumentException if a transaction belongs to another scope, the target is no plan (an epic's
+     *                                  sources belong to its ledger, which this move does not write), the entry does
+     *                                  not exist, or a store is a target of its transaction already
      * @throws IllegalStateException    if a transaction was committed
-     * @throws StoreRefusal             if the manifest is unreadable, or a stored file differs from its manifest entry
+     * @throws StoreRefusal             if the manifest is unreadable, a stored file differs from its manifest entry, or
+     *                                  the source directory holds a file no manifest entry names
      * @throws UncheckedIOException     if the entry's files cannot be read
      */
     public Moved move(ScopeTransaction workspaceTransaction, ScopeTransaction target, EntryId entryId) {
@@ -91,8 +103,13 @@ public final class PendingEntryCreation {
         Objects.requireNonNull(entryId, "entryId");
         requireOwnWorkspace(workspaceTransaction);
         var type = target.scope().type();
-        if (type != JournalScopeType.PLAN && type != JournalScopeType.EPIC) {
-            throw new IllegalArgumentException("An entry creates a plan or an epic, not a " + type.wireName());
+        if (type == JournalScopeType.EPIC) {
+            throw new IllegalArgumentException(("The pending entry %s creates no epic: an epic's sources belong to its "
+                    + "git-tracked ledger, and this move writes a plan's scope alone until the ledger copy of the "
+                    + "sources exists (PLAN-V2-133 D5)").formatted(entryId));
+        }
+        if (type != JournalScopeType.PLAN) {
+            throw new IllegalArgumentException("An entry creates a plan, not a " + type.wireName());
         }
         if (entries.read(entryId).isEmpty()) {
             throw new IllegalArgumentException("The pending entry %s does not exist".formatted(entryId));
@@ -101,6 +118,7 @@ public final class PendingEntryCreation {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "The pending entry %s has no source manifest".formatted(entryId)));
         var sourceDirectory = entries.sourcesDirectory(entryId);
+        requireOnlyManifestFiles(sourceDirectory, manifest);
         var files = 0;
         for (var source : manifest.sources()) {
             for (var stored : source.files()) {
@@ -122,10 +140,11 @@ public final class PendingEntryCreation {
 
     /**
      * Deletes the entry's directory with what the move left in it, the last act of the creation. It is called after
-     * both transactions committed, so a stop before it leaves only the residue the sweep removes.
+     * both transactions committed, so a stop before it leaves only the residue the sweep removes. A sweep that removed
+     * the directory first is no error: the end is the same, and the answer reports that nothing was there to remove.
      *
      * @param entryId the entry
-     * @return whether the directory existed
+     * @return whether the directory existed when the deletion began
      * @throws IllegalStateException if the entry's record still exists; its stores must be deleted first
      * @throws UncheckedIOException  if the directory or a file in it cannot be removed
      */
@@ -168,7 +187,13 @@ public final class PendingEntryCreation {
                 source.reference(), source.origin());
     }
 
-    /** Reads one stored file and refuses it when its size or digest differs from its manifest entry. */
+    /**
+     * Reads one stored file and refuses it when its size or digest differs from its manifest entry.
+     * <p>
+     * The file is read through {@link LinkOption#NOFOLLOW_LINKS} and only after its canonical path was checked to lie
+     * in the source directory: a link is refused, and so is a path whose canonical form leaves the directory through
+     * one, so a stored source cannot redirect the read out of the entry.
+     */
     private static byte[] verified(Path sourceDirectory, SourceFile stored) {
         var file = sourceDirectory.resolve(stored.path()).normalize();
         if (!file.startsWith(sourceDirectory)) {
@@ -177,7 +202,13 @@ public final class PendingEntryCreation {
         }
         byte[] content;
         try {
-            content = Files.readAllBytes(file);
+            if (Files.isSymbolicLink(file) || !file.toRealPath().startsWith(sourceDirectory.toRealPath())) {
+                throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
+                        "the source file '%s' is or passes through a symbolic link".formatted(stored.path()), null);
+            }
+            try (var in = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
+                content = in.readAllBytes();
+            }
         } catch (IOException e) {
             throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
                     "the source file cannot be read: " + e.getMessage(), e);
@@ -188,6 +219,41 @@ public final class PendingEntryCreation {
                     "the source file differs from its manifest entry", null);
         }
         return content;
+    }
+
+    /**
+     * Refuses the move when the source directory holds a file no manifest entry names, so a file of the entry is never
+     * dropped silently: what the sources are is the manifest (Filesystem Layout § The Source Directory), and the
+     * directory itself is deleted with the entry after the move.
+     *
+     * @throws StoreRefusal         if a file of the directory has no manifest entry
+     * @throws UncheckedIOException if the directory cannot be listed
+     */
+    private static void requireOnlyManifestFiles(Path sourceDirectory, SourceManifest manifest) {
+        if (!Files.exists(sourceDirectory, LinkOption.NOFOLLOW_LINKS)) {
+            return;
+        }
+        if (!Files.isDirectory(sourceDirectory, LinkOption.NOFOLLOW_LINKS)) {
+            throw StoreRefusal.unreadable(sourceDirectory, SourceManifest.FORMAT_VERSION,
+                    "the source directory is no directory", null);
+        }
+        var stored = manifest.sources().stream()
+                .flatMap(source -> source.files().stream())
+                .map(SourceFile::path)
+                .collect(Collectors.toSet());
+        try (var walk = Files.walk(sourceDirectory)) {
+            for (var file : walk.toList()) {
+                var relative = slashPath(sourceDirectory, file);
+                if (relative.isEmpty() || Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS)
+                        || SourceManifestCodec.FILE_NAME.equals(relative) || stored.contains(relative)) {
+                    continue;
+                }
+                throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
+                        "the source file '%s' has no manifest entry".formatted(relative), null);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("The source directory of the entry cannot be listed", e);
+        }
     }
 
     private static String sha256(byte[] content) {
@@ -213,13 +279,16 @@ public final class PendingEntryCreation {
             throw new UncheckedIOException("The transcript of %s cannot be read".formatted(entryId), e);
         }
         for (var file : files) {
-            var relative = StreamSupport
-                    .stream(directory.relativize(file).spliterator(), false)
-                    .map(Path::toString)
-                    .collect(Collectors.joining(String.valueOf('/')));
-            put(target, CHAT_DIRECTORY + "/" + relative, read(file));
+            put(target, CHAT_DIRECTORY + "/" + slashPath(directory, file), read(file));
         }
         return files.size();
+    }
+
+    /** @return the path of a file relative to a base directory, its names joined with {@code /}; empty for the base */
+    private static String slashPath(Path base, Path file) {
+        return StreamSupport.stream(base.relativize(file).spliterator(), false)
+                .map(Path::toString)
+                .collect(Collectors.joining("/"));
     }
 
     /** Copies the entry's decision store into the target's, and deletes the entry's in the workspace transaction. */

@@ -16,12 +16,14 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockManager;
+import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScope;
 import de.planmarshall.core.store.PendingEntryStore;
@@ -37,9 +39,14 @@ import de.planmarshall.core.store.StoreRefusal;
  * {@code entry.json} exists is open and is never removed, however old it is. The creation of a scope and the
  * abandoning of an entry remove the entry's stores in one transaction of the workspace and delete the directory last;
  * a stop between the two leaves the directory behind, and the record is gone then. Such a directory is the residue the
- * step removes. A file of {@code pending/} whose name does not parse as an entry id is never an entry and is never
- * selected ({@link PendingEntryStore#entryIds()}), and an entry whose record cannot be read is kept and reported, so a
- * tampered entry is held for its operator instead of being swept.
+ * step removes. The evidence is decided by {@link PendingEntryStore#verify} under the workspace lock: an entry is
+ * residue when its four stores are absent from the workspace's digest sidecar and from the filesystem
+ * ({@link PendingEntryStore.Integrity.Absent}), so a removal a stop cut off and a crash before the creating
+ * transaction committed both leave exactly that state. A file of {@code pending/} whose name does not parse as an entry
+ * id is never an entry and is never selected ({@link PendingEntryStore#entryIds()}), and an entry whose record cannot be
+ * read is kept and reported, so a tampered entry is held for its operator instead of being swept. A store path that
+ * passes through a symbolic link is held and reported the same way, so one such entry does not stop the step for the
+ * project.
  * <p>
  * The residue of a run is removed in one transaction of the workspace scope: the entry's stores again as delete
  * targets (they are absent), and one {@code pending_entry_removed} record per entry, carrying its entry id, its
@@ -126,14 +133,9 @@ public final class PendingEntryRecordsSweep implements SweepStep {
             var removed = new ArrayList<EntryId>();
             var kept = new ArrayList<String>();
             for (var entryId : candidates) {
-                if (!(store.verify(lock, entryId, auditSink) instanceof PendingEntryStore.Integrity.Absent)) {
-                    kept.add(entryId.value() + " (tampered)");
-                    continue;
-                }
-                store.remove(transaction, entryId);
-                transaction.owe(AuditEvent.pendingEntryRemoved(entryId.value(),
-                        PendingEntryStore.directoryPath(entryId), at, transaction.recordId().value()));
-                removed.add(entryId);
+                var integrity = verifyUnderLock(store, lock, entryId, kept);
+                integrity.ifPresent(verdict -> removeIfResidue(transaction, store, entryId, verdict, at, removed,
+                        kept));
             }
             if (removed.isEmpty()) {
                 return new Removal(0, failure(kept, List.of()));
@@ -158,6 +160,39 @@ public final class PendingEntryRecordsSweep implements SweepStep {
     }
 
     /**
+     * Removes one candidate whose stores are absent, keeps it as tampered when a store differs, and keeps it silently
+     * when it is verified: an entry opened between the lock-free listing and the lock is intact, which is no failure.
+     */
+    private void removeIfResidue(ScopeTransaction transaction, PendingEntryStore store, EntryId entryId,
+            PendingEntryStore.Integrity integrity, Instant at, List<EntryId> removed, List<String> kept) {
+        if (integrity instanceof PendingEntryStore.Integrity.Absent) {
+            store.remove(transaction, entryId);
+            transaction.owe(AuditEvent.pendingEntryRemoved(entryId.value(),
+                    PendingEntryStore.directoryPath(entryId), at, transaction.recordId().value()));
+            removed.add(entryId);
+        } else if (integrity instanceof PendingEntryStore.Integrity.Tampered) {
+            kept.add(entryId.value() + " (tampered)");
+        }
+    }
+
+    /**
+     * Verifies one candidate under the workspace lock. A store path that passes through a symbolic link below the path
+     * base is refused by the verification with an {@link IllegalArgumentException}; that entry alone is held and
+     * reported, so a link one entry's directory carries does not stop the step for the project.
+     *
+     * @return the verdict; empty when the verification refused the entry's path, which is reported in {@code kept}
+     */
+    private Optional<PendingEntryStore.Integrity> verifyUnderLock(PendingEntryStore store, LockTransaction lock,
+            EntryId entryId, List<String> kept) {
+        try {
+            return Optional.of(store.verify(lock, entryId, auditSink));
+        } catch (IllegalArgumentException e) {
+            kept.add(entryId.value() + " (held: " + e.getMessage() + ")");
+            return Optional.empty();
+        }
+    }
+
+    /**
      * What one run removed, and the reason its directories remain when the discard failed after the commit.
      *
      * @param removed the number of removed directories
@@ -167,23 +202,9 @@ public final class PendingEntryRecordsSweep implements SweepStep {
     }
 
     /**
-     * Re-judges one candidate under the workspace lock. An entry opened since the listing has its record applied by
-     * then, so it is kept; a record that still cannot be read is kept as well.
-     *
-     * @return whether the directory is still residue
-     */
-    static boolean isResidue(PendingEntryStore store, EntryId entryId) {
-        try {
-            return store.read(entryId).isEmpty();
-        } catch (StoreRefusal | UncheckedIOException _) {
-            return false;
-        }
-    }
-
-    /**
-     * Decides whether one entry directory is residue. A record that exists means the entry is open: it is kept. A
-     * record that is refused, or that cannot be read at all, is kept and named in the unreadable list, and the sweep
-     * goes on with the next entry. An absent record is the evidence of a removal a stop cut off.
+     * Re-judges one candidate without the lock: an entry whose record exists is open; a record that cannot be read
+     * is held and named in the unreadable list, and the sweep goes on with the next entry. The answer is a candidate
+     * only: the entry is decided again under the workspace lock before it is removed.
      *
      * @return whether the directory is residue
      */
