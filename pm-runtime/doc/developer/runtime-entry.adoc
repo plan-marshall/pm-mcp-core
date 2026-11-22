@@ -1,6 +1,15 @@
 = Pending Entry Reader (`runtime.entry`)
 
-_Requirements: link:{docs}/Requirements.adoc#PM-WF-10[PM-WF-10], link:{docs}/Requirements.adoc#PM-ARCH-4[PM-ARCH-4]_
+:toc:
+:toclevels: 3
+:nofooter:
+
+:req: ../../../../plan-marshall-documentation/doc/requirements
+:spec: ../../../doc/specification
+:src: ../../src/main/java/de/planmarshall/runtime/entry
+:test: ../../src/test/java/de/planmarshall/runtime/entry
+
+_Requirements: link:{req}/02-workflow.adoc#PM-WF-10[PM-WF-10], link:{req}/01-architecture.adoc#PM-ARCH-4[PM-ARCH-4]_
 
 `PendingEntryDirectoryReader` is the adapter of the engine port
 `de.planmarshall.core.spi.PendingEntryReader` over the pending entry directory `pending/<entry_id>/` of the workspace
