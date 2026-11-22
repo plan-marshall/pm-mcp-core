@@ -405,7 +405,7 @@ class PendingEntryRecordsSweepTest {
 
     @Test
     @DisplayName("a directory the discard cannot remove is reported, and the removed count is kept in the report")
-    void discardRefusedAfterCommitKeepsTheCount() throws Exception {
+    void discardRefusedAfterCommitKeepsTheCount() {
         create(entry(residue, now));
         cutOffRemoval(residue);
         var recreated = new AtomicBoolean();

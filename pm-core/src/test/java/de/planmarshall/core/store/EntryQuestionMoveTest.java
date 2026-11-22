@@ -265,13 +265,15 @@ class EntryQuestionMoveTest {
 
         try (var transaction = locks.openTransaction()) {
             var creation = open(transaction, epic);
+            var workspaceWrite = creation.workspace();
+            var epicWrite = creation.target();
             var refusal = assertThrows(IllegalArgumentException.class,
-                    () -> QuestionLog.moveEntryQuestions(creation.workspace(), ENTRY, creation.target()),
+                    () -> QuestionLog.moveEntryQuestions(workspaceWrite, ENTRY, epicWrite),
                     "an epic receives no entry questions");
             assertAll(
                     () -> assertTrue(refusal.getMessage().contains("epic"),
                             "the refusal should name the epic target"),
-                    () -> assertFalse(creation.target().isTarget(new QuestionLog(epic).store()),
+                    () -> assertFalse(epicWrite.isTarget(new QuestionLog(epic).store()),
                             "no epic log should be created"));
         }
         assertArrayEquals(entryBytes, Files.readAllBytes(entryLog.store()),

@@ -264,12 +264,11 @@ public final class PendingEntryCreation {
                     throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
                             "the source directory entry '%s' is a symbolic link".formatted(relative), null);
                 }
-                if (Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS) || SourceManifestCodec.FILE_NAME.equals(relative)
-                        || stored.contains(relative)) {
-                    continue;
+                var named = SourceManifestCodec.FILE_NAME.equals(relative) || stored.contains(relative);
+                if (!Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS) && !named) {
+                    throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
+                            "the source file '%s' has no manifest entry".formatted(relative), null);
                 }
-                throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
-                        "the source file '%s' has no manifest entry".formatted(relative), null);
             }
         } catch (IOException e) {
             throw new UncheckedIOException("The source directory of the entry cannot be listed", e);

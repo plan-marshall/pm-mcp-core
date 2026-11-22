@@ -246,9 +246,9 @@ class SourceManifestCodecTest {
             var variant = path.toUpperCase(Locale.ROOT);
             var second = new Source(sourceId + "x", Kind.ISSUE, "ref", "forge", Trust.UNTRUSTED,
                     List.of(new SourceFile(variant, size, digest)), addedAt, Verdict.CLEAN, null);
+            var sources = List.of(trusted(), second);
 
-            var refusal = assertThrows(IllegalArgumentException.class,
-                    () -> new SourceManifest(2, List.of(trusted(), second)),
+            var refusal = assertThrows(IllegalArgumentException.class, () -> new SourceManifest(2, sources),
                     "two paths in one case-fold should be refused");
 
             assertAll(
@@ -284,9 +284,9 @@ class SourceManifestCodecTest {
         void reservedNameInAnotherCase() {
             var reserved = new Source(sourceId, Kind.DESCRIPTION, "ref", "operator", Trust.TRUSTED,
                     List.of(new SourceFile("Sources.json", size, digest)), addedAt, null, null);
+            var sources = List.of(reserved);
 
-            var refusal = assertThrows(IllegalArgumentException.class,
-                    () -> new SourceManifest(1, List.of(reserved)),
+            var refusal = assertThrows(IllegalArgumentException.class, () -> new SourceManifest(1, sources),
                     "the manifest name should be reserved in every case");
 
             assertTrue(refusal.getMessage().contains("Sources.json"), "the refusal should name the reserved path");
