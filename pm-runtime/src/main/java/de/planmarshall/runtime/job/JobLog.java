@@ -230,7 +230,9 @@ public record JobLog(Path path) {
             if (remaining < size) {
                 return truncated(remaining, size);
             }
-            // the tail rule of a key block belongs to a read that starts inside the log, never to one from its start
+            // the tail rule of a key block belongs to a read that starts inside the log; an over-cap read is still a
+            // capped window, so the rule applies to its whole text and a lone END in its tail masks what precedes it,
+            // while a read under the cap from the file start keeps its text
             return new Complete(redacted(LaunchReport.read(text), size > MAX_BYTES), size);
         } catch (NoSuchFileException _) {
             return missing();

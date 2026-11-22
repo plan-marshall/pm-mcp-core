@@ -198,6 +198,8 @@ class DiagnosticCollectorRedactionTest {
 
         assertAll("the stored seam keeps the flood's redacted text",
                 () -> assertEquals(2_000, redacted.size(), "the flood holds 2 000 lines"),
+                () -> assertEquals(BuildLogText.MAX_LINE_LENGTH, flood.getFirst().length(),
+                        "each flood line holds 8 192 characters"),
                 () -> assertEquals(500, redacted.getFirst().length(), "the stored text is cut to its bound"),
                 () -> assertEquals(flood.getFirst().substring(0, 500), redacted.getFirst(),
                         "the stored output is the redacted input"));

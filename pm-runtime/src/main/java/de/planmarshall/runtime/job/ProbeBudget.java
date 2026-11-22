@@ -45,7 +45,15 @@ public class ProbeBudget {
 
     private static final BudgetDerivation FIXED = new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null);
 
-    /** The budgets a test lowers, so a probe-timeout test does not wait the compiled seconds; empty in production. */
+    /**
+     * The budgets a test lowers, so a probe-timeout test does not wait the compiled seconds; empty in production.
+     * <p>
+     * The seam is an override rather than an injected clock, the alternative item 19 named: the budget is a plain value
+     * the runner reads once at the probe's start, so a clock would have to be threaded through every caller of
+     * {@link #of} to change nothing a test observes, while the override keeps the production read a constant. The
+     * recorded cost: an override is process-global and a test must clear it, which {@code ProbeJobTest} does; the four
+     * killed-runtime ITs exercise the lifecycle, not a probe, and are unaffected.
+     */
     private static final Map<ProbeCandidate.Kind, Long> OVERRIDES = new ConcurrentHashMap<>();
 
     /**

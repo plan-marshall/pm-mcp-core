@@ -149,8 +149,8 @@ public final class TerminationProtocol {
 
         /**
          * @throws NullPointerException     if the ending is {@code null}
-         * @throws IllegalArgumentException if the {@code errno} is non-null exactly when the ending is not
-         *                                  {@link Ending#SIGNAL_REFUSED}
+         * @throws IllegalArgumentException if an errno is given for an ending other than
+         *                                  {@link Ending#SIGNAL_REFUSED}, or the ending is {@code SIGNAL_REFUSED} without one
          */
         public Report {
             Objects.requireNonNull(ending, "ending");
