@@ -2043,9 +2043,11 @@ class SubprocessJobRunnerTest {
                     }, request -> Optional.empty(), null);
 
             var jobId = started(runner.start(git(30, "ok")));
-            settled(jobId);
+            var settledOverCap = runner.awaitSettled(jobId, Duration.ofMinutes(2));
 
-            assertTrue(seenCut.get(), "the parser is told the job log was cut");
+            assertAll(
+                    () -> assertTrue(settledOverCap.isPresent(), "the over-cap job settles"),
+                    () -> assertTrue(seenCut.get(), "the parser is told the job log was cut"));
         }
 
         @Test

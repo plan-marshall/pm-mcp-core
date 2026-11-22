@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 
@@ -166,6 +167,28 @@ class ConsultationServiceTest {
         assertAll(
                 () -> assertEquals(freeId, opened.consultationId(), "the recorded id is drawn past"),
                 () -> assertTrue(queue.read(orphanId).isEmpty(), "no task is created under the recorded id"));
+    }
+
+    @Test
+    @DisplayName("the consultation id is drawn under the queue lock")
+    void consultationIdIsDrawnUnderTheQueueLock() {
+        var ownLocks = new ConsultTestLocks();
+        var ownQueue = QueueStore.ofProject(base, "project-b", ownLocks);
+        ownQueue.create(ConsultationFixtures.executing(ConsultationFixtures.ASKER, ConsultationFixtures.ASKER_ROLE,
+                ConsultationFixtures.ASKING_GENERATION));
+        // the queue-task id is a literal of the wire format; the seam answers the lock state it observes
+        var drawnUnderLock = new AtomicBoolean();
+        var seam = new ConsultationService(ownQueue, () -> {
+            drawnUnderLock.set(ownLocks.holdsAnywhere(ownQueue.lockKey()));
+            return new QueueTaskId("qt-00000000000000ee");
+        });
+
+        var outcome = seam.open(ConsultationFixtures.request(ConsultationFixtures.REVIEWER, RoleClass.READ_ONLY));
+
+        assertAll(
+                () -> assertInstanceOf(ConsultationOutcome.Opened.class, outcome,
+                        "the consultation opens"),
+                () -> assertTrue(drawnUnderLock.get(), "the id is drawn under the queue lock"));
     }
 
     @Test

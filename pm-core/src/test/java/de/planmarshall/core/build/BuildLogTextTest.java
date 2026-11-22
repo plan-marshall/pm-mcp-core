@@ -365,9 +365,9 @@ class BuildLogTextTest {
     void cutMavenLogFilesTheFailuresItsErrorLineDoesNotReport(@TempDir Path directory) throws Exception {
         var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
         var failingTail = """
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
                 [ERROR] Results:
                 [ERROR] Tests run: 2, Failures: 1, Errors: 0, Skipped: 0
-                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
                 """;
         Path log = directory.resolve("cut-mixed-failing.log");
         Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
