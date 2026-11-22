@@ -228,26 +228,41 @@ public record SourceManifest(long revision, List<Source> sources) {
          * @throws IllegalArgumentException if a value breaks its rules
          */
         public Source {
+            requireSourceId(sourceId);
+            Objects.requireNonNull(kind, "kind");
+            requireText(reference, "reference", MAX_REFERENCE);
+            requireText(origin, "origin", MAX_ORIGIN);
+            Objects.requireNonNull(trust, "trust");
+            files = requireFiles(sourceId, files);
+            Objects.requireNonNull(addedAt, "addedAt");
+            requireVerdict(sourceId, trust, verdict, verdictReason);
+        }
+
+        private static void requireSourceId(String sourceId) {
             Objects.requireNonNull(sourceId, "sourceId");
             if (!SOURCE_ID.matcher(sourceId).matches()) {
                 throw new IllegalArgumentException("'source_id' is not a source id: " + sourceId);
             }
-            Objects.requireNonNull(kind, "kind");
-            Objects.requireNonNull(reference, "reference");
-            if (reference.isBlank() || reference.length() > MAX_REFERENCE) {
-                throw new IllegalArgumentException("'reference' must be 1 to %d characters".formatted(MAX_REFERENCE));
+        }
+
+        private static void requireText(String value, String name, int maximum) {
+            Objects.requireNonNull(value, name);
+            if (value.isBlank() || value.length() > maximum) {
+                throw new IllegalArgumentException("'%s' must be 1 to %d characters".formatted(name, maximum));
             }
-            Objects.requireNonNull(origin, "origin");
-            if (origin.isBlank() || origin.length() > MAX_ORIGIN) {
-                throw new IllegalArgumentException("'origin' must be 1 to %d characters".formatted(MAX_ORIGIN));
-            }
-            Objects.requireNonNull(trust, "trust");
+        }
+
+        private static List<SourceFile> requireFiles(String sourceId, @Nullable List<SourceFile> files) {
             Objects.requireNonNull(files, "files");
-            files = List.copyOf(files);
-            if (files.isEmpty()) {
+            var copy = List.copyOf(files);
+            if (copy.isEmpty()) {
                 throw new IllegalArgumentException("The source '%s' holds no file".formatted(sourceId));
             }
-            Objects.requireNonNull(addedAt, "addedAt");
+            return copy;
+        }
+
+        private static void requireVerdict(String sourceId, Trust trust, @Nullable Verdict verdict,
+                @Nullable String verdictReason) {
             if (verdictReason != null && verdictReason.isBlank()) {
                 throw new IllegalArgumentException("'verdict_reason' must not be blank");
             }

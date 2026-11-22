@@ -83,7 +83,7 @@ class PendingEntryDirectoryReaderTest {
         reader = new PendingEntryDirectoryReader(base, projectId);
     }
 
-    private static PendingEntryRecord record(EntryId id, Kind kind) {
+    private static PendingEntryRecord entry(EntryId id, Kind kind) {
         return PendingEntryRecord.builder().entryId(id).kind(kind).createdAt(Instant.EPOCH)
                 .updatedAt(Instant.EPOCH)
                 .bootstrap(PendingEntryRecord.Bootstrap.builder().state("start.sources").callStack(List.of())
@@ -111,7 +111,7 @@ class PendingEntryDirectoryReaderTest {
     @Test
     @DisplayName("an entry reads live with the wire name of its kind")
     void live() {
-        create(record(entryId, Kind.PLAN));
+        create(entry(entryId, Kind.PLAN));
 
         assertEquals(new EntryRead.Live("plan"), read(entryId), "a plan entry should read live with its kind");
     }
@@ -119,7 +119,7 @@ class PendingEntryDirectoryReaderTest {
     @Test
     @DisplayName("an epic entry reads live with its own kind")
     void liveEpic() {
-        create(record(entryId, Kind.EPIC));
+        create(entry(entryId, Kind.EPIC));
 
         assertEquals(new EntryRead.Live("epic"), read(entryId), "an epic entry should read live with its kind");
     }
@@ -133,7 +133,7 @@ class PendingEntryDirectoryReaderTest {
     @Test
     @DisplayName("the directory a cut-off removal left is deleted, not a live entry")
     void cutOffRemovalDeleted() {
-        create(record(entryId, Kind.PLAN));
+        create(entry(entryId, Kind.PLAN));
         inWorkspace(transaction -> store.remove(transaction, entryId));
 
         assertEquals(new EntryRead.Deleted(), read(entryId),
@@ -143,7 +143,7 @@ class PendingEntryDirectoryReaderTest {
     @Test
     @DisplayName("a record that does not parse is unreadable, never live")
     void unreadable() throws IOException {
-        create(record(entryId, Kind.PLAN));
+        create(entry(entryId, Kind.PLAN));
         Files.writeString(store.store(entryId), "{\"format_version\":1,");
 
         var read = assertInstanceOf(EntryRead.Unreadable.class, read(entryId), "a torn record should be unreadable");
@@ -154,8 +154,8 @@ class PendingEntryDirectoryReaderTest {
     @DisplayName("a record that states another entry_id than its directory is unreadable")
     void mismatchingEntryId() throws IOException {
         var stated = new EntryId("ent-" + Generators.strings("0123456789abcdef", 16, 16).next());
-        create(record(entryId, Kind.PLAN));
-        Files.write(store.store(entryId), PendingEntryCodec.write(record(stated, Kind.PLAN)));
+        create(entry(entryId, Kind.PLAN));
+        Files.write(store.store(entryId), PendingEntryCodec.write(entry(stated, Kind.PLAN)));
 
         var read = assertInstanceOf(EntryRead.Unreadable.class, read(entryId),
                 "a record of another id should be unreadable");
@@ -167,8 +167,8 @@ class PendingEntryDirectoryReaderTest {
     @Test
     @DisplayName("a tampered record still reads live: a lock-free read never decides an edit")
     void tamperedStillLive() throws IOException {
-        create(record(entryId, Kind.PLAN));
-        Files.write(store.store(entryId), PendingEntryCodec.write(record(entryId, Kind.EPIC).toBuilder()
+        create(entry(entryId, Kind.PLAN));
+        Files.write(store.store(entryId), PendingEntryCodec.write(entry(entryId, Kind.EPIC).toBuilder()
                 .updatedAt(Instant.EPOCH.plusSeconds(1)).build()));
 
         assertEquals(new EntryRead.Live("epic"), read(entryId),

@@ -73,6 +73,9 @@ public class SourceManifestCodec {
     private static final String SIZE = "size";
     private static final String SHA256 = "sha256";
 
+    /** The one refusal message of a closed value outside its enum. */
+    private static final String UNDECLARED_VALUE = "'%s' has the undeclared value '%s'";
+
     /** The members of the manifest, in the order of the document. */
     static final List<String> MEMBERS = List.of(FIELD_FORMAT_VERSION, REVISION, SOURCES);
 
@@ -207,17 +210,17 @@ public class SourceManifestCodec {
 
     private static Kind kind(String wireName) {
         return Kind.fromWireName(wireName)
-                .orElseThrow(() -> unreadable("'%s' has the undeclared value '%s'".formatted(KIND, wireName)));
+                .orElseThrow(() -> unreadable(UNDECLARED_VALUE.formatted(KIND, wireName)));
     }
 
     private static Trust trust(String wireName) {
         return Trust.fromWireName(wireName)
-                .orElseThrow(() -> unreadable("'%s' has the undeclared value '%s'".formatted(TRUST, wireName)));
+                .orElseThrow(() -> unreadable(UNDECLARED_VALUE.formatted(TRUST, wireName)));
     }
 
     private static Verdict verdict(String wireName) {
         return Verdict.fromWireName(wireName)
-                .orElseThrow(() -> unreadable("'%s' has the undeclared value '%s'".formatted(VERDICT, wireName)));
+                .orElseThrow(() -> unreadable(UNDECLARED_VALUE.formatted(VERDICT, wireName)));
     }
 
     private static boolean isNull(JsonParser parser) {

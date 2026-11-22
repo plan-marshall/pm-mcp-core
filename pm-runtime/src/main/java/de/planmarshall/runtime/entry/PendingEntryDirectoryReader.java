@@ -88,7 +88,7 @@ public final class PendingEntryDirectoryReader implements PendingEntryReader {
         Objects.requireNonNull(request, "request");
         try {
             return store.read(request.entryId())
-                    .<EntryRead>map(record -> new EntryRead.Live(record.kind().wireName()))
+                    .<EntryRead>map(entry -> new EntryRead.Live(entry.kind().wireName()))
                     .orElseGet(EntryRead.Deleted::new);
         } catch (StoreRefusal e) {
             return new EntryRead.Unreadable(e.getMessage());

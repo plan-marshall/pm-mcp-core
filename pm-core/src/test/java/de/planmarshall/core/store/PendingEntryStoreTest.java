@@ -51,7 +51,6 @@ import de.planmarshall.core.store.ScopeTransaction.Step;
 import de.planmarshall.core.store.SourceManifest.Source;
 import de.planmarshall.core.store.SourceManifest.SourceFile;
 import de.planmarshall.core.store.SourceManifest.Trust;
-import de.planmarshall.core.store.SourceManifest.Verdict;
 import de.planmarshall.core.store.TransactionJournal.Mode;
 
 /**
@@ -332,7 +331,7 @@ class PendingEntryStoreTest {
                     () -> assertEquals(Optional.empty(), DigestSidecar.load(workspace.sidecarFile())
                             .digest(PendingEntryStore.storePath(entryId)), "the sidecar entry should be removed"),
                     () -> assertTrue(discarded, "the directory should be discarded"),
-                    () -> assertFalse(Files.exists(store.directory(entryId)), "the directory should be gone"),
+                    () -> assertFalse(Files.exists(store.entryDirectory(entryId)), "the directory should be gone"),
                     () -> assertEquals(Set.of(), store.entryIds(), "no entry should be listed"));
         }
 

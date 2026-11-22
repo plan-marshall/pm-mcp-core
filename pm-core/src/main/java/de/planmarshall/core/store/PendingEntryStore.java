@@ -79,6 +79,9 @@ public final class PendingEntryStore {
 
     private static final byte[] EMPTY = new byte[0];
 
+    /** The name of the entry argument, shared by the null checks. */
+    private static final String ENTRY_ID_ARGUMENT = "entryId";
+
     private final JournalScope scope;
 
     /**
@@ -102,7 +105,7 @@ public final class PendingEntryStore {
      * @param entryId an entry
      * @return the entry's directory, absolute and normalized
      */
-    public Path directory(EntryId entryId) {
+    public Path entryDirectory(EntryId entryId) {
         return scope.resolve(directoryPath(entryId));
     }
 
@@ -111,7 +114,7 @@ public final class PendingEntryStore {
      * @return the directory of the entry, relative to the path base of the workspace
      */
     public static String directoryPath(EntryId entryId) {
-        return DIRECTORY + "/" + Objects.requireNonNull(entryId, "entryId").directoryName();
+        return DIRECTORY + "/" + Objects.requireNonNull(entryId, ENTRY_ID_ARGUMENT).directoryName();
     }
 
     /**
@@ -205,7 +208,7 @@ public final class PendingEntryStore {
     public void create(ScopeTransaction transaction, PendingEntryRecord entry, SourceManifest sources) {
         requireOwnScope(transaction);
         Objects.requireNonNull(entry, "entry");
-        Objects.requireNonNull(sources, "sources");
+        Objects.requireNonNull(sources, SOURCES);
         if (exists(entry.entryId())) {
             throw new IllegalArgumentException("The pending entry %s exists already".formatted(entry.entryId()));
         }
@@ -246,8 +249,8 @@ public final class PendingEntryStore {
      */
     public void replaceSources(ScopeTransaction transaction, EntryId entryId, SourceManifest sources) {
         requireOwnScope(transaction);
-        Objects.requireNonNull(entryId, "entryId");
-        Objects.requireNonNull(sources, "sources");
+        Objects.requireNonNull(entryId, ENTRY_ID_ARGUMENT);
+        Objects.requireNonNull(sources, SOURCES);
         if (!exists(entryId)) {
             throw new IllegalArgumentException("The pending entry %s does not exist".formatted(entryId));
         }
@@ -291,7 +294,7 @@ public final class PendingEntryStore {
      * @throws UncheckedIOException  if the directory or a file in it cannot be removed
      */
     public boolean discard(EntryId entryId) {
-        var directory = directory(entryId);
+        var directory = entryDirectory(entryId);
         if (Files.isSymbolicLink(directory)) {
             try {
                 Files.delete(directory);
@@ -386,13 +389,13 @@ public final class PendingEntryStore {
      */
     public Integrity verify(LockTransaction transaction, EntryId entryId, AuditSink auditSink) {
         Objects.requireNonNull(transaction, "transaction");
-        Objects.requireNonNull(entryId, "entryId");
+        Objects.requireNonNull(entryId, ENTRY_ID_ARGUMENT);
         Objects.requireNonNull(auditSink, "auditSink");
-        var record = ScopeIntegrity.verify(transaction, scope, storePath(entryId), auditSink);
-        if (edited(record)) {
-            return new Integrity.Tampered(entryId, record);
+        var recorded = ScopeIntegrity.verify(transaction, scope, storePath(entryId), auditSink);
+        if (edited(recorded)) {
+            return new Integrity.Tampered(entryId, recorded);
         }
-        var absent = record instanceof ScopeIntegrity.Absent;
+        var absent = recorded instanceof ScopeIntegrity.Absent;
         for (var path : List.of(directoryPath(entryId) + "/" + SOURCE_MANIFEST,
                 directoryPath(entryId) + "/" + QUESTIONS, directoryPath(entryId) + "/" + DECISION_LOG)) {
             var verification = ScopeIntegrity.verify(transaction, scope, path, auditSink);
@@ -491,7 +494,7 @@ public final class PendingEntryStore {
              * @throws NullPointerException if a component is {@code null}
              */
             public Tampered {
-                Objects.requireNonNull(entryId, "entryId");
+                Objects.requireNonNull(entryId, ENTRY_ID_ARGUMENT);
                 Objects.requireNonNull(cause, "cause");
             }
         }

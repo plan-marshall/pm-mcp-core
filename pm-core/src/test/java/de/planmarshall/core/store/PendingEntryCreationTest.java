@@ -180,7 +180,7 @@ class PendingEntryCreationTest {
                                 .startsWith("# Request\n\n" + description),
                         "the composed request should open with the description"),
                 () -> assertTrue(discarded, "the entry directory should exist until the last act"),
-                () -> assertFalse(Files.exists(store.directory(entryId)), "the directory should be gone last"),
+                () -> assertFalse(Files.exists(store.entryDirectory(entryId)), "the directory should be gone last"),
                 () -> assertEquals(java.util.Optional.empty(), store.read(entryId), "the record should be gone"));
     }
 

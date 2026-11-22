@@ -311,10 +311,6 @@ public final class RuntimeLogMessages {
                 .build();
 
         /**
-         * Logged when the owed audit record of a transaction was handed over after an earlier refusal or a stop.
-         */
-
-        /**
          * Logged when the audit log was rotated under the audit lock: closed by its {@code checkpoint} record, named
          * by an entry of the audit index {@code logs/audit-index.jsonl} and renamed; names the rotated file
          * {@code audit-<first_event_id>.jsonl} and its number of records, the checkpoint included. Also logged when

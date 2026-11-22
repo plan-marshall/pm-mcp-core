@@ -145,12 +145,13 @@ class SourceManifestCodecTest {
         void empty() {
             var empty = SourceManifest.empty();
             var added = empty.withSource(trusted());
-
+            var duplicate = trusted();
             assertAll(
                     () -> assertEquals(0, empty.revision(), "an empty manifest starts at revision zero"),
                     () -> assertTrue(empty.sources().isEmpty(), "an empty manifest holds no source"),
                     () -> assertEquals(1, added.revision(), "adding a source advances the revision"),
-                    () -> assertThrows(IllegalArgumentException.class, () -> added.withSource(trusted()),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> added.withSource(duplicate),
                             "a source id is used once"));
         }
     }
@@ -225,7 +226,7 @@ class SourceManifestCodecTest {
     @Test
     @DisplayName("the member names of the manifest are the wire contract")
     void members() {
-        assertEquals(List.of("format_version", "revision", "sources"), SourceManifestCodec.MEMBERS,
+        assertEquals(SourceManifestCodec.MEMBERS, List.of("format_version", "revision", "sources"),
                 "the members should be the document's members");
     }
 }

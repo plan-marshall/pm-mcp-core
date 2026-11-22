@@ -171,7 +171,7 @@ public record PendingEntryRecord(EntryId entryId, Kind kind, @Nullable String re
         /** The longest recipe key the schema admits. */
         public static final int MAX_RECIPE_KEY = 37;
 
-        private static final Pattern RECIPE_KEY = Pattern.compile("[a-z][a-z0-9]*(-[a-z0-9]+)*");
+        private static final Pattern RECIPE_KEY = Pattern.compile("[a-z][a-z0-9]*+(-[a-z0-9]++)*+");
 
         /**
          * @throws NullPointerException     if the key or the parameters are {@code null}

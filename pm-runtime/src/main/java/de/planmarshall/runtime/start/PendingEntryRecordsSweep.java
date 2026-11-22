@@ -24,7 +24,6 @@ import de.planmarshall.core.service.InternalFaultException;
 import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScope;
-import de.planmarshall.core.store.PendingEntryRecord;
 import de.planmarshall.core.store.PendingEntryStore;
 import de.planmarshall.core.store.ScopeTransaction;
 import de.planmarshall.core.store.StoreRefusal;
