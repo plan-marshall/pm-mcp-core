@@ -267,7 +267,9 @@ public record JobLog(Path path) {
     }
 
     /**
-     * The text of one whole read and whether every byte of the length the channel reported came back.
+     * The text of one whole read and whether every byte of the length the channel reported came back. The bytes of the
+     * read are local to the method that read them; a record never carries the array, whose identity equality and hash
+     * would hide the two equal reads behind different segment values.
      *
      * @param text     the launch report and the job's output after it
      * @param read     the bytes the read returned
@@ -281,26 +283,19 @@ public record JobLog(Path path) {
     }
 
     /**
-     * The bytes of one window and the number the read asked for: a window whose length the read did not fill is a log
-     * that shrank under the read. {@link #bytes()} may hold fewer bytes than were read when a cut drops the head of a
-     * line; {@link #read()} is what the reads returned.
+     * The truncation of a read whose windows did not return the bytes the length they asked for promised.
+     *
+     * @param window the read whose windows came back short
+     * @return the {@code TRUNCATED} value with the bytes read and asked for
      */
-    private record Segment(byte[] bytes, long read, long expected) {
-    }
-
     private Unavailable shortRead(Window window) {
         return new Unavailable(LogState.TRUNCATED, "the job log %s returned %d of the %d bytes it asked for"
                 .formatted(path, window.read(), window.expected()));
     }
 
     private static Window whole(FileChannel channel, long size) throws IOException {
-        var segment = readSegment(channel, 0, size);
-        return new Window(new String(segment.bytes(), StandardCharsets.UTF_8), segment.read(), segment.expected());
-    }
-
-    private static Segment readSegment(FileChannel channel, long from, long to) throws IOException {
-        var bytes = read(channel, from, to);
-        return new Segment(bytes, bytes.length, to - from);
+        var bytes = read(channel, 0, size);
+        return new Window(new String(bytes, StandardCharsets.UTF_8), bytes.length, size);
     }
 
     /** Redacts a read-out before the text leaves this class; the whole read reaches it after its size cap. */
@@ -331,31 +326,28 @@ public record JobLog(Path path) {
      */
     private static Window capped(FileChannel channel, long size) throws IOException {
         var headExpected = Math.min(FIRST_LINE_MAX_BYTES, size - MAX_BYTES);
-        var head = readSegment(channel, 0, headExpected);
+        var head = read(channel, 0, headExpected);
         var tail = tail(channel, size);
-        var end = firstLineEnd(head.bytes());
+        var end = firstLineEnd(head);
         var text = end < 0
-                ? new String(tail.bytes(), StandardCharsets.UTF_8)
-                : new String(head.bytes(), 0, end + 1, StandardCharsets.UTF_8)
-                        + new String(tail.bytes(), StandardCharsets.UTF_8);
-        return new Window(text, head.read() + tail.read(), head.expected() + tail.expected());
+                ? tail.text()
+                : new String(head, 0, end + 1, StandardCharsets.UTF_8) + tail.text();
+        return new Window(text, head.length + tail.read(), headExpected + tail.expected());
     }
 
     /**
      * The last {@link #MAX_BYTES} bytes, starting at a line beginning: at the window's own start when the byte before
      * it ends a line, else after the first line end inside it. A window with no line end is one long line and is kept.
      */
-    private static Segment tail(FileChannel channel, long size) throws IOException {
+    private static Window tail(FileChannel channel, long size) throws IOException {
         var from = size - MAX_BYTES;
-        var window = readSegment(channel, from, size);
-        if (window.bytes().length == 0) {
-            return window;
+        var bytes = read(channel, from, size);
+        if (bytes.length == 0) {
+            return new Window("", 0, size - from);
         }
-        var previous = readSegment(channel, from - 1, from);
-        var bytes = previous.bytes().length > 0 && previous.bytes()[0] == '\n'
-                ? window.bytes()
-                : fromLineStart(window.bytes());
-        return new Segment(bytes, window.read() + previous.read(), window.expected() + previous.expected());
+        var previous = read(channel, from - 1, from);
+        var kept = previous.length > 0 && previous[0] == '\n' ? bytes : fromLineStart(bytes);
+        return new Window(new String(kept, StandardCharsets.UTF_8), bytes.length + previous.length, size - from + 1);
     }
 
     /**
