@@ -314,6 +314,53 @@ class BuildLogTextTest {
     }
 
     @Test
+    @DisplayName("a cut log counts a per-class line and its summary line once")
+    void cutMavenLogCountsAPerClassLineAndItsSummaryOnce(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // a testFailureIgnore run: the per-class line carries Time elapsed, the summary's Results marker was cut
+        var failingTail = """
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %s
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                [INFO] BUILD SUCCESS
+                """.formatted(Generators.letterStrings(3, 12).next() + "Test");
+        Path log = directory.resolve("cut-per-class-failing.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                                diagnostic.message().contains("1 failing test")
+                                        && !diagnostic.message().contains("2 failing tests")),
+                        "the failing test is counted once, not twice"));
+    }
+
+    @Test
+    @DisplayName("a cut log files no second finding for its own error count line")
+    void cutMavenLogFilesNoSecondFindingForItsErrorCountLine(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        var failingTail = """
+                [ERROR] Tests run: 2, Failures: 1, Errors: 0, Skipped: 0
+                [INFO] BUILD SUCCESS
+                """;
+        Path log = directory.resolve("cut-error-count.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertEquals(1, build.diagnostics().stream()
+                                .filter(diagnostic -> diagnostic.category() == Category.TEST_FAILURE).count(),
+                        "the error count line is the only test failure"));
+    }
+
+    @Test
     @DisplayName("a whole Maven log reports its count as the whole run's")
     void wholeMavenLogReportsTheWholeRun(@TempDir Path directory) throws Exception {
         Path log = directory.resolve("whole-maven.log");

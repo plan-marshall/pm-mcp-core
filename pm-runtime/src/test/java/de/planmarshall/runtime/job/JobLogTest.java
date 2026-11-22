@@ -379,7 +379,7 @@ class JobLogTest {
             var unavailable = assertInstanceOf(Unavailable.class, whole, "a short read is not a complete log");
             assertAll(
                     () -> assertEquals(LogState.TRUNCATED, unavailable.state(), "the short read is truncated"),
-                    () -> assertTrue(unavailable.detail().contains("5 of 10"),
+                    () -> assertTrue(unavailable.detail().contains("returned 5 of the 10 bytes"),
                             "the detail states the bytes the read returned"));
         }
 

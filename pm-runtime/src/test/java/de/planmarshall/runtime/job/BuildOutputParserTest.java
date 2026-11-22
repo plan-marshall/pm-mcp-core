@@ -62,6 +62,11 @@ class BuildOutputParserTest {
 
     private static final BuildOutputParser PARSER = new BuildOutputParser();
 
+    /** Parses a log this repository's reader did not cut: the fixture and the parser, no cut fact. */
+    private static JobEvidence.ParseResult uncut(JobRecord job, String output) {
+        return PARSER.parse(job, output, false);
+    }
+
     /** The outcome rows of the outcome table: the contract of the derivation. */
     private static final Outcome SUCCEEDED = new Outcome(Fate.SUCCEEDED, 7);
     private static final Outcome INDETERMINATE = new Outcome(Fate.INDETERMINATE, 8);
@@ -101,7 +106,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a Maven BUILD SUCCESS log decides succeeded")
     void mavenSuccess() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, maven()), """
+        var parse = uncut(job(JobId.Kind.BUILD, maven()), """
                 [INFO] BUILD SUCCESS
                 [INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0
                 """);
@@ -116,7 +121,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a warning beside a green build contradicts nothing")
     void warningBesideAGreenBuild() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, maven()), """
+        var parse = uncut(job(JobId.Kind.BUILD, maven()), """
                 [WARNING] /p/%s.java:[%d,1] deprecated API
                 [INFO] BUILD SUCCESS
                 """.formatted(Generators.letterStrings(1, 16).next(), Generators.integers(1, 9999).next()));
@@ -130,7 +135,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a Maven build with a parsed error decides failed")
     void mavenFailure() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, maven()), mavenError() + "\n[INFO] BUILD FAILURE\n");
+        var parse = uncut(job(JobId.Kind.BUILD, maven()), mavenError() + "\n[INFO] BUILD FAILURE\n");
 
         assertAll(
                 () -> assertEquals(1, parse.diagnostics(), "the compiler error was located"),
@@ -141,7 +146,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a Gradle BUILD SUCCESSFUL log decides succeeded")
     void gradleSuccess() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, "gradle:" + words().next()),
+        var parse = uncut(job(JobId.Kind.BUILD, "gradle:" + words().next()),
                 "BUILD SUCCESSFUL in " + Generators.integers(1, 999).next() + "s\n");
 
         assertEquals(SUCCEEDED, outcome(parse, 0), "a Gradle success log decides succeeded");
@@ -150,7 +155,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("an npm error log decides failed")
     void npmError() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                 npm ERR! code E404
                 npm ERR! 404 'missing' is not in this registry
                 """);
@@ -163,7 +168,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a TypeScript log decides failed")
     void typeScript() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                 src/a.ts(1,2): error TS2304: Cannot find name 'x'.
                 """);
 
@@ -175,7 +180,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("an ESLint log decides failed")
     void eslint() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                 /web/src/a.js
                   1:10  error  Unexpected var  no-var
 
@@ -190,7 +195,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("an ESLint summary alone is contradicting evidence")
     void eslintSummaryAlone() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                 /web/src/a.js
 
                 ✖ 1 problem (1 error, 0 warnings)
@@ -204,7 +209,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a Jest log decides failed")
     void jest() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                 FAIL src/a.test.ts
                   ● adds two numbers
                     expect(received).toBe(expected)
@@ -222,7 +227,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a TAP log decides failed")
     void tap() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                 TAP version 13
                 1..1
                 not ok 1 - adds
@@ -242,11 +247,11 @@ class BuildOutputParserTest {
     @DisplayName("a pyproject failure decides failed and a passed summary decides succeeded")
     void pyproject() {
         var budgetKey = "pyproject:" + words().next();
-        var failure = PARSER.parse(job(JobId.Kind.BUILD, budgetKey), """
+        var failure = uncut(job(JobId.Kind.BUILD, budgetKey), """
                 FAILED tests/test_a.py::test_x - AssertionError: x
                 1 failed in 0.10s
                 """);
-        var success = PARSER.parse(job(JobId.Kind.BUILD, budgetKey), "===== 1 passed in 0.10s =====\n");
+        var success = uncut(job(JobId.Kind.BUILD, budgetKey), "===== 1 passed in 0.10s =====\n");
 
         assertAll(
                 () -> assertEquals(FAILED, outcome(failure, failures().next()), "a pytest failure decides failed"),
@@ -257,7 +262,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a passing Jest run decides succeeded")
     void jestPassingRun() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                 PASS src/a.test.ts
                 Tests:       5 passed, 5 total
                 """);
@@ -270,7 +275,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a passing TAP run decides succeeded")
     void tapPassingRun() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                 TAP version 13
                 1..5
                 ok 1 - a
@@ -291,7 +296,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a TAP bailout after a passing summary is no marker")
     void tapBailout() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                 TAP version 13
                 1..5
                 ok 1 - a
@@ -309,7 +314,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a failed Jest test suite is no marker")
     void jestFailedSuite() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                 PASS src/a.test.ts
                 Test Suites: 1 failed, 1 passed, 2 total
                 Tests:       3 passed, 3 total
@@ -323,7 +328,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("an unmeasured Jest summary stays indeterminate")
     void jestUnmeasuredSummary() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                 PASS src/a.test.ts
                 Tests:       7 total
                 """);
@@ -336,7 +341,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a measured TAP zero stays indeterminate")
     void tapZeroCount() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                 TAP version 13
                 1..0
                 # tests 0
@@ -353,7 +358,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("an all-skipped Jest run stays indeterminate")
     void jestAllSkipped() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                 PASS src/a.test.ts
                 Tests:       3 skipped, 3 total
                 """);
@@ -366,7 +371,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a zero count alone is not a success marker")
     void zeroCountIsNoMarker() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                 PASS src/a.test.ts
                 Tests:       0 total
                 """);
@@ -379,7 +384,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a success banner over an error is not a success")
     void successBannerOverAnError() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, maven()), mavenError() + "\n[INFO] BUILD SUCCESS\n");
+        var parse = uncut(job(JobId.Kind.BUILD, maven()), mavenError() + "\n[INFO] BUILD SUCCESS\n");
 
         assertAll(
                 () -> assertTrue(parse.successMarker(), "the success banner is present"),
@@ -393,7 +398,7 @@ class BuildOutputParserTest {
         // Changed deliberately: this log read as NOTHING before the install family's completion line
         // became its passing summary (PLAN-V2-127, D2).
         // Moved to the install verb: the completion line is a marker only for an install job (PLAN-V2-138, D5).
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:install"), "up to date, audited 5 packages\n");
+        var parse = uncut(job(JobId.Kind.BUILD, "npm:install"), "up to date, audited 5 packages\n");
 
         assertAll(
                 () -> assertTrue(parse.successMarker(), "the install completion line is the marker"),
@@ -403,7 +408,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a log no parser recognises still yields nothing")
     void opaqueLog() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "compiling something\n");
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), "compiling something\n");
 
         assertAll(
                 () -> assertEquals(ParseResult.NOTHING, parse, "an unrecognised log parses to nothing"),
@@ -415,7 +420,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("an npm error log in the current prefix decides failed")
     void npmErrorCurrentPrefix() {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+        var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                 npm error code E404
                 npm error 404  The requested resource 'missing@1' could not be found or you do not have permission to access it.
                 """);
@@ -437,8 +442,8 @@ class BuildOutputParserTest {
         var tscLog = "> " + words().next() + "@1.0.0 typecheck\n> tsc --noEmit\n\n";
         var eslintLog = "> " + words().next() + "@1.0.0 lint\n> eslint .\n\n";
 
-        var tscParse = PARSER.parse(job(JobId.Kind.BUILD, npm()), tscLog);
-        var eslintParse = PARSER.parse(job(JobId.Kind.BUILD, npm()), eslintLog);
+        var tscParse = uncut(job(JobId.Kind.BUILD, npm()), tscLog);
+        var eslintParse = uncut(job(JobId.Kind.BUILD, npm()), eslintLog);
 
         assertAll(
                 () -> assertFalse(TypeScriptOutputParser.parse(tscLog).successMarker(),
@@ -456,7 +461,7 @@ class BuildOutputParserTest {
     @ValueSource(strings = {"cargo", "make"})
     @DisplayName("a key of an unknown build system yields nothing")
     void unknownBuildSystem(String buildSystem) {
-        var parse = PARSER.parse(job(JobId.Kind.BUILD, buildSystem + ":" + words().next()), mavenError() + "\n");
+        var parse = uncut(job(JobId.Kind.BUILD, buildSystem + ":" + words().next()), mavenError() + "\n");
 
         assertEquals(ParseResult.NOTHING, parse, "an unknown build system parses to nothing");
     }
@@ -464,7 +469,7 @@ class BuildOutputParserTest {
     @Test
     @DisplayName("a job of another kind yields nothing")
     void otherKind() {
-        var parse = PARSER.parse(job(JobId.Kind.GIT, maven()), "BUILD SUCCESS\n");
+        var parse = uncut(job(JobId.Kind.GIT, maven()), "BUILD SUCCESS\n");
 
         assertEquals(ParseResult.NOTHING, parse, "a git job parses to nothing");
     }
@@ -492,7 +497,7 @@ class BuildOutputParserTest {
         @Test
         @DisplayName("select the TypeScript scanner from the TS code before the npm error parser")
         void typeScriptBeforeNpmErrors() {
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+            var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                     npm ERR! code ELIFECYCLE
                     npm ERR! code ENOENT
                     src/a.ts(1,2): error TS2304: Cannot find name 'x'.
@@ -506,7 +511,7 @@ class BuildOutputParserTest {
         @Test
         @DisplayName("select the npm parser from a colour-coded log")
         void colourCodedNpmErrors() {
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+            var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                     \u001B[31mnpm ERR!\u001B[39m code E404
                     \u001B[31mnpm ERR!\u001B[39m 404 'missing' is not in this registry
                     """);
@@ -528,7 +533,7 @@ class BuildOutputParserTest {
         @Test
         @DisplayName("is no marker for an unscanned runner after npm ci under a non-install verb")
         void nonInstallVerbGivesNoMarker() {
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:module-tests"), """
+            var parse = uncut(job(JobId.Kind.BUILD, "npm:module-tests"), """
                     added 12 packages, and audited 13 packages in 2s
 
                       3 passing (12ms)
@@ -542,7 +547,7 @@ class BuildOutputParserTest {
         @Test
         @DisplayName("is the marker under the install verb")
         void installVerbGivesMarker() {
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:install"), "added 12 packages in 2s\n");
+            var parse = uncut(job(JobId.Kind.BUILD, "npm:install"), "added 12 packages in 2s\n");
 
             assertAll(
                     () -> assertTrue(parse.successMarker(), "the install line is the marker of an install"),
@@ -552,7 +557,7 @@ class BuildOutputParserTest {
         @Test
         @DisplayName("is the marker under the clean-install verb with a module")
         void cleanInstallVerbGivesMarker() {
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, "npm:clean-install@" + words().next()),
+            var parse = uncut(job(JobId.Kind.BUILD, "npm:clean-install@" + words().next()),
                     "added 12 packages in 2s\n");
 
             assertAll(
@@ -563,7 +568,7 @@ class BuildOutputParserTest {
         @Test
         @DisplayName("keeps the npm error diagnostics under a non-install verb")
         void nonInstallVerbKeepsDiagnostics() {
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+            var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                     npm error code E404
                     npm error 404  'missing@1' is not in this registry.
                     """);
@@ -594,7 +599,7 @@ class BuildOutputParserTest {
         @Test
         @DisplayName("an ESLint row after a million blank lines still selects ESLint")
         void eslintRowAfterABlankRun() {
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "/web/src/a.js" + BLANK_RUN + ESLINT_ROW + "\n");
+            var parse = uncut(job(JobId.Kind.BUILD, npm()), "/web/src/a.js" + BLANK_RUN + ESLINT_ROW + "\n");
 
             assertAll(
                     () -> assertEquals(1, parse.diagnostics(), "the row after the blank run is filed"),
@@ -604,7 +609,7 @@ class BuildOutputParserTest {
         @Test
         @DisplayName("a Jest summary after a million blank lines still selects Jest")
         void jestSummaryAfterABlankRun() {
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), BLANK_RUN + "Tests:       5 passed, 5 total\n");
+            var parse = uncut(job(JobId.Kind.BUILD, npm()), BLANK_RUN + "Tests:       5 passed, 5 total\n");
 
             assertAll(
                     () -> assertTrue(parse.successMarker(), "the summary after the blank run is the marker"),
@@ -614,7 +619,7 @@ class BuildOutputParserTest {
         @Test
         @DisplayName("a million blank lines before an opaque line yield nothing")
         void blankRunBeforeAnOpaqueLine() {
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), BLANK_RUN + "compiling something\n");
+            var parse = uncut(job(JobId.Kind.BUILD, npm()), BLANK_RUN + "compiling something\n");
 
             assertEquals(ParseResult.NOTHING, parse, "no marker crosses the blank run");
         }
@@ -622,7 +627,7 @@ class BuildOutputParserTest {
         @Test
         @DisplayName("a row led by a form feed after a blank line is no ESLint row")
         void formFeedLeadsNoRow() {
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "/web/src/a.js\n\n\f" + ESLINT_ROW.strip() + "\n");
+            var parse = uncut(job(JobId.Kind.BUILD, npm()), "/web/src/a.js\n\n\f" + ESLINT_ROW.strip() + "\n");
 
             assertEquals(ParseResult.NOTHING, parse, "only horizontal space leads an ESLint row");
         }
@@ -632,7 +637,7 @@ class BuildOutputParserTest {
         void eslintRowAtTheLimit() {
             var row = " ".repeat(BuildLogText.MAX_LINE_LENGTH - ESLINT_ROW.length()) + ESLINT_ROW;
 
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "/web/src/a.js\n" + row + "\n");
+            var parse = uncut(job(JobId.Kind.BUILD, npm()), "/web/src/a.js\n" + row + "\n");
 
             assertEquals(1, parse.diagnostics(), "a row at the limit is dispatched and filed");
         }
@@ -643,7 +648,7 @@ class BuildOutputParserTest {
             var line = " ".repeat(BuildLogText.MAX_LINE_LENGTH * 32)
                     + "src/a.ts(1,2): error TS2304: Cannot find name 'x'.";
 
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), line + "\n");
+            var parse = uncut(job(JobId.Kind.BUILD, npm()), line + "\n");
 
             assertEquals(ParseResult.NOTHING, parse, "a marker behind the cut selects no parser");
         }
@@ -670,7 +675,7 @@ class BuildOutputParserTest {
         @Test
         @DisplayName("a PASS line before an npm error block selects the npm error parser, not Jest")
         void passBeforeNpmErrorSelectsNpm() {
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), "PASS\n" + NPM_E404);
+            var parse = uncut(job(JobId.Kind.BUILD, npm()), "PASS\n" + NPM_E404);
 
             assertAll(
                     () -> assertEquals(1, parse.diagnostics(), "the E404 block is filed by the npm parser"),
@@ -680,7 +685,7 @@ class BuildOutputParserTest {
         @Test
         @DisplayName("an ESLint position that ends its line selects no ESLint scan")
         void eslintPositionAtTheLineEnd() {
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+            var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                     /web/src/a.js
                       1:10
                     error  Unexpected var  no-var
@@ -694,7 +699,7 @@ class BuildOutputParserTest {
         @Test
         @DisplayName("an ESLint summary mark that ends its line selects no ESLint scan")
         void eslintSummaryMarkAtTheLineEnd() {
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+            var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                     /web/src/a.js
                     ✖
                     1 problem (1 error, 0 warnings)
@@ -708,7 +713,7 @@ class BuildOutputParserTest {
         @Test
         @DisplayName("a Tests: label that ends its line selects no Jest scan")
         void jestTestsLabelAtTheLineEnd() {
-            var parse = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+            var parse = uncut(job(JobId.Kind.BUILD, npm()), """
                     Tests:
                     5 passed, 5 total
                     """ + NPM_E404);

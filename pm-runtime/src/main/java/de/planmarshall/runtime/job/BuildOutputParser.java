@@ -103,17 +103,6 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
     private static final String CLEAN_INSTALL_VERB = "clean-install";
 
     /**
-     * Parses the log of an ended job.
-     *
-     * @param job    the job record, whose kind and budget key select the parser
-     * @param output the job's output after its launch report
-     * @return what the selected parser found, or {@link JobEvidence.ParseResult#NOTHING}
-     */
-    public JobEvidence.ParseResult parse(JobRecord job, String output) {
-        return parse(job, output, false);
-    }
-
-    /**
      * Parses the log of an ended job whose read may have cut it.
      * <p>
      * The cut fact reaches the Maven parser alone, because it is the one parser of the dispatch that reports a figure

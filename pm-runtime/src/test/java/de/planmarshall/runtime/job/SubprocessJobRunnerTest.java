@@ -36,9 +36,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
@@ -2018,6 +2020,32 @@ class SubprocessJobRunnerTest {
                     fixture.request(fixture.root.toString(), target), null));
             return assertInstanceOf(JobRunner.StartResult.Started.class, result,
                     "the build job of the budget key starts").jobId();
+        }
+
+        @Test
+        @DisplayName("the parser is told that the job log over the cap was cut")
+        void parserReceivesTheCutFact() throws Exception {
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+            var overCap = fixture.base.resolve("over-cap-output");
+            try (var channel = Files.newByteChannel(overCap, StandardOpenOption.CREATE,
+                    StandardOpenOption.WRITE)) {
+                channel.position(JobLog.MAX_BYTES + 1L);
+                channel.write(ByteBuffer.wrap(new byte[] {'x'}));
+            }
+            Files.writeString(fixture.tools.get(HostToolName.GIT),
+                    "#!/bin/sh\nexec " + FakePmExec.tool("cat") + " " + overCap + "\n");
+            fixture.enrol();
+            var seenCut = new AtomicBoolean();
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), environment(),
+                    (job, output, cut) -> {
+                        seenCut.set(cut);
+                        return SUCCESS;
+                    }, request -> Optional.empty(), null);
+
+            var jobId = started(runner.start(git(30, "ok")));
+            settled(jobId);
+
+            assertTrue(seenCut.get(), "the parser is told the job log was cut");
         }
 
         @Test

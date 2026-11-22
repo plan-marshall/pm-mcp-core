@@ -137,9 +137,9 @@ public record JobLog(Path path) {
 
         /**
          * Whether the read cut the log: the log was longer than {@link JobLog#MAX_BYTES}, so {@link #reading()} holds
-         * its first line and its tail alone. The parser that reads the output of a build job receives this fact, because
-         * a figure the lost middle can falsify — the test count — is no measurement of the run (ADR
-         * {@code core-build/011}).
+         * its first line — when that line ends inside the head the read keeps — and its tail. The parser that reads the
+         * output of a build job receives this fact, because a figure the lost middle can falsify — the test count — is
+         * no measurement of the run (ADR {@code core-build/011}).
          *
          * @return true when the log was cut
          */
@@ -286,15 +286,11 @@ public record JobLog(Path path) {
      * line; {@link #read()} is what the reads returned.
      */
     private record Segment(byte[] bytes, long read, long expected) {
-
-        boolean complete() {
-            return read == expected;
-        }
     }
 
     private Unavailable shortRead(Window window) {
-        return new Unavailable(LogState.TRUNCATED, "the job log %s returned %d of %d bytes".formatted(path,
-                window.read(), window.expected()));
+        return new Unavailable(LogState.TRUNCATED, "the job log %s returned %d of the %d bytes it asked for"
+                .formatted(path, window.read(), window.expected()));
     }
 
     private static Window whole(FileChannel channel, long size) throws IOException {

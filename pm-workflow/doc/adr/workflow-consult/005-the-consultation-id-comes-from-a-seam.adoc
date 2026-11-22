@@ -26,7 +26,8 @@ The accepted-submit half of regression scenario 14 therefore ran as a direct `va
   The one-argument constructor keeps `QueueTaskId::random`, so production draws its ids as before.
 * A drawn id the queue already holds is skipped and the next one is drawn, as for the random source. The check runs in
   the same transaction that records the consultation, and counts a consultation id any asking task records as taken
-  whether or not its consultation task exists yet, so two opens that draw the same id cannot both record it. After
+  whether or not its consultation task exists yet, so two opens that draw the same id cannot both record it; the draw
+  therefore runs under the queue lock. After
   `ConsultationService.MAX_ID_DRAWS` (`64`) taken draws in a row the open is refused `consultation_ids_exhausted`
   instead of spinning: a seam that cannot yield a free id is a stuck source, not a reason to loop (PLAN-V2-170).
 * The scenario replay harness passes a counter of its fixtures that hands out `qt-c000000000000001`,

@@ -152,7 +152,8 @@ class ConsultationServiceTest {
                 ConsultationFixtures.ASKING_GENERATION, ConsultationFixtures.AT, ConsultationStatus.OPEN,
                 null, null, null, null);
         queue.create(ConsultationFixtures.executing(orphanAskerId, ConsultationFixtures.ASKER_ROLE,
-                ConsultationFixtures.ASKING_GENERATION).withConsultations(List.of(orphan)));
+                ConsultationFixtures.ASKING_GENERATION).withStatus(Status.CONSULTING)
+                .withConsultations(List.of(orphan)));
         // the seam hands out the recorded id twice before it offers a free one
         var draws = new AtomicInteger();
         var seam = new ConsultationService(queue,

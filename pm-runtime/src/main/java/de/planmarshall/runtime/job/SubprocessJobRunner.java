@@ -472,8 +472,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         /**
          * @param job       the record of the ended job, whose kind and budget key select the parser
          * @param output    the job's output, the job log after its launch report
-         * @param outputCut whether the log was longer than {@link JobLog#MAX_BYTES}, so the output is its first line and
-         *                  its tail alone
+         * @param outputCut whether the log was longer than {@code JobLog.MAX_BYTES}, so the output is its tail and, when
+         *                  its first line ends inside the head, that line too
          * @return what the parser found
          */
         ParseResult parse(JobRecord job, String output, boolean outputCut);

@@ -223,9 +223,11 @@ public class MavenOutputParser {
         var scan = new CountScan();
         lines.forEach(scan::accept);
         List<Diagnostic> diagnostics = StackTraceCollector.attach(lines, extractDiagnostics(lines));
-        long visibleFailures = scan.visibleFailures(cut);
-        if (cut && visibleFailures > 0 && !filesFailingCount(diagnostics)) {
-            diagnostics = withVisibleFailures(diagnostics, visibleFailures);
+        if (cut) {
+            long unfiledFailures = scan.unfiledFailures();
+            if (unfiledFailures > 0) {
+                diagnostics = withVisibleFailures(diagnostics, unfiledFailures);
+            }
         }
         TestCounts testCounts = scan.result(bounded, cut).orElse(null);
         BuildStatus status = detectStatus(bounded);
@@ -236,26 +238,11 @@ public class MavenOutputParser {
     }
 
     /**
-     * Whether a filed error diagnostic is already the log's own failing {@code Tests run:} line: such a line printed at
-     * error level is filed as a {@link Category#TEST_FAILURE} diagnostic, so a cut log must not file the same count a
-     * second time as the synthetic finding. A failing count line printed at warning level is no contradiction by itself
-     * and stays outside this check.
-     *
-     * @param diagnostics the diagnostics the log filed
-     * @return true when an error diagnostic carries a failing test-count line
-     */
-    private static boolean filesFailingCount(List<Diagnostic> diagnostics) {
-        return diagnostics.stream().anyMatch(diagnostic -> diagnostic.severity() == Severity.ERROR
-                && diagnostic.category() == Category.TEST_FAILURE
-                && TESTS_RUN.matcher(diagnostic.message()).find());
-    }
-
-    /**
      * Adds the one finding a cut log keeps from a tail that reports failing tests: the total is no measurement, but the
      * visible failing count is evidence a consumer must still see (ADR {@code core-build/011}).
      *
      * @param diagnostics the diagnostics the log filed
-     * @param failures    the failing tests the counted blocks report
+     * @param failures    the failing tests the counted blocks report and no filed diagnostic carries yet
      * @return the diagnostics with the visible failing count filed as an error
      */
     private static List<Diagnostic> withVisibleFailures(List<Diagnostic> diagnostics, long failures) {
@@ -336,11 +323,11 @@ public class MavenOutputParser {
      */
     private static final class CountScan {
 
-        private final List<long[]> summaryLines = new ArrayList<>();
+        private final List<Counts> summaryLines = new ArrayList<>();
 
-        private final List<long[]> ambiguousLines = new ArrayList<>();
+        private final List<Counts> ambiguousLines = new ArrayList<>();
 
-        private final List<long[]> perClassLines = new ArrayList<>();
+        private final List<Counts> perClassLines = new ArrayList<>();
 
         private final Map<String, Long> runnerExecuted = new LinkedHashMap<>();
 
@@ -349,6 +336,18 @@ public class MavenOutputParser {
         private boolean resultsSeen;
 
         private boolean unrepresentable;
+
+        /**
+         * The counts of one {@code Tests run:} line.
+         *
+         * @param total      the collected tests
+         * @param failed     the failed tests ({@code Failures} plus {@code Errors})
+         * @param skipped    the skipped tests
+         * @param errorLevel whether the line carries {@code [ERROR]}, so the diagnostic collector files it as a diagnostic
+         *                   and the cut tail must not file its count again
+         */
+        private record Counts(long total, long failed, long skipped, boolean errorLevel) {
+        }
 
         void accept(String line) {
             var runner = executionHeaderRunner(line);
@@ -373,7 +372,7 @@ public class MavenOutputParser {
             if (skipped > total) {
                 unrepresentable = true;
             }
-            long[] counts = {total, failed, skipped};
+            var counts = new Counts(total, failed, skipped, line.contains(ERROR_MARKER));
             if (line.contains(TIME_ELAPSED)) {
                 perClassLines.add(counts);
             } else if (resultsSeen) {
@@ -400,21 +399,34 @@ public class MavenOutputParser {
         }
 
         /**
-         * The failing tests the counted blocks report, 0 when no block was counted.
+         * The failing tests of a cut tail that no filed diagnostic already reports, 0 when there is none.
          * <p>
          * A cut log's tail may hold summary lines whose {@code Results:} marker is in the lost head; they are filed as
          * ambiguous by the scan, and for a cut log they count here too, so a failure the tail shows is never reported as
-         * a passing run (ADR {@code core-build/011}).
+         * a passing run (ADR {@code core-build/011}). The blocks follow the precedence {@link #result} uses: the summary
+         * blocks are the figure when the tail holds one, else an ambiguous summary line is that figure because its
+         * marker was cut, and only without both is a per-class line the figure. A per-class line and a summary line of
+         * the same run are never added together, so a tail that holds both reports its failing tests once. An
+         * {@code [ERROR]} count line is already filed as a diagnostic by the collector, so its failures are not filed a
+         * second time as the synthetic finding; the line's own finding is the evidence.
          *
-         * @param cut whether the text is the tail alone of a log the read cut
-         * @return the failing tests the counted blocks report, 0 when no block was counted
+         * @return the failing tests of the tail that are not yet a filed diagnostic
          */
-        long visibleFailures(boolean cut) {
-            long failures = (summaryLines.isEmpty() ? perClassLines : summaryLines).stream()
-                    .mapToLong(counts -> counts[1]).sum();
-            return cut
-                    ? failures + ambiguousLines.stream().mapToLong(counts -> counts[1]).sum()
-                    : failures;
+        long unfiledFailures() {
+            if (!summaryLines.isEmpty()) {
+                return failuresOf(summaryLines) - failuresOf(filed(summaryLines))
+                        + failuresOf(ambiguousLines) - failuresOf(filed(ambiguousLines));
+            }
+            var counted = ambiguousLines.isEmpty() ? perClassLines : ambiguousLines;
+            return failuresOf(counted) - failuresOf(filed(counted));
+        }
+
+        private static long failuresOf(List<Counts> lines) {
+            return lines.stream().mapToLong(Counts::failed).sum();
+        }
+
+        private static List<Counts> filed(List<Counts> lines) {
+            return lines.stream().filter(Counts::errorLevel).toList();
         }
 
         Optional<TestCounts> result(String logText, boolean cut) {
@@ -429,10 +441,10 @@ public class MavenOutputParser {
             if (unmeasured) {
                 return Optional.of(TestCounts.unmeasured());
             }
-            List<long[]> counted = summaryLines.isEmpty() ? perClassLines : summaryLines;
-            long total = counted.stream().mapToLong(counts -> counts[0]).sum();
-            long failed = counted.stream().mapToLong(counts -> counts[1]).sum();
-            long skipped = counted.stream().mapToLong(counts -> counts[2]).sum();
+            List<Counts> counted = summaryLines.isEmpty() ? perClassLines : summaryLines;
+            long total = counted.stream().mapToLong(Counts::total).sum();
+            long failed = counted.stream().mapToLong(Counts::failed).sum();
+            long skipped = counted.stream().mapToLong(Counts::skipped).sum();
             Optional<Map<String, Integer>> byRunner = runnerExecuted.isEmpty()
                     || logText.contains(PARALLEL_BUILD_BANNER)
                     ? Optional.empty()
