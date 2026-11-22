@@ -36,12 +36,13 @@ import de.planmarshall.core.store.SourceManifest.SourceFile;
  * <p>
  * The move is the store-level part of {@code start.create-scope}: the unit calls {@link #move} between its own writes
  * of the new scope, commits the new scope's transaction first and the workspace's second, and then calls
- * {@link #finish}, which deletes the entry's directory. A stop before the second commit leaves the entry's stores in
- * place; the new scope already exists then, so a repeated move is refused — the entry's record is gone, and a second
- * move of a consumed entry moves nothing twice — and the operator ends the entry by abandoning it, which deletes its
- * directory. A stop between the second commit and {@link #finish} leaves a directory the sweep removes by the evidence
- * of its absent record. The directories of the new scope ({@code sources/}, {@code chat/} and the parents of the stored
- * files) are created before the stores are staged, because a transaction writes stores and never directories.
+ * {@link #finish}, which deletes the entry's directory. Two crash windows follow. A stop after the new scope's commit
+ * and before the workspace's leaves the entry's record in place; the new scope already holds the stores, so a repeated
+ * move is refused by their create targets and the operator ends the entry by abandoning it. A stop after both commits
+ * and before {@link #finish} leaves the record gone and the directory behind, which the sweep removes by the evidence
+ * of the absent record; a second move then refuses as an entry that does not exist. The directories of the new scope
+ * ({@code sources/}, {@code chat/} and the parents of the stored files) are created before the stores are staged,
+ * because a transaction writes stores and never directories.
  * <p>
  * The sources are copied, never moved file by file: every file is verified against the size and SHA-256 of the
  * manifest before it is written, a file that differs is refused, and the entry's directory goes whole in
@@ -122,7 +123,8 @@ public final class PendingEntryCreation {
      *
      * @param entryId the entry
      * @return whether the directory existed
-     * @throws UncheckedIOException if the directory or a file in it cannot be removed
+     * @throws IllegalStateException if the entry's record still exists; its stores must be deleted first
+     * @throws UncheckedIOException  if the directory or a file in it cannot be removed
      */
     public boolean finish(EntryId entryId) {
         return entries.discard(entryId);
@@ -240,7 +242,7 @@ public final class PendingEntryCreation {
      * method creates them.
      */
     private static void put(ScopeTransaction target, String relativePath, byte[] content) {
-        var store = target.scope().resolve(relativePath);
+        var store = target.scope().resolveWithoutLinks(relativePath);
         try {
             Files.createDirectories(store.getParent());
         } catch (IOException e) {

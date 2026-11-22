@@ -212,6 +212,28 @@ class PendingEntryCreationTest {
                 "nothing should be written into the new scope");
     }
 
+    /** Runs the move and commits the new scope only: the crash window between the two commits. */
+    private void moveTargetOnly() {
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(workspace.lockKey());
+            transaction.acquire(plan.lockKey());
+            var workspaceWrite = ScopeTransaction.open(transaction, workspace, audit, clock);
+            var target = ScopeTransaction.open(transaction, plan, audit, clock);
+            creation.move(workspaceWrite, target, entryId);
+            target.commit();
+        }
+    }
+
+    @Test
+    @DisplayName("a creation cut after the new scope's commit is refused on a retry, never carried twice")
+    void refusesARetryAfterTheTargetCommitted() throws IOException {
+        prepareEntry();
+        moveTargetOnly();
+
+        assertThrows(IllegalStateException.class, this::move,
+                "the target stores refuse a repeated move");
+    }
+
     @Test
     @DisplayName("an entry that does not exist is refused, never moved as an empty one")
     void refusesAnAbsentEntry() {

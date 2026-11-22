@@ -58,8 +58,9 @@ entries and the project's setup.
 
 * A reader of the entry reads `pending/<entry_id>/entry.json`; `PendingEntryReader` keeps its shape, and
   `PendingEntryDirectoryReader` of `pm-runtime` implements it.
-* A stop between the two commits of the creation leaves the entry in place; the new scope exists, so a second move
-  moves nothing twice (the entry is consumed) and the operator ends the entry by abandoning it.
+* A stop between the two commits of the creation leaves the entry's record in place and the new scope holding its
+  stores, so a repeated move is refused by the create targets; the operator ends that entry by abandoning it. A stop
+  after both commits leaves the record gone and the directory behind, which the sweep removes.
 * A stop after both commits and before the directory is deleted leaves a directory without a record; the periodic
   sweep removes it by that evidence and never by the entry's age, so an open entry never expires.
 * `grants.jsonl` of the layout belongs to the package `access-grants` and is not created here.

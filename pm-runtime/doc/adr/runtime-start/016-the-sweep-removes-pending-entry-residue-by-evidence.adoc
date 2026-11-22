@@ -54,8 +54,8 @@ record's absence is the durable evidence, and the directory is the last act.
 * A tampered entry is never cleaned away: the step reports it and keeps it until the operator accepts the edit or
   abandons the entry.
 * A creation cut between the new scope's commit and the workspace's is not recovered by this step: the record still
-  exists, and the new scope does not carry the entry id, so no evidence can derive it. The new scope exists, so a
-  second move moves nothing twice, and the operator ends that entry by abandoning it.
+  exists, and the new scope does not carry the entry id, so no evidence can derive it. The new scope holds the stores,
+  so a repeated move is refused by their create targets, and the operator ends that entry by abandoning it.
 
 == Source
 

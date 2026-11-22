@@ -270,6 +270,24 @@ class PendingEntryRecordsSweepTest {
     }
 
     @Test
+    @DisplayName("a candidate whose record appeared under the lock is kept, and so is one that cannot be read")
+    void stillResidueRejudges() throws Exception {
+        create(entry(openEntry, now));
+        cutOffRemoval(residue);
+        var broken = entryId();
+        Files.createDirectories(store.directory(broken));
+        Files.writeString(store.store(broken), "{");
+
+        assertAll(
+                () -> assertTrue(PendingEntryRecordsSweep.stillResidue(store, residue),
+                        "a residue directory stays residue under the lock"),
+                () -> assertFalse(PendingEntryRecordsSweep.stillResidue(store, openEntry),
+                        "an open entry is never residue"),
+                () -> assertFalse(PendingEntryRecordsSweep.stillResidue(store, broken),
+                        "an unreadable record is kept"));
+    }
+
+    @Test
     @DisplayName("a record that states another entry_id than its directory is kept and reported, and the residue "
             + "is still removed")
     void mismatchingEntryIdKeptAsFailure() throws Exception {

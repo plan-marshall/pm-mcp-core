@@ -2515,8 +2515,10 @@ here.
 `QueueTaskCreator`:: Creates one queue task of a role for one entity of a `job llm` state; the result carries the
 `queue_task_id` of the grammar `^qt-[0-9a-f]{16}$`. A role that cannot take the task is not refused here: the queue
 closes such a task `lost`.
-`QuestionRecordReader`:: Reads a question record (`^Q-[0-9]{3,6}$`) of a scope. The read is tri-state: `Open`,
-`Resolved(outcome)`, or `Unreadable(reason)`; a record that cannot be read is never taken for an open one.
+`QuestionRecordReader`:: Reads a question record (`^Q-[0-9]{3,6}$`) of a scope: a plan, an epic, the workspace
+(`null`) or a pending entry, addressed by `ReadRequest(scopeId, questionId)` or typed by
+`ReadRequest.ofEntry(EntryId, questionId)`. The read is tri-state: `Open`, `Resolved(outcome)`, or
+`Unreadable(reason)`; a record that cannot be read is never taken for an open one.
 `WorkflowClock`:: The one source of every instant the engine writes (`updated_at`, `pushed_at`, `raised_at`, a job's
 `started_at`), so persisted state never depends on the engine's memory and tests drive time deterministically.
 `PendingEntryReader`:: Reads the pending entry `pending/<entry_id>/entry.json` of the project's workspace scope for a
@@ -2893,9 +2895,10 @@ its directory. Neither another entry nor the workspace workflow is affected.
 question log through `QuestionLog.moveEntryQuestions`, and composes `request.md` from the description texts and a
 reference to every other source; it creates the directories of the new scope first, because a transaction writes
 stores and not directories, and it refuses an entry that does not exist. The workspace transaction deletes the entry's
-record last; the caller commits the new scope first and the workspace second, so a stop leaves the entry in place (a
-second move of the consumed entry moves nothing twice, and the operator ends it by abandoning it), and
-`finish` deletes the entry's directory as the last act.
+record last; the caller commits the new scope first and the workspace second, so a stop before the workspace's commit
+leaves the record in place and a repeated move is refused by the create targets of the new scope's stores (the operator
+ends that entry by abandoning it), a stop after both commits leaves the record gone and the directory behind, the sweep
+removes that directory, and `finish` deletes the entry's directory as the last act.
 
 *Failure modes*: a record of another `format_version`, an unreadable record, or a record that states another
 `entry_id` than its directory is a `StoreRefusal` naming the file; a stored file whose size or digest differs from its

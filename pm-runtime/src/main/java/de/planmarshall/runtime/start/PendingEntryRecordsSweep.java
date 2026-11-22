@@ -16,6 +16,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -96,10 +97,13 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                     candidates.add(entryId);
                 }
             }
-            var removed = candidates.isEmpty() ? 0 : remove(workspace, store, candidates, at);
-            var report = "removed " + removed + " pending entry directories";
+            var removal = candidates.isEmpty() ? new Removal(0, null) : remove(workspace, store, candidates, at);
+            var report = "removed " + removal.removed() + " pending entry directories";
             if (!unreadable.isEmpty()) {
                 return new RecoveryStep.Outcome.Failed(report + "; kept unreadable entries " + unreadable);
+            }
+            if (removal.failure() != null) {
+                return new RecoveryStep.Outcome.Failed(report + "; " + removal.failure());
             }
             return new RecoveryStep.Outcome.Done(report);
         } catch (UncheckedIOException | IllegalStateException | InternalFaultException e) {
@@ -112,9 +116,9 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      * re-judged under the workspace lock before it is removed, so an entry opened between the listing and the lock is
      * kept: its record is applied by the creator's transaction before the sweep takes the lock.
      *
-     * @return the number of removed directories
+     * @return what the removal did, and why its directories are still there when they are
      */
-    private int remove(JournalScope workspace, PendingEntryStore store, List<EntryId> candidates, Instant at) {
+    private Removal remove(JournalScope workspace, PendingEntryStore store, List<EntryId> candidates, Instant at) {
         try (var lock = lockManager.openTransaction()) {
             lock.acquire(workspace.lockKey());
             var transaction = ScopeTransaction.open(lock, workspace, auditSink, clock);
@@ -129,7 +133,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                 removed.add(entryId);
             }
             if (removed.isEmpty()) {
-                return 0;
+                return new Removal(0, null);
             }
             transaction.commit();
             var discarded = new ArrayList<String>();
@@ -140,12 +144,18 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                     discarded.add(entryId.value() + " (" + e.getMessage() + ")");
                 }
             }
-            if (!discarded.isEmpty()) {
-                throw new IllegalStateException("the entry's stores are removed but the directories are not: "
-                        + discarded);
-            }
-            return removed.size();
+            return new Removal(removed.size(), discarded.isEmpty() ? null
+                    : "the entry's stores are removed but the directories are not: " + discarded);
         }
+    }
+
+    /**
+     * What one run removed, and the reason its directories remain when the discard failed after the commit.
+     *
+     * @param removed the number of removed directories
+     * @param failure the failure of the discard, or {@code null}
+     */
+    private record Removal(int removed, @Nullable String failure) {
     }
 
     /**
@@ -154,7 +164,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      *
      * @return whether the directory is still residue
      */
-    private static boolean stillResidue(PendingEntryStore store, EntryId entryId) {
+    static boolean stillResidue(PendingEntryStore store, EntryId entryId) {
         try {
             return store.read(entryId).isEmpty();
         } catch (StoreRefusal | UncheckedIOException _) {
