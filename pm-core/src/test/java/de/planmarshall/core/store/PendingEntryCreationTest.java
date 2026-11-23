@@ -434,25 +434,26 @@ class PendingEntryCreationTest {
 
     @Test
     @EnabledOnOs({OS.LINUX, OS.MAC})
-    @DisplayName("a special file the manifest names refuses the move, never opened as a source")
+    @DisplayName("a special file the manifest names is refused by the source read, never opened")
     void refusesASpecialFileTheManifestNames() throws Exception {
-        prepareEntry();
-        // Fixture path: the stored file name prepareEntry's manifest names
-        var socket = store.sourcesDirectory(entryId).resolve("description-1.md");
-        Files.delete(socket);
+        var content = Generators.letterStrings(5, 20).next().getBytes(UTF_8);
+        // Fixture path: a short name, because a Unix-domain socket address must fit the platform's path limit
+        var socket = base.resolve("s.md");
+        var stored = new SourceFile("s.md", content.length, StoreDigest.of(content).sha256());
+        var manifest = new SourceManifest(1, List.of(new Source(sourceIdFor("special"), SourceManifest.Kind.DESCRIPTION,
+                "ref", "operator", Trust.TRUSTED, List.of(stored), at, null, null)));
         try (var channel = ServerSocketChannel.open(StandardProtocolFamily.UNIX)) {
             channel.bind(UnixDomainSocketAddress.of(socket));
 
-            var refusal = assertThrows(StoreRefusal.class, this::move,
-                    "a special file the manifest names should refuse the move");
+            var refusal = assertThrows(StoreRefusal.class,
+                    () -> PendingEntryCreation.composeRequest(base, manifest),
+                    "a special file the manifest names should refuse the read");
 
             assertAll(
-                    () -> assertTrue(refusal.getMessage().contains("description-1.md"),
+                    () -> assertTrue(refusal.getMessage().contains("s.md"),
                             "the refusal should name the special file"),
                     () -> assertTrue(refusal.getMessage().contains("no regular file"),
-                            "the refusal should say the file is no regular file"),
-                    () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
-                            "nothing should be written into the new scope"));
+                            "the refusal should say the file is no regular file"));
         }
     }
 
