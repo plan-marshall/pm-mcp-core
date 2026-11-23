@@ -2,10 +2,10 @@
   "id": "PLAN-V2-176",
   "slug": "commit-unit-remainder",
   "workstream": "WS-01",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-176-commit-unit-remainder",
+  "pr": "#586",
+  "landing": "landings/PLAN-V2-176.md",
   "seq": 164
 }
