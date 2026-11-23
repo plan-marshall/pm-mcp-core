@@ -290,7 +290,7 @@ class ProcessTreeTrackerTest {
             assertAll(
                     () -> assertTrue(imported.contain(ProcessTreeTracker.class), "the import holds the tracker"),
                     () -> assertFalse(sent.hasViolation(),
-                            "neither the tracker nor a declared nested type signals numerically"));
+                            "no declared type of the tracker signals numerically"));
         }
 
         /**
