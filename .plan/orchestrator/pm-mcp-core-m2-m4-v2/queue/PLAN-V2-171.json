@@ -2,10 +2,10 @@
   "id": "PLAN-V2-171",
   "slug": "pending-entry-residue-closeout",
   "workstream": "WS-03",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-171-pending-entry-residue-closeout",
+  "pr": "#572",
+  "landing": "landings/PLAN-V2-171.md",
   "seq": 159
 }
