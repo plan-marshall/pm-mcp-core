@@ -215,12 +215,10 @@ class PendingEntryRecordsSweepTest {
 
         var removals = auditEvents.getValues().subList(before, auditEvents.getValues().size());
         var transactionIds = removals.stream().map(removal -> removal.details().get("transaction_id")).toList();
-        var done = assertInstanceOf(Outcome.Done.class, outcome, "the step must report the two removals");
+        var expected = List.of(residue.value(), second.value()).stream().sorted().toList();
         assertAll(
-                () -> assertTrue(done.report().startsWith("removed 2 pending entry directories: ["),
+                () -> assertEquals(new Outcome.Done("removed 2 pending entry directories: " + expected), outcome,
                         "the step must count and name the two removed directories"),
-                () -> assertTrue(done.report().contains(residue.value()), "the report must name the first directory"),
-                () -> assertTrue(done.report().contains(second.value()), "the report must name the second directory"),
                 () -> assertEquals(List.of(PENDING_ENTRY_REMOVED, PENDING_ENTRY_REMOVED),
                         removals.stream().map(AuditEvent::event).toList(), "two removal records must be owed"),
                 () -> assertEquals(2, transactionIds.size(), "each removal record carries a transaction id"),

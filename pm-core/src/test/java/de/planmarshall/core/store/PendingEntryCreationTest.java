@@ -412,6 +412,7 @@ class PendingEntryCreationTest {
     void refusesAPathBelowALinkedParentInTheComposition() throws Exception {
         var parent = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
         var content = Generators.letterStrings(5, 20).next().getBytes(UTF_8);
+        // Fixture path: the stored file name the manifest names below the linked directory
         var stored = new SourceFile(parent + "/description.md", content.length, StoreDigest.of(content).sha256());
         var manifest = new SourceManifest(1, List.of(new Source(sourceIdFor("parent"), SourceManifest.Kind.DESCRIPTION,
                 "ref", "operator", Trust.TRUSTED, List.of(stored), at, null, null)));
@@ -436,6 +437,7 @@ class PendingEntryCreationTest {
     @DisplayName("a special file the manifest names refuses the move, never opened as a source")
     void refusesASpecialFileTheManifestNames() throws Exception {
         prepareEntry();
+        // Fixture path: the stored file name prepareEntry's manifest names
         var socket = store.sourcesDirectory(entryId).resolve("description-1.md");
         Files.delete(socket);
         try (var channel = ServerSocketChannel.open(StandardProtocolFamily.UNIX)) {

@@ -292,9 +292,9 @@ public final class PendingEntryCreation {
 
     /**
      * Copies the regular files of the entry's transcript into the target's {@code chat/}, in name order. The transcript
-     * is carried as whole as the source directory: a transcript that is a symbolic link or no directory, and a link or
-     * a special file inside it, refuse the move instead of being dropped while {@link #finish} deletes the directory
-     * with it.
+     * is refused as a whole, as a source directory's files are: a transcript that is a symbolic link or no directory,
+     * and a link or a special file inside it, refuse the move instead of being dropped while {@link #finish} deletes
+     * the directory with it.
      *
      * @throws StoreRefusal         if the transcript is a symbolic link or no directory, or holds one or a file that is
      *                              no regular file

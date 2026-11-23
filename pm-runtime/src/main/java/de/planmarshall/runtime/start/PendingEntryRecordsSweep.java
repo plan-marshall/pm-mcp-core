@@ -57,7 +57,8 @@ import de.planmarshall.core.store.StoreRefusal;
  * tampered ones and a directory whose discard was refused — in one report: an entry whose record cannot be read, whose
  * store path is refused, or whose directory the discard could not remove is named there, and the step's outcome is a
  * failure then, after the readable residue was removed. A fault of the removal itself is reported with the unreadable
- * entries collected before it, so one failure never drops another.
+ * entries collected before it, so that fault never drops them; an entry held earlier in the same run is not named then,
+ * and nothing was committed, so the next run re-judges it.
  *
  * @since 0.1
  */
