@@ -151,7 +151,7 @@ public final class GitStageAndCommitPrimitive
      * fail-closed direction.
      */
     private static final Pattern BRACKET_PATH =
-            Pattern.compile("(?:^|[\\s\"'(\\[{<=:>])[\\])}]/(?:[^\\s)\"'/]*/)+[^\\s)\"'/]*");
+            Pattern.compile("(?:^|[\\s\"'(\\[{<=:>])[\\])}]/[^\\s)\"'/]*/[^\\s)\"']*");
 
     /** The committer while no agent identity resolves. */
     static final Identity COMPILED_COMMITTER = new Identity("plan-marshall-mcp", "noreply@cuioss.de");
