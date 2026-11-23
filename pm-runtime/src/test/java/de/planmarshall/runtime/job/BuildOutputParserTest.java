@@ -106,7 +106,7 @@ class BuildOutputParserTest {
     }
 
     @Test
-    @DisplayName("the parse result carries the population of every parser the dispatcher selects")
+    @DisplayName("the parse result carries the population a cut Maven log and a Jest log derive")
     void parseResultCarriesThePopulation() {
         var cutMaven = PARSER.parse(job(JobId.Kind.BUILD, maven()), """
                 [INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0

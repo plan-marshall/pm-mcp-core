@@ -545,6 +545,32 @@ class BuildLogTextTest {
     }
 
     @Test
+    @DisplayName("a cut log counts one failure once when the same line stands on both sides of the marker")
+    void cutMavenLogCountsTheSameLineOnceAcrossTheMarker(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the read cut between one module's Results marker and its summary line; both print the same count line
+        var failingTail = """
+                [ERROR] Tests run: 2, Failures: 1, Errors: 0, Skipped: 0
+                [ERROR] Results:
+                [ERROR] Tests run: 2, Failures: 1, Errors: 0, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-across-the-marker.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertEquals(1, errorTestFailures(build),
+                        "the collector files the two lines as one error"),
+                () -> assertFalse(build.diagnostics().stream().anyMatch(diagnostic ->
+                                diagnostic.message().contains("the cut log's tail reports")),
+                        "the filed failure leaves no remainder"));
+    }
+
+    @Test
     @DisplayName("a whole Maven log reports its count as the whole run's")
     void wholeMavenLogReportsTheWholeRun(@TempDir Path directory) throws Exception {
         Path log = directory.resolve("whole-maven.log");

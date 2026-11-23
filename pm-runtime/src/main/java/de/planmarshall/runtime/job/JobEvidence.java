@@ -167,7 +167,7 @@ public sealed interface JobEvidence permits JobEvidence.RefusedBeforeSpawn, JobE
      *                                {@code null} when there is none
      * @param testCounts              the test population the parser aggregated, in the three states of
      *                                {@link TestCounts}: absent ({@code null}, the log carried no count line),
-     *                                {@code Unmeasured} (the parser could not aggregate it, a cut log included) or
+     *                                {@code Unmeasured} (the parser could not aggregate it, a cut Maven log included) or
      *                                {@code Measured}; it travels beside the contradiction so a consumer can tell an
      *                                absent figure from an unmeasured one
      * @since 0.1

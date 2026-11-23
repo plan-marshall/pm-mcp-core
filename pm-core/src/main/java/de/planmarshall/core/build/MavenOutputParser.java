@@ -439,7 +439,9 @@ public class MavenOutputParser {
          * <p>
          * The figure is then reduced by the failing tests the diagnostic collector filed at error level, counted AFTER
          * its deduplication: a line the collector dropped as a duplicate of an earlier one adds nothing, because the
-         * failures it reports are already filed. The remainder never goes below zero.
+         * failures it reports are already filed. Either side is counted after that same deduplication, so a count line
+         * that stands before the {@code Results:} marker and again after it is one figure. The remainder never goes below
+         * zero.
          *
          * @return the failing tests of the tail that are not yet a filed diagnostic
          */
@@ -454,8 +456,8 @@ public class MavenOutputParser {
          */
         private long visibleFailures() {
             Map<Integer, long[]> perExecution = new LinkedHashMap<>();
-            addFailures(perExecution, summaryLines, 0);
-            addFailures(perExecution, ambiguousLines, 0);
+            addFailures(perExecution,
+                    Stream.concat(summaryLines.stream(), ambiguousLines.stream()).toList(), 0);
             addFailures(perExecution, perClassLines, 1);
             long visible = 0;
             for (long[] sides : perExecution.values()) {
@@ -487,10 +489,10 @@ public class MavenOutputParser {
         }
 
         /**
-         * The count lines counted once each, in log order: two lines the diagnostic collector holds for one are one
-         * figure, so a duplicated line never adds a failure the filed diagnostic does not report.
+         * The count lines of one side counted once each, in log order: two lines the diagnostic collector holds for one
+         * are one figure, so a duplicated line never adds a failure the filed diagnostic does not report.
          *
-         * @param lines the count lines of one side
+         * @param lines the count lines of one side, the summary lines and the ambiguous ones of that side together
          * @return the distinct lines
          */
         private static List<Counts> distinct(List<Counts> lines) {

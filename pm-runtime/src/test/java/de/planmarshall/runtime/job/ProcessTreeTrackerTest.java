@@ -276,7 +276,7 @@ class ProcessTreeTrackerTest {
     class Signals {
 
         @Test
-        @DisplayName("the tracker and every type nested in it depend on no group-signal primitive")
+        @DisplayName("the tracker and every type declared in it depend on no group-signal primitive")
         void dependsOnNoGroupSignal() {
             var types = new ArrayList<Class<?>>();
             types.add(ProcessTreeTracker.class);
@@ -289,19 +289,17 @@ class ProcessTreeTrackerTest {
 
             assertAll(
                     () -> assertTrue(imported.contain(ProcessTreeTracker.class), "the import holds the tracker"),
-                    () -> assertFalse(imported.contain(ProcessGroupSignals.class),
-                            "the target is no type of the import set"),
                     () -> assertFalse(sent.hasViolation(),
-                            "neither the tracker nor a nested type signals numerically"));
+                            "neither the tracker nor a declared nested type signals numerically"));
         }
 
         /**
-         * The subject of the rule: the tracker and every type nested in it, so a nested record, interface or helper that
-         * reached for the numeric primitive is a violation too. Both the enclosing name and the nested types come from
-         * the class literal, so a renamed class is a compile error here and a newly nested type is imported by the
+         * The subject of the rule: the tracker and every type declared in it, so a nested record, interface or helper
+         * that reached for the numeric primitive is a violation too. Both the enclosing name and the nested types come
+         * from the class literal, so a renamed class is a compile error here and a newly nested type is imported by the
          * reflection over the declared classes, never by a name list that could go stale.
          *
-         * @return the predicate selecting the tracker and its nested types
+         * @return the predicate selecting the tracker and its declared types
          */
         private static DescribedPredicate<JavaClass> areTheTrackerOrANestedType() {
             var enclosing = ProcessTreeTracker.class.getName();

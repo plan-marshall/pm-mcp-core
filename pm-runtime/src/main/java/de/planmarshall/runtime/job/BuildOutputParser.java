@@ -114,8 +114,9 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
      * a summary whose parts disagree), never because the read cut the log.
      * <p>
      * The population travels beside the contradiction: the result carries the parser's {@link TestCounts} in its three
-     * states, so a consumer tells a log with no count line ({@code null}) from a cut or unaggregatable one
-     * ({@code Unmeasured}) and from a measured figure (ADR {@code runtime-job/015}).
+     * states, so a consumer tells a log with no count line ({@code null}) from one the parser could not aggregate
+     * ({@code Unmeasured}; a cut Maven log is the one the cut makes unmeasured) and from a measured figure (ADR
+     * {@code runtime-job/015}).
      *
      * @param job       the job record, whose kind and budget key select the parser
      * @param output    the job's output after its launch report
