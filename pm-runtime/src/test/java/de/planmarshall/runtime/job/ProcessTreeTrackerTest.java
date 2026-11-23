@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -58,9 +60,6 @@ class ProcessTreeTrackerTest {
 
     private final Map<Long, Instant> starts = new ConcurrentHashMap<>();
     private final Set<Member> tree = ConcurrentHashMap.newKeySet();
-
-    /** The name of the numeric group-signal primitive the sweep must not use: every signal is a handle's. */
-    private static final String GROUP_SIGNALS = "ProcessGroupSignals";
 
     private long root;
     private long first;
@@ -276,20 +275,37 @@ class ProcessTreeTrackerTest {
     class Signals {
 
         @Test
-        @DisplayName("the tracker depends on no group-signal primitive: every signal goes through a handle")
+        @DisplayName("the tracker and its nested types depend on no group-signal primitive: every signal goes through a handle")
         void dependsOnNoGroupSignal() {
             var imported = new ClassFileImporter().importClasses(ProcessTreeTracker.class,
-                    ProcessTreeTracker.Member.class, Survivor.class, ProcessGroupSignals.class);
+                    ProcessTreeTracker.Member.class, Survivor.class);
 
-            var sent = noClasses().that().haveSimpleName("ProcessTreeTracker")
-                    .should().dependOnClassesThat().haveSimpleName(GROUP_SIGNALS)
+            var sent = noClasses().that(areTheTrackerOrANestedType())
+                    .should().dependOnClassesThat().haveFullyQualifiedName(ProcessGroupSignals.class.getName())
                     .evaluate(imported);
 
             assertAll(
                     () -> assertTrue(imported.contain(ProcessTreeTracker.class), "the import holds the tracker"),
-                    () -> assertTrue(imported.contain(ProcessGroupSignals.class),
-                            "the target class of the rule is found"),
-                    () -> assertFalse(sent.hasViolation(), "the tracker has no numeric signal of its own"));
+                    () -> assertFalse(sent.hasViolation(),
+                            "neither the tracker nor a nested type signals numerically"));
+        }
+
+        /**
+         * The subject of the rule: the tracker and every type nested in it, so a nested record or helper that reached
+         * for the numeric primitive is a violation too. The names come from the class literals, so a renamed class is a
+         * compile error here rather than a rule that matches nothing.
+         *
+         * @return the predicate selecting the tracker and its nested types
+         */
+        private static DescribedPredicate<JavaClass> areTheTrackerOrANestedType() {
+            var enclosing = ProcessTreeTracker.class.getName();
+            return new DescribedPredicate<>("the tracker and its nested types") {
+
+                @Override
+                public boolean test(JavaClass javaClass) {
+                    return javaClass.getName().equals(enclosing) || javaClass.getName().startsWith(enclosing + "$");
+                }
+            };
         }
     }
 }

@@ -134,8 +134,10 @@ No rule is kept in a second store, and the service reads no clock: every call ta
 * The consultation count is the length of `consultations[]` and only grows; an answered, unavailable or open
   consultation counts the same toward the bound.
 * An answer or a loss is recorded once. The second answer is `stale_entity`, not a second result.
-* The asking task records the consultation before the consultation task exists. If the task cannot be created, the
-  failure propagates and `reconcile` settles the open entry `unavailable` after the creation grace the server passes; a
-  crash between the two writes leaves the same state, repaired the same way.
+* The asking task records the consultation and moves to `consulting` in one `updateAll` transaction; the consultation
+  task is created in a second, after it. If that create fails, the failure propagates and the asking task stays
+  `consulting` with the entry open until `reconcile` settles it `unavailable` after the creation grace the server passes; a
+  crash between the two writes leaves the same state, repaired the same way. The asker is therefore blocked from a second
+  consultation during the grace, by the open entry rather than by a lock.
 * A delivery is effective once: to the asking generation's wait, else to the successor's facts
   (link:../adr/workflow-consult/001-delivery-is-decided-from-the-askers-lease.adoc[ADR 001]).
