@@ -232,6 +232,48 @@ class JGitOperationsTest extends JGitOperationsFixtures {
     }
 
     @Test
+    @DisplayName("an empty path list restores the whole index beside worktree dirt a submodule keeps")
+    void emptyPathListRestoresTheWholeIndexBesideSubmoduleDirt() throws Exception {
+        // a submodule whose own worktree is dirty: `add .` re-records the same gitlink, so the index can equal HEAD
+        // while the status is not clean
+        var submodule = names.next();
+        Path nested = repo.resolve(submodule);
+        try (Git inner = Git.init().setDirectory(nested.toFile()).call()) {
+            Files.writeString(nested.resolve(file()), text(), StandardCharsets.UTF_8);
+            inner.add().addFilepattern(".").call();
+            commitThroughGit(inner);
+        }
+        try (Git outer = Git.open(repo.toFile()); Git inner = Git.open(nested.toFile())) {
+            recordGitlink(outer.getRepository(), inner.getRepository(), submodule);
+            commitThroughGit(outer);
+        }
+        Files.writeString(nested.resolve(names.next() + ".txt"), text(), StandardCharsets.UTF_8);
+        // the staged and reverted change the empty-list route has to restore
+        var original = Files.readString(repo.resolve("README.md"));
+        Files.writeString(repo.resolve("README.md"), text());
+        try (var jgit = Git.open(repo.toFile())) {
+            jgit.add().addFilepattern("README.md").call();
+        }
+        Files.writeString(repo.resolve("README.md"), original);
+        var staged = indexEntry("README.md").getObjectId();
+
+        var result = git.commit(new CommitInput(repo, text(), author, agent, List.of()));
+
+        try (var jgit = Git.open(repo.toFile())) {
+            var status = jgit.status().call();
+            assertAll("whole-index restore beside submodule dirt",
+                    () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
+                            "The reverted staging is nothing to commit"),
+                    () -> assertEquals(staged, indexEntry("README.md").getObjectId(),
+                            "The staged entry is kept, not overwritten by add ."),
+                    () -> assertTrue(status.getChanged().contains("README.md"),
+                            "The staged change still differs from HEAD"),
+                    () -> assertTrue(status.getModified().contains(submodule),
+                            "The submodule's own checkout stays dirty"));
+        }
+    }
+
+    @Test
     @DisplayName("a conflicted index is refused with the path of its conflict")
     void conflictedIndexIsRefused() throws Exception {
         var conflicted = file();

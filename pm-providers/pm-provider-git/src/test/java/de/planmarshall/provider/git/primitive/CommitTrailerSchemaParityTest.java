@@ -60,6 +60,9 @@ class CommitTrailerSchemaParityTest {
 
     private static final String SUPPLEMENTARY = new String(Character.toChars(0x1F600));
 
+    /** The White_Space population, derived once from the engine's property and read by every case that needs it. */
+    private static final int[] WHITE_SPACE = deriveWhiteSpace();
+
     @Nested
     @DisplayName("commit_trailer name")
     class TrailerName {
@@ -137,11 +140,11 @@ class CommitTrailerSchemaParityTest {
             var pattern = pattern(TRAILER, "email");
 
             var admitted = admitted(pattern, emailValues(controls()));
-            admitted.addAll(admitted(pattern, emailValues(whiteSpace())));
+            admitted.addAll(admitted(pattern, emailValues(WHITE_SPACE)));
             admitted.addAll(admitted(pattern, emails(ANGLE_BRACKETS)));
             admitted.addAll(admitted(pattern, emails(new String[]{"@"})));
 
-            assertNotEquals(0, controls().length + whiteSpace().length + 3,
+            assertNotEquals(0, controls().length + WHITE_SPACE.length + 3,
                     "The refused population is not empty");
             assertEquals(List.of(), admitted, "The pattern refuses every code point of the classes");
         }
@@ -151,7 +154,7 @@ class CommitTrailerSchemaParityTest {
         void codeRefusesTheSameClasses() {
             var accepted = new ArrayList<String>();
 
-            for (var codePoint : whiteSpace()) {
+            for (var codePoint : WHITE_SPACE) {
                 accepted.addAll(acceptedByCode(emailValues(new int[]{codePoint})));
             }
             for (var angleBracket : ANGLE_BRACKETS) {
@@ -159,7 +162,7 @@ class CommitTrailerSchemaParityTest {
             }
             accepted.addAll(acceptedByCode(emails(new String[]{"@"})));
 
-            assertNotEquals(0, whiteSpace().length, "The white-space population is not empty");
+            assertNotEquals(0, WHITE_SPACE.length, "The white-space population is not empty");
             assertEquals(List.of(), accepted, "The code refuses the white space and the brackets");
         }
 
@@ -241,11 +244,11 @@ class CommitTrailerSchemaParityTest {
             var pattern = pattern(IDENTITY, "email");
 
             var admitted = admitted(pattern, emailValues(controls()));
-            admitted.addAll(admitted(pattern, emailValues(whiteSpace())));
+            admitted.addAll(admitted(pattern, emailValues(WHITE_SPACE)));
             admitted.addAll(admitted(pattern, emails(ANGLE_BRACKETS)));
             admitted.addAll(admitted(pattern, emails(new String[]{"@"})));
 
-            assertNotEquals(0, controls().length + whiteSpace().length + 3,
+            assertNotEquals(0, controls().length + WHITE_SPACE.length + 3,
                     "The refused population is not empty");
             assertEquals(List.of(), admitted, "The pattern refuses every code point of the classes");
         }
@@ -303,7 +306,7 @@ class CommitTrailerSchemaParityTest {
      * The Unicode White_Space code points, derived from the engine's own {@code \p{IsWhite_Space}} property rather than a
      * list that mirrors it.
      */
-    private static int[] whiteSpace() {
+    private static int[] deriveWhiteSpace() {
         var property = Pattern.compile("\\p{IsWhite_Space}");
         return IntStream.rangeClosed(Character.MIN_CODE_POINT, Character.MAX_CODE_POINT)
                 .filter(codePoint -> property.matcher(Character.toString(codePoint)).matches())
@@ -313,7 +316,7 @@ class CommitTrailerSchemaParityTest {
     /** The White_Space code points the name half admits: those that are neither a control nor a line break. */
     private static int[] nameAdmittedWhiteSpace() {
         var separators = IntStream.concat(IntStream.of(LINE_SEPARATORS), IntStream.of('\r', '\n')).toArray();
-        return Arrays.stream(whiteSpace())
+        return Arrays.stream(WHITE_SPACE)
                 .filter(codePoint -> Arrays.stream(controls()).noneMatch(control -> control == codePoint))
                 .filter(codePoint -> Arrays.stream(separators).noneMatch(separator -> separator == codePoint))
                 .toArray();

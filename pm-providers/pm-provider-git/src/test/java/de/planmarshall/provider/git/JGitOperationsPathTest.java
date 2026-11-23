@@ -22,16 +22,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.Status;
-import org.eclipse.jgit.dircache.DirCacheEditor;
-import org.eclipse.jgit.dircache.DirCacheEntry;
-import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.FileMode;
-import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -376,6 +371,42 @@ class JGitOperationsPathTest extends JGitOperationsFixtures {
     }
 
     @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("refuses a conflict below a listed name that a link replaced")
+    void refusesAConflictBelowAReplacingLink() throws Exception {
+        var node = names.next();
+        var below = node + "/" + file();
+        write(below, text());
+        commit(text());
+        var other = names.next();
+        try (var jgit = Git.open(repo.toFile())) {
+            jgit.branchCreate().setName(other).call();
+            Files.writeString(repo.resolve(below), text(), StandardCharsets.UTF_8);
+            jgit.add().addFilepattern(below).call();
+            commitThroughGit(jgit);
+            jgit.checkout().setName(other).call();
+            Files.writeString(repo.resolve(below), text(), StandardCharsets.UTF_8);
+            jgit.add().addFilepattern(below).call();
+            commitThroughGit(jgit);
+            jgit.checkout().setName(branch).call();
+            var merge = jgit.merge().include(jgit.getRepository().resolve(other)).call();
+            assertTrue(merge.getConflicts() != null && merge.getConflicts().containsKey(below),
+                    "the merge leaves the conflict in the index");
+        }
+        // the worktree replaces the conflicted directory by a link, the shape the tracked-tree rule admits
+        Files.delete(repo.resolve(below));
+        Files.delete(repo.resolve(node));
+        Files.createSymbolicLink(repo.resolve(node), Path.of(names.next()));
+
+        var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(node)));
+
+        assertAll("conflict below a replacing link",
+                () -> assertEquals(GitOutcome.FAILED, result.outcome(), "The conflicted index is refused"),
+                () -> assertTrue(String.valueOf(result.detail()).contains(below),
+                        "The refusal names the conflicted path below"));
+    }
+
+    @Test
     @DisplayName("a tracked directory replaced by a file is outside the staging set and refused by the commit")
     void trackedDirectoryReplacedByAFileIsRefusedByBoth() throws Exception {
         var directory = names.next();
@@ -397,25 +428,6 @@ class JGitOperationsPathTest extends JGitOperationsFixtures {
                 () -> assertEquals(GitOutcome.PATH_REFUSED, refused.outcome(),
                         "The commit refuses the replaced directory"),
                 () -> assertEquals(directory, refused.detail(), "The refusal names the replaced directory"));
-    }
-
-    /**
-     * Records {@code path} as a gitlink of the outer repository's index, the entry git writes for a submodule, pointing
-     * at the nested repository's current commit.
-     */
-    private static void recordGitlink(Repository repository, Repository nestedRepository, String path)
-            throws Exception {
-        var head = Objects.requireNonNull(nestedRepository.resolve(Constants.HEAD), "the nested repository's head");
-        var editor = repository.lockDirCache().editor();
-        editor.add(new DirCacheEditor.PathEdit(path) {
-
-            @Override
-            public void apply(DirCacheEntry entry) {
-                entry.setFileMode(FileMode.GITLINK);
-                entry.setObjectId(head);
-            }
-        });
-        assertTrue(editor.commit(), "the gitlink is recorded in the index");
     }
 
     private Status gitStatus() throws Exception {

@@ -447,10 +447,52 @@ public final class JGitOperations implements GitOperations {
         }
     }
 
-    /** Whether the staged state carries no change against {@code HEAD}, read after staging. */
+    /**
+     * Whether the staged state carries no change against {@code HEAD}, read after staging: for a listed path list the
+     * listed entries only, for an empty list the whole index — never the worktree, whose dirt (a submodule's own
+     * checkout among it) says nothing about what the commit would carry.
+     */
     private static boolean isEmptyAfterStaging(Git git, Repository repository, List<String> paths)
             throws GitAPIException, IOException {
-        return paths.isEmpty() ? git.status().call().isClean() : !hasChanges(repository, paths);
+        return paths.isEmpty() ? indexMatchesHead(repository) : !hasChanges(repository, paths);
+    }
+
+    /**
+     * Whether the whole index equals the head tree: the same path set, and the same object id and file mode for every
+     * path. A repository without {@code HEAD} carries nothing, so its index is empty as well.
+     */
+    private static boolean indexMatchesHead(Repository repository) throws IOException {
+        var headId = repository.resolve(Constants.HEAD + "^{commit}");
+        var index = repository.readDirCache();
+        if (headId == null) {
+            return index.getEntryCount() == 0;
+        }
+        try (RevWalk walk = new RevWalk(repository)) {
+            var headTree = walk.parseCommit(headId).getTree();
+            var headPaths = new TreeSet<String>();
+            try (var treeWalk = new TreeWalk(repository)) {
+                treeWalk.addTree(headTree);
+                treeWalk.setRecursive(true);
+                while (treeWalk.next()) {
+                    headPaths.add(treeWalk.getPathString());
+                }
+            }
+            var indexPaths = new TreeSet<String>();
+            for (var position = 0; position < index.getEntryCount(); position++) {
+                indexPaths.add(index.getEntry(position).getPathString());
+            }
+            if (!headPaths.equals(indexPaths)) {
+                return false;
+            }
+            for (var path : indexPaths) {
+                try (var treeWalk = TreeWalk.forPath(repository, path, headTree)) {
+                    if (!sameEntry(index.getEntry(path), treeWalk)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
     }
 
     /** Puts the index back as the snapshot took it: the listed entries, or the whole index for an empty path list. */
@@ -601,8 +643,9 @@ public final class JGitOperations implements GitOperations {
     /**
      * The first path of the index that holds an unresolved merge stage, empty when the index is merged. The restore
      * copies one entry per path, so a conflicted path would be written back as its base entry at stage 0 and the
-     * conflict would disappear; the call is refused instead, before anything is staged. Only the listed paths are
-     * checked, because only they are staged and restored; an empty list means the whole index.
+     * conflict would disappear; the call is refused instead, before anything is staged. A listed name is matched
+     * exactly and as the directory prefix of a descendant, because JGit's add filter is prefix-based: a listed symlink
+     * that replaced a tracked directory must not let a conflict below it through. An empty list means the whole index.
      *
      * @param repository the repository
      * @param paths      the listed paths; empty means the whole index
@@ -613,12 +656,22 @@ public final class JGitOperations implements GitOperations {
         var index = repository.readDirCache();
         for (var position = 0; position < index.getEntryCount(); position++) {
             var entry = index.getEntry(position);
-            if (entry.getStage() != DirCacheEntry.STAGE_0
-                    && (paths.isEmpty() || paths.contains(entry.getPathString()))) {
-                return Optional.of(entry.getPathString());
+            var path = entry.getPathString();
+            if (entry.getStage() != DirCacheEntry.STAGE_0 && (paths.isEmpty() || isListedOrBelow(paths, path))) {
+                return Optional.of(path);
             }
         }
         return Optional.empty();
+    }
+
+    /** Whether a path is a listed name or lies below one, the way JGit's prefix-based add filter reaches it. */
+    private static boolean isListedOrBelow(List<String> paths, String path) {
+        for (var listed : paths) {
+            if (listed.equals(path) || path.startsWith(listed + "/")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
