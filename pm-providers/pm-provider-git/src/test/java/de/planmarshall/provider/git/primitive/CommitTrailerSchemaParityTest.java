@@ -130,12 +130,13 @@ class CommitTrailerSchemaParityTest {
             var pattern = pattern(TRAILER, "email");
 
             var admitted = admitted(pattern, emailValues(controls()));
+            admitted.addAll(admitted(pattern, emailValues(LINE_SEPARATORS)));
             admitted.addAll(admitted(pattern, emailValues(WHITE_SPACE_ABOVE_C1)));
             admitted.addAll(admitted(pattern, emailValues(new int[]{0x20})));
             admitted.addAll(admitted(pattern, emails(ANGLE_BRACKETS)));
             admitted.addAll(admitted(pattern, emails(new String[]{"@"})));
 
-            assertNotEquals(0, controls().length + WHITE_SPACE_ABOVE_C1.length + 3,
+            assertNotEquals(0, controls().length + WHITE_SPACE_ABOVE_C1.length + LINE_SEPARATORS.length + 3,
                     "The refused population is not empty");
             assertEquals(List.of(), admitted, "The pattern refuses every code point of the classes");
         }
@@ -202,6 +203,7 @@ class CommitTrailerSchemaParityTest {
             var pattern = pattern(IDENTITY, "email");
 
             var admitted = admitted(pattern, emailValues(controls()));
+            admitted.addAll(admitted(pattern, emailValues(LINE_SEPARATORS)));
             admitted.addAll(admitted(pattern, emailValues(WHITE_SPACE_ABOVE_C1)));
             admitted.addAll(admitted(pattern, emailValues(new int[]{0x20})));
             admitted.addAll(admitted(pattern, emails(ANGLE_BRACKETS)));
