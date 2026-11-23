@@ -150,48 +150,75 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      * @return the directories that are gone, the entries the run kept, and the fault that stopped it
      */
     private Removal remove(JournalScope workspace, PendingEntryStore store, List<EntryId> candidates, Instant at) {
-        var kept = new ArrayList<String>();
-        var staged = new ArrayList<EntryId>();
-        var removed = new ArrayList<EntryId>();
-        var phase = Phase.STAGING;
+        var state = new RemovalState();
+        Removal removal = null;
         try (var lock = lockManager.openTransaction()) {
             lock.acquire(workspace.lockKey());
-            var transaction = ScopeTransaction.open(lock, workspace, auditSink, clock);
-            try {
-                for (var entryId : candidates) {
-                    var integrity = verifyUnderLock(store, lock, entryId, kept);
-                    integrity.ifPresent(verdict -> stageIfResidue(transaction, store, entryId, verdict, at, staged,
-                            kept));
-                }
-                if (staged.isEmpty()) {
-                    return new Removal(removed, kept, null);
-                }
-                phase = Phase.COMMITTING;
-                transaction.commit();
-                phase = Phase.COMMITTED;
-                for (var entryId : staged) {
-                    discard(store, entryId, removed, kept);
-                }
-                return new Removal(removed, kept, null);
-            } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
-                    | StoreRefusal e) {
-                return fault(e.getMessage(), workspace, phase, staged, removed, kept);
-            }
+            removal = attempt(lock, workspace, store, candidates, at, state);
         } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
                 | StoreRefusal e) {
-            // The lock's own release, or a fault of opening or acquiring it: what the removal had done stands
-            return fault(e.getMessage(), workspace, phase, staged, removed, kept);
+            // The lock's own release, or a fault of opening or acquiring it: what the removal had done stands, and a
+            // fault it had already answered itself stays the answer
+            return removal != null && removal.fault() != null ? removal : state.fault(e.getMessage(), workspace);
+        }
+        return removal;
+    }
+
+    /**
+     * One removal attempt under the lock the caller holds: the verification and the staging, the commit, and the
+     * discard of the directories. Its faults are its answer, so the state it has reached travels with them.
+     *
+     * @return what the attempt removed and kept, or the fault that stopped it
+     */
+    private Removal attempt(LockTransaction lock, JournalScope workspace, PendingEntryStore store,
+            List<EntryId> candidates, Instant at, RemovalState state) {
+        try {
+            var transaction = ScopeTransaction.open(lock, workspace, auditSink, clock);
+            for (var entryId : candidates) {
+                var integrity = verifyUnderLock(store, lock, entryId, state.kept);
+                integrity.ifPresent(verdict -> stageIfResidue(transaction, store, entryId, verdict, at,
+                        state.staged, state.kept));
+            }
+            if (state.staged.isEmpty()) {
+                return new Removal(state.removed, state.kept, null);
+            }
+            state.phase(Phase.COMMITTING);
+            transaction.commit();
+            state.phase(Phase.COMMITTED);
+            for (var entryId : state.staged) {
+                discard(store, entryId, state.removed, state.kept);
+            }
+            return new Removal(state.removed, state.kept, null);
+        } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
+                | StoreRefusal e) {
+            return state.fault(e.getMessage(), workspace);
         }
     }
 
     /**
-     * The answer of a faulted removal: the state as it stood, with the entries whose directory the run had not
-     * deleted, and the reach the phase and the workspace's journal decide.
+     * What one removal attempt had done: the entries it staged, the directories it removed and the entries it kept,
+     * with the phase it had reached. It lives outside the lock transaction, so a fault of the lock's own release
+     * carries the state like every other fault of the removal.
      */
-    private static Removal fault(String message, JournalScope workspace, Phase phase, List<EntryId> staged,
-            List<EntryId> removed, List<String> kept) {
-        var pending = staged.stream().filter(entryId -> !removed.contains(entryId)).toList();
-        return new Removal(removed, kept, new Fault(message, pending, reach(workspace, phase)));
+    private static final class RemovalState {
+
+        private final List<EntryId> staged = new ArrayList<>();
+        private final List<EntryId> removed = new ArrayList<>();
+        private final List<String> kept = new ArrayList<>();
+        private Phase phase = Phase.STAGING;
+
+        private void phase(Phase next) {
+            phase = next;
+        }
+
+        /**
+         * @return the answer of a faulted removal: the state as it stood, with the entries whose directory the run had
+         *         not deleted, and the reach the phase and the workspace's journal decide
+         */
+        private Removal fault(String message, JournalScope workspace) {
+            var pending = staged.stream().filter(entryId -> !removed.contains(entryId)).toList();
+            return new Removal(removed, kept, new Fault(message, pending, reach(workspace, phase)));
+        }
     }
 
     /**

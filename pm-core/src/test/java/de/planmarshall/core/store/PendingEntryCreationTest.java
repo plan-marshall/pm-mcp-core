@@ -471,7 +471,7 @@ class PendingEntryCreationTest {
         try {
             var process = new ProcessBuilder("mkfifo", fifo.toString()).redirectErrorStream(true).start();
             return process.waitFor() == 0 && Files.exists(fifo, LinkOption.NOFOLLOW_LINKS);
-        } catch (IOException e) {
+        } catch (IOException _) {
             return false;
         }
     }
