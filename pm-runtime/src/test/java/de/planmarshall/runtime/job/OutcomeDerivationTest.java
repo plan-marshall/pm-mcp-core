@@ -60,11 +60,11 @@ import de.planmarshall.runtime.job.OutcomeDerivation.Outcome;
 @DisplayName("Outcome derivation")
 class OutcomeDerivationTest {
 
-    private static final ParseResult SUCCESS = new ParseResult(true, 0, false, null);
-    private static final ParseResult NO_MARKER = new ParseResult(false, 0, false, null);
-    private static final ParseResult DIAGNOSTICS = new ParseResult(false, 2, true, null);
+    private static final ParseResult SUCCESS = new ParseResult(true, 0, false, null, null);
+    private static final ParseResult NO_MARKER = new ParseResult(false, 0, false, null, null);
+    private static final ParseResult DIAGNOSTICS = new ParseResult(false, 2, true, null, null);
     private static final ParseResult CONTRADICTED = new ParseResult(true, 0, false,
-            new SelfReportContradiction("passed", 1L, "failed"));
+            new SelfReportContradiction("passed", 1L, "failed"), null);
 
     private static ProcessEnded process(Kind kind, Termination termination, WaitStatus wait, LogState log,
             ParseResult parse) {
@@ -77,14 +77,14 @@ class OutcomeDerivationTest {
 
     /** @return a parse result with a generated, positive number of diagnostics and contradicting evidence */
     private static ParseResult diagnostics() {
-        return new ParseResult(false, Generators.integers(1, 100).next(), true, null);
+        return new ParseResult(false, Generators.integers(1, 100).next(), true, null, null);
     }
 
     /** @return a parse result with a success marker and a generated self-report contradiction */
     private static ParseResult contradicted() {
         return new ParseResult(true, 0, false, new SelfReportContradiction(
                 Generators.letterStrings(1, 16).next(), Generators.longs(1, 10_000).next(),
-                Generators.letterStrings(1, 16).next()));
+                Generators.letterStrings(1, 16).next()), null);
     }
 
     /** The closed table: one example evidence per row, the contract of the derivation. */
@@ -207,7 +207,7 @@ class OutcomeDerivationTest {
         @DisplayName("contradicting evidence keeps exit code 0 with a marker out of succeeded")
         void contradictingEvidence() {
             var evidence = exited(Kind.BUILD, 0, new ParseResult(true, Generators.integers(0, 100).next(), true,
-                    null));
+                    null, null));
 
             assertEquals(new Outcome(Fate.INDETERMINATE, 8), OutcomeDerivation.derive(evidence),
                     "contradicting evidence keeps it indeterminate");
@@ -301,7 +301,7 @@ class OutcomeDerivationTest {
                                     noTermination, exitedZero, LogState.READABLE, SUCCESS, noDeclaredCodes, false),
                             "an unreliable exit outside a worker is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new ParseResult(false, negative, false, noContradiction),
+                            () -> new ParseResult(false, negative, false, noContradiction, null),
                             "a negative diagnostic count is refused"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new Outcome(Fate.FAILED, 14),
                             "a row beyond the table is refused"));

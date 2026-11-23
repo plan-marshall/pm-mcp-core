@@ -23,6 +23,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
+import java.net.StandardProtocolFamily;
+import java.net.UnixDomainSocketAddress;
+import java.nio.channels.ServerSocketChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -351,6 +354,8 @@ class PendingEntryCreationTest {
         assertAll(
                 () -> assertTrue(refusal.getMessage().contains("transcript"),
                         "the refusal should name the transcript"),
+                () -> assertTrue(refusal.getMessage().contains("symbolic link"),
+                        "the refusal should name the link it found"),
                 () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
                         "nothing should be written into the new scope"));
     }
@@ -375,7 +380,7 @@ class PendingEntryCreationTest {
 
     @Test
     @EnabledOnOs({OS.LINUX, OS.MAC})
-    @DisplayName("an unnamed link below the source directory refuses the move before a stored file is read")
+    @DisplayName("the walk refuses an unnamed link below the source directory before a stored file is read")
     void refusesAPathBelowALinkedParent() throws Exception {
         var parent = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
         var stored = new SourceFile(parent + "/" + SourceManifestCodec.FILE_NAME + ".md", 2,
@@ -399,6 +404,57 @@ class PendingEntryCreationTest {
                         "the refusal should name the link it found"),
                 () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
                         "nothing should be written into the new scope"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a stored path below a linked parent refuses the composition through the read guard")
+    void refusesAPathBelowALinkedParentInTheComposition() throws Exception {
+        var parent = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+        var content = Generators.letterStrings(5, 20).next().getBytes(UTF_8);
+        // Fixture path: the stored file name the manifest names below the linked directory
+        var stored = new SourceFile(parent + "/description.md", content.length, StoreDigest.of(content).sha256());
+        var manifest = new SourceManifest(1, List.of(new Source(sourceIdFor("parent"), SourceManifest.Kind.DESCRIPTION,
+                "ref", "operator", Trust.TRUSTED, List.of(stored), at, null, null)));
+        var sources = Files.createDirectories(base.resolve("composition-sources"));
+        var elsewhere = Files.createDirectory(base.resolve("elsewhere-composition"));
+        Files.write(elsewhere.resolve("description.md"), content);
+        Files.createSymbolicLink(sources.resolve(parent), elsewhere);
+
+        var refusal = assertThrows(StoreRefusal.class,
+                () -> PendingEntryCreation.composeRequest(sources, manifest),
+                "a linked parent should refuse the composition");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("description.md"),
+                        "the refusal should name the stored file"),
+                () -> assertTrue(refusal.getMessage().contains("symbolic link"),
+                        "the refusal should name the link it found"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a special file the manifest names is refused by the source read, never opened")
+    void refusesASpecialFileTheManifestNames() throws Exception {
+        var content = Generators.letterStrings(5, 20).next().getBytes(UTF_8);
+        // Fixture path: a short name, because a Unix-domain socket address must fit the platform's path limit
+        var socket = base.resolve("s.md");
+        var stored = new SourceFile("s.md", content.length, StoreDigest.of(content).sha256());
+        var manifest = new SourceManifest(1, List.of(new Source(sourceIdFor("special"), SourceManifest.Kind.DESCRIPTION,
+                "ref", "operator", Trust.TRUSTED, List.of(stored), at, null, null)));
+        try (var channel = ServerSocketChannel.open(StandardProtocolFamily.UNIX)) {
+            channel.bind(UnixDomainSocketAddress.of(socket));
+
+            var refusal = assertThrows(StoreRefusal.class,
+                    () -> PendingEntryCreation.composeRequest(base, manifest),
+                    "a special file the manifest names should refuse the read");
+
+            assertAll(
+                    () -> assertTrue(refusal.getMessage().contains("s.md"),
+                            "the refusal should name the special file"),
+                    () -> assertTrue(refusal.getMessage().contains("no regular file"),
+                            "the refusal should say the file is no regular file"));
+        }
     }
 
     @Test

@@ -60,9 +60,9 @@ public record SourceManifest(long revision, List<Source> sources) {
     /**
      * @throws NullPointerException     if the sources are {@code null}
      * @throws IllegalArgumentException if the revision is negative, a source id is used twice, a file path is stored
-     *                                  by more than one source or repeats another in case, one stored path is the
-     *                                  directory of another, the file name of the manifest is used as a stored path, or
-     *                                  a source breaks its rules
+     *                                  by more than one source or repeats another in case or in another Unicode
+     *                                  normalisation form, one stored path is the directory of another, the file name
+     *                                  of the manifest is used as a stored path, or a source breaks its rules
      */
     public SourceManifest {
         Objects.requireNonNull(sources, "sources");
@@ -85,9 +85,9 @@ public record SourceManifest(long revision, List<Source> sources) {
     /**
      * The sources are one set of files of one directory, so a path is stored once: the second source that names it is
      * refused here, where the manifest is built, instead of the move writing one file twice. The comparison folds the
-     * case, because a case-insensitive filesystem addresses one file either way and the paths are the operator's file
-     * names; a path that is the directory of another is refused too, because one create target cannot be a file and a
-     * directory at once.
+     * case and unifies the Unicode normalisation form, because a case-insensitive or normalisation-insensitive
+     * filesystem addresses one file either way and the paths are the operator's file names; a path that is the
+     * directory of another is refused too, because one create target cannot be a file and a directory at once.
      */
     private static void requireDistinctPath(String sourceId, String path, Map<String, String> paths) {
         var folded = fold(path);
@@ -98,21 +98,25 @@ public record SourceManifest(long revision, List<Source> sources) {
         for (var stored : paths.entrySet()) {
             if (folded.equals(stored.getKey()) || nests(folded, stored.getKey())) {
                 throw new IllegalArgumentException(
-                        ("The source file '%s' is stored twice, or it and '%s' differ only in case or one is the "
-                                + "directory of the other").formatted(path, stored.getValue()));
+                        ("The source file '%s' is stored twice, or it and '%s' differ only in case or in another "
+                                + "Unicode normalisation form, or one is the directory of the other")
+                                .formatted(path, stored.getValue()));
             }
         }
         paths.put(folded, path);
     }
 
     /**
-     * @return the case-folded form of a stored path, the form a case-insensitive filesystem addresses. The path is
-     *         normalized to NFC before AND after the case fold: before, because a macOS filesystem is
-     *         normalisation-insensitive and an operator's typed name and a directory listing can spell one file in two
-     *         forms; after, because the case mapping can itself produce a non-NFC string, so a pair that differs only
-     *         in the order of a combining mark would otherwise be admitted. The fold is then upper case then lower
-     *         case, because the lower case of a capital sigma is otherwise a final sigma and the two forms would not
-     *         meet. It errs toward a collision, never toward a missed one.
+     * @return the case-folded, normalisation-unified form of a stored path, the form a case-insensitive or
+     *         normalisation-insensitive filesystem addresses. The path is normalized to NFC before AND after the case
+     *         fold: before, because a macOS filesystem is normalisation-insensitive and an operator's typed name and a
+     *         directory listing can spell one file in two forms; after, because the case mapping can itself produce a
+     *         non-NFC string, so a pair that differs only in the order of a combining mark would otherwise be admitted.
+     *         The fold is then upper case then lower case, because the lower case of a capital sigma is otherwise a
+     *         final sigma and the two forms would not meet. It errs toward a collision, never toward a missed one: a
+     *         pair the fold makes equal — {@code ß} and {@code ss}, {@code ı} and {@code i}, a ligature and its
+     *         letters, and a composed and a decomposed name — is refused even where a case-sensitive filesystem keeps
+     *         the two files apart. The operator kept that width on 2026-11-23 (ADR core-store/084 rule 1).
      */
     private static String fold(String path) {
         var cased = Normalizer.normalize(path, Normalizer.Form.NFC).toUpperCase(Locale.ROOT)

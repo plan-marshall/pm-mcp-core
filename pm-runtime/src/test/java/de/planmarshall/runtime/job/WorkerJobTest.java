@@ -117,7 +117,7 @@ class WorkerJobTest {
                 .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                 .termination(new TerminationProtocol(ProcessGroupSignals.system())).environment(new WorkerEnvironment())
                 .probeEnvironment((candidate, jobId) -> ENVIRONMENT).parser((kind, output, cut) -> new JobEvidence.ParseResult(
-                true, 0, false, null)).primitives(request -> Optional.empty()).jobTokens(tokens)
+                true, 0, false, null, null)).primitives(request -> Optional.empty()).jobTokens(tokens)
                 .build();
     }
 
