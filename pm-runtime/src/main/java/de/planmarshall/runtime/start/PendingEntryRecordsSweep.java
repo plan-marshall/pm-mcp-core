@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
@@ -209,7 +208,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
             if (!removal.fault().staged().isEmpty()) {
                 report.append(removal.fault().journaled()
                         ? "; the removals of " + names(removal.fault().staged())
-                                + " are completed by the recovery of the workspace"
+                        + " are completed by the recovery of the workspace"
                         : "; the removals of " + names(removal.fault().staged()) + " were staged and not committed");
             }
             if (!removal.removed().isEmpty()) {
