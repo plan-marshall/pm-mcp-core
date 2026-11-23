@@ -292,13 +292,19 @@ class ProcessTreeTrackerTest {
         }
 
         @Test
-        @DisplayName("the guard catches a fixture that depends on the group-signal primitive")
+        @DisplayName("the guard catches a fixture for each shape of the group-signal primitive it names")
         void catchesAFixtureThatDependsOnGroupSignal() {
-            var imported = new ClassFileImporter().importClasses(GroupSignalDependentControl.class);
+            assertAll(
+                    () -> assertCaught(GroupSignalDependentControl.class),
+                    () -> assertCaught(SignalNestedDependentControl.class),
+                    () -> assertCaught(KillBindingDependentControl.class));
+        }
 
-            var caught = noGroupSignalRule(named(GroupSignalDependentControl.class.getName())).evaluate(imported);
+        private static void assertCaught(Class<?> fixture) {
+            var imported = new ClassFileImporter().importClasses(fixture);
 
-            assertTrue(caught.hasViolation(), "the rule catches the fixture dependency");
+            assertTrue(noGroupSignalRule(named(fixture.getName())).evaluate(imported).hasViolation(),
+                    "the rule catches the fixture dependency");
         }
 
         private static DescribedPredicate<JavaClass> named(String name) {
