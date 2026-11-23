@@ -394,19 +394,18 @@ public class MavenOutputParser {
          * @param failed       the failed tests ({@code Failures} plus {@code Errors}, saturated at
          *                     {@link Long#MAX_VALUE})
          * @param skipped      the skipped tests
-         * @param filed        whether the diagnostic collector retained this line's identity, so the cut tail must not
-         *                     file its count again
          * @param errorLevel   whether the retained diagnostic carries error severity; {@code false} for a line the
          *                     collector dropped as a duplicate of a warning, and for a line it never filed
-         * @param execution    the ordinal of the nearest preceding test-plugin execution, so two executions' figures are
-         *                     never added together; under a parallel build the ordinals interleave and an ordinal is no
-         *                     module
+         * @param execution    the ordinal of the nearest preceding plugin header, so two executions' figures are never
+         *                     added together; every plugin header increments it, so under a parallel build the ordinals
+         *                     interleave and an ordinal is the log's order, not a module
          * @param message      the line's stored message, the whole of it, so the count key does not collide where the
          *                     collector's first 100 characters do
-         * @param collectorKey the identity the collector filed the line under; empty when it filed the line not
+         * @param collectorKey the identity the collector filed the line under; empty when it filed the line not, so the
+         *                     cut tail must not file its count again
          */
         @Builder
-        private record Counts(long total, long failed, long skipped, boolean filed, boolean errorLevel, int execution,
+        private record Counts(long total, long failed, long skipped, boolean errorLevel, int execution,
         String message, String collectorKey) {
         }
 
@@ -437,7 +436,6 @@ public class MavenOutputParser {
             var collectorKey = filedDiagnostic(line).map(DiagnosticCollector::key)
                     .filter(filedSeverities::containsKey);
             var counts = Counts.builder().total(total).failed(failed).skipped(skipped)
-                    .filed(collectorKey.isPresent())
                     .errorLevel(collectorKey.map(filedSeverities::get).orElse(null) == Severity.ERROR)
                     .execution(execution).message(storedMessage(line))
                     .collectorKey(collectorKey.orElse("")).build();
@@ -474,7 +472,8 @@ public class MavenOutputParser {
          * <p>
          * A cut log's tail may hold summary lines whose {@code Results:} marker is in the lost head; they are filed as
          * ambiguous by the scan, and for a cut log they count here too, so a failure the tail shows is never reported as
-         * a passing run (ADR {@code core-build/011}). The tail's visible figure is counted per test-plugin execution: the
+         * a passing run (ADR {@code core-build/011}). The tail's visible figure is counted per execution — the ordinal
+         * of the nearest preceding plugin header, every plugin header incrementing it: the
          * summary side — summary and ambiguous blocks — and the per-class lines of one execution describe the same
          * failures, so the larger of the two sides is that execution's figure, and a per-class line beyond what the
          * execution's summary reports belongs to an execution whose summary the cut removed. The figures of two
@@ -509,8 +508,8 @@ public class MavenOutputParser {
         }
 
         /**
-         * The failing tests the cut tail shows per test-plugin execution: within one execution the larger of its summary
-         * side and its per-class lines.
+         * The failing tests the cut tail shows per execution: within one execution the larger of its summary side and its
+         * per-class lines.
          *
          * @return the tail's visible failing count per execution
          */
@@ -534,8 +533,8 @@ public class MavenOutputParser {
         }
 
         /**
-         * The failing tests the count lines the collector retained at error level report, per test-plugin execution and
-         * each collector identity counted once. The collector keeps the first occurrence of an identity and drops the
+         * The failing tests the count lines the collector retained at error level report, per execution and each
+         * collector identity counted once. The collector keeps the first occurrence of an identity and drops the
          * later ones with whatever severity they carry, so a failure whose identical line was first filed as a warning is
          * not counted here: it stays in the remainder and reaches the contradiction check as an error. A count line the
          * collector never filed carries no identity here either.
@@ -546,7 +545,7 @@ public class MavenOutputParser {
             Set<String> seen = new HashSet<>();
             Map<Integer, Long> filed = new LinkedHashMap<>();
             for (Counts counts : countLines) {
-                if (counts.filed() && seen.add(counts.collectorKey()) && counts.errorLevel()) {
+                if (!counts.collectorKey().isEmpty() && seen.add(counts.collectorKey()) && counts.errorLevel()) {
                     filed.merge(counts.execution(), counts.failed(), CountScan::saturatedAdd);
                 }
             }

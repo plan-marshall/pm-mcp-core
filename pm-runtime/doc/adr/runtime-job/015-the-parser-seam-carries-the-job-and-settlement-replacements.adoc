@@ -10,8 +10,8 @@ same follow-up the decision below records. Amended 2026-11-23 (PLAN-V2-173): `Jo
 parser's `TestCounts` as a fifth component, so the population leaves the dispatcher in its three states instead of
 staying in the parse; the assembly adapts the same way after the `SNAPSHOT` deploy. Amended 2026-11-23 (PLAN-V2-177):
 the carried population stays as it is; the cut fact reaches the Maven parser alone, so only a cut Maven log reports
-`Unmeasured` because of the cut, and a cut Jest, TAP, Gradle or pyproject tail is a tail-only `Measured` that leaves
-with no cut fact beside it in this result.
+`Unmeasured` because of the cut, and a cut Jest, TAP, Gradle or pyproject tail is a tail-only figure — `Measured`, or
+`Unmeasured` by its own rules — that leaves with no cut fact beside it in this result.
 
 Superseded in part by link:016-the-npm-passing-summary-is-the-success-marker.adoc[ADR `runtime-job/016`] (2026-11-10):
 the rule of the last bullet of Consequences stays, its list of tools without a positive success marker shrinks to
@@ -48,7 +48,8 @@ The interface is a public seam of `pm-runtime` that the assembly `plan-marshall-
   errors of ESLint's printed summary, or a measured failing test count) and the parser's `TestCounts`, which carries the
   population in its three states — absent, `Unmeasured`, `Measured` — so a consumer tells them apart (amendment of
   2026-11-23). The cut fact reaches the Maven parser alone, so only a cut Maven log reports `Unmeasured` because of the
-  cut; a cut Jest, TAP, Gradle or pyproject tail carries a tail-only `Measured` and no cut fact beside it. The carried
+  cut; a cut Jest, TAP, Gradle or pyproject tail carries a tail-only figure — `Measured`, or `Unmeasured` by its own
+  rules — and no cut fact beside it. The carried
   population is deliberate: no production code branches on `testCounts()` yet, and ADR `core-build/011` rejected a
   tail-only figure no consumer branches on (amendment of 2026-11-23, PLAN-V2-177). A job of another kind, a key of an
   unknown build system and a log no scanner recognises yield

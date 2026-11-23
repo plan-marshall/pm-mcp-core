@@ -103,9 +103,10 @@ the collector's identity stays the authority for what it filed (ADR `core-build/
 * The `filed` figure mirrors the collector for the lines it filed, with the retained occurrence's severity; a line it
   never filed carries no identity (ADR `core-build/013`). A change to the collector's deduplication key therefore
   changes what is reduced, and a change to the count path's own key changes what is counted.
-* A tail that carries execution headers is counted per execution; the ordinal is the nearest preceding test-plugin
-  header, so under `-T` the modules' lines interleave and an ordinal is one execution in the log's order, never a
-  module. The cut path never consults `PARALLEL_BUILD_BANNER`; the banner governs `byRunner` of the uncut result alone.
+* A tail that carries execution headers is counted per execution; the ordinal is the nearest preceding plugin header,
+  and every plugin header increments it, so only the runner attribution is test-plugin-scoped. Under `-T` the modules'
+  lines interleave and an ordinal is one execution in the log's order, never a module. The cut path never consults
+  `PARALLEL_BUILD_BANNER`; the banner governs `byRunner` of the uncut result alone.
   A future change that adds another source of count lines has to attribute it to an execution too, or state the
   approximation it adds.
 

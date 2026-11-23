@@ -37,7 +37,7 @@ R07 put the three choices to the operator at refine (2026-11-23); each answer is
 
 == Decision
 
-* The reduction is taken per test-plugin execution: an execution's visible figure minus the failing tests its filed
+* The reduction is taken per execution: an execution's visible figure minus the failing tests its filed
   error-level count lines report, floored at zero, and the executions' remainders are added (saturating). A surplus of
   one execution cannot spend itself on another execution's failure.
 * The filed figure mirrors the collector exactly: only a line the collector retained is counted, under the collector's
@@ -48,7 +48,10 @@ R07 put the three choices to the operator at refine (2026-11-23); each answer is
   collector's first 100 characters. Two failing classes whose messages differ only past the 100th character are two
   figures, and two executions' identical summary lines are two figures.
 * A digit count outside the `long` range saturates at `Long.MAX_VALUE` instead of parsing as zero, and
-  `Failures + Errors` is added with the same saturated addition. The `unrepresentable` flag keeps its own bound:
+  `Failures + Errors` is added with the same saturated addition. That sum's saturation is belt-and-braces: a wrapped
+  sum would be negative, and the downstream saturated addition recovers `Long.MAX_VALUE` from it anyway, so the guard is
+  kept because it states the invariant where the sum is taken instead of relying on that downstream quirk. The
+  `unrepresentable` flag keeps its own bound:
   a count above `Integer.MAX_VALUE` makes the *uncut* result `Unmeasured`; the cut result is `Unmeasured` anyway, so
   the flag never suppresses the tail's failing evidence.
 
@@ -58,8 +61,9 @@ The bounds this decision keeps or adds:
   characters do not are still one diagnostic, so the count can exceed the filed figure by their difference and that
   difference is filed as the remainder. The key costs at most a stored message beside the ordinal (500 characters plus
   the ordinal).
-* The execution ordinal is the nearest preceding test-plugin header. Under `-T` the modules' lines interleave, so an
-  ordinal is one execution in the log's order, never a module.
+* The execution ordinal is the nearest preceding plugin header, and every plugin header increments it, so only the
+  runner attribution is test-plugin-scoped. Under `-T` the modules' lines interleave, so an ordinal is one execution in
+  the log's order, never a module.
 * The cut path never consults `PARALLEL_BUILD_BANNER`; the banner governs `byRunner` of the uncut result alone.
 
 == Alternatives Considered

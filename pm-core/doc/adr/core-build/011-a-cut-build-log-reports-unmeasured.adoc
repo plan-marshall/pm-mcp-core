@@ -54,7 +54,9 @@ answers to the operator (2026-11-22), who chose the explicit absence.
   the tail stays its own diagnostic beside the synthetic one. A tail whose cut removed every execution header is one
   execution: its two sides cannot be told apart by the log, the larger side is that execution's figure, and the figure of
   a mix of the two sides is then too low, never a sum of two executions. ADR link:012-the-cut-tails-failing-count-is-taken-per-execution.adoc[`core-build/012`]
-  records the counting rule and its bounded error.
+  records the counting rule and its bounded error, amended by
+  link:013-the-cut-tails-failing-count-reduces-per-execution.adoc[ADR `core-build/013`] for the per-execution reduction,
+  the count key and the saturation of an overflowing digit count.
 * `TestCounts.Measured` carries the four counts and the per-runner map, and `TestCounts.from` takes them; the state that
   says "no measurement" is `TestCounts.Unmeasured`, which has no count accessor, so the cut cannot be read as a zero.
 

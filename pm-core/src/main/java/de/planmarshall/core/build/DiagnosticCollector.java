@@ -72,8 +72,10 @@ class DiagnosticCollector {
     }
 
     /**
-     * The message part of a deduplication key: the first 100 characters of a stored message. A parser that counts how
-     * many of its own lines the collector filed asks this, so its count and the collector's identity cannot drift apart.
+     * The message part of a deduplication key: the first 100 characters of a stored message. The cut tail's count path
+     * deliberately keeps its own key — the execution ordinal plus the whole stored message — because the first 100
+     * characters collide on two failing classes under one long package prefix; the count path uses this reader only
+     * where it mirrors the collector's identity, so the two cannot drift apart unstated (ADR {@code core-build/013}).
      *
      * @param message the stored message
      * @return the first {@value #DEDUP_MESSAGE_LENGTH} characters of the message
