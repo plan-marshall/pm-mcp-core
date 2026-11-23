@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
 import java.util.regex.Pattern;
+import org.eclipse.jgit.api.CommitCommand;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.EmptyCommitException;
@@ -370,50 +371,23 @@ public final class JGitOperations implements GitOperations {
             return GitResult.of(GitOutcome.PATH_REFUSED, refused.get());
         }
         try (Repository repository = openRepository(input.root()); Git git = Git.wrap(repository)) {
-            var trackedTree = CommitPathRefusals.refusedTrackedTrees(repository, paths);
-            if (!trackedTree.isEmpty()) {
-                return GitResult.of(GitOutcome.PATH_REFUSED, trackedTree.first());
+            var held = refusedState(repository, paths);
+            if (held.isPresent()) {
+                return held.get();
             }
-            var conflicted = refusedConflict(repository, paths);
-            if (conflicted.isPresent()) {
-                return GitResult.of(GitOutcome.FAILED,
-                        "the index of " + conflicted.get() + " holds unresolved conflict entries");
-            }
-            var command = git.commit()
-                    .setMessage(input.message())
-                    .setAuthor(new PersonIdent(input.author().name(), input.author().email()))
-                    .setCommitter(new PersonIdent(input.committer().name(), input.committer().email()))
-                    .setSign(Boolean.FALSE)
-                    .setAllowEmpty(false);
+            var command = commitCommand(git, input);
             if (!hasWorktreeChanges(git, paths)) {
                 return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, NO_CHANGES);
             }
             var staged = paths.isEmpty() ? wholeIndex(repository) : indexEntries(repository, paths);
-            if (paths.isEmpty()) {
-                git.add().addFilepattern(".").call();
-                git.add().addFilepattern(".").setUpdate(true).call();
-            } else {
-                for (String path : paths) {
-                    git.add().addFilepattern(path).call();
-                    git.add().addFilepattern(path).setUpdate(true).call();
-                    command.setOnly(path);
-                }
-            }
-            var empty = paths.isEmpty()
-                    ? git.status().call().isClean()
-                    : !hasChanges(repository, paths);
-            if (empty) {
+            stage(git, command, paths);
+            if (isEmptyAfterStaging(git, repository, paths)) {
                 // the status saw a staged change the worktree reverted: staging would overwrite the index and the
                 // commit would be empty, so the index is restored and the call commits nothing
-                if (paths.isEmpty()) {
-                    restoreWholeIndex(repository, staged);
-                } else {
-                    restoreIndex(repository, paths, staged);
-                }
+                restore(repository, paths, staged);
                 return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, NO_CHANGES);
             }
-            RevCommit commit = command.call();
-            return GitResult.ok(toInfo(commit));
+            return GitResult.ok(toInfo(command.call()));
         } catch (EmptyCommitException _) {
             return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, NO_CHANGES);
         } catch (RepositoryNotFoundException _) {
@@ -424,6 +398,68 @@ public final class JGitOperations implements GitOperations {
             return failure(e);
         } catch (GitAPIException | IOException e) {
             return failure(e);
+        }
+    }
+
+    /**
+     * The conditions the commit refuses before it stages anything and that only an opened repository can answer: a name
+     * of the tracked-tree rule and an index that holds unresolved conflict entries under the listed paths.
+     *
+     * @param repository the repository
+     * @param paths      the listed paths; empty means the whole index
+     * @return the refusal, empty when neither condition holds
+     * @throws IOException when the index or the head tree cannot be read
+     */
+    private static Optional<GitResult<CommitInfo>> refusedState(Repository repository, List<String> paths)
+            throws IOException {
+        var trackedTree = CommitPathRefusals.refusedTrackedTrees(repository, paths);
+        if (!trackedTree.isEmpty()) {
+            return Optional.of(GitResult.of(GitOutcome.PATH_REFUSED, trackedTree.first()));
+        }
+        return refusedConflict(repository, paths)
+                .map(path -> GitResult.of(GitOutcome.FAILED,
+                        "the index of " + path + " holds unresolved conflict entries"));
+    }
+
+    private static CommitCommand commitCommand(Git git, CommitInput input) {
+        return git.commit()
+                .setMessage(input.message())
+                .setAuthor(new PersonIdent(input.author().name(), input.author().email()))
+                .setCommitter(new PersonIdent(input.committer().name(), input.committer().email()))
+                .setSign(Boolean.FALSE)
+                .setAllowEmpty(false);
+    }
+
+    /**
+     * Stages the listed paths — every change of the worktree for an empty list — and narrows the command to them, so an
+     * entry some other process staged earlier is not carried into the commit.
+     */
+    private static void stage(Git git, CommitCommand command, List<String> paths) throws GitAPIException {
+        if (paths.isEmpty()) {
+            git.add().addFilepattern(".").call();
+            git.add().addFilepattern(".").setUpdate(true).call();
+            return;
+        }
+        for (var path : paths) {
+            git.add().addFilepattern(path).call();
+            git.add().addFilepattern(path).setUpdate(true).call();
+            command.setOnly(path);
+        }
+    }
+
+    /** Whether the staged state carries no change against {@code HEAD}, read after staging. */
+    private static boolean isEmptyAfterStaging(Git git, Repository repository, List<String> paths)
+            throws GitAPIException, IOException {
+        return paths.isEmpty() ? git.status().call().isClean() : !hasChanges(repository, paths);
+    }
+
+    /** Puts the index back as the snapshot took it: the listed entries, or the whole index for an empty path list. */
+    private static void restore(Repository repository, List<String> paths, Map<String, DirCacheEntry> staged)
+            throws IOException {
+        if (paths.isEmpty()) {
+            restoreWholeIndex(repository, staged);
+        } else {
+            restoreIndex(repository, paths, staged);
         }
     }
 
