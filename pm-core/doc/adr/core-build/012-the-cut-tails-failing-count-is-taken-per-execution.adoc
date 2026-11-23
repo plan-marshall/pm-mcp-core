@@ -77,5 +77,5 @@ drift apart; `DiagnosticCollector.key(Diagnostic)` is built from it.
 * Plan: link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-173-cut-log-residue-closeout.md[PLAN-V2-173]
 * Landing: the analysis of PLAN-V2-170 (`landings/PLAN-V2-170.md`, carried item 91a)
 * Specification: link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime § Native Build Output Parsers]
-* Developer guide: link:../developer/core-build.adoc[`core.build`]
+* Developer guide: link:../../developer/core-build.adoc[`core.build`]
 * Predecessor: link:011-a-cut-build-log-reports-unmeasured.adoc[ADR `core-build/011`]
