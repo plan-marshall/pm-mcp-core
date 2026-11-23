@@ -305,7 +305,7 @@ class PendingEntryRecordsSweepTest {
                 () -> assertEquals(transcript, Files.readString(plan.pathBase().resolve("chat/session.md")),
                         "the created scope must keep the carried transcript"),
                 () -> assertEquals(new Outcome.Done("removed 1 pending entry directories: [" + residue.value() + "]"),
-                        outcome, "the sweep must name the populated cut creation's removed directory"),
+                        outcome, "the sweep must name the populated removed directory"),
                 () -> assertFalse(Files.exists(store.entryDirectory(residue)),
                         "the populated directory of the cut creation must be gone"),
                 () -> assertEquals(1, removals.size(),
