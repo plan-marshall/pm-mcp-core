@@ -87,7 +87,9 @@ public record SourceManifest(long revision, List<Source> sources) {
      * refused here, where the manifest is built, instead of the move writing one file twice. The comparison folds the
      * case and unifies the Unicode normalisation form, because a case-insensitive or normalisation-insensitive
      * filesystem addresses one file either way and the paths are the operator's file names; a path that is the
-     * directory of another is refused too, because one create target cannot be a file and a directory at once.
+     * directory of another is refused too, because one create target cannot be a file and a directory at once. Each
+     * rule answers with its own message, so a refusal names what the two paths have in common and not a text four
+     * rules share.
      */
     private static void requireDistinctPath(String sourceId, String path, Map<String, String> paths) {
         var folded = fold(path);
@@ -96,14 +98,38 @@ public record SourceManifest(long revision, List<Source> sources) {
             throw new IllegalArgumentException("The source '%s' stores the reserved path '%s'".formatted(sourceId, path));
         }
         for (var stored : paths.entrySet()) {
-            if (folded.equals(stored.getKey()) || nests(folded, stored.getKey())) {
-                throw new IllegalArgumentException(
-                        ("The source file '%s' is stored twice, or it and '%s' differ only in case or in another "
-                                + "Unicode normalisation form, or one is the directory of the other")
-                                .formatted(path, stored.getValue()));
+            if (folded.equals(stored.getKey())) {
+                throw new IllegalArgumentException(collision(path, stored.getValue()));
+            }
+            if (nests(folded, stored.getKey())) {
+                throw new IllegalArgumentException(("The source file '%s' and '%s' are one file and its directory, "
+                        + "which one create target cannot be").formatted(path, stored.getValue()));
             }
         }
         paths.put(folded, path);
+    }
+
+    /**
+     * The refusal of one collision, by the rule that makes the two names address one file: the same path stored twice,
+     * two names in one Unicode normalisation form, or two names whose case the fold unifies. A pair whose names differ
+     * in case and whose normalisation forms differ is the case rule: the fold's case mapping unifies what the
+     * normalisation comparison did not.
+     */
+    private static String collision(String path, String stored) {
+        if (path.equals(stored)) {
+            return "The source file '%s' is stored twice".formatted(path);
+        }
+        if (normalised(path).equals(normalised(stored))) {
+            return ("The source file '%s' and '%s' differ only in their Unicode normalisation form, which a "
+                    + "normalisation-insensitive filesystem addresses as one file").formatted(path, stored);
+        }
+        return ("The source file '%s' and '%s' differ only in case, which a case-insensitive filesystem addresses as "
+                + "one file").formatted(path, stored);
+    }
+
+    /** @return the path in the Unicode normalisation form the fold compares, NFC */
+    private static String normalised(String path) {
+        return Normalizer.normalize(path, Normalizer.Form.NFC);
     }
 
     /**
@@ -119,9 +145,8 @@ public record SourceManifest(long revision, List<Source> sources) {
      *         the two files apart. The operator kept that width on 2026-11-23 (ADR core-store/084 rule 1).
      */
     private static String fold(String path) {
-        var cased = Normalizer.normalize(path, Normalizer.Form.NFC).toUpperCase(Locale.ROOT)
-                .toLowerCase(Locale.ROOT);
-        return Normalizer.normalize(cased, Normalizer.Form.NFC);
+        var cased = normalised(path).toUpperCase(Locale.ROOT).toLowerCase(Locale.ROOT);
+        return normalised(cased);
     }
 
     /** @return whether one of two case-folded paths lies below the other */

@@ -13,6 +13,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -219,7 +220,7 @@ class SourceManifestCodecTest {
         }
 
         @Test
-        @DisplayName("two sources that name one file path are refused naming the path, never carried twice")
+        @DisplayName("two sources that name one file path are refused by the stored-twice rule, never carried twice")
         void onePathInTwoSources() {
             var second = new Source(sourceId + "x", Kind.ISSUE, "ref", "forge", Trust.UNTRUSTED, List.of(file()),
                     addedAt, Verdict.CLEAN, null);
@@ -228,7 +229,10 @@ class SourceManifestCodecTest {
             var refusal = assertThrows(IllegalArgumentException.class, () -> new SourceManifest(2, sources),
                     "one path in two sources should be refused");
 
-            assertTrue(refusal.getMessage().contains(path), "the refusal should name the shared path");
+            assertAll(
+                    () -> assertTrue(refusal.getMessage().contains(path), "the refusal should name the shared path"),
+                    () -> assertTrue(refusal.getMessage().contains("is stored twice"),
+                            "the refusal should state the stored-twice rule"));
         }
 
         @Test
@@ -249,7 +253,7 @@ class SourceManifestCodecTest {
         }
 
         @Test
-        @DisplayName("two paths that differ only in case are refused: one file on a case-insensitive filesystem")
+        @DisplayName("two paths that differ only in case are refused by the case rule: one file on a case-insensitive filesystem")
         void caseVariantPaths() {
             var variant = path.toUpperCase(Locale.ROOT);
             var second = new Source(sourceId + "x", Kind.ISSUE, "ref", "forge", Trust.UNTRUSTED,
@@ -265,11 +269,13 @@ class SourceManifestCodecTest {
                     () -> assertTrue(refusal.getMessage().contains(path),
                             "the refusal should name the path stored before it"),
                     () -> assertTrue(refusal.getMessage().contains("differ only in case"),
-                            "the refusal should state the rule of the fold"));
+                            "the refusal should state the case rule"),
+                    () -> assertFalse(refusal.getMessage().contains("normalisation"),
+                            "the refusal must not answer with the normalisation rule"));
         }
 
         @Test
-        @DisplayName("two paths whose Unicode case forms agree are refused: a final sigma is no other file")
+        @DisplayName("two paths whose Unicode case forms agree are refused by the case rule: a final sigma is no other file")
         void unicodeCaseVariantPaths() {
             var base = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
             var capital = base + "-Σ.md";
@@ -289,11 +295,13 @@ class SourceManifestCodecTest {
                     () -> assertTrue(refusal.getMessage().contains(finalSigma),
                             "the refusal should name the Unicode variant"),
                     () -> assertTrue(refusal.getMessage().contains("differ only in case"),
-                            "the refusal should state the rule of the fold"));
+                            "the refusal should state the case rule"),
+                    () -> assertFalse(refusal.getMessage().contains("normalisation"),
+                            "the refusal must not answer with the normalisation rule"));
         }
 
         @Test
-        @DisplayName("one name in two Unicode normalisation forms is refused: a macOS file system is insensitive to it")
+        @DisplayName("one name in two Unicode normalisation forms is refused by the normalisation rule: a macOS file system is insensitive to it")
         void normalisationVariantPaths() {
             var base = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
             var composed = base + "-\u00E9.md";
@@ -312,12 +320,14 @@ class SourceManifestCodecTest {
                             "the refusal should name the composed form"),
                     () -> assertTrue(refusal.getMessage().contains(decomposed),
                             "the refusal should name the decomposed form"),
-                    () -> assertTrue(refusal.getMessage().contains("another Unicode normalisation form"),
-                            "the refusal should state the normalisation rule"));
+                    () -> assertTrue(refusal.getMessage().contains("Unicode normalisation form"),
+                            "the refusal should state the normalisation rule"),
+                    () -> assertFalse(refusal.getMessage().contains("in case"),
+                            "the refusal must not answer with the case rule"));
         }
 
         @Test
-        @DisplayName("a pair the case mapping normalises differently is refused: the key is NFC after the fold too")
+        @DisplayName("a pair whose names the case fold unifies although their NFC forms differ is refused by the case rule")
         void casedNormalisationVariantPaths() {
             var base = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
             var small = base + "-\u0390.md";
@@ -329,20 +339,22 @@ class SourceManifestCodecTest {
             var sources = List.of(first, second);
 
             var refusal = assertThrows(IllegalArgumentException.class, () -> new SourceManifest(2, sources),
-                    "a pair the case mapping re-normalises should be refused");
+                    "a pair the case fold re-normalises should be refused");
 
             assertAll(
                     () -> assertTrue(refusal.getMessage().contains(small),
                             "the refusal should name the precomposed form"),
                     () -> assertTrue(refusal.getMessage().contains(combined),
                             "the refusal should name the combined form"),
-                    () -> assertTrue(refusal.getMessage().contains("another Unicode normalisation form"),
-                            "the refusal should state the normalisation rule"));
+                    () -> assertTrue(refusal.getMessage().contains("differ only in case"),
+                            "the refusal should state the case rule"),
+                    () -> assertFalse(refusal.getMessage().contains("normalisation"),
+                            "the refusal must not answer with the normalisation rule"));
         }
 
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"file first", "nested path first"})
-        @DisplayName("a file and a path below it are refused: one stored path is no directory of another")
+        @DisplayName("a file and a path below it are refused by the nesting rule: one stored path is no directory of another")
         void nestedPaths(String order) {
             var below = path + "/inner.md";
             var first = "file first".equals(order) ? path : below;
@@ -358,7 +370,10 @@ class SourceManifestCodecTest {
 
             assertAll(
                     () -> assertTrue(refusal.getMessage().contains(first), "the refusal should name the first path"),
-                    () -> assertTrue(refusal.getMessage().contains(second), "the refusal should name the second path"));
+                    () -> assertTrue(refusal.getMessage().contains(second),
+                            "the refusal should name the second path"),
+                    () -> assertTrue(refusal.getMessage().contains("one file and its directory"),
+                            "the refusal should state the nesting rule"));
         }
 
         @Test
@@ -385,7 +400,7 @@ class SourceManifestCodecTest {
         }
 
         @Test
-        @DisplayName("a stored manifest whose paths differ only in case is refused at format version 1")
+        @DisplayName("a stored manifest whose paths differ only in case is refused by the case rule at format version 1")
         void caseVariantStoredManifest() {
             var variant = path.toUpperCase(Locale.ROOT);
             var stored = document("\"format_version\":1", "\"revision\":2",
@@ -399,7 +414,61 @@ class SourceManifestCodecTest {
                             "a colliding stored manifest is unreadable"),
                     () -> assertEquals(1, refusal.current(), "the manifest keeps format version 1"),
                     () -> assertTrue(refusal.getMessage().contains("differ only in case"),
-                            "the refusal should state the rule of the fold"));
+                            "the refusal should state the case rule"),
+                    () -> assertFalse(refusal.getMessage().contains("normalisation"),
+                            "the refusal must not answer with the normalisation rule"));
+        }
+
+        @Test
+        @DisplayName("a stored manifest whose paths differ only in their normalisation form is refused by that rule")
+        void normalisationVariantStoredManifest() {
+            var composed = path + "-\u00E9.md";
+            var decomposed = path + "-e\u0301.md";
+            var stored = document("\"format_version\":1", "\"revision\":2",
+                    "\"sources\":[" + sourceStoring(sourceId, composed) + ","
+                            + sourceStoring(sourceId + "x", decomposed) + "]");
+
+            var refusal = assertRefused(stored);
+
+            assertAll(
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                            "a colliding stored manifest is unreadable"),
+                    () -> assertTrue(refusal.getMessage().contains("Unicode normalisation form"),
+                            "the refusal should state the normalisation rule"),
+                    () -> assertFalse(refusal.getMessage().contains("in case"),
+                            "the refusal must not answer with the case rule"));
+        }
+
+        @Test
+        @DisplayName("a stored manifest that names one path twice is refused by the stored-twice rule")
+        void storedTwiceStoredManifest() {
+            var stored = document("\"format_version\":1", "\"revision\":2",
+                    "\"sources\":[" + sourceStoring(sourceId, path) + ","
+                            + sourceStoring(sourceId + "x", path) + "]");
+
+            var refusal = assertRefused(stored);
+
+            assertAll(
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                            "a colliding stored manifest is unreadable"),
+                    () -> assertTrue(refusal.getMessage().contains("is stored twice"),
+                            "the refusal should state the stored-twice rule"));
+        }
+
+        @Test
+        @DisplayName("a stored manifest that names a file and its directory is refused by the nesting rule")
+        void nestedPathsStoredManifest() {
+            var stored = document("\"format_version\":1", "\"revision\":2",
+                    "\"sources\":[" + sourceStoring(sourceId, path) + ","
+                            + sourceStoring(sourceId + "x", path + "/inner.md") + "]");
+
+            var refusal = assertRefused(stored);
+
+            assertAll(
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                            "a colliding stored manifest is unreadable"),
+                    () -> assertTrue(refusal.getMessage().contains("one file and its directory"),
+                            "the refusal should state the nesting rule"));
         }
 
         @ParameterizedTest(name = "{0}")
