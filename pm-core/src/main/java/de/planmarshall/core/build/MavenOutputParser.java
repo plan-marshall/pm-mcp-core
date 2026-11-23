@@ -493,7 +493,8 @@ public class MavenOutputParser {
          * figure, so a duplicated line never adds a failure the filed diagnostic does not report. The first of the equal
          * lines in the list's order is kept.
          *
-         * @param lines the count lines of one side, the summary lines and the ambiguous ones of that side together
+         * @param lines the count lines of one side; the summary side passes its summary lines and its ambiguous lines
+         *              together, so a line that stands on both sides of the {@code Results:} marker counts once
          * @return the distinct lines
          */
         private static List<Counts> distinct(List<Counts> lines) {
