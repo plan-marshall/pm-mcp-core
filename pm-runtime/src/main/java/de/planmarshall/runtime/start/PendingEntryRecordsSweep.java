@@ -52,13 +52,13 @@ import de.planmarshall.core.store.StoreRefusal;
  * directory and the instant of the run, under a {@code transaction_id} of its own ({@link ScopeTransaction#recordId()}),
  * never the id of the transaction. Every candidate is re-judged under the workspace lock before it is removed, so an
  * entry opened between the listing and the lock is kept. The directories themselves are deleted after that
- * transaction, each as the last act, so a stop before it leaves the residue for the next run. The step reports how many
- * directories it left gone, names every one of them, and names every entry it kept or could not remove — the held and
- * tampered ones and a directory whose discard was refused — in one report: an entry whose record cannot be read, whose
- * store path is refused, or whose directory the discard could not remove is named there, and the step's outcome is a
- * failure then, after the readable residue was removed. A fault of the removal itself is reported with the unreadable
- * entries collected before it, so that fault never drops them; an entry held earlier in the same run is not named then,
- * and nothing was committed, so the next run re-judges it.
+ * transaction, each as the last act, so a stop before it leaves the residue for the next run. A run whose removal
+ * completes reports how many directories it left gone, names every one of them, and names every entry it kept or could
+ * not remove — the held and tampered ones and a directory whose discard was refused — in one report: an entry whose
+ * record cannot be read, whose store path is refused, or whose directory the discard could not remove is named there,
+ * and the step's outcome is a failure then, after the readable residue was removed. A fault of the removal itself is
+ * reported with the unreadable entries collected before it, so that fault never drops them; an entry kept earlier in
+ * the same run, held or tampered, is not named then, and nothing was committed, so the next run re-judges it.
  *
  * @since 0.1
  */

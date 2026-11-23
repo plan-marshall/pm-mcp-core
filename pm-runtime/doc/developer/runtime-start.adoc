@@ -117,15 +117,15 @@ sweeps both.
   still removed (link:../adr/runtime-start/017-one-entries-symbolic-link-holds-that-entry.adoc[ADR 017]). Any other
   `IllegalArgumentException` of the verification is a fault of the recovery or the sidecar code, not a held entry: the
   step reports it as a failure and holds nothing on its account.
-* Every entry the step keeps and every directory it removed is named in ONE report: the removed directories are named
-  beside their count, the unreadable entries and the held entries are reported together, and a directory whose discard
-  was refused after the commit — the record is present again, or the delete failed — is named as kept, so a completed
-  removal drops no kept entry from the report
+* Every entry a completed removal keeps and every directory it removed is named in ONE report: the removed directories
+  are named beside their count, the unreadable entries and the held entries are reported together, and a directory
+  whose discard was refused after the commit — the record is present again, or the delete failed — is named as kept, so
+  a completed removal drops no kept entry from the report
   (link:../adr/runtime-start/016-the-sweep-removes-pending-entry-residue-by-evidence.adoc[ADR 016]).
 * A fault of the removal itself — a rethrown non-link refusal of the verification, a refused store, an I/O failure or a
   failed commit — fails the step with its message and the unreadable entries the listing collected before it, so that
-  fault never drops them. An entry held earlier in that run is not named then; nothing was committed, so the next run
-  re-judges it.
+  fault never drops them. An entry kept earlier in that run, held or tampered, is not named then; nothing was
+  committed, so the next run re-judges it.
 * All removals of a run are one transaction, committed only if a directory is removed. A stopped removal is completed
   by the recovery of the workspace, which hands the owed records over again.
 * A workspace whose journal still waits for its recovery cannot be written: the step fails and removes nothing.
