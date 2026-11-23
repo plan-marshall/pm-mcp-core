@@ -2,7 +2,7 @@
   "id": "PLAN-V2-176",
   "slug": "commit-unit-remainder",
   "workstream": "WS-01",
-  "status": "staged",
+  "status": "running",
   "lane": "runbook",
   "plan_marshall_plan_id": "",
   "pr": "",
