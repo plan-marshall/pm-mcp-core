@@ -117,7 +117,8 @@ The check **parses the rendered vector back** against the template it was render
 into its literal fragments and its slot markers, requires every fragment at the position the previous one ended, and
 reads the text between two fragments as the value of the slot the template names. It never renders again: re-running
 `fill` would compare the composition with itself. The answer is the first violated rule and the position of the element,
-never the value, so the refusal can be recorded and shown without the vector in it.
+never the value, so the refusal can be recorded and shown without the vector in it. The correspondence pass decides (b)
+and (e) together, so the answer reports (a), then (b) and (e), then (c), then (d).
 
 [cols="1,2,3"]
 |===
@@ -145,6 +146,11 @@ The closed grammar of each typed slot:
 |`{{mcp_config}}` |a JSON object of the composed shape, `\{"mcpServers":\{"pm-job":\{…\}\}}`; exempt from rule (d)
 |`{{agent}}` |a JSON object of the composed shape, `\{"pm-job":\{…\}\}`; exempt from rule (d)
 |===
+
+`{{shim_dir}}` is a member of the profile schema's closed slot set
+(link:../../../pm-core/src/main/resources/de/planmarshall/core/profile/harness-profile-v1.schema.json[`harness-profile-v1.schema.json`]),
+but the runtime does not compose it yet: the shim wiring is owed (Implementation Watch `PM-WATCH-CLIENT-18`). A template
+that names it therefore has no grammar, and the check refuses it — the fail-closed direction the ADR's Consequences state.
 
 A gap in rule (b) is admitted for exactly one reason: a slot with no value removes its template element, and the flag
 element before it is removed with it (`--json-schema` and its value, `--mcp-config` and its value). The ephemeral flag a

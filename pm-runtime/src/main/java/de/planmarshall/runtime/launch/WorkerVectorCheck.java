@@ -40,7 +40,8 @@ import de.planmarshall.core.profile.ProfileRefusal;
  * template element are required exactly, and the value between two literals is the slot value that element carries.
  * The decision is recorded in ADR {@code runtime-launch/010}.
  * <p>
- * The rules, in the order the answer reports them:
+ * The rules; the correspondence pass decides (b) and (e) together, so the answer reports (a), then (b) and (e), then
+ * (c), then (d):
  * <ol>
  * <li>(a) element 0 is the enrolled executable path.</li>
  * <li>(b) every element of the vector corresponds to one element of the template; the elements the template skips (a

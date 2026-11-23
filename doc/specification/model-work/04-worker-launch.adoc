@@ -112,8 +112,8 @@ without the update evidence of its profile (`harness_update_unverified`), its ve
 audit `security` record `enrolment_tampered`), the verified bytes of `harnesses.json` do not read as the store
 (`harness_store_unreadable`: an entry whose required member `events` or `usage_report` with its `figures` is absent,
 `null` or not an object, or whose present `weights` is not an object), the prompt cannot be composed
-(`prompt_composition_failed`, <<job-prompt>>), or a verify-not-resolve check fails. Each refusal names the act that
-resolves it in both clients.
+(`prompt_composition_failed`, <<job-prompt>>), or the composed argument vector does not conform to the profile's template
+and the slot grammars (`argument_rejected`). Each refusal names the act that resolves it in both clients.
 
 [#model-and-effort]
 === Model & Effort
@@ -213,9 +213,7 @@ nothing that varies per launch precedes or interleaves them, so a harness's prom
 fresh worker's prompt then adds (5) the state's `skill` clauses, the writing skill where the task writes free text, the
 project's domain skills and, for an envelope task, the union of its plan tasks' `skills[]`; and (6) the task's contract
 envelope; a chat's generation is primed in (6) with the pushed core of its subject and the transcript window, within the
-chat's budgets (link:../state-catalogue.adoc#chat-context[State Catalogue, What a Chat Knows]). Above the in-band bound (link:../timeouts/03-retention-harness-config.adoc#prompt-in-band-bound[Timeouts & Budgets Specification, Prompt in-band skill bound]) the remaining task skills are rendered as their section index with their URIs. A skill
-that does not resolve, renders empty or changed its digest fails the launch with `prompt_composition_failed`; no worker
-runs with a required skill missing. The project's skills for workers are the extension skills of `.marshall/skills/`,
+chat's budgets (link:../state-catalogue.adoc#chat-context[State Catalogue, What a Chat Knows]). Above the in-band bound (link:../timeouts/03-retention-harness-config.adoc#prompt-in-band-bound[Timeouts & Budgets Specification, Prompt in-band skill bound]) the remaining task skills are rendered as their section index with their URIs. A skill that does not resolve fails the launch with `prompt_composition_failed`, as does a role skill whose digest changed after the role was read; a launch skill (a state, writing or domain skill) that renders empty fails it too, for a fresh worker. The prefix skills' text is not checked for emptiness, because a role skill carries its digest as the pin. No worker runs with a role skill missing. The project's skills for workers are the extension skills of `.marshall/skills/`,
 delivered like compiled skills (instruction files: <<job-working-directory>>).
 
 The per-request binding checks every call against the job-bound part of the contract envelope (<<job-token>>).

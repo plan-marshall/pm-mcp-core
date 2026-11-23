@@ -708,12 +708,14 @@ _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/1
 |The launch is refused before its spawn
 |`HarnessVerifier` or `LaunchComposer`
 |Records the refused job through `WorkerStarter.refuseWorker`, releases the claimed slot and declines with
-`LAUNCH_REFUSED`. The start-failure guard counts the failure; the task stays queued.
+`LAUNCH_REFUSED`. A refusal on the enrolment store is counted by the start-failure guard; any other refusal is recorded
+without a count, and the task stays queued.
 
 |The worker exits before its first call
 |`LossDetection.exit` answers empty and sets `startFailure`
-|The supervisor records the start failure (`LossDetection.startFailure()`); the assembly counts it through the guard and
-the task takes its start-failure path. A `zero_tool` worker is never counted.
+|The supervisor records the start failure (`LossDetection.startFailure()`) and the pass enters `START_FAILED`; a live
+guard does not count it, a guard rebuilt over the registry does, and the count through a live guard is owed to
+PLAN-V2-126 (the gap above). The task takes its start-failure path. A `zero_tool` worker is never counted.
 
 |The worker exits after its first call
 |`LossDetection.exit`
