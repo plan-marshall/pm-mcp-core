@@ -25,7 +25,7 @@ import org.jspecify.annotations.Nullable;
  * counter without keeping the loop alive (PM-WATCH-DSL-28).
  * <p>
  * The value is immutable and holds data only; the transitions live in the pure class {@code CommitAttemptCounter} of
- * {@code pm-provider-git}, the module that owns the commit primitive.
+ * this package, so both the engine and the assembly may count through it.
  *
  * @param changeSet the change-set cap counted at the current staged change set, or {@code null} before the first
  *                  failed attempt

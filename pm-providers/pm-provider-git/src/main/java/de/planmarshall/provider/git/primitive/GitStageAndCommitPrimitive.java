@@ -127,28 +127,31 @@ public final class GitStageAndCommitPrimitive
 
     /**
      * A token that starts an absolute path inside a detail text: an introducer — the start of the text, white space, a
-     * quote, or an opening, assignment or separator punctuation — before a {@code /}. A closing bracket is handled by
-     * {@link #BRACKET_PATH}, so a relative name such as {@code app/[slug]/page.tsx} or {@code (group)/x} stays a name;
-     * a name whose separator follows a non-bracket punctuation is still read as absolute, the fail-closed direction.
+     * quote, or an opening, closing, assignment or separator punctuation — before a {@code /}. A closing bracket is
+     * handled by {@link #BRACKET_PATH}, so a relative name such as {@code app/[slug]/page.tsx} or {@code (group)/x}
+     * stays a name; a name whose separator follows a non-bracket punctuation is still read as absolute, the fail-closed
+     * direction.
      */
     private static final Pattern ABSOLUTE_PATH =
-            Pattern.compile("(?:^|[\\s\"'(\\[{<=:])/[^\\s)\"']*");
+            Pattern.compile("(?:^|[\\s\"'(\\[{<=:>])/[^\\s)\"']*");
 
     /**
      * A token that starts a drive-qualified absolute path inside a detail text: the same introducers before a drive
      * letter and a separator, so a Windows path {@code C:\...} or {@code C:/...} is refused whatever the host.
      */
     private static final Pattern DRIVE_PATH =
-            Pattern.compile("(?:^|[\\s\"'(\\[{<=:])[A-Za-z]:[\\\\/][^\\s)\"']*");
+            Pattern.compile("(?:^|[\\s\"'(\\[{<=:>])[A-Za-z]:[\\\\/][^\\s)\"']*");
 
     /**
-     * A closing bracket before a {@code /} that starts a token of at least two segments: a relative name with a
-     * bracket separates one segment from the next ({@code app/[slug]/page.tsx}), while a host path after a stray
-     * closing bracket holds further separators ({@code ]/srv/git/worktrees/plan}). A two-segment relative name with a
-     * closing bracket ({@code app/[slug]/a/b.tsx}) is read as absolute, the fail-closed direction.
+     * A closing bracket that follows an introducer and is followed by a {@code /} of a token of at least two segments:
+     * a host path after a stray closing bracket holds further separators ({@code ]/srv/git/worktrees/plan}), while a
+     * relative name with a closing bracket before a one-segment tail ({@code app/[slug]/page.tsx}, {@code (group)/x})
+     * stays a name. A closing bracket that sits after a path character is no introducer, so the name survives; a
+     * two-segment relative name after a stray closing bracket ({@code refused ]/a/b.txt}) is read as absolute, the
+     * fail-closed direction.
      */
     private static final Pattern BRACKET_PATH =
-            Pattern.compile("(?:^|[\\s\"'(\\[{<=:])[\\])]/(?:[^\\s)\"']*/)+[^\\s)\"']*");
+            Pattern.compile("(?:^|[\\s\"'(\\[{<=:>])[\\])}]/(?:[^\\s)\"']*/)+[^\\s)\"']*");
 
     /** The committer while no agent identity resolves. */
     static final Identity COMPILED_COMMITTER = new Identity("plan-marshall-mcp", "noreply@cuioss.de");
@@ -297,13 +300,13 @@ public final class GitStageAndCommitPrimitive
      * The detail of a failed commit as the model-facing fact carries it. The contract's detail names the checkout in
      * some of its outcomes, so every occurrence of the absolute root is made the repository-relative root {@code .}; an
      * absolute path outside the checkout — a {@code /} that follows an introducer (the start of the text, white space, a
-     * quote, or an opening, assignment or separator punctuation) or a drive-qualified token — a text that still names
-     * one after that replacement, and a text that carries a traversal segment are replaced by the code of the git
-     * outcome, because the primitive cannot tell whether a host path of the server is safe to render; and a contract
-     * that states no detail is carried as that code. No POSIX absolute path and no drive-qualified path therefore
-     * reaches a fact: a closing bracket before a separator is an introducer too when a further separator follows, so a
-     * two-segment relative name with a bracket ({@code app/[slug]/a/b.tsx}) is still read as absolute — the fail-closed
-     * direction — while {@code app/[slug]/page.tsx} and {@code (group)/x} stay names.
+     * quote, or an opening, closing, assignment or separator punctuation) or a drive-qualified token — a text that
+     * still names one after that replacement, and a text that carries a traversal segment are replaced by the code of
+     * the git outcome, because the primitive cannot tell whether a host path of the server is safe to render; and a
+     * contract that states no detail is carried as that code. No POSIX absolute path and no drive-qualified path
+     * therefore reaches a fact: a closing bracket that follows an introducer and is followed by at least one further
+     * separator is an introducer too ({@code refused ]/a/b.txt} becomes the code), while {@code app/[slug]/page.tsx}
+     * and {@code (group)/x} stay names.
      */
     static String modelDetail(GitOutcome outcome, @Nullable String detail, Path worktree) {
         if (detail == null || detail.isBlank()) {
@@ -323,7 +326,8 @@ public final class GitStageAndCommitPrimitive
             }
             if (normal.startsWith(root)) {
                 var relative = root.relativize(normal).toString();
-                return carriesAbsolutePath(relative) ? outcome.name() : relative;            }
+                return carriesAbsolutePath(relative) ? outcome.name() : relative;
+            }
             return outcome.name();
         }
         var absoluteRoot = root.toString();
