@@ -36,6 +36,8 @@ import org.easymock.CaptureType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.service.AuditSink;
@@ -204,6 +206,18 @@ class PendingEntryCreationTest {
     }
 
     @Test
+    @DisplayName("a source directory that is not normalized still composes the request of every valid file")
+    void composesFromANonNormalizedDirectory() throws Exception {
+        var manifest = prepareEntry();
+        var notNormalized = store.sourcesDirectory(entryId).resolve("..").resolve("sources");
+
+        var document = PendingEntryCreation.composeRequest(notNormalized, manifest);
+
+        assertTrue(document.startsWith("# Request\n\n" + description),
+                "an unnormalized source directory still composes");
+    }
+
+    @Test
     @DisplayName("a stored file that differs from its manifest entry refuses the move")
     void refusesADifferingSource() throws Exception {
         prepareEntry();
@@ -212,6 +226,186 @@ class PendingEntryCreationTest {
         assertThrows(StoreRefusal.class, this::move, "a differing source file should refuse the move");
         assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
                 "nothing should be written into the new scope");
+    }
+
+    @Test
+    @DisplayName("an epic target is refused with its reason: an epic's sources belong to its ledger")
+    void refusesAnEpicTarget() throws Exception {
+        prepareEntry();
+        var epic = JournalScope.epic(base, PROJECT, "epic-" + Generators.letterStrings(3, 12).next()
+                .toLowerCase(Locale.ROOT));
+        Files.createDirectories(epic.journalFile().getParent());
+        var probe = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT) + ".json";
+
+        IllegalArgumentException refusal;
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(workspace.lockKey());
+            transaction.acquire(epic.lockKey());
+            var workspaceWrite = ScopeTransaction.open(transaction, workspace, audit, clock);
+            var epicWrite = ScopeTransaction.open(transaction, epic, audit, clock);
+            workspaceWrite.create(PendingEntryStore.entryPath(entryId, probe), new byte[0]);
+            epicWrite.create(probe, new byte[0]);
+            refusal = assertThrows(IllegalArgumentException.class,
+                    () -> creation.move(workspaceWrite, epicWrite, entryId),
+                    "an epic's machine store takes no source");
+            epicWrite.commit();
+            workspaceWrite.commit();
+        }
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("ledger"),
+                        "the reason should name the epic's ledger"),
+                () -> assertTrue(refusal.getMessage().contains("ledger copy"),
+                        "the reason should name the ledger copy that is owed"),
+                () -> assertFalse(refusal.getMessage().contains("PLAN-V2-133"),
+                        "the reason should name the capability, not a plan id"),
+                () -> assertTrue(Files.exists(epic.pathBase().resolve(probe)),
+                        "the epic's own store commits, so no move wrote"),
+                () -> assertFalse(Files.exists(epic.pathBase().resolve("sources")),
+                        "no source directory should be written into the epic"),
+                () -> assertFalse(Files.exists(epic.pathBase().resolve("sources/sources.json")),
+                        "no manifest should be written into the epic"),
+                () -> assertFalse(Files.exists(epic.pathBase().resolve("chat")),
+                        "no transcript should be written into the epic"),
+                () -> assertFalse(Files.exists(new QuestionLog(epic).store()),
+                        "no question log should be written into the epic"),
+                () -> assertFalse(Files.exists(epic.pathBase().resolve("request.md")),
+                        "no request should be written into the epic"));
+    }
+
+    @Test
+    @DisplayName("a file of the source directory with no manifest entry refuses the move, naming it")
+    void refusesAFileWithoutManifestEntry() throws Exception {
+        prepareEntry();
+        Files.writeString(store.sourcesDirectory(entryId).resolve("hand-written.md"),
+                Generators.letterStrings(10, 40).next(), UTF_8);
+
+        var refusal = assertThrows(StoreRefusal.class, this::move,
+                "a file no manifest entry names should refuse the move");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("hand-written.md"),
+                        "the refusal should name the file"),
+                () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
+                        "nothing should be written into the new scope"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a source that is a symbolic link refuses the move, so the read never leaves the entry")
+    void refusesASymbolicLink() throws Exception {
+        prepareEntry();
+        var outside = Files.writeString(base.resolve("outside.md"), description, UTF_8);
+        var stored = store.sourcesDirectory(entryId).resolve("description-1.md");
+        Files.delete(stored);
+        Files.createSymbolicLink(stored, outside);
+
+        var refusal = assertThrows(StoreRefusal.class, this::move, "a linked source should refuse the move");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("symbolic link"),
+                        "the refusal should name the link"),
+                () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
+                        "nothing should be written into the new scope"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a source directory that is a link refuses the move before a file of it is read")
+    void refusesASourceDirectoryThatIsNoDirectory() throws Exception {
+        prepareEntry();
+        var sources = store.sourcesDirectory(entryId);
+        var elsewhere = Files.createDirectory(base.resolve("elsewhere"));
+        Files.write(elsewhere.resolve(SourceManifestCodec.FILE_NAME),
+                SourceManifestCodec.write(SourceManifest.empty()));
+        Files.delete(sources.resolve("description-1.md"));
+        Files.delete(sources.resolve("issue.md"));
+        Files.delete(sources.resolve(SourceManifestCodec.FILE_NAME));
+        Files.delete(sources);
+        Files.createSymbolicLink(sources, elsewhere);
+
+        var refusal = assertThrows(StoreRefusal.class, this::move,
+                "a linked source directory should refuse the move");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("no directory"),
+                        "the refusal should name the source directory"),
+                () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
+                        "nothing should be written into the new scope"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a transcript that is a symbolic link refuses the move, never dropped with the directory")
+    void refusesALinkedTranscript() throws Exception {
+        prepareEntry();
+        var transcript = store.chatDirectory(entryId);
+        var elsewhere = Files.createDirectory(base.resolve("elsewhere-chat"));
+        Files.delete(transcript.resolve("session.md"));
+        Files.delete(transcript);
+        Files.createSymbolicLink(transcript, elsewhere);
+
+        var refusal = assertThrows(StoreRefusal.class, this::move,
+                "a linked transcript should refuse the move");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("transcript"),
+                        "the refusal should name the transcript"),
+                () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
+                        "nothing should be written into the new scope"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a link inside the transcript refuses the move, where it would be dropped and deleted")
+    void refusesALinkInsideTheTranscript() throws Exception {
+        prepareEntry();
+        var outside = Files.writeString(base.resolve("outside-chat.md"), chat, UTF_8);
+        Files.createSymbolicLink(store.chatDirectory(entryId).resolve("linked.md"), outside);
+
+        var refusal = assertThrows(StoreRefusal.class, this::move,
+                "a link inside the transcript should refuse the move");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("linked.md"),
+                        "the refusal should name the linked transcript file"),
+                () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
+                        "nothing should be written into the new scope"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a stored path below a linked parent refuses the move, never read through the link")
+    void refusesAPathBelowALinkedParent() throws Exception {
+        var parent = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+        var stored = new SourceFile(parent + "/" + SourceManifestCodec.FILE_NAME + ".md", 2,
+                StoreDigest.of("{}".getBytes(UTF_8)).sha256());
+        var manifest = new SourceManifest(1, List.of(new Source(sourceIdFor("parent"), SourceManifest.Kind.DESCRIPTION,
+                "ref", "operator", Trust.TRUSTED, List.of(stored), at, null, null)));
+        Files.createDirectories(plan.pathBase().resolve("sources"));
+        inWorkspace(transaction -> store.create(transaction, entry()));
+        inWorkspace(transaction -> store.replaceSources(transaction, entryId, manifest));
+        var elsewhere = Files.createDirectory(base.resolve("elsewhere-sources"));
+        Files.writeString(elsewhere.resolve(SourceManifestCodec.FILE_NAME + ".md"), "{}", UTF_8);
+        Files.createSymbolicLink(store.sourcesDirectory(entryId).resolve(parent), elsewhere);
+
+        assertThrows(StoreRefusal.class, this::move, "a linked parent of a stored path should refuse the move");
+        assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
+                "nothing should be written into the new scope");
+    }
+
+    private String sourceIdFor(String prefix) {
+        return prefix + "_" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+    }
+
+    @Test
+    @DisplayName("finish reports a directory another end removed first, never an error")
+    void finishToleratesARemovedDirectory() throws Exception {
+        prepareEntry();
+        move();
+        creation.finish(entryId);
+
+        assertFalse(creation.finish(entryId), "a removed directory should be reported as absent");
     }
 
     /** Runs the move and commits the new scope only: the crash window between the two commits. */

@@ -489,11 +489,16 @@ link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntrySchemaParit
 link:../pm-core/src/test/java/de/planmarshall/core/store/SourceManifestCodecTest.java[SourceManifestCodecTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/PendingEntryCreationTest.java[PendingEntryCreationTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/entry/PendingEntryDirectoryReaderTest.java[PendingEntryDirectoryReaderTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PendingEntryRecordsSweepTest.java[PendingEntryRecordsSweepTest]
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PendingEntryRecordsSweepTest.java[PendingEntryRecordsSweepTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/start/PeriodicSweepKilledRuntimeIT.java[PeriodicSweepKilledRuntimeIT]
 
 Documentation: link:../pm-core/doc/developer/core-store.adoc#_the_pending_entry[Scope Stores Developer Guide § The
 Pending Entry], link:../pm-runtime/doc/developer/runtime-entry.adoc[Pending Entry Reader Developer Guide],
-link:../pm-core/doc/adr/core-store/082-the-pending-entry-is-a-directory.adoc[ADR core-store/082]
+link:../pm-core/doc/adr/core-store/082-the-pending-entry-is-a-directory.adoc[ADR core-store/082],
+link:../pm-core/doc/adr/core-store/083-the-store-level-creation-carries-a-plans-sources-alone.adoc[ADR core-store/083],
+link:../pm-core/doc/adr/core-store/084-the-move-carries-the-manifests-files-and-no-other.adoc[ADR core-store/084],
+link:../pm-core/doc/adr/core-store/085-the-pending-entry-record-keeps-format-version-1.adoc[ADR core-store/085],
+link:../pm-core/doc/adr/core-store/086-the-cross-commit-window-belongs-to-the-assembly.adoc[ADR core-store/086]
 
 [#PM-WF-11]
 === PM-WF-11: Q-Gate Validation Loop, Change-Type & Unplanned-Change Recording

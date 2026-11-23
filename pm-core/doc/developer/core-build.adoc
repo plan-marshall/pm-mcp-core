@@ -189,9 +189,13 @@ omits `byRunner`.
 
 A log the read cut (`MavenOutputParser.parse(Path)` over a log above `BuildLogText.MAX_BYTES`) reports
 `TestCounts.Unmeasured`: the summary blocks of the modules in the lost head are not in it, so the tail's figure is no
-count of the whole run, and a cut log never reads as "no tests ran". The failing count its tail does report is filed as
-one error diagnostic, so a visible failure still contradicts a success banner (link:../adr/core-build/011-a-cut-build-log-reports-tail-only.adoc[ADR
-`core-build/011`]). The `String` overload reads no file and is never cut.
+count of the whole run, and a cut log never reads as "no tests ran". The `String` overload takes the fact in
+`parse(String, boolean cut)`, so a caller that read the text elsewhere passes the cut it knows; the daemon path does so
+from `JobLog.Complete.cut()` through `BuildOutputParser`, so a job log over the runtime's cap is unmeasured too. The
+failing count the tail still shows is filed as one error diagnostic, so a visible failure still contradicts a success
+banner: for a cut log the count is read from the ambiguous summary lines whose `Results:` marker is in the lost head as
+well, and when the log's own failing `Tests run:` line was already filed as an `[ERROR]` diagnostic the synthetic
+finding is not added again (link:../adr/core-build/011-a-cut-build-log-reports-unmeasured.adoc[ADR `core-build/011`]).
 
 === Gradle
 

@@ -1,0 +1,61 @@
+= ADR 085: The Pending-Entry Record Keeps Format Version 1, and a Flat Pending File Is No Entry
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-22
+
+== Context
+
+Two compatibility questions were open around the pending entry, and the operator decided both on 2026-11-22.
+
+The record `pending/<entry_id>/entry.json` changed shape while it was at `format_version` 1: the raw `source` member was
+replaced by the `recipe` chosen in `start.choose` and the `requested_id` a client named, `hint` became a required
+member, and `from_epic` was added for a plan the server starts for an epic row. Nothing is released yet, and the
+operator decided on 2026-10-13 that every versioned artifact stays at version 1 and a format change replaces version 1
+in place (R13): no version bump, no reader for an older shape, no migration.
+
+Before the entry became a directory it was a flat file `pending/<entry_id>.json`. A machine that ran a binary of that
+shape keeps such files, and nothing decides what they are: a name with a suffix parses as no entry id, so the listing
+skips it, but a reader could still take it for an entry.
+
+== Decision
+
+1. The pending-entry record's `format_version` stays 1, in the record, the codec, the schema, the fixtures and the
+   specification. The shape that carries `recipe`, `requested_id`, `hint` and `from_epic` is version 1, and a record
+   that declares any other version is refused as `format_outdated` or `format_newer`.
+2. A flat `pending/<entry_id>.json` is no entry: the directory `pending/<entry_id>/` is the entry, a file of the
+   `pending/` directory whose name is no entry id is never listed, never read, never migrated and never removed by a
+   sweep. There is no shim for the pre-directory shape (pre-1.0), and nothing deletes such a file.
+
+== Alternatives Considered
+
+1. *Bump the record to version 2.*
+   _Rejected_: it contradicts R13, adds a version a released binary never read, and would need a reader and a
+   migration the repository has none of.
+2. *Migrate a flat pending file into a directory at the next start.*
+   _Rejected_: that is exactly the shim R13 rules out, and it would have to invent a manifest, a transcript and a
+   record the old shape never held.
+3. *Refuse the project's bootstrap while a flat file exists.*
+   _Rejected_: it adds a fail-closed check the specification does not ask for, and the file is inert under the
+   directory form anyway.
+4. *Let a sweep delete an unparsable file of `pending/`.*
+   _Rejected_: a name that is no entry id is no entry; a sweep that removed one would be removing what it cannot judge.
+
+== Consequences
+
+* The record's change is recorded by this decision and ADR link:082-the-pending-entry-is-a-directory.adoc[082], not by
+  a version number.
+* A flat file left on a machine stays where it is and is read by nothing; the operator may remove it by hand, and no
+  part of the runtime does.
+* The specification states both rules in Store Schemas § Pending Entry, and the guide repeats them.
+
+== Source
+
+* Operator decisions of 2026-11-22 (questions q1 and q2 of Deliverable 4 of the plan below)
+* Standing rule R13 (format versions stay 1)
+* link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#pending-entry-record[Store Schemas § Pending Entry]

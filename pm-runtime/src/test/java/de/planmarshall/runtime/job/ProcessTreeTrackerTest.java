@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.runtime.job.ProcessTreeTracker.Member;
+import de.planmarshall.runtime.job.ProcessTreeTracker.Survivor;
 
 /**
  * The process tree of a job (termination step 3a): the descendants it recorded while the job ran are swept at its end,
@@ -203,7 +204,7 @@ class ProcessTreeTrackerTest {
             assertAll(
                     () -> assertDoesNotThrow(() -> verify(member.handle()),
                             "SIGTERM before SIGKILL, both through the handle"),
-                    () -> assertEquals(List.of(first), survivors.stream().map(ProcessTreeTracker.Survivor::pid)
+                    () -> assertEquals(List.of(first), survivors.stream().map(Survivor::pid)
                             .toList(), "the stubborn member is a survivor"),
                     () -> assertEquals(command, survivors.getFirst().command(), "the survivor reports its command"),
                     () -> assertEquals(ProcessTreeTracker.SWEEP_GRACE.plus(ProcessTreeTracker.POLL_INTERVAL),
@@ -233,7 +234,7 @@ class ProcessTreeTrackerTest {
                     () -> assertDoesNotThrow(() -> verify(ending.handle()), "the other member is still signalled"),
                     () -> assertFalse(starts.containsKey(second), "the other member is ended"),
                     () -> assertDoesNotThrow(() -> verify(throwing), "the throwing member is escalated too"),
-                    () -> assertEquals(List.of(first), survivors.stream().map(ProcessTreeTracker.Survivor::pid)
+                    () -> assertEquals(List.of(first), survivors.stream().map(Survivor::pid)
                             .toList(), "the throwing member is reported a survivor"),
                     () -> assertEquals(command, survivors.getFirst().command(), "the survivor reports its command"));
         }
@@ -277,7 +278,8 @@ class ProcessTreeTrackerTest {
         @Test
         @DisplayName("the tracker depends on no group-signal primitive: every signal goes through a handle")
         void dependsOnNoGroupSignal() {
-            var imported = new ClassFileImporter().importClasses(ProcessTreeTracker.class);
+            var imported = new ClassFileImporter().importClasses(ProcessTreeTracker.class,
+                    ProcessTreeTracker.Member.class, Survivor.class, ProcessGroupSignals.class);
 
             var sent = noClasses().that().haveSimpleName("ProcessTreeTracker")
                     .should().dependOnClassesThat().haveSimpleName(GROUP_SIGNALS)
@@ -285,6 +287,8 @@ class ProcessTreeTrackerTest {
 
             assertAll(
                     () -> assertTrue(imported.contain(ProcessTreeTracker.class), "the import holds the tracker"),
+                    () -> assertTrue(imported.contain(ProcessGroupSignals.class),
+                            "the target class of the rule is found"),
                     () -> assertFalse(sent.hasViolation(), "the tracker has no numeric signal of its own"));
         }
     }

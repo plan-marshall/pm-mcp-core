@@ -1,0 +1,65 @@
+= ADR 086: The Recovery of the Cross-Commit Window Belongs to the Assembly
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-22
+
+== Context
+
+The creation of a scope from an entry commits two transactions: the new scope's, which writes the entry's sources,
+transcript, question and decision stores and the composed `request.md`, and the workspace's, which deletes the entry's
+stores. A stop between the two leaves the entry's record in place while the new scope already holds the copies: a
+repeated move is refused by the create targets of the new scope's stores, and the plan scope exists while the entry
+still offers itself, so the plan is stranded.
+
+The startup recovery cannot derive this window. It completes the writes it can derive from an authoritative store (a
+capture ref, the epic queue row, a lesson claim), but the new scope carries no entry id, so nothing in the new scope
+says which entry it was created from. The specification's recovery sentence — a pending entry directory whose plan
+exists is deleted — needs that link, and the store-level move cannot supply it without a new durable carrier in the new
+scope, which is a contract between `pm-core` and the assembly that runs `start.create-scope`.
+
+== Decision
+
+The recovery of the window is owed to the assembly `plan-marshall-mcp`, whose `start.create-scope` unit creates the
+scope: it makes the new scope carry the entry id it was created from, and then derives the deletion of the entry. The
+live-plan enumerator such a derivation reads — the list of the plans that are live for the entry — belongs to the
+assembly too; no store-level type enumerates it. Until
+it does, the operator ends such an entry by abandoning it, and the store-level move keeps its current behaviour — it
+refuses the repeated move and writes nothing.
+
+The obligation is recorded in the implementation watch with that owner (PM-WATCH-STORE-42), and the specification's
+`start.create-scope` recovery sentence names the assembly as the owner. The operator decided this on 2026-11-22
+(question q3 of Deliverable 4).
+
+== Alternatives Considered
+
+1. *Recover here, in the store-level move.*
+   _Rejected_: it needs a durable carrier of the entry id in the new scope (a record member, a sidecar or a store),
+   which changes a contract every scope reader shares and that the assembly writes; the corrections of this plan do not
+   reach that far.
+2. *Delete the new scope when the workspace's transaction is missing.*
+   _Rejected_: the new scope may be live and readable, and deleting it would destroy work; the entry's record is the
+   authority that says the creation did not complete, not the scope's absence.
+3. *Leave the window undocumented.*
+   _Rejected_: an undocumented window with no owner is what let the residue accumulate; the analysis of `PLAN-V2-22`
+   named it as a major item with the owner open.
+
+== Consequences
+
+* PM-WATCH-STORE-42 keeps the hazard with the assembly as its named owner, and the specification's recovery sentence is
+  a requirement whose implementation is owed, not a description of today's code.
+* A creation cut in that window is ended by the operator's abandon of the entry; a repeated creation is refused, never
+  carried twice.
+* When the assembly carries the entry id, this record is superseded by the recovery it makes possible.
+
+== Source
+
+* Operator decision of 2026-11-22 (question q3 of Deliverable 4 of the plan below)
+* link:../../../../doc/specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[Store Schemas § Transaction Journal, `start.create-scope`]
+* link:../../../../doc/specification/state-catalogue/09-bootstrap-and-lessons.adoc[State Catalogue § Bootstrap and Lessons]
+* ADR link:082-the-pending-entry-is-a-directory.adoc[082] (the entry as a directory)

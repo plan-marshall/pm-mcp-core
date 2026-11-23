@@ -9,6 +9,12 @@
  */
 package de.planmarshall.runtime.job;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.eq;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.getCurrentArguments;
+import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -21,6 +27,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -279,6 +287,7 @@ class JobLogTest {
             assertAll(
                     () -> assertEquals(JobLog.MAX_BYTES, Files.size(path), "the log is exactly at the cap"),
                     () -> assertEquals(Files.size(path), whole.length(), "the length is the size of the log"),
+                    () -> assertFalse(whole.cut(), "a log at the cap is not cut"),
                     () -> assertEquals(filler + "\n" + marker + "\n", reading.jobOutput(),
                             "the whole log follows the report, uncut"));
         }
@@ -298,6 +307,7 @@ class JobLogTest {
             assertAll(
                     () -> assertEquals(pid, reading.report().pid(), "the first line is the report"),
                     () -> assertEquals(Files.size(path), whole.length(), "the length is the real file length"),
+                    () -> assertTrue(whole.cut(), "a log over the cap is reported as cut"),
                     () -> assertTrue(reading.jobOutput().contains(marker), "the tail of the log is read"),
                     () -> assertFalse(reading.jobOutput().contains(middle), "the middle of the log is cut"),
                     () -> assertTrue(reading.jobOutput().startsWith(marker), "the cut starts at a line beginning"));
@@ -350,6 +360,27 @@ class JobLogTest {
                     () -> assertEquals(pid, reading.report().pid(), "the first line is the report"),
                     () -> assertEquals("x".repeat(JobLog.MAX_BYTES - 1) + "\n", reading.jobOutput(),
                             "the whole window follows the report"));
+        }
+
+        @Test
+        @DisplayName("a log that shrinks under the read is truncated, never complete with a short text")
+        void shrinkingLogIsTruncated() throws Exception {
+            FileChannel channel = createMock(FileChannel.class);
+            expect(channel.size()).andStubReturn(10L);
+            expect(channel.read(anyObject(ByteBuffer.class), eq(0L))).andAnswer(() -> {
+                ((ByteBuffer) getCurrentArguments()[0]).put("short".getBytes(StandardCharsets.UTF_8));
+                return 5;
+            });
+            expect(channel.read(anyObject(ByteBuffer.class), eq(5L))).andReturn(-1);
+            replay(channel);
+
+            var whole = log.readWhole(channel, 0);
+
+            var unavailable = assertInstanceOf(Unavailable.class, whole, "a short read is not a complete log");
+            assertAll(
+                    () -> assertEquals(LogState.TRUNCATED, unavailable.state(), "the short read is truncated"),
+                    () -> assertTrue(unavailable.detail().contains("returned 5 of the 10 bytes"),
+                            "the detail states the bytes the read returned"));
         }
 
         @Test

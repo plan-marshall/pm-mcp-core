@@ -9,11 +9,16 @@
  */
 package de.planmarshall.core.store;
 
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -53,8 +58,10 @@ public record SourceManifest(long revision, List<Source> sources) {
 
     /**
      * @throws NullPointerException     if the sources are {@code null}
-     * @throws IllegalArgumentException if the revision is negative, a source id is used twice, or a source breaks its
-     *                                  rules
+     * @throws IllegalArgumentException if the revision is negative, a source id is used twice, a file path is stored
+     *                                  by more than one source or repeats another in case, one stored path is the
+     *                                  directory of another, the file name of the manifest is used as a stored path, or
+     *                                  a source breaks its rules
      */
     public SourceManifest {
         Objects.requireNonNull(sources, "sources");
@@ -63,11 +70,52 @@ public record SourceManifest(long revision, List<Source> sources) {
         }
         sources = List.copyOf(sources);
         var ids = new HashSet<String>();
+        var paths = new HashMap<String, String>();
         for (var source : sources) {
             if (!ids.add(source.sourceId())) {
                 throw new IllegalArgumentException("The source id '%s' is used twice".formatted(source.sourceId()));
             }
+            for (var file : source.files()) {
+                requireDistinctPath(source.sourceId(), file.path(), paths);
+            }
         }
+    }
+
+    /**
+     * The sources are one set of files of one directory, so a path is stored once: the second source that names it is
+     * refused here, where the manifest is built, instead of the move writing one file twice. The comparison folds the
+     * case, because a case-insensitive filesystem addresses one file either way and the paths are the operator's file
+     * names; a path that is the directory of another is refused too, because one create target cannot be a file and a
+     * directory at once.
+     */
+    private static void requireDistinctPath(String sourceId, String path, Map<String, String> paths) {
+        var folded = fold(path);
+        var reserved = fold(SourceManifestCodec.FILE_NAME);
+        if (reserved.equals(folded) || folded.startsWith(reserved + "/")) {
+            throw new IllegalArgumentException("The source '%s' stores the reserved path '%s'".formatted(sourceId, path));
+        }
+        for (var stored : paths.entrySet()) {
+            if (folded.equals(stored.getKey()) || nests(folded, stored.getKey())) {
+                throw new IllegalArgumentException(
+                        ("The source file '%s' is stored twice, or it and '%s' differ only in case or one is the "
+                                + "directory of the other").formatted(path, stored.getValue()));
+            }
+        }
+        paths.put(folded, path);
+    }
+
+    /**
+     * @return the case-folded form of a stored path, the form a case-insensitive filesystem addresses. The fold is
+     *         upper case then lower case: the lower case of a capital sigma is otherwise a final sigma, and the two
+     *         forms would not meet. It errs toward a collision, never toward a missed one.
+     */
+    private static String fold(String path) {
+        return path.toUpperCase(Locale.ROOT).toLowerCase(Locale.ROOT);
+    }
+
+    /** @return whether one of two case-folded paths lies below the other */
+    private static boolean nests(String first, String second) {
+        return first.startsWith(second + "/") || second.startsWith(first + "/");
     }
 
     /**
@@ -300,14 +348,20 @@ public record SourceManifest(long revision, List<Source> sources) {
 
         /**
          * @throws NullPointerException     if a component is {@code null}
-         * @throws IllegalArgumentException if the path is not relative and normalized, the size is negative, or the
-         *                                  digest is not a SHA-256
+         * @throws IllegalArgumentException if the path is not relative and normalized, is no path of this platform (a
+         *                                  NUL among its characters), the size is negative, or the digest is not a
+         *                                  SHA-256
          */
         public SourceFile {
             Objects.requireNonNull(path, "path");
             if (path.isBlank() || path.startsWith("/") || Arrays.stream(path.split("/", -1))
                     .anyMatch(segment -> segment.isEmpty() || ".".equals(segment) || "..".equals(segment))) {
                 throw new IllegalArgumentException("'path' is not a relative, normalized source path: " + path);
+            }
+            try {
+                Path.of(path);
+            } catch (InvalidPathException e) {
+                throw new IllegalArgumentException("'path' is no path of this platform: " + path, e);
             }
             if (size < 0) {
                 throw new IllegalArgumentException("'size' must not be negative: " + size);
