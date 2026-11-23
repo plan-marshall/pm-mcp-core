@@ -61,13 +61,12 @@ import de.planmarshall.core.store.StoreRefusal;
  * record cannot be read, whose store path is refused, or whose directory the discard could not remove is named there,
  * and the step's outcome is a failure then, after the readable residue was removed. A fault of the removal itself is
  * reported with what the run had staged for removal, what it had removed and every entry it kept as they stood, so
- * that fault drops none of them, and it says how far the removal got: before the workspace's journal, so nothing is
- * committed and the next run re-judges every entry; after the journal, so the recovery completes the removals; or after
- * the commit returned, so the removals are committed and only the directories remain. Only the first two of those three
- * are reachable today, because the discard's two refusals are caught per entry; the third names what a fault of the
- * discard outside them would report, and no refusal of the discard is a fault of the run. Whether a fault that came
- * before the commit's return left the deletions committed is decided by the workspace's journal, never by the fault's
- * type (ADR runtime-start/016).
+ * that fault drops none of them, and it says how far the removal got: *staged* before the commit was called, so nothing
+ * is committed and the next run re-judges every entry; *owed* with the commit entered and the workspace's journal
+ * durable, so the recovery completes the removals; *undecided* with the commit entered and its journal gone, which
+ * decides nothing because the commit deletes the journal as it closes; or *committed* once the commit returned, so the
+ * removals are applied and only the directories remain. The discard's two refusals are caught per entry, so no refusal
+ * of the discard is a fault of the run, and only a fault outside them reaches the committed arm (ADR runtime-start/016).
  *
  * @since 0.1
  */
@@ -143,20 +142,21 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      * <p>
      * A fault of the removal is no exception of this method but part of its answer: what the run had staged, removed
      * and kept travels into the report as it stood when the fault struck, with the entries whose directory it had not
-     * deleted, and the answer says how far the removal got — staged, journalled or committed. Whether a fault that came
-     * before the commit's return left the staged removals committed is decided by the workspace's journal, which the
-     * answer carries as the fault's own witness, so the report claims no more than the journal holds.
+     * deleted, and the answer says how far the removal got — staged before the commit was called, or entered with the
+     * workspace's journal durable (the recovery completes the removals) or gone (nothing here decides whether the
+     * commit applied), or committed once its commit returned. The state lives outside the lock transaction, so a fault
+     * of the lock's own release carries it too.
      *
      * @return the directories that are gone, the entries the run kept, and the fault that stopped it
      */
     private Removal remove(JournalScope workspace, PendingEntryStore store, List<EntryId> candidates, Instant at) {
+        var kept = new ArrayList<String>();
+        var staged = new ArrayList<EntryId>();
+        var removed = new ArrayList<EntryId>();
+        var phase = Phase.STAGING;
         try (var lock = lockManager.openTransaction()) {
             lock.acquire(workspace.lockKey());
             var transaction = ScopeTransaction.open(lock, workspace, auditSink, clock);
-            var kept = new ArrayList<String>();
-            var staged = new ArrayList<EntryId>();
-            var removed = new ArrayList<EntryId>();
-            var committed = false;
             try {
                 for (var entryId : candidates) {
                     var integrity = verifyUnderLock(store, lock, entryId, kept);
@@ -166,41 +166,56 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                 if (staged.isEmpty()) {
                     return new Removal(removed, kept, null);
                 }
+                phase = Phase.COMMITTING;
                 transaction.commit();
-                committed = true;
+                phase = Phase.COMMITTED;
                 for (var entryId : staged) {
                     discard(store, entryId, removed, kept);
                 }
                 return new Removal(removed, kept, null);
             } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
                     | StoreRefusal e) {
-                var pending = staged.stream().filter(entryId -> !removed.contains(entryId)).toList();
-                return new Removal(removed, kept,
-                        new Fault(e.getMessage(), pending, reach(workspace, staged, committed)));
+                return fault(e.getMessage(), workspace, phase, staged, removed, kept);
             }
+        } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
+                | StoreRefusal e) {
+            // The lock's own release, or a fault of opening or acquiring it: what the removal had done stands
+            return fault(e.getMessage(), workspace, phase, staged, removed, kept);
         }
     }
 
     /**
-     * How far a faulted removal got, read from what the method knows and from the workspace's journal.
+     * The answer of a faulted removal: the state as it stood, with the entries whose directory the run had not
+     * deleted, and the reach the phase and the workspace's journal decide.
+     */
+    private static Removal fault(String message, JournalScope workspace, Phase phase, List<EntryId> staged,
+            List<EntryId> removed, List<String> kept) {
+        var pending = staged.stream().filter(entryId -> !removed.contains(entryId)).toList();
+        return new Removal(removed, kept, new Fault(message, pending, reach(workspace, phase)));
+    }
+
+    /**
+     * How far a faulted removal got, read from the phase the method had reached and, while the commit was entered, from
+     * the workspace's journal.
      * <p>
      * A journal that exists here is the transaction's own: every verification before the commit recovers the scope's
-     * journal away, and a scope that holds one refuses a new transaction before it stages anything. The probe runs
-     * under the workspace lock, so no other writer can change the answer.
+     * journal away, and a scope that holds one refuses a new transaction before it stages anything. A journal that is
+     * gone while the commit was entered decides nothing: the commit deletes the journal as it closes, so its absence
+     * means either that the commit applied its targets and stopped afterwards or that it never wrote the journal.
      *
      * @param workspace the workspace scope whose journal the answer reads
-     * @param staged    the entries the removal had staged
-     * @param committed whether the transaction's commit returned
+     * @param phase     the phase the removal had reached
      * @return the reach; {@link Reach#COMMITTED} only after a returned commit, and the discard's two refusals are caught
      *         per entry, so no other fault of it is known today
      */
-    private static Reach reach(JournalScope workspace, List<EntryId> staged, boolean committed) {
-        if (committed) {
-            return Reach.COMMITTED;
-        }
-        return !staged.isEmpty() && Files.exists(workspace.journalFile(), LinkOption.NOFOLLOW_LINKS)
-                ? Reach.JOURNALED
-                : Reach.STAGED;
+    private static Reach reach(JournalScope workspace, Phase phase) {
+        return switch (phase) {
+            case STAGING -> Reach.STAGED;
+            case COMMITTING -> Files.exists(workspace.journalFile(), LinkOption.NOFOLLOW_LINKS)
+                    ? Reach.OWED
+                    : Reach.UNDECIDED;
+            case COMMITTED -> Reach.COMMITTED;
+        };
     }
 
     /**
@@ -236,7 +251,9 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                 report.append("; the removals of ").append(names(removal.fault().pending()))
                         .append(switch (removal.fault().reach()) {
                             case STAGED -> " were staged and not committed";
-                            case JOURNALED -> " are completed by the recovery of the workspace";
+                            case OWED -> " are completed by the recovery of the workspace";
+                            case UNDECIDED -> " may have been committed: the commit was entered and its journal is"
+                                    + " gone, so the next run re-judges their directories";
                             case COMMITTED -> " are committed, and their directories remain";
                         });
             }
@@ -330,11 +347,23 @@ public final class PendingEntryRecordsSweep implements SweepStep {
 
     /** How far a faulted removal got. */
     private enum Reach {
-        /** The fault struck before the transaction's journal was written: nothing was committed. */
+        /** The fault struck before the commit was called: the removal is staged and not committed. */
         STAGED,
-        /** The journal is durable: the recovery of the workspace completes the staged removals. */
-        JOURNALED,
+        /** The commit was entered and its journal is durable: the recovery of the workspace completes the removals. */
+        OWED,
+        /** The commit was entered and its journal is gone: nothing here decides whether its targets were applied. */
+        UNDECIDED,
         /** The transaction's commit returned: the staged removals are committed. */
+        COMMITTED
+    }
+
+    /** The phase a removal had reached when a fault struck it. */
+    private enum Phase {
+        /** The candidates are verified and staged: no transaction was committed. */
+        STAGING,
+        /** The transaction's commit is running. */
+        COMMITTING,
+        /** The transaction's commit returned. */
         COMMITTED
     }
 

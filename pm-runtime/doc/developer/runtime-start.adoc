@@ -128,10 +128,13 @@ sweeps both.
   collected before it, so that fault drops none of them. The report names how far the faulted removal got: *staged*
   before the workspace's journal, so nothing is committed and the next run re-judges every entry; *journalled* after
   it, so the recovery of the workspace completes the removals; *committed* once the transaction's commit returned, so
-  the removals are applied and only the directories remain. Whether a fault that came before the commit's return left
-  the staged removals committed is decided by the journal, never by the fault's type. The discard's two refusals are no
-  fault of the run: they are caught per entry and the directory is named as kept, so only a fault outside them reaches
-  the *committed* arm.
+  the removals are applied and only the directories remain. The reach is read from the phase the removal had reached
+  and, while the commit was entered, from the workspace's journal: a fault before the commit is *staged*, a fault with
+  the commit entered and the journal durable is *owed*, a fault with the commit entered and its journal gone is
+  *undecided* — the commit deletes the journal as it closes, so its absence decides nothing — and a fault after the
+  returned commit is *committed*. The discard's two refusals are caught per entry, so only a fault outside them reaches
+  the *committed* arm, and a fault of the lock's own release carries the same state, because the state is kept outside
+  the lock transaction.
 * All removals of a run are one transaction, committed only if a directory is removed. A stopped removal is completed
   by the recovery of the workspace, which hands the owed records over again.
 * A workspace whose journal still waits for its recovery cannot be written: the step fails and removes nothing.

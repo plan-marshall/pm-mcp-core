@@ -55,8 +55,9 @@ import de.planmarshall.core.store.SourceManifest.SourceFile;
  * A special file the manifest names is refused rather than opened, because its open would block under the workspace
  * lock: the file is checked to be a regular file without following a link, and then opened without following one. The
  * two are not atomic, so a file replaced by a FIFO between the check and the open blocks the move all the same; plain
- * Java offers no open that does not wait for a FIFO's peer, and the check narrows the window without closing it. Every
- * other path of the move is guarded the same way, by a check under the caller's lock rather than by the open itself.
+ * Java offers no open that does not wait for a FIFO's peer, and the check narrows the window without closing it. The
+ * transcript is guarded the same way, file by file. The decision store is not: {@code copyDecision} checks only that
+ * the file exists before it reads, so a FIFO there blocks under the lock as well.
  * <p>
  * The move targets a plan's scope alone: an epic's sources belong to its git-tracked ledger and its machine store keeps
  * none, so an epic target is refused until the ledger copy of the sources exists. The caller holds the workspace lock

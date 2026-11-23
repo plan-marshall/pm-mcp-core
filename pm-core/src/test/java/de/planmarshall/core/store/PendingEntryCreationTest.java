@@ -465,11 +465,15 @@ class PendingEntryCreationTest {
      * special file whose open blocks: a socket, which {@code open(2)} refuses at once, cannot show that the file is
      * never opened.
      *
-     * @return whether the command made the FIFO
+     * @return whether the command made the FIFO; false when it is absent or fails, so the caller skips the test
      */
-    private static boolean createFifo(Path fifo) throws IOException, InterruptedException {
-        var process = new ProcessBuilder("mkfifo", fifo.toString()).redirectErrorStream(true).start();
-        return process.waitFor() == 0 && Files.exists(fifo, LinkOption.NOFOLLOW_LINKS);
+    private static boolean createFifo(Path fifo) throws InterruptedException {
+        try {
+            var process = new ProcessBuilder("mkfifo", fifo.toString()).redirectErrorStream(true).start();
+            return process.waitFor() == 0 && Files.exists(fifo, LinkOption.NOFOLLOW_LINKS);
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     @Test
