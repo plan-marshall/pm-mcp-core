@@ -123,13 +123,14 @@ sweeps both.
   a completed removal drops no kept entry from the report
   (link:../adr/runtime-start/016-the-sweep-removes-pending-entry-residue-by-evidence.adoc[ADR 016]).
 * A fault of the removal itself — a rethrown non-link refusal of the verification, a refused store, an I/O failure or a
-  failed commit — fails the step with its message, the entries whose removal the run had staged, the directories it had
-  removed and every entry it kept as they stood, plus the unreadable entries the listing collected before it, so that
-  fault drops none of them. Whether the fault left the staged removals committed is decided by the workspace's journal
-  and never by the fault: a fault before the journal is written leaves every store as it was, so the next run re-judges
-  every entry; a fault after it — the commit's own write, a refused audit hand-over, or the discard — leaves the
-  deletions applied or owed to the recovery of the workspace, and the next run re-judges only the directories whose
-  discard did not run.
+  failed commit — fails the step with its message, the entries whose removal the run had staged and not yet deleted,
+  the directories it had removed and every entry it kept as they stood, plus the unreadable entries the listing
+  collected before it, so that fault drops none of them. The report names how far the faulted removal got: *staged*
+  before the workspace's journal, so nothing is committed and the next run re-judges every entry; *journalled* after
+  it, so the recovery of the workspace completes the removals; *committed* once the transaction's commit returned, so
+  the removals are applied and only the directories remain. Whether a fault that came before the commit's return left
+  the staged removals committed is decided by the journal, never by the fault's type. A refusal of the discard's own
+  two faults is no fault of the run: it is caught per entry and the directory is named as kept.
 * All removals of a run are one transaction, committed only if a directory is removed. A stopped removal is completed
   by the recovery of the workspace, which hands the owed records over again.
 * A workspace whose journal still waits for its recovery cannot be written: the step fails and removes nothing.

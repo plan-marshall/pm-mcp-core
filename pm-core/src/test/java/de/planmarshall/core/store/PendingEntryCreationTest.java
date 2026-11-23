@@ -438,13 +438,15 @@ class PendingEntryCreationTest {
     @DisplayName("a FIFO the manifest names is refused before it is opened, so the read never blocks under the lock")
     void refusesASpecialFileTheManifestNames() throws Exception {
         var content = Generators.letterStrings(5, 20).next().getBytes(UTF_8);
-        // Fixture path: a short name, because a Unix-domain socket address must fit the platform's path limit
+        // Fixture path: one short name in the base, which is both the stored file's name and the FIFO's
         var fifo = base.resolve("f.md");
         assumeTrue(createFifo(fifo), "the platform must offer mkfifo for the fixture");
         var stored = new SourceFile("f.md", content.length, StoreDigest.of(content).sha256());
         var manifest = new SourceManifest(1, List.of(new Source(sourceIdFor("special"), SourceManifest.Kind.DESCRIPTION,
                 "ref", "operator", Trust.TRUSTED, List.of(stored), at, null, null)));
 
+        // A guard that regressed would block in open(2); the pre-empted thread stays blocked for the JVM, which is the
+        // cost of proving that the file is never opened
         var refusal = assertTimeoutPreemptively(Duration.ofSeconds(5),
                 () -> assertThrows(StoreRefusal.class,
                         () -> PendingEntryCreation.composeRequest(base, manifest),

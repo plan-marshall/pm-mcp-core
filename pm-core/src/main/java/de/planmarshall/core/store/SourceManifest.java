@@ -113,7 +113,9 @@ public record SourceManifest(long revision, List<Source> sources) {
      * The refusal of one collision, by the rule that makes the two names address one file: the same path stored twice,
      * two names in one Unicode normalisation form, or two names whose case the fold unifies. A pair whose names differ
      * in case and whose normalisation forms differ is the case rule: the fold's case mapping unifies what the
-     * normalisation comparison did not.
+     * normalisation comparison did not. The case rule states the fold's width, because the fold maps the full case of a
+     * name and so unifies more than case: {@code ß} and {@code ss}, {@code ı} and {@code i}, and a ligature and its
+     * letters.
      */
     private static String collision(String path, String stored) {
         if (path.equals(stored)) {
@@ -123,8 +125,8 @@ public record SourceManifest(long revision, List<Source> sources) {
             return ("The source file '%s' and '%s' differ only in their Unicode normalisation form, which a "
                     + "normalisation-insensitive filesystem addresses as one file").formatted(path, stored);
         }
-        return ("The source file '%s' and '%s' differ only in case, which a case-insensitive filesystem addresses as "
-                + "one file").formatted(path, stored);
+        return ("The source file '%s' and '%s' differ only in case: the case fold maps the full case of a name, so it "
+                + "also unifies 'ß' with 'ss', 'ı' with 'i' and a ligature with its letters").formatted(path, stored);
     }
 
     /** @return the path in the Unicode normalisation form the fold compares, NFC */

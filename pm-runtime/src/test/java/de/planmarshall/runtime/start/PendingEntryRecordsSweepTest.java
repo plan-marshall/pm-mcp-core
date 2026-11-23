@@ -621,6 +621,7 @@ class PendingEntryRecordsSweepTest {
     }
 
     @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
     @DisplayName("a fault in the verification rolls back the removals the run staged, and reports them")
     void faultBeforeTheCommitRollsBackTheStagedRemovals() throws Exception {
         var one = entryId();

@@ -36,12 +36,14 @@ Periodic Sweep]).
   left gone, each of them is named, an unreadable record and a held entry are both named, and a directory the discard
   cannot remove — the record is present again, or the delete failed — is named as kept, so a completed removal never
   drops a kept entry from the report. A fault of the removal itself is reported with what the run had staged for
-  removal, what it had removed, and every entry it kept, as they stood when the fault struck, beside the unreadable
-  entries the listing collected before it, so that fault drops none of them. Whether the fault left the staged removals
-  committed is decided by the workspace's journal and never by the fault: a fault before the journal is written leaves
-  every store as it was, and the next run re-judges every entry; a fault after it — the commit's own write, a refused
-  audit hand-over, or the discard — leaves the deletions applied or owed to the recovery of the workspace, and the next
-  run re-judges only the directories whose discard did not run.
+  removal, the directories it had already removed and every entry it kept, as they stood when the fault struck, beside
+  the unreadable entries the listing collected before it, so that fault drops none of them; a refusal of the discard is
+  no fault of the run, because its two named refusals are caught per entry. The report says how far the faulted removal
+  got: **staged** before the workspace's journal, so nothing is committed and the next run re-judges every entry;
+  **journalled** after it, so the recovery completes the removals; or **committed** once the transaction's commit
+  returned, so the removals are applied and only the directories remain for the next run. Whether a fault that came
+  before the commit's return left the staged removals committed is decided by the journal and never by the fault's type
+  (amended 2026-11-23 by `PLAN-V2-178`, which made the report carry this state).
 * An entry whose record cannot be read is kept and reported as a failure of the step, so a tampered entry is held for
   its operator instead of being swept.
 * The log record `PM_RUNTIME-23` (`PENDING_ENTRY_RECORDS_SWEPT`) is retired, and the sweep owes the audit record
