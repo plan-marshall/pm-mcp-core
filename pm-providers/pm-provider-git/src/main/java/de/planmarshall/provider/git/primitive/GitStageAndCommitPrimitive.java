@@ -127,10 +127,10 @@ public final class GitStageAndCommitPrimitive
 
     /**
      * A token that starts an absolute path inside a detail text: an introducer — the start of the text, white space, a
-     * quote, or an opening, closing, assignment or separator punctuation — before a {@code /}. A closing bracket is
-     * handled by {@link #BRACKET_PATH}, so a relative name such as {@code app/[slug]/page.tsx} or {@code (group)/x}
-     * stays a name; a name whose separator follows a non-bracket punctuation is still read as absolute, the fail-closed
-     * direction.
+     * quote, or an opening, closing, assignment or separator punctuation — before a {@code /}. A closing bracket other
+     * than {@code >} is handled by {@link #BRACKET_PATH}, so a relative name such as {@code app/[slug]/page.tsx} or
+     * {@code (group)/x} stays a name; a name whose separator follows a non-bracket punctuation is still read as
+     * absolute, the fail-closed direction.
      */
     private static final Pattern ABSOLUTE_PATH =
             Pattern.compile("(?:^|[\\s\"'(\\[{<=:>])/[^\\s)\"']*");
@@ -303,10 +303,11 @@ public final class GitStageAndCommitPrimitive
      * quote, or an opening, closing, assignment or separator punctuation) or a drive-qualified token — a text that
      * still names one after that replacement, and a text that carries a traversal segment are replaced by the code of
      * the git outcome, because the primitive cannot tell whether a host path of the server is safe to render; and a
-     * contract that states no detail is carried as that code. No POSIX absolute path and no drive-qualified path
-     * therefore reaches a fact: a closing bracket that follows an introducer and is followed by at least one further
-     * separator is an introducer too ({@code refused ]/a/b.txt} becomes the code), while {@code app/[slug]/page.tsx}
-     * and {@code (group)/x} stay names.
+     * contract that states no detail is carried as that code. No absolute path of two or more segments, and no
+     * drive-qualified path, therefore reaches a fact: a closing bracket that follows an introducer and is followed by at
+     * least one further separator is an introducer too ({@code refused ]/a/b.txt} becomes the code), while
+     * {@code app/[slug]/page.tsx} and {@code (group)/x} stay names; a single-segment fragment after a stray closing
+     * bracket ({@code ]/srv}) is the fail-closed direction's residual cost and is stated as the pattern's own rule.
      */
     static String modelDetail(GitOutcome outcome, @Nullable String detail, Path worktree) {
         if (detail == null || detail.isBlank()) {
