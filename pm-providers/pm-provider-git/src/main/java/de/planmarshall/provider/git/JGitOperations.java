@@ -481,6 +481,7 @@ public final class JGitOperations implements GitOperations {
                     public void apply(DirCacheEntry entry) {
                         entry.setObjectId(previous.getObjectId());
                         entry.setFileMode(previous.getFileMode());
+                        entry.copyMetaData(previous);
                     }
                 });
             }

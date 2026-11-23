@@ -160,11 +160,18 @@ class JGitOperationsTest extends JGitOperationsFixtures {
 
         var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("README.md")));
 
-        assertAll("staged drift",
-                () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
-                        "The staged drift is nothing to commit"),
-                () -> assertEquals(staged, indexEntry("README.md").getObjectId(),
-                        "The staged entry is kept"));
+        try (var jgit = Git.open(repo.toFile())) {
+            var status = jgit.status().call();
+            assertAll("staged drift",
+                    () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
+                            "The staged drift is nothing to commit"),
+                    () -> assertEquals(staged, indexEntry("README.md").getObjectId(),
+                            "The staged entry is kept"),
+                    () -> assertTrue(status.getChanged().contains("README.md"),
+                            "The staged change still differs from HEAD"),
+                    () -> assertTrue(status.getModified().contains("README.md"),
+                            "The reverted worktree shows as modified"));
+        }
     }
 
     @Test

@@ -274,9 +274,10 @@ public final class GitStageAndCommitPrimitive
     /**
      * The detail of a failed commit as the model-facing fact carries it. The contract's detail names the checkout in
      * some of its outcomes, so every occurrence of the absolute root is made the repository-relative root {@code .}; an
-     * absolute path outside the checkout, and a detail that still names one after that replacement, is replaced by the
-     * code of the git outcome, because the primitive cannot tell whether a host path of the server is safe to render;
-     * and a contract that states no detail is carried as that code. No absolute path therefore reaches a fact.
+     * absolute path outside the checkout, a text that still names one after that replacement, and a text that carries a
+     * traversal segment are replaced by the code of the git outcome, because the primitive cannot tell whether a host
+     * path of the server is safe to render; and a contract that states no detail is carried as that code. No absolute
+     * path therefore reaches a fact.
      */
     static String modelDetail(GitOutcome outcome, @Nullable String detail, Path worktree) {
         if (detail == null || detail.isBlank()) {
@@ -303,6 +304,9 @@ public final class GitStageAndCommitPrimitive
         var absoluteRoot = root.toString();
         var rootWithSeparator = absoluteRoot + "/";
         var scrubbed = detail.contains(rootWithSeparator) ? detail.replace(rootWithSeparator, "./") : detail;
+        if (scrubbed.contains("../") || scrubbed.contains("..\\")) {
+            return outcome.name();
+        }
         return ABSOLUTE_PATH.matcher(scrubbed).find() ? outcome.name() : scrubbed;
     }
 

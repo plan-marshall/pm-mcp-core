@@ -197,6 +197,19 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
     }
 
     @Test
+    @DisplayName("a traversal out of the checkout is carried as the outcome's code")
+    void traversalOutOfTheCheckoutIsACode() {
+        var root = repo.toAbsolutePath().normalize().toString();
+
+        var result = GitStageAndCommitPrimitive.map(
+                GitResult.of(GitOutcome.FAILED, "IOException: " + root + "/../private/key"), repo);
+
+        assertEquals("FAILED",
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "A traversal out of the checkout becomes the code");
+    }
+
+    @Test
     @DisplayName("a sibling directory whose name extends the root is carried as the code, not mangled")
     void siblingOfTheRootIsACode() {
         var root = repo.toAbsolutePath().normalize().toString();
