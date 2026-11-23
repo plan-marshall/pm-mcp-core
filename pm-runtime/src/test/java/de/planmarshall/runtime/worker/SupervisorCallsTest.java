@@ -554,11 +554,14 @@ class SupervisorCallsTest {
         calls.holdOpened("unknown", TASK, fixture.clock.instant());
         calls.holdClosed("unknown", TASK, fixture.clock.instant());
         calls.answerDelivered("unknown", fixture.clock.instant());
+        // a detection the calls had created would fence at its silence or acknowledgement deadline: past both, nothing
+        fixture.advance(Duration.ofSeconds(BOUNDED_WAIT_SECONDS + SILENCE_GRACE_SECONDS));
 
         assertAll(
                 () -> assertTrue(supervisor.generations().isEmpty(), "no generation is created by the call"),
                 () -> assertTrue(calls.loss("unknown").isEmpty(), "no detection is created for the call"),
-                () -> assertTrue(fixture.fences.isEmpty(), "no generation is fenced by the call"));
+                () -> assertTrue(fixture.fences.isEmpty(), "no generation is fenced by the hold entries"),
+                () -> assertTrue(fixture.writes.isEmpty(), "no terminal state is written by the hold entries"));
     }
 
     @Test

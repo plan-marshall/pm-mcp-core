@@ -68,11 +68,10 @@ public final class ActivityRecorder {
      * @param generationId the worker's generation
      * @param builder      the entry, without its sequence, attempt and instant
      * @return the entry as the journal wrote it
-     * @throws IllegalStateException if the task's facts cannot be read
+     * @throws TaskNotOpenException if the task's facts cannot be read
      */
     public ActivityEntry append(String queueTaskId, String generationId, ActivityEntry.ActivityEntryBuilder builder) {
-        var facts = tasks.facts(queueTaskId).orElseThrow(
-                () -> new IllegalStateException("The activity names no open task: " + queueTaskId));
+        var facts = tasks.facts(queueTaskId).orElseThrow(() -> new TaskNotOpenException(queueTaskId));
         var at = clock.instant();
         var written = new ActivityEntry[1];
         var detected = new ArrayList<ActivitySignal>();
