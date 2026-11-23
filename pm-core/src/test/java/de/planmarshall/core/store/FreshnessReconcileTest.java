@@ -37,6 +37,12 @@ class FreshnessReconcileTest {
         return "default:" + Generators.letterStrings(3, 20).next().toLowerCase();
     }
 
+    /** One stamp built through the builder, so an `assertThrows` lambda holds the one throwing invocation. */
+    private static FreshnessReconcile stamp(String commit, String step, String prior, int version, Instant at) {
+        return FreshnessReconcile.builder().commitSha(commit).stepId(step).priorBuildWorktreeSha(prior)
+                .worktreeShaVersion(version).recordedAt(at).build();
+    }
+
     @Test
     @DisplayName("a complete stamp is held with its five members")
     void completeStampIsHeld() {
@@ -53,12 +59,13 @@ class FreshnessReconcileTest {
     @Test
     @DisplayName("a commit sha that is no 40-digit digest is refused")
     void commitGrammar() {
-        var refused = assertThrows(IllegalArgumentException.class,
-                () -> FreshnessReconcile.builder().commitSha("a".repeat(39)).stepId(stepId())
-                        .priorBuildWorktreeSha(DIGEST).worktreeShaVersion(1).recordedAt(RECORDED_AT).build(),
-                "a short commit sha is refused");
+        var shortCommit = "a".repeat(39);
+        var step = stepId();
 
-        assertEquals("'freshness_reconcile.commit_sha' is not a digest: " + "a".repeat(39), refused.getMessage(),
+        var refused = assertThrows(IllegalArgumentException.class,
+                () -> stamp(shortCommit, step, DIGEST, 1, RECORDED_AT), "a short commit sha is refused");
+
+        assertEquals("'freshness_reconcile.commit_sha' is not a digest: " + shortCommit, refused.getMessage(),
                 "the refusal should name the commit sha");
     }
 
@@ -67,38 +74,37 @@ class FreshnessReconcileTest {
     void stepGrammar() {
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> FreshnessReconcile.builder().commitSha(COMMIT).stepId("architecture-refresh")
-                                .priorBuildWorktreeSha(DIGEST).worktreeShaVersion(1).recordedAt(RECORDED_AT).build(),
+                        () -> stamp(COMMIT, "architecture-refresh", DIGEST, 1, RECORDED_AT),
                         "a step id without its prefix is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> FreshnessReconcile.builder().commitSha(COMMIT).stepId("other:refresh")
-                                .priorBuildWorktreeSha(DIGEST).worktreeShaVersion(1).recordedAt(RECORDED_AT).build(),
+                        () -> stamp(COMMIT, "other:refresh", DIGEST, 1, RECORDED_AT),
                         "a step id with another prefix is refused"));
     }
 
     @Test
     @DisplayName("a prior build digest that is no 64-digit digest is refused")
     void priorBuildGrammar() {
-        var refused = assertThrows(IllegalArgumentException.class,
-                () -> FreshnessReconcile.builder().commitSha(COMMIT).stepId(stepId())
-                        .priorBuildWorktreeSha("b".repeat(63)).worktreeShaVersion(1).recordedAt(RECORDED_AT).build(),
-                "a short prior build digest is refused");
+        var shortDigest = "b".repeat(63);
+        var step = stepId();
 
-        assertEquals("'freshness_reconcile.prior_build_worktree_sha' is not a digest: " + "b".repeat(63),
+        var refused = assertThrows(IllegalArgumentException.class,
+                () -> stamp(COMMIT, step, shortDigest, 1, RECORDED_AT), "a short prior build digest is refused");
+
+        assertEquals("'freshness_reconcile.prior_build_worktree_sha' is not a digest: " + shortDigest,
                 refused.getMessage(), "the refusal should name the prior build digest");
     }
 
     @Test
     @DisplayName("a hash version other than one is refused")
     void hashVersion() {
+        var step = stepId();
+
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> FreshnessReconcile.builder().commitSha(COMMIT).stepId(stepId())
-                                .priorBuildWorktreeSha(DIGEST).worktreeShaVersion(2).recordedAt(RECORDED_AT).build(),
+                        () -> stamp(COMMIT, step, DIGEST, 2, RECORDED_AT),
                         "a raised hash version is refused"),
                 () -> assertThrows(NullPointerException.class,
-                        () -> FreshnessReconcile.builder().commitSha(COMMIT).stepId(stepId())
-                                .priorBuildWorktreeSha(DIGEST).worktreeShaVersion(1).build(),
+                        () -> stamp(COMMIT, step, DIGEST, 1, null),
                         "an absent instant is refused"));
     }
 

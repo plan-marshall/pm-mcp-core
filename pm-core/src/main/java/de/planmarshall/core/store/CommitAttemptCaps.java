@@ -61,6 +61,13 @@ public record CommitAttemptCaps(@Nullable ChangeSet changeSet, @Nullable Frame f
             requirePattern(messageDigest, DIGEST, "change_set.message_digest");
             requireAttempts(attempts, "change_set.attempts");
         }
+
+        private static void requirePattern(String value, Pattern pattern, String name) {
+            Objects.requireNonNull(value, name);
+            if (!pattern.matcher(value).matches()) {
+                throw new IllegalArgumentException("'%s' is not a digest: %s".formatted(name, value));
+            }
+        }
     }
 
     /**
@@ -115,13 +122,6 @@ public record CommitAttemptCaps(@Nullable ChangeSet changeSet, @Nullable Frame f
     private static void requireAttempts(int attempts, String name) {
         if (attempts < 0 || attempts > CAP) {
             throw new IllegalArgumentException("'%s' must lie between 0 and %d: %d".formatted(name, CAP, attempts));
-        }
-    }
-
-    private static void requirePattern(String value, Pattern pattern, String name) {
-        Objects.requireNonNull(value, name);
-        if (!pattern.matcher(value).matches()) {
-            throw new IllegalArgumentException("'%s' is not a digest: %s".formatted(name, value));
         }
     }
 }

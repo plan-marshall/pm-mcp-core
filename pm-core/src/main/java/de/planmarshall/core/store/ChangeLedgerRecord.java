@@ -350,6 +350,8 @@ public record ChangeLedgerRecord(Kind kind, String worktreeSha, int worktreeShaV
      * @throws NullPointerException     if a required component is {@code null}
      * @throws IllegalArgumentException if a value breaks its grammar or the combination breaks a rule of the schema
      */
+    // one rule per schema constraint, in declaration order, by design
+    @SuppressWarnings("java:S3776")
     public ChangeLedgerRecord {
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(worktreeSha, "worktree_sha");

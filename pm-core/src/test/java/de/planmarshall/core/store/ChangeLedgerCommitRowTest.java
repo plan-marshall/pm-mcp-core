@@ -44,6 +44,13 @@ class ChangeLedgerCommitRowTest {
         return Generators.letterStrings(1, 12).next().toLowerCase() + ".txt";
     }
 
+    /** A commit row with no commit, the refusal the kind carries; one builder call for an `assertThrows` lambda. */
+    private static ChangeLedgerRecord commitRowWithoutSha(String path) {
+        return ChangeLedgerRecord.builder().kind(Kind.COMMIT).worktreeSha(TREE)
+                .worktreeShaVersion(ChangeLedgerRecord.WORKTREE_SHA_VERSION).changedPaths(List.of(path))
+                .recordedAt(RECORDED_AT).build();
+    }
+
     @Test
     @DisplayName("a commit row round-trips with its commit, paths and origin")
     void commitRowRoundTrips() {
@@ -62,11 +69,10 @@ class ChangeLedgerCommitRowTest {
     @Test
     @DisplayName("a commit row without its commit sha is refused")
     void commitRowNeedsCommitSha() {
+        var changedPath = path();
+
         var refused = assertThrows(IllegalArgumentException.class,
-                () -> ChangeLedgerRecord.builder().kind(Kind.COMMIT).worktreeSha(TREE)
-                        .worktreeShaVersion(ChangeLedgerRecord.WORKTREE_SHA_VERSION).changedPaths(List.of(path()))
-                        .recordedAt(RECORDED_AT).build(),
-                "a commit row without a commit sha is refused");
+                () -> commitRowWithoutSha(changedPath), "a commit row without a commit sha is refused");
 
         assertTrue(refused.getMessage().contains("commit_sha"), "the refusal should name the commit sha");
     }

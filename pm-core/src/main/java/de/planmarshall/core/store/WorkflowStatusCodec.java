@@ -174,7 +174,7 @@ public class WorkflowStatusCodec {
             "worktree_path", "entry_baseline", "merge_outcome", "owed", "branch_name", "branch_pushed_at",
             LOOP_BACK_ITERATION, "counters", RETRY_COUNTERS, COMMIT_ATTEMPT_CAPS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS, WAIVER_REQUESTS,
             "gaps", "replan_pending", "replans", "follow_ups", "settle_trigger", "watch_restarts", "loop_backs",
-            "remediation_cause", "refine_relaunch_count", "outline_relaunch_count", "metadata", "freshness_reconcile",
+            "remediation_cause", "refine_relaunch_count", "outline_relaunch_count", "metadata", FRESHNESS_RECONCILE,
             "amendments", "steps", ACTIVE_JOBS, ACTIVE_JOB, ACTIVE_TASKS, PENDING_CONDITION, FACTS, UPDATED_AT);
 
     /** The members that only the status of a plan scope carries. */
@@ -544,6 +544,8 @@ public class WorkflowStatusCodec {
         }
     }
 
+    // one case per schema member, in schema order, by design (the pattern of the sibling codecs)
+    @SuppressWarnings("java:S3776")
     private static WorkflowStatus readDocument(JsonParser parser, byte[] document) throws IOException {
         var status = WorkflowStatus.builder().callStack(List.of()).policyCounters(Map.of()).waiverRequests(List.of())
                 .retryCounters(RetryCounters.empty()).activeJobs(Map.of()).activeTasks(Map.of()).slots(Map.of());

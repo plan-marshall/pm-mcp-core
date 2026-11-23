@@ -89,9 +89,10 @@ class CommitAttemptCapsTest {
         @DisplayName("a staged tree that is no 40-digit digest is refused")
         void treeGrammar() {
             var digest = hex(64);
+            var shortTree = hex(39);
 
             var refused = assertThrows(IllegalArgumentException.class,
-                    () -> new ChangeSet(hex(39), digest, 1), "a short staged tree is refused");
+                    () -> new ChangeSet(shortTree, digest, 1), "a short staged tree is refused");
 
             assertTrue(refused.getMessage().contains("staged_tree"), "the refusal names the staged tree");
         }
@@ -100,9 +101,10 @@ class CommitAttemptCapsTest {
         @DisplayName("a message digest that is no 64-digit digest is refused")
         void messageGrammar() {
             var tree = hex(40);
+            var shortDigest = hex(63);
 
             var refused = assertThrows(IllegalArgumentException.class,
-                    () -> new ChangeSet(tree, hex(63), 1), "a short message digest is refused");
+                    () -> new ChangeSet(tree, shortDigest, 1), "a short message digest is refused");
 
             assertTrue(refused.getMessage().contains("message_digest"), "the refusal names the message digest");
         }
@@ -124,13 +126,15 @@ class CommitAttemptCapsTest {
         @Test
         @DisplayName("a blank frame id and tasks above the cap are refused")
         void frameValidation() {
+            var frame = frameId();
+
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new Frame(" ", 1),
                             "a blank frame id is refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new Frame(frameId(), CommitAttemptCaps.CAP + 1),
+                            () -> new Frame(frame, CommitAttemptCaps.CAP + 1),
                             "tasks above the cap are refused"),
-                    () -> assertThrows(IllegalArgumentException.class, () -> new Frame(frameId(), -1),
+                    () -> assertThrows(IllegalArgumentException.class, () -> new Frame(frame, -1),
                             "negative tasks are refused"));
         }
     }
