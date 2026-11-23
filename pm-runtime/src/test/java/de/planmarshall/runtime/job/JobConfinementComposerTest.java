@@ -19,6 +19,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
+import de.cuioss.test.juli.LogAsserts;
+import de.cuioss.test.juli.TestLogLevel;
+import de.cuioss.test.juli.junit5.EnableTestLogger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -48,6 +51,7 @@ import de.planmarshall.core.store.ProjectEnrolment.ContainerEngine;
  * harness directories, the job ids and the cache names below the base are generated.
  */
 @EnableGeneratorController
+@EnableTestLogger
 @DisplayName("Job confinement composer")
 class JobConfinementComposerTest {
 
@@ -260,6 +264,22 @@ class JobConfinementComposerTest {
             var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), false);
 
             assertTrue(confinement.readOnlyPaths().isEmpty(), "a project without git names no path");
+        }
+
+        @Test
+        @DisplayName("a symlinked .git yields no read-only path and is reported")
+        void symlinkedGitIsReported() throws Exception {
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
+            var real = Files.createDirectories(project.resolve("git-administration"));
+            Files.createSymbolicLink(project.resolve(".git"), real);
+
+            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), false);
+
+            assertAll("A symlinked .git is refused and reported",
+                    () -> assertTrue(confinement.readOnlyPaths().isEmpty(),
+                            "a symlinked .git names no read-only path"),
+                    () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                            "is only partly composable"));
         }
 
         @Test

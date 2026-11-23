@@ -1267,6 +1267,21 @@ public final class RuntimeLogMessages {
                 .template("The facts of the held task '%s' of generation '%s' cannot be read: the hold ends "
                         + "without the notification")
                 .build();
+
+        /**
+         * Logged when the git metadata of a project is not fully composable: a symlinked path was refused or a worktree
+         * record was skipped, so the read-only set a worker receives is smaller than the metadata it must not write.
+         * The record names the counts, never the paths; the launch continues with the paths that were read, and the
+         * git-metadata digest and guard cover what the read-only set does not.
+         * <p>
+         * The component is {@code JobConfinementComposer} of the job package.
+         */
+        public static final LogRecord GIT_METADATA_PATHS_INCOMPLETE = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(153)
+                .template("The git metadata of '%s' is only partly composable: %d refused path(s), %d skipped "
+                        + "record(s); %d path(s) are read-only for the worker")
+                .build();
     }
 
     /** ERROR level messages. */
