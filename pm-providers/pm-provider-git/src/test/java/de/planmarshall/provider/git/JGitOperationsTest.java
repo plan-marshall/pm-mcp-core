@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
@@ -202,6 +203,104 @@ class JGitOperationsTest extends JGitOperationsFixtures {
                 () -> assertEquals(List.of(), input.paths(), "the builder fills the empty path list"),
                 () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
                         "the clean tree has nothing to commit"));
+    }
+
+    @Test
+    @DisplayName("an empty path list that commits nothing restores the whole index")
+    void emptyPathListRestoresTheWholeIndex() throws Exception {
+        // the fixture README holds A: stage B, then put the worktree back to A, so only the index differs from HEAD
+        var original = Files.readString(repo.resolve("README.md"));
+        Files.writeString(repo.resolve("README.md"), text());
+        try (var jgit = Git.open(repo.toFile())) {
+            jgit.add().addFilepattern("README.md").call();
+        }
+        Files.writeString(repo.resolve("README.md"), original);
+        var staged = indexEntry("README.md").getObjectId();
+
+        var result = git.commit(new CommitInput(repo, text(), author, agent, List.of()));
+
+        try (var jgit = Git.open(repo.toFile())) {
+            var status = jgit.status().call();
+            assertAll("whole-index restore",
+                    () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
+                            "The reverted staging is nothing to commit"),
+                    () -> assertEquals(staged, indexEntry("README.md").getObjectId(),
+                            "The staged entry is kept, not overwritten by add ."),
+                    () -> assertTrue(status.getChanged().contains("README.md"),
+                            "The staged change still differs from HEAD"));
+        }
+    }
+
+    @Test
+    @DisplayName("an empty path list restores the whole index beside worktree dirt a submodule keeps")
+    void emptyPathListRestoresTheWholeIndexBesideSubmoduleDirt() throws Exception {
+        // a submodule whose own worktree is dirty: `add .` re-records the same gitlink, so the index can equal HEAD
+        // while the status is not clean
+        var submodule = names.next();
+        Path nested = repo.resolve(submodule);
+        try (Git inner = Git.init().setDirectory(nested.toFile()).call()) {
+            Files.writeString(nested.resolve(file()), text(), StandardCharsets.UTF_8);
+            inner.add().addFilepattern(".").call();
+            commitThroughGit(inner);
+        }
+        try (Git outer = Git.open(repo.toFile()); Git inner = Git.open(nested.toFile())) {
+            recordGitlink(outer.getRepository(), inner.getRepository(), submodule);
+            commitThroughGit(outer);
+        }
+        Files.writeString(nested.resolve(names.next() + ".txt"), text(), StandardCharsets.UTF_8);
+        // the staged and reverted change the empty-list route has to restore
+        var original = Files.readString(repo.resolve("README.md"));
+        Files.writeString(repo.resolve("README.md"), text());
+        try (var jgit = Git.open(repo.toFile())) {
+            jgit.add().addFilepattern("README.md").call();
+        }
+        Files.writeString(repo.resolve("README.md"), original);
+        var staged = indexEntry("README.md").getObjectId();
+
+        var result = git.commit(new CommitInput(repo, text(), author, agent, List.of()));
+
+        try (var jgit = Git.open(repo.toFile())) {
+            var status = jgit.status().call();
+            assertAll("whole-index restore beside submodule dirt",
+                    () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
+                            "The reverted staging is nothing to commit"),
+                    () -> assertEquals(staged, indexEntry("README.md").getObjectId(),
+                            "The staged entry is kept, not overwritten by add ."),
+                    () -> assertTrue(status.getChanged().contains("README.md"),
+                            "The staged change still differs from HEAD"),
+                    () -> assertTrue(status.getModified().contains(submodule),
+                            "The submodule's own checkout stays dirty"));
+        }
+    }
+
+    @Test
+    @DisplayName("a conflicted index is refused with the path of its conflict")
+    void conflictedIndexIsRefused() throws Exception {
+        var conflicted = file();
+        write(conflicted, text());
+        commit(text());
+        var other = names.next();
+        try (var jgit = Git.open(repo.toFile())) {
+            jgit.branchCreate().setName(other).call();
+            Files.writeString(repo.resolve(conflicted), text(), StandardCharsets.UTF_8);
+            jgit.add().addFilepattern(conflicted).call();
+            commitThroughGit(jgit);
+            jgit.checkout().setName(other).call();
+            Files.writeString(repo.resolve(conflicted), text(), StandardCharsets.UTF_8);
+            jgit.add().addFilepattern(conflicted).call();
+            commitThroughGit(jgit);
+            jgit.checkout().setName(branch).call();
+            var merge = jgit.merge().include(jgit.getRepository().resolve(other)).call();
+            assertTrue(merge.getConflicts() != null && merge.getConflicts().containsKey(conflicted),
+                    "the merge leaves the conflict in the index");
+        }
+
+        var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(conflicted)));
+
+        assertAll("conflicted index",
+                () -> assertEquals(GitOutcome.FAILED, result.outcome(), "A conflicted index is refused"),
+                () -> assertTrue(String.valueOf(result.detail()).contains(conflicted),
+                        "The refusal names the conflicted path"));
     }
 
     @Test

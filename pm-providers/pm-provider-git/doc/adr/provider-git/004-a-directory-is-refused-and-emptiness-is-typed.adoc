@@ -80,7 +80,30 @@ worktree for an empty path list, decides whether staging would change `HEAD`; a 
 nothing and the listed entries keep the stat data they had. `JGitOperationsTest`
 (`nothingToCommitLeavesTheIndexUntouched`) pins it, and a path whose nearest existing ancestor is a dangling link has its
 own refusal test (`JGitOperationsPathTest`, `refusesAPathBelowADanglingAncestor`). The second bullet of the decision and
-the first consequence above are read with this amendment.
+the first consequence above are read with this amendment — and with the one of 2026-11-23, which restores the index on
+both routes.
+
+== Amendment (2026-11-23): The Index Is Restored on Both Routes and a Conflict Is Refused
+
+The emptiness read of the amendment above runs for every call, but the restore of the index behind it ran only for a
+listed path list: a call with an empty list — every change of the worktree — staged `add .` over the index and, when the
+resulting commit was empty, returned `NOTHING_TO_COMMIT` with the index overwritten. The restore now covers both routes:
+the listed entries for a listed path list and the whole index, snapshotted before staging, for an empty one, so the
+`NOTHING_TO_COMMIT` of that pre-check leaves the index untouched either way (`JGitOperationsTest`,
+`emptyPathListRestoresTheWholeIndex` beside `nothingToCommitLeavesTheIndexUntouched`). JGit's own empty-commit refusal
+after staging is a defensive path behind the pre-check and restores nothing.
+
+The snapshot keeps one entry per path, taken with `DirCache.getEntry(path)`, which answers the first stage. In a
+conflicted index that first stage is the base entry (stage 1), so a restore would write it back at stage 0 and the
+conflict would silently disappear. The call therefore refuses an index that holds unresolved conflict entries under the
+listed paths — the whole index for an empty list — as `FAILED` with a detail naming the path, before anything is staged
+and before the emptiness read
+(`JGitOperationsTest`, `conflictedIndexIsRefused`). Restoring every stage was the alternative; the refusal keeps the
+conflict exactly as the merge left it and needs no second writer of the index.
+
+The commit path rule the decision above lists is the shared `CommitPathRefusals`, which the staging set of a scope
+applies as well (`PLAN-V2-172`, deliverable 1; link:../provider-git-primitive/008-the-staging-set-refuses-what-the-commit-refuses.adoc[ADR
+provider-git-primitive 008]).
 
 == Source
 
@@ -88,6 +111,6 @@ the first consequence above are read with this amendment.
   DSL § Six-Stage Execution Contract], Stage 4
 * link:../../../../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR workflow-input/006]
   (the glob characters admitted, the pathspec magic refused)
-* `PLAN-V2-15` Deliverable 4; `PLAN-V2-157` Deliverable 4
+* `PLAN-V2-15` Deliverable 4; `PLAN-V2-157` Deliverable 4; `PLAN-V2-172` Deliverable 2
 * Pull request of `PLAN-V2-20` (`git-commit-primitives`), the CodeRabbit findings `17cc88` and `9cfd5c` (the amendment)
   and `619d7c`, `e4cd2a` and `7f67ca` (the three further rules of the amendment)
