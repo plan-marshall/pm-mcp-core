@@ -34,9 +34,10 @@ import de.planmarshall.core.SchemaResource;
  * The patterns are applied with {@link java.util.regex.Matcher#find()}, which is what a JSON Schema validator does,
  * never the whole-region {@code matches()}: a schema {@code pattern} is an ECMA-262 {@code RegExp.test}. Two engine
  * differences are named rather than sampled around. ECMA-262's {@code \s} names U+FEFF and {@link Pattern}'s does not,
- * so the JVM pattern admits U+FEFF where an ECMA-262 engine would refuse it. And both engines' {@code $} matches
- * before a final line terminator, so the schema validator admits a value with a trailing LF, U+0085, U+2028 or U+2029
- * where {@link CommitTrailer} refuses it; that gap is the schema's, and the test pins it instead of hiding it. The
+ * so the JVM pattern admits U+FEFF where an ECMA-262 engine would refuse it. And Java's {@code $} matches before a
+ * final line terminator while ECMA-262's {@code $} (without multiline mode) requires the actual end of the input, so
+ * this JVM validator admits a trailing LF, U+0085, U+2028 or U+2029 where an ECMA-262 engine refuses it; that divergence
+ * is the JVM's, and the test pins it as such instead of claiming the schema admits the value. The
  * whole C0/C1 and White_Space classes are checked code point by code point on the refuse side, and the admit side is
  * the generated and enumerated population each case names. By the operator's decision of 2026-11-08 (epic
  * {@code pm-mcp-core-m2-m4-v2}, {@code runtime-schema-validation}) the schema files serve the tests: no run-time
@@ -134,8 +135,8 @@ class CommitTrailerSchemaParityTest {
         }
 
         @Test
-        @DisplayName("the schema validator admits a value with a trailing line terminator, the $ gap")
-        void schemaValidatorAdmitsATrailingTerminator() {
+        @DisplayName("the JVM accepts a trailing line terminator where an ECMA-262 engine does not")
+        void jvmAcceptsATrailingTerminator() {
             var pattern = pattern(TRAILER, "name");
             var candidates = new ArrayList<String>();
             for (var codePoint : new int[]{'\n', '\r', 0x0085, 0x2028, 0x2029}) {
@@ -143,7 +144,7 @@ class CommitTrailerSchemaParityTest {
             }
 
             assertEquals(candidates, admitted(pattern, candidates),
-                    "both engines' $ admits a trailing line terminator");
+                    "Java's $ admits a trailing terminator, ECMA-262's does not");
         }
     }
 

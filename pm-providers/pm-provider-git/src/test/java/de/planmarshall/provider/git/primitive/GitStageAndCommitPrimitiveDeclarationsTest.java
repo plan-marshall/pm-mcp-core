@@ -133,6 +133,8 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
             "refused ]/srv/git/worktrees/plan",
             "refused }/srv/git/worktrees/plan",
             "refused >/srv/git/worktrees/plan",
+            "refused `/srv/private/key`",
+            "refused \\\\server\\share\\private",
             "refused C:\\Users\\plan\\checkout"})
     @DisplayName("a message that still names an absolute host path is carried as the outcome's code")
     void messageNamingAHostPathIsACode(String message) {

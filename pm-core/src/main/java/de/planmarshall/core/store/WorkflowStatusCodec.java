@@ -744,6 +744,7 @@ public class WorkflowStatusCodec {
                 default -> throw undeclared(field);
             }
         }
+        requireFields(seen, COMMIT_ATTEMPT_CAPS, CHANGE_SET, FRAME);
         return new CommitAttemptCaps(changeSet, frame);
     }
 

@@ -16,6 +16,13 @@
       "if": { "properties": { "worktree_sha": { "const": "unavailable" } }, "required": ["worktree_sha"] },
       "then": { "required": ["worktree_sha_failure"], "properties": { "worktree_sha_failure": { "type": "object" } } },
       "else": { "properties": { "worktree_sha_failure": { "type": "null" } } }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "commit" } }, "required": ["kind"] },
+      "then": {
+        "required": ["commit_sha"],
+        "properties": { "commit_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" } }
+      }
     }
   ],
   "properties": {

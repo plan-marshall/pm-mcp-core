@@ -20,8 +20,9 @@ import lombok.Builder;
  * <p>
  * The record is written by {@code git.commit_and_push} when a {@code mutates_source} step commits after the latest
  * successful build: it names the commit, the finalize step that made it, and the working-tree digest of that build, so
- * the push gate recognizes a finalize-internal commit without requiring a redundant full build. It is never written
- * when no successful build exists, because {@code prior_build_worktree_sha} is required.
+ * the push gate recognizes a finalize-internal commit without requiring a redundant full build. The record enforces
+ * only that a digest is present; the writer must confirm a successful build exists before it writes the stamp, a
+ * condition no constructor can check.
  *
  * @param commitSha             the commit the finalized step made
  * @param stepId                the finalize step that made it, {@code default:} or {@code project:}

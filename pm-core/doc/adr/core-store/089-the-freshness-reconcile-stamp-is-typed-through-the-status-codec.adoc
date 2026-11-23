@@ -24,8 +24,9 @@ writer had no constructor to build one with.
 
 * `commit_sha` — the commit the finalized step made (40-digit digest);
 * `step_id` — the finalize step that made it, `default:` or `project:` with a lower-case slug;
-* `prior_build_worktree_sha` — the working-tree digest of the latest successful build (64-digit digest), required so a
-  stamp is never written when no successful build exists;
+* `prior_build_worktree_sha` — the working-tree digest of the latest successful build (64-digit digest). The record
+  enforces only that a digest is present, so the writer (`git.commit_and_push`) must confirm a successful build exists
+  before it writes the stamp;
 * `worktree_sha_version` — the hash version of that digest, `1`;
 * `recorded_at` — the instant the stamp was recorded.
 

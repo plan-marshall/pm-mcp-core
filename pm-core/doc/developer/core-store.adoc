@@ -2789,7 +2789,7 @@ read and the aggregate carries its coverage.
 * link:../adr/core-store/086-the-cross-commit-window-belongs-to-the-assembly.adoc[ADR 086]: the recovery of a creation
   cut between the new scope's commit and the workspace's is owed to the assembly's `start.create-scope`.
 * link:../adr/core-store/087-the-commit-attempt-caps-are-a-member-of-the-workflow-state.adoc[ADR 087]: the two caps of
-  `git.commit-fix` are a typed member of the workflow state, data in `pm-core` and transitions in `pm-provider-git`.
+  `git.commit-fix` are a typed member of the workflow state, with the value and its transitions in `pm-core`.
 * link:../adr/core-store/088-a-commit-is-a-kind-of-the-change-ledger.adoc[ADR 088]: a `commit` row records the commit
   and the paths it carried, at the format version `1` in place.
 * link:../adr/core-store/089-the-freshness-reconcile-stamp-is-typed-through-the-status-codec.adoc[ADR 089]: the
