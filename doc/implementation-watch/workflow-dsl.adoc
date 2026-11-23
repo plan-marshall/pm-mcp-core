@@ -697,7 +697,7 @@ Source:: design review (PLAN-V2-20).
 === PM-WATCH-DSL-47: The clean-tree message binding is the assembly's
 
 Anchor:: link:../specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 3),
-link:../specification/state-catalogue/05-git-commit-and-push.adoc#state-git.resolve-message[State Catalogue § `git.resolve-message`],
+link:../specification/state-catalogue/05-git-commit-and-push.adoc#state-catalogue-git[State Catalogue § `git.commit_and_push`],
 link:../../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/009-an-absent-message-is-the-primitives-clean-tree-route.adoc[ADR provider-git-primitive 009]
 Hazard:: The clean-tree route of `none_assert_clean` is safe only while the assembly's `ParameterBinder` binds
 `message = null` on it and nowhere else. The engine's `WorkflowEngine.resolve` resolves the inputs of a sub-workflow
@@ -715,7 +715,7 @@ Source:: landing of `PLAN-V2-169` (`git-commit-primitives-closeout`), carried it
 === PM-WATCH-DSL-48: A modified submodule is listed by its name
 
 Anchor:: link:../specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 1 and Stage 4),
-link:../specification/state-catalogue/05-git-commit-and-push.adoc#state-git.stage-and-commit[State Catalogue § `git.stage-and-commit`]
+link:../specification/state-catalogue/05-git-commit-and-push.adoc#state-catalogue-git[State Catalogue § `git.commit_and_push`]
 Hazard:: `CommitSite.dirtyPaths` is the assembly's answer, and the staging set judges what it is given. Git lists an
 embedded repository as `newdir/` and a modified submodule by its name alone (`sub`), without a trailing slash; a site
 that lists a submodule by its directory, or that omits it, makes the staging set refuse a name that git would never

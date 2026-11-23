@@ -841,9 +841,9 @@ Source:: `store-schemas/11-enrolment-store.adoc#enrolment-field-semantics`, `con
 [#PM-WATCH-STORE-62]
 === PM-WATCH-STORE-62: The local configuration's patterns are enforced by the assembly
 
-Anchor:: link:../specification/store-schemas/08-project-configuration-local.adoc#_the_schema[Store Schemas § Local
-Configuration] (`commit_identity`, `commit_trailer`),
-link:../../pm-core/src/main/resources/de/planmarshall/core/config/local-config.schema.json[`local-config.schema.json`]
+Anchor:: link:../specification/store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas § Operator
+Local Configuration] (`commit_identity`, `commit_trailer`; the schema file
+`pm-core/src/main/resources/de/planmarshall/core/config/local-config.schema.json`)
 Hazard:: The schema's `pattern`s are the store's textual rule for `commit_identity` and `commit_trailer`, and no code in
 this repository validates a stored document against it: the codec reads the values and `CommitTrailer.isValidName` /
 `isValidEmail` apply the trailer's textual rule alone, which admits every C0 and C1 control the schema refuses. A value

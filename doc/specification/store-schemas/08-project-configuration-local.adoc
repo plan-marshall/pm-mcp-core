@@ -32,7 +32,7 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/config/config-
 == Operator Local Configuration (`<PM_MCP_BASE>/projects/<project_id>/local-config.json`)
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXT-6[PM-EXT-6: Configuration Split by Owner Class (Team, Operator, Server State)]_
 
-_Implementation watch: link:../../implementation-watch/domain-extensions.adoc#PM-WATCH-EXT-29[PM-WATCH-EXT-29]_
+_Implementation watch: link:../../implementation-watch/domain-extensions.adoc#PM-WATCH-EXT-29[PM-WATCH-EXT-29], link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-62[PM-WATCH-STORE-62]_
 
 The operator's values of one project and its machine-local bindings, written only by the runtime under the project's `locks/local-config.lock` on the operator's acts in either client: the operator values of the project's onboarding and setup (`project.operator`) and their later runs, a value set or unset over the local API, and `pm-operator config set|unset <key> [<level>]` at the project's level; never by a model. Sparse like the team files: a key holds only the project's own value, and accepting the machine's value as the proposal records nothing. The file carries `revision` like every operator file (xref:12-machine-stores.adoc#machine-config[Machine Configuration Store], Operator files and their revision). Which value of which level wins is <<project-levels>>.
 
