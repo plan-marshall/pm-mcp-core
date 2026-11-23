@@ -2,10 +2,10 @@
   "id": "PLAN-V2-175",
   "slug": "links-check-requirement-removed",
   "workstream": "WS-10",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-175-links-check-requirement-removed",
+  "pr": "#582",
+  "landing": "landings/PLAN-V2-175.md",
   "seq": 163
 }
