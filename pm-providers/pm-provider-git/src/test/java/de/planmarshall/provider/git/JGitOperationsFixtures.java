@@ -20,6 +20,14 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.dircache.DirCacheEditor;
+import org.eclipse.jgit.dircache.DirCacheEntry;
+import org.eclipse.jgit.lib.Constants;
+import org.eclipse.jgit.lib.FileMode;
+import org.eclipse.jgit.lib.PersonIdent;
+import org.eclipse.jgit.lib.Repository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -96,6 +104,36 @@ abstract class JGitOperationsFixtures {
         GitResult<CommitInfo> result = git.commit(new CommitInput(root, message, author, agent, List.of()));
         assertEquals(GitOutcome.OK, result.outcome(), "the fixture commit is recorded");
         return result.value();
+    }
+
+    /**
+     * Commits the index of an opened repository through raw JGit, for a fixture that has to build a state the contract
+     * refuses (a gitlink, a conflict, a branch of its own); the author and committer are the fixture's.
+     */
+    void commitThroughGit(Git jgit) throws Exception {
+        jgit.commit().setMessage(text())
+                .setAuthor(new PersonIdent(author.name(), author.email()))
+                .setCommitter(new PersonIdent(agent.name(), agent.email()))
+                .setSign(Boolean.FALSE)
+                .call();
+    }
+
+    /**
+     * Records {@code path} as a gitlink of {@code repository}'s index, the entry git writes for a submodule, pointing at
+     * {@code nestedRepository}'s current commit.
+     */
+    static void recordGitlink(Repository repository, Repository nestedRepository, String path) throws IOException {
+        var head = Objects.requireNonNull(nestedRepository.resolve(Constants.HEAD), "the nested repository's head");
+        var editor = repository.lockDirCache().editor();
+        editor.add(new DirCacheEditor.PathEdit(path) {
+
+            @Override
+            public void apply(DirCacheEntry entry) {
+                entry.setFileMode(FileMode.GITLINK);
+                entry.setObjectId(head);
+            }
+        });
+        assertTrue(editor.commit(), "the gitlink is recorded in the index");
     }
 
     String sha(Path root) {

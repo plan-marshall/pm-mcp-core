@@ -693,6 +693,40 @@ key there, so an empty scan cannot pass
 Primitives Developer Guide § The Commit Message and the Trailer]).
 Source:: design review (PLAN-V2-20).
 
+[#PM-WATCH-DSL-47]
+=== PM-WATCH-DSL-47: The clean-tree message binding is the assembly's
+
+Anchor:: link:../specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 3),
+link:../specification/state-catalogue/05-git-commit-and-push.adoc#state-catalogue-git[State Catalogue § `git.commit_and_push`],
+link:../../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/009-an-absent-message-is-the-primitives-clean-tree-route.adoc[ADR provider-git-primitive 009]
+Hazard:: The clean-tree route of `none_assert_clean` is safe only while the assembly's `ParameterBinder` binds
+`message = null` on it and nowhere else. The engine's `WorkflowEngine.resolve` resolves the inputs of a sub-workflow
+call; the primitive's parameters are the binder's, and a binder that supplies a message on the clean-tree route, or none
+on a dirty one, turns the route into an empty commit or a spurious `commit_failed`. Nothing in this repository observes
+the binder.
+Guard:: The primitive's own branch is tested (`GitStageAndCommitPrimitiveTest`: a clean tree is `nothing_to_commit`
+before the message is read, and a non-empty set without one is `failed` with the detail
+`no commit message is resolved`). The binding half is owed to the assembly: a call of
+`git.stage-and-commit` from a clean checkout with no resolved message, and one from a dirty checkout with one, are that
+package's tests.
+Source:: landing of `PLAN-V2-169` (`git-commit-primitives-closeout`), carried item 90c; `PLAN-V2-172` deliverable 3.
+
+[#PM-WATCH-DSL-48]
+=== PM-WATCH-DSL-48: A modified submodule is listed by its name
+
+Anchor:: link:../specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 1 and Stage 4),
+link:../specification/state-catalogue/05-git-commit-and-push.adoc#state-catalogue-git[State Catalogue § `git.commit_and_push`]
+Hazard:: `CommitSite.dirtyPaths` is the assembly's answer, and the staging set judges what it is given. Git lists an
+embedded repository as `newdir/` and a modified submodule by its name alone (`sub`), without a trailing slash; a site
+that lists a submodule by its directory, or that omits it, makes the staging set refuse a name that git would never
+report or stage a directory the commit refuses.
+Guard:: The staging set and the commit are proved to answer the same for a modified submodule and for a tracked
+directory a file replaced, on real repositories (`JGitOperationsPathTest`,
+`modifiedSubmoduleIsRefusedByBoth` and `trackedDirectoryReplacedByAFileIsRefusedByBoth`). The site's own porcelain read
+is not in this repository: the assembly tests it, and `CommitPathRefusals` refuses both shapes whatever the site lists.
+Source:: landing of `PLAN-V2-169` (`git-commit-primitives-closeout`), carried items 90a and 90d; `PLAN-V2-172`
+deliverable 1.
+
 == Positioned Layout
 
 [#PM-WATCH-DSL-37]

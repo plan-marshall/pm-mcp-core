@@ -22,8 +22,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.lib.FileMode;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.junit.jupiter.api.DisplayName;
@@ -34,7 +36,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import de.planmarshall.core.store.ScopeType;
 import de.planmarshall.provider.git.GitOperations.CommitInput;
+import de.planmarshall.provider.git.primitive.StagingSets;
 
 /**
  * The commit's path rule: a path is a literal repository path of one file, so a glob character, an option-shaped name
@@ -328,6 +332,107 @@ class JGitOperationsPathTest extends JGitOperationsFixtures {
             assertAll(
                     () -> assertNotNull(index.getEntry(literal), "the literal file name is staged"),
                     () -> assertNull(index.getEntry(patternMatch), "no wildcard match is staged"));
+        }
+    }
+
+    @Test
+    @DisplayName("a modified submodule is outside the staging set and refused by the commit")
+    void modifiedSubmoduleIsRefusedByBoth() throws Exception {
+        var submodule = names.next();
+        // a real nested repository, recorded as a gitlink in the outer index
+        Path nested = repo.resolve(submodule);
+        try (Git jgit = Git.init().setDirectory(nested.toFile()).call()) {
+            Files.writeString(nested.resolve(file()), text(), StandardCharsets.UTF_8);
+            jgit.add().addFilepattern(".").call();
+            commitThroughGit(jgit);
+        }
+        try (Git jgit = Git.open(repo.toFile()); Git inner = Git.open(nested.toFile())) {
+            recordGitlink(jgit.getRepository(), inner.getRepository(), submodule);
+            commitThroughGit(jgit);
+        }
+        // the nested repository moves to a commit of its own, so the worktree differs from the gitlink
+        try (Git jgit = Git.open(nested.toFile())) {
+            Files.writeString(nested.resolve(file()), text(), StandardCharsets.UTF_8);
+            jgit.add().addFilepattern(".").call();
+            commitThroughGit(jgit);
+        }
+
+        var staging = StagingSets.derive(ScopeType.PLAN, repo, List.of(submodule), false);
+        var refused = git.commit(new CommitInput(repo, text(), author, agent, List.of(submodule)));
+
+        assertAll("modified submodule",
+                () -> assertTrue(gitStatus().getModified().contains(submodule),
+                        "git status lists it by its name, without a trailing slash"),
+                () -> assertEquals(Set.of(submodule), staging.outside(),
+                        "The staging set reports the modified submodule outside"),
+                () -> assertEquals(GitOutcome.PATH_REFUSED, refused.outcome(),
+                        "The commit refuses the same name"),
+                () -> assertEquals(submodule, refused.detail(), "The refusal names the submodule"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("refuses a conflict below a listed name that a link replaced")
+    void refusesAConflictBelowAReplacingLink() throws Exception {
+        var node = names.next();
+        var below = node + "/" + file();
+        write(below, text());
+        commit(text());
+        var other = names.next();
+        try (var jgit = Git.open(repo.toFile())) {
+            jgit.branchCreate().setName(other).call();
+            Files.writeString(repo.resolve(below), text(), StandardCharsets.UTF_8);
+            jgit.add().addFilepattern(below).call();
+            commitThroughGit(jgit);
+            jgit.checkout().setName(other).call();
+            Files.writeString(repo.resolve(below), text(), StandardCharsets.UTF_8);
+            jgit.add().addFilepattern(below).call();
+            commitThroughGit(jgit);
+            jgit.checkout().setName(branch).call();
+            var merge = jgit.merge().include(jgit.getRepository().resolve(other)).call();
+            assertTrue(merge.getConflicts() != null && merge.getConflicts().containsKey(below),
+                    "the merge leaves the conflict in the index");
+        }
+        // the worktree replaces the conflicted directory by a link, the shape the tracked-tree rule admits
+        Files.delete(repo.resolve(below));
+        Files.delete(repo.resolve(node));
+        Files.createSymbolicLink(repo.resolve(node), Path.of(names.next()));
+
+        var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(node)));
+
+        assertAll("conflict below a replacing link",
+                () -> assertEquals(GitOutcome.FAILED, result.outcome(), "The conflicted index is refused"),
+                () -> assertTrue(String.valueOf(result.detail()).contains(below),
+                        "The refusal names the conflicted path below"));
+    }
+
+    @Test
+    @DisplayName("a tracked directory replaced by a file is outside the staging set and refused by the commit")
+    void trackedDirectoryReplacedByAFileIsRefusedByBoth() throws Exception {
+        var directory = names.next();
+        var below = directory + "/" + file();
+        write(below, text());
+        commit(text());
+        Files.delete(repo.resolve(below));
+        Files.delete(repo.resolve(directory));
+        Files.writeString(repo.resolve(directory), text(), StandardCharsets.UTF_8);
+
+        var staging = StagingSets.derive(ScopeType.PLAN, repo, List.of(directory, below), false);
+        var refused = git.commit(new CommitInput(repo, text(), author, agent, List.of(directory)));
+
+        assertAll("replaced tracked directory",
+                () -> assertEquals(Set.of(directory), staging.outside(),
+                        "The replaced directory is outside the staging set"),
+                () -> assertEquals(Set.of(below), staging.staged(),
+                        "The deletion below it is still staged"),
+                () -> assertEquals(GitOutcome.PATH_REFUSED, refused.outcome(),
+                        "The commit refuses the replaced directory"),
+                () -> assertEquals(directory, refused.detail(), "The refusal names the replaced directory"));
+    }
+
+    private Status gitStatus() throws Exception {
+        try (var jgit = Git.open(repo.toFile())) {
+            return jgit.status().call();
         }
     }
 

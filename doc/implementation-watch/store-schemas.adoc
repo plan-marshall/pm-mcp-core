@@ -837,3 +837,24 @@ judged is an open question of the documentation
 Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
 the result in the specification and the requirement it touches, and deletes this item.
 Source:: `store-schemas/11-enrolment-store.adoc#enrolment-field-semantics`, `concepts/enrolment.adoc` § Policy Before Signing (plan-marshall-documentation).
+
+[#PM-WATCH-STORE-62]
+=== PM-WATCH-STORE-62: No run-time schema validation of the local configuration
+
+Anchor:: link:../specification/store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas § Operator
+Local Configuration] (`commit_identity`, `commit_trailer`; the schema file
+`pm-core/src/main/resources/de/planmarshall/core/config/local-config.schema.json`)
+Hazard:: The schema's `pattern`s are the store's declared textual rule for `commit_identity` and `commit_trailer`, and no
+code validates a stored document against it — by the operator's decision of 2026-11-08 the schema files serve the tests
+and no run-time validation of a stored record is planned, so a schema file and the codec can drift. The two keys meet
+different barriers and reach different lines: a `commit_trailer` value the schema refuses — a C0 or C1 control in a name
+or an email — is checked by `CommitTrailer.isValidName` / `isValidEmail`, the trailer's own rule, which admits those
+controls, so it can reach the trailer line; a `commit_identity` value the schema refuses reaches the commit's author
+line, where no rule of this module checks it at all.
+Guard:: The patterns are pinned code point by code point as test input
+(`CommitTrailerSchemaParityTest`, `commit_trailer` and `commit_identity`), the codec's own rule beside them
+(`CommitTrailerTest`, `CommitTrailerUnicodeTest`), and the decoder turns a half the trailer rule refuses into
+`invalid_ignored`. The gap is the class the schema refuses and the codec admits; a decision to validate at run time is the
+operator's and would make this item obsolete, and the plan that takes it names the enforcer.
+Source:: landing of `PLAN-V2-169` (`git-commit-primitives-closeout`), carried item 90d; `PLAN-V2-172` deliverable 4; epic
+`pm-mcp-core-m2-m4-v2` decisions of 2026-11-08 (`runtime-schema-validation`).
