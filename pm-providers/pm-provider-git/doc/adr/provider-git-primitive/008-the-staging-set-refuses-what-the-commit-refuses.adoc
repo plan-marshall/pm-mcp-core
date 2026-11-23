@@ -1,4 +1,4 @@
-= ADR provider-git-primitive 008: The Staging Set Refuses What the Commit Refuses
+= ADR provider-git-primitive 008: The Staging Set and the Commit Share the Path Rule
 :nofooter:
 
 == Status
@@ -13,7 +13,7 @@ Accepted
 
 The staging set of a scope accepted a dirty name that the commit refuses with `PATH_REFUSED`: a name that begins with
 `:`, contains a backslash, a control character or a newline, or is the `dir/` entry of an embedded repository (git lists
-both by their directory, `dir/`). The commit then failed closed as `failed` with
+the embedded repository by its directory, `dir/`, and a modified submodule by its name alone, `sub`). The commit then failed closed as `failed` with
 the reason `commit_failed` and the git detail `PATH_REFUSED` before anything was staged, so one odd file name blocked the
 whole plan commit — an availability defect, not an integrity one. The textual rule of a commit path existed only in
 `JGitOperations`, so the staging set had no way to agree with it (landing of PLAN-V2-20, L3-2, L3-7, L3-8). The

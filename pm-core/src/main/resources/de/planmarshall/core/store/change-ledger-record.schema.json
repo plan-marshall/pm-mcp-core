@@ -16,11 +16,22 @@
       "if": { "properties": { "worktree_sha": { "const": "unavailable" } }, "required": ["worktree_sha"] },
       "then": { "required": ["worktree_sha_failure"], "properties": { "worktree_sha_failure": { "type": "object" } } },
       "else": { "properties": { "worktree_sha_failure": { "type": "null" } } }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "commit" } }, "required": ["kind"] },
+      "then": {
+        "required": ["commit_sha"],
+        "properties": { "commit_sha": { "type": "string", "pattern": "^[0-9a-f]{40}$" } }
+      }
     }
   ],
   "properties": {
     "format_version": { "type": "integer", "const": 1 },
-    "kind": { "type": "string", "enum": ["build", "change", "job", "task_diff", "baseline_red"] },
+    "kind": {
+      "type": "string",
+      "enum": ["build", "change", "commit", "job", "task_diff", "baseline_red"],
+      "description": "build: a build execution; change: a file footprint change; commit: a commit made of a staged change set, carrying its commit_sha and the paths it carried; job: an asynchronous job outcome; task_diff: the diff of one plan task; baseline_red: the proof that a red gate is red through base failures only."
+    },
     "worktree_sha": {
       "type": "string",
       "pattern": "^([0-9a-f]{64}|unavailable)$",
@@ -55,7 +66,7 @@
     "change_origin": {
       "type": ["string", "null"],
       "enum": ["plan_change", "quality_gate_autofix", null],
-      "description": "For kind == 'change': quality_gate_autofix marks commits produced by a quality gate's auto-fix; footprint reconciliation reports those paths separately from deliverable changes."
+      "description": "For kind == 'change' or 'commit': quality_gate_autofix marks commits produced by a quality gate's auto-fix; footprint reconciliation reports those paths separately from deliverable changes."
     },
     "expect": {
       "type": ["string", "null"],

@@ -848,8 +848,10 @@ Hazard:: The schema's `pattern`s are the store's declared textual rule for `comm
 code validates a stored document against it — by the operator's decision of 2026-11-08 the schema files serve the tests
 and no run-time validation of a stored record is planned, so a schema file and the codec can drift. The two keys meet
 different barriers and reach different lines: a `commit_trailer` value the schema refuses — a C0 or C1 control in a name
-or an email — is checked by `CommitTrailer.isValidName` / `isValidEmail`, the trailer's own rule, which admits those
-controls, so it can reach the trailer line; a `commit_identity` value the schema refuses reaches the commit's author
+or an email — is checked by `CommitTrailer.isValidName` / `isValidEmail`, the trailer's own rule, which refuses only
+part of that class: the name rule refuses CR, LF, U+0085, U+2028 and U+2029, the email rule refuses TAB, VT, FF, CR, LF
+and U+0085, so a NUL, an ESC or another control of the class reaches the trailer line; a `commit_identity` value the
+schema refuses reaches the commit's author
 line, where no rule of this module checks it at all.
 Guard:: The patterns are pinned code point by code point as test input
 (`CommitTrailerSchemaParityTest`, `commit_trailer` and `commit_identity`), the codec's own rule beside them

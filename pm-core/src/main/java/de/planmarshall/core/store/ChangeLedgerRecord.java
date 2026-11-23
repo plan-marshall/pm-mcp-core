@@ -27,8 +27,9 @@ import org.jspecify.annotations.Nullable;
  * and never equals another {@code unavailable} row. {@code worktree_sha_failure} is non-null exactly then.
  * <p>
  * The kind decides the members that are meaningful: a {@code build} row names the gate it proves and its outcome, a
- * {@code change} row names the commit and the changed paths, a {@code task_diff} row names its task, and a
- * {@code baseline_red} row carries the proof that a red gate is red through failures on the base only.
+ * {@code change} row names the commit and the changed paths, a {@code commit} row names the commit that was made and
+ * the paths it carried, a {@code task_diff} row names its task, and a {@code baseline_red} row carries the proof that
+ * a red gate is red through failures on the base only.
  *
  * @param kind               the kind of the row
  * @param worktreeSha        the working-tree digest, or {@code unavailable} when a git invocation failed
@@ -75,6 +76,8 @@ public record ChangeLedgerRecord(Kind kind, String worktreeSha, int worktreeShaV
         BUILD("build"),
         /** A file footprint change. */
         CHANGE("change"),
+        /** The commit of a staged change set: the commit and the paths it carried. */
+        COMMIT("commit"),
         /** An asynchronous job outcome. */
         JOB("job"),
         /** The diff of one plan task. */
@@ -347,6 +350,8 @@ public record ChangeLedgerRecord(Kind kind, String worktreeSha, int worktreeShaV
      * @throws NullPointerException     if a required component is {@code null}
      * @throws IllegalArgumentException if a value breaks its grammar or the combination breaks a rule of the schema
      */
+    // one rule per schema constraint, in declaration order, by design
+    @SuppressWarnings("java:S3776")
     public ChangeLedgerRecord {
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(worktreeSha, "worktree_sha");
@@ -382,6 +387,9 @@ public record ChangeLedgerRecord(Kind kind, String worktreeSha, int worktreeShaV
         }
         if (kind != Kind.TASK_DIFF && taskId != null) {
             throw new IllegalArgumentException("Only a 'task_diff' row carries a 'task_id'");
+        }
+        if (kind == Kind.COMMIT && commitSha == null) {
+            throw new IllegalArgumentException("A 'commit' row carries its 'commit_sha'");
         }
     }
 

@@ -718,8 +718,10 @@ Anchor:: link:../specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_
 link:../specification/state-catalogue/05-git-commit-and-push.adoc#state-catalogue-git[State Catalogue § `git.commit_and_push`]
 Hazard:: `CommitSite.dirtyPaths` is the assembly's answer, and the staging set judges what it is given. Git lists an
 embedded repository as `newdir/` and a modified submodule by its name alone (`sub`), without a trailing slash; a site
-that lists a submodule by its directory, or that omits it, makes the staging set refuse a name that git would never
-report or stage a directory the commit refuses.
+that lists a submodule by its directory (`sub/`) makes the staging set report the violation under a name git never
+reports — the trailing segment is empty. Both spellings are already outside (the worktree holds `sub` as a directory,
+which the file-system rule refuses), so the incorrect spelling changes the reported path, not whether the commit is
+blocked; the assembly's porcelain read is what must be checked.
 Guard:: The staging set and the commit are proved to answer the same for a modified submodule and for a tracked
 directory a file replaced, on real repositories (`JGitOperationsPathTest`,
 `modifiedSubmoduleIsRefusedByBoth` and `trackedDirectoryReplacedByAFileIsRefusedByBoth`). The site's own porcelain read
