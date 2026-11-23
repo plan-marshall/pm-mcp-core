@@ -447,8 +447,10 @@ Guard:: The trailer is the server's alone. The input side is guarded: `commit_me
 in any case and at any position, through `ConventionalCommitValidator` (`InputValidatorTest`,
 link:../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide]). The native half of the commit
 side is guarded in `pm-provider-git`: `CommitMessagesTest` refuses a trailer line in any case and position, naming the
-line, whichever channel supplied the message, and leaves exactly one trailer in the result; `CommitTrailerTest` covers the three trailer sources per half and `invalid_ignored`;
-`GitStageAndCommitPrimitiveTest` commits on the native variant with exactly one trailer, the operator's
+line, whichever channel supplied the message, and leaves exactly one trailer in the result; `CommitTrailerTest` and
+`CommitTrailerUnicodeTest` cover the three trailer sources per half, `invalid_ignored`, the surrogates and the Unicode
+line separators;
+`GitStageAndCommitPrimitiveMessageTest` commits on the native variant with exactly one trailer, the operator's
 `commit_identity` as author and the resolved agent identity (or the compiled fallback identity) as committer, read back
 from the history, and refuses a message with a trailer line as `failed` with the reason `message_refused`
 (link:../../pm-providers/pm-provider-git/doc/developer/provider-git-primitive.adoc[Commit Primitives Developer Guide]).
@@ -630,14 +632,17 @@ pathspecs (`--literal-pathspecs add --pathspec-from-file=- --pathspec-file-nul`)
 `PathRules` refuses a leading `:` and `-` and every control character before the value is bound
 (link:../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide]).
 Tests: `PathRulesTest` refuses a leading `:` and `-` and a control character before a value is bound. The glob half is
-settled: `PathRules` and the provider admit `*`, `?` and `[`, and `JGitOperationsTest` (`TheGlobRefusalPremise`, the commit
-of `pages/[id].tsx`) shows the native variant stages such a name literally (link:../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR
-workflow-input/006]). The native half is built: `JGitOperations.commit` reads no character of a path as a glob and
-refuses a pathspec magic (a path that begins with `:`) and a path that is no literal file path of the root (empty,
-absolute, outside the root, not in normal form, a backslash, a control character, a directory;
-link:../../pm-providers/pm-provider-git/doc/adr/provider-git/004-a-directory-is-refused-and-emptiness-is-typed.adoc[ADR provider-git 004], amendment), and `JGitOperationsTest` commits files named
-`app/[<name>]/page.tsx`, `<name>*.txt` and `<name>?.md` as exactly those files beside the files their glob reading would
-match (the matched control: those stay uncommitted), and a file named `-rf<name>` as that file.
+settled: `PathRules` and the provider admit `*`, `?` and `[`, and `JGitOperationsPathTest` (the literal-name premise, the
+commit of `pages/[id].tsx`) shows the native variant stages such a name literally
+(link:../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR workflow-input/006]). The
+native half is built: `JGitOperations.commit` reads no character of a path as a glob and refuses a pathspec magic (a path
+that begins with `:`) and a path that is no literal file path of the root (empty, absolute, outside the root, not in
+normal form, a backslash, a control character, a directory; link:../../pm-providers/pm-provider-git/doc/adr/provider-git/004-a-directory-is-refused-and-emptiness-is-typed.adoc[ADR
+provider-git 004], amendment), and `JGitOperationsPathTest` commits files named `app/[<name>]/page.tsx`, `<name>*.txt` and
+`<name>?.md` as exactly those files beside the files their glob reading would match (the matched control: those stay
+uncommitted), and a file named `-rf<name>` as that file. A derived name that begins with `:` is outside the staging set
+of `StagingSets`, so the footprint check names it as a violation before the commit is called; the commit's own refusal
+stays for a bound path that reaches it (`commit paths`, `StagingSetsTest`, link:../../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/008-the-staging-set-refuses-what-the-commit-refuses.adoc[ADR provider-git-primitive 008]).
 Owed: the CLI half, the same fixture staged through `--literal-pathspecs add --pathspec-from-file=- --pathspec-file-nul`,
 belongs to the assembly that ships the CLI variant. A refusal of the glob characters `*`, `?` and `[` in either variant
 or in `PathRules` fails the fixture.

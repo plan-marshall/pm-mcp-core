@@ -22,6 +22,10 @@ type `ScopeKind`, which does not exist; `core.store.ScopeType` holds `PLAN`, `EP
 
 * `StagingSets.derive(ScopeType, Path worktree, Collection<String> dirtyPaths, boolean archiving)` returns
   `StagingSet(staged, outside)`; every dirty path lands in exactly one of the two.
+* A path must also satisfy the textual rule of a commit path (`CommitPaths.isRefusedText`); a name that fails it — a
+  pathspec magic, a backslash, a control character, a newline, a directory entry such as an embedded repository or a
+  submodule — is `outside`, so the footprint check names it instead of the commit failing on it
+  (link:008-the-staging-set-refuses-what-the-commit-refuses.adoc[ADR 008]).
 * It takes the existing `ScopeType`; no `ScopeKind` is added. `PROJECT` has no staging set: every dirty path is
   `outside`, a value, never an exception.
 * The directory that holds each path is confined with `PathConfinement.confine(new WorkspaceRoots(worktree, Set.of()),
@@ -44,6 +48,9 @@ type `ScopeKind`, which does not exist; `core.store.ScopeType` holds `PLAN`, `EP
 == Consequences
 
 * A dirty path outside the set is a breach of check 1 of the footprint check (link:006-the-primitive-checks-the-boundary-half.adoc[ADR 006]).
+* A bound `files` entry outside the set is dropped, not refused: the bind owns the refusal (`input_refused`, the rule
+  `path.staging`), so `git.stage-and-commit` narrows only and commits the intersection. A test pins that the primitive
+  never refuses a bound entry, so a refusal added here fails it.
 * A change of a scope's set changes `StagingSets` and its test; no caller holds a copy of the paths.
 
 == Source

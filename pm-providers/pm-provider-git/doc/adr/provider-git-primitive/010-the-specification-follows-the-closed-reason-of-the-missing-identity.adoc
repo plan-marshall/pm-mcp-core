@@ -1,0 +1,44 @@
+= ADR provider-git-primitive 010: The Specification Follows the Closed Reason of the Missing Identity
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-22
+
+== Context
+
+The specification of the operator's local configuration said a commit refuses with `identity_missing` while no effective
+`commit_identity` exists. The primitive returns `failed` with the reason `commit_failed` and a `detail` that names the
+missing value: `identity_missing` is a rejection reason of the MCP tools surface, not a reason of this primitive, and
+the reasons of `git.stage-and-commit` are the closed enum of ADR 005 (landing of PLAN-V2-20, L3-6).
+
+== Decision
+
+* The specification follows the code: `store-schemas/08` states that a commit refuses as `failed` with the reason
+  `commit_failed` and a `detail` naming the missing `commit_identity`, and it links this ADR instead of the MCP tools'
+  rejection reasons.
+* No reason and no outcome is added. A missing identity and a failed commit of the git contract lead to the same
+  recovery, so the operator's rule makes the cause a reason, never a new outcome (ADR 005).
+
+== Alternatives Considered
+
+* *Add `identity_missing` to the closed reason set.* Not taken: it would be a second reason for one recovery, and the
+  reason set is closed against exactly that.
+* *Refuse a missing identity as `message_refused`.* Not taken: the message is valid; the author is what is missing.
+
+== Consequences
+
+* One reason set stays, with its facts; the guide and the Javadoc of the primitive already state it.
+* An operator who reads `store-schemas/08` finds the reason and the fact the primitive returns, and the MCP tools'
+  `identity_missing` keeps its own surface.
+
+== Source
+
+* Spec of `PLAN-V2-169` (`git-commit-primitives-closeout`), deliverable 3
+* link:../../../../../doc/specification/store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas § Operator Local Configuration] (`commit_identity`)
+* Landing of `PLAN-V2-20` (`git-commit-primitives`), L3-6
+* link:005-one-failed-outcome-with-a-closed-reason.adoc[ADR provider-git-primitive 005]

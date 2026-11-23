@@ -25,15 +25,18 @@ import de.planmarshall.core.store.ConfinementOutcome;
 import de.planmarshall.core.store.PathConfinement;
 import de.planmarshall.core.store.ScopeType;
 import de.planmarshall.core.store.WorkspaceRoots;
+import de.planmarshall.provider.git.CommitPaths;
 
 /**
  * Derives the staging set of a commit from its scope, never from whatever the checkout holds (PM-WF-16, Stage 4).
  * <p>
- * Each dirty path is a repository-relative name of the target checkout. It is staged only when it is a relative name
- * in normal form (no {@code .} or {@code ..} segment), the directory that holds it lies inside the checkout
- * ({@link PathConfinement} with the checkout as the one root) and it belongs to the set of its scope. Its last name is
- * not followed: a symbolic link is committed as a link, so a link to outside or a dangling link is staged, while a
- * path through a link to outside is not. The sets of the scopes:
+ * Each dirty path is a repository-relative name of the target checkout. It is staged only when it satisfies the
+ * textual rule of a commit path ({@link CommitPaths#isRefusedText(String)}: no pathspec magic, no backslash, no control
+ * character, no empty segment, which a directory entry such as an embedded repository or a submodule fails), is a
+ * relative name in normal form (no {@code .} or {@code ..} segment), the directory that holds it lies inside the
+ * checkout ({@link PathConfinement} with the checkout as the one root) and it belongs to the set of its scope. Its last
+ * name is not followed: a symbolic link is committed as a link, so a link to outside or a dangling link is staged,
+ * while a path through a link to outside is not. The sets of the scopes:
  * <ul>
  * <li>{@link ScopeType#PLAN}: every such path of the plan's worktree;</li>
  * <li>{@link ScopeType#EPIC}: {@code .marshall/epics/**}, and {@code .marshall/archived-epics/**} only while the epic
@@ -98,12 +101,15 @@ public final class StagingSets {
     }
 
     /**
-     * The last name of a dirty path is the entry git records, and a symbolic link is recorded as a link, never
-     * followed: only the directory that holds it is confined. A link to outside or a dangling link is therefore a
+     * The textual rule of the commit comes first ({@link CommitPaths#isRefusedText(String)}), so a name the commit
+     * would refuse is never staged: a colon-led name, a backslash, a control character, a newline and a directory entry
+     * such as an embedded repository or a submodule ({@code newdir/}) go to {@code outside}, where the footprint check
+     * names them. The last name of a dirty path is the entry git records, and a symbolic link is recorded as a link,
+     * never followed: only the directory that holds it is confined. A link to outside or a dangling link is therefore a
      * name of the checkout like any other, while a path that runs through a link to outside stays outside.
      */
     private static boolean isConfinedName(WorkspaceRoots roots, String path) {
-        if (path.isEmpty() || path.indexOf('\0') >= 0) {
+        if (CommitPaths.isRefusedText(path)) {
             return false;
         }
         Path name;

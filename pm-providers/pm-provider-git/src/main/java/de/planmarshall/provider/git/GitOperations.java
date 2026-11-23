@@ -80,6 +80,10 @@ public interface GitOperations {
      * is committed as the link. A path that is empty, begins with {@code :} (git pathspec magic), is absolute, outside
      * the root, not in normal form (an empty, {@code .} or {@code ..} segment), carries a backslash or a control
      * character, or names a directory is refused with {@code PATH_REFUSED} before anything is staged.
+     * <p>
+     * Nothing is staged when the listed paths carry no change against {@code HEAD}: the change is read from the
+     * worktree and the index first, so a call the status finds unchanged stages nothing and the index keeps the entries
+     * it had.
      *
      * @param input the input
      * @return {@code OK} with the commit, {@code NOTHING_TO_COMMIT}, {@code PATH_REFUSED}, {@code CAPABILITY_MISSING},

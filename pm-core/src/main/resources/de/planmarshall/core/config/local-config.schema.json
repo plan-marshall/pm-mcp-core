@@ -158,8 +158,8 @@
           "additionalProperties": false,
           "description": "Co-Authored-By trailer of server commits; compiled default plan-marshall <noreply@cuioss.de>.",
           "properties": {
-            "name": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[^<>\\r\\n]+$" },
-            "email": { "type": "string", "maxLength": 254, "pattern": "^[^<>\\s@]+@[^<>\\s@]+$" }
+            "name": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[^<>\\u0000-\\u001f\\u007f-\\u009f\\u2028\\u2029]+$" },
+            "email": { "type": "string", "maxLength": 254, "pattern": "^[^<>@\\s\\u0000-\\u001f\\u007f-\\u009f\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]+@[^<>@\\s\\u0000-\\u001f\\u007f-\\u009f\\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000]+$" }
           }
         },
         "envelope_budget_tokens": {

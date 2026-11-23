@@ -1,0 +1,52 @@
+= ADR provider-git-primitive 009: An Absent Message Is the Primitive's Clean-Tree Route
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-22
+
+== Context
+
+`git.resolve-message` answers `ready` with no `message` fact for `none_assert_clean` on a clean checkout, because there
+is nothing to commit, and the state catalogue routes `ready` unconditionally to `git.stage-and-commit`. That primitive
+required a message (`Params.message` was `requireNonNull`). The engine binds a call's inputs (`WorkflowEngine.resolve`),
+and the sub-workflow's fixture declares `message` as an optional input (`commit_message[1..2000]?`), so an absent
+`message` binds as an absent optional input and reaches the primitive as a null parameter: the primitive, not the
+binder, decided whether that was legal, and the specification did not say where a clean tree goes after `ready` (landing
+of PLAN-V2-20, L3-1).
+
+== Decision
+
+* `GitStageAndCommitPrimitive.Params.message` is `@Nullable`: the clean-tree route of `none_assert_clean` binds none.
+* The primitive derives and narrows its staging set first. An empty set is `nothing_to_commit` before the message is
+  read, which is exactly what a clean checkout means.
+* A non-empty staging set with no message is `failed` with the reason `commit_failed` and the `detail`
+  `no commit message is resolved`: a call that needs a message and has none fails closed, never with an empty commit.
+* The state catalogue keeps its single `ready -> git.stage-and-commit` route; the workflow DSL and the state catalogue
+  state that the empty staging set is the clean tree's `nothing_to_commit`.
+
+== Alternatives Considered
+
+* *A route of its own (`ready` without `message` goes to `git.push-barrier-decision`).* Not taken: it duplicates in the
+  graph a decision the primitive already makes (an empty staging set has nothing to push), needs a condition on the
+  presence of one fact that the routing does not express, and leaves the primitive's required message in place.
+* *Keep the required message and have the clean-tree call fail.* Not taken: `none_assert_clean` is the push barrier's
+  clean-tree call, so every clean finalize would fail instead of succeeding with nothing to commit.
+
+== Consequences
+
+* `GitStageAndCommitPrimitiveTest` pins both branches: a clean tree is `nothing_to_commit` without touching the
+  message, and a non-empty set without a message is `failed` with the detail.
+* The assembly binds `message = null` only on the clean-tree route; the primitive never reads it otherwise.
+* A caller that forgets the message on a dirty tree gets a named refusal, not an empty or a failed commit.
+
+== Source
+
+* Spec of `PLAN-V2-169` (`git-commit-primitives-closeout`), deliverable 3
+* link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 3)
+* link:../../../../../doc/specification/state-catalogue/05-git-commit-and-push.adoc#state-git.resolve-message[State Catalogue § `git.resolve-message`]
+* Landing of `PLAN-V2-20` (`git-commit-primitives`), L3-1
