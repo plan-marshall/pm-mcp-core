@@ -34,8 +34,8 @@ import de.planmarshall.core.SchemaResource;
  * The patterns are compiled here with {@code java.util.regex}, the engine of this test, and the whole C0/C1 and White_Space
  * classes are checked code point by code point rather than sampled. By the operator's decision of 2026-11-08 (epic
  * {@code pm-mcp-core-m2-m4-v2}, `runtime-schema-validation`) the schema files serve the tests: no run-time validation of
- * a stored record runs in this repository or in the assembly, so a pattern here is the declared rule and the codec's own
- * checks are what a stored value meets (`PM-WATCH-STORE-62`). U+FEFF is the one deliberate exception of the white-space
+ * a stored record runs here, so a pattern here is the declared rule and the codec's own checks are what a stored value
+ * meets (`PM-WATCH-STORE-62`). U+FEFF is the one deliberate exception of the white-space
  * class: ECMA-262's {@code \s} names it and {@code java.util.regex}'s does not, so the pattern admits it — as
  * {@link CommitTrailer} does — and the test names that rather than sampling around it.
  */

@@ -33,7 +33,8 @@ import de.planmarshall.provider.git.CommitPathRefusals;
  * Each dirty path is a repository-relative name of the target checkout. It is staged only when it satisfies the rule of
  * a commit path ({@link CommitPathRefusals}), is a relative name in normal form (no {@code .} or {@code ..} segment), the
  * directory that holds it lies inside the checkout ({@link PathConfinement} with the checkout as the one root) and it
- * belongs to the set of its scope. The rule has three parts: the textual one ({@link CommitPaths#isRefusedText(String)}:
+ * belongs to the set of its scope. The rule has three parts: the textual one
+ * ({@link CommitPathRefusals#isRefusedText(String)}:
  * no pathspec magic, no backslash, no control character, no empty segment, which the {@code dir/} entry of an embedded
  * repository fails), the file-system one (a directory, an absolute name, a name outside the root, a parent that a
  * symbolic link carries outside it) and the tracked-tree one (a name that is a directory of the index or the head tree

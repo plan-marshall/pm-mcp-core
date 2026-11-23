@@ -97,8 +97,8 @@ directory is refused before any listed path is staged. A commit with nothing to 
 staged, from the worktree and the index through git's status, never from the translated JGit message, which a locale
 would change (link:../adr/provider-git/004-a-directory-is-refused-and-emptiness-is-typed.adoc[ADR 004]), and the index is
 put back as it was: a listed path whose staged change the worktree reverted is restored from the snapshot taken before
-staging, and for an empty path list — every change of the worktree — the whole index is snapshotted and restored, so
-`NOTHING_TO_COMMIT` leaves the index untouched on both routes. An index that holds unresolved conflict entries under the
+staging, and for an empty path list — every change of the worktree — the whole index is snapshotted and restored, so the
+`NOTHING_TO_COMMIT` of that pre-check leaves the index untouched on both routes. An index that holds unresolved conflict entries under the
 listed paths is refused as `FAILED` with a detail naming the path before anything is staged, before even the emptiness
 read: the restore keeps one entry per path, so it would write the base entry back at stage 0 and the conflict would
 disappear. JGit's own empty-commit refusal after staging is a defensive path behind the pre-check and restores nothing.
@@ -201,8 +201,9 @@ link:{test}/JGitCacheRepositoryTest.java[`JGitCacheRepositoryTest`]:: `initCache
 link:{test}/JGitSourceRepositoryTest.java[`JGitSourceRepositoryTest`]:: `CorpusImport` of `pm-core` end to end with this adapter over two fixture repositories and an in-test `LfsObjectSource`: the pinned sources are fetched, verified and generated into items that `CorpusValidator` accepts; a changed file fails its hash and the run; a removed fixture repository is missed by name while the other source's items remain; a pinned commit the repository does not serve and a path that is no file at the pin are `pin_missing`; the default constructor fetches through `Remote.of`, whose policy admits the manifest's https origin with its port and nothing else.
 link:{test}/UnservedWantTest.java[`UnservedWantTest`]:: Each recognised refusal wording is `UNKNOWN_REVISION`; a connection, status or timeout failure, and a message that only resembles one, are not.
 link:{test}/GitIdentityTest.java[`GitIdentityTest`]:: A branch named like the pinned commit and a name that resolves as two refs are `GIT_IDENTITY_AMBIGUOUS`; an abbreviated commit id is `UNKNOWN_REVISION` naming it; a branch that is not at its pin is `GIT_IDENTITY_MISMATCH` with both ids; `log` refuses an ambiguous revision; the ref spellings.
-link:{test}/JGitOperationsTest.java[`JGitOperationsTest`]:: the project operations through JGit: open, commit, log, and
-the commit that leaves the index untouched when it has nothing to commit.
+link:{test}/JGitOperationsTest.java[`JGitOperationsTest`]:: the project operations through JGit: open, commit, log, the
+commit that leaves the index untouched when it has nothing to commit, the staged change the worktree reverted kept in the
+index for a listed path and for an empty path list, and a conflicted index refused with its path.
 link:{test}/JGitOperationsPathTest.java[`JGitOperationsPathTest`]:: the literal path rule: a glob and an option-shaped
 name committed literally, a link to a directory and a dangling link committed as links, a link that replaces a tracked
 directory, and the refusals of a magic, a directory, an absolute, a parent, an outside and a non-normal path, of a path
