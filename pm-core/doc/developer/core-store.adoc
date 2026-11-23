@@ -2933,7 +2933,10 @@ stored file that is a symbolic link or whose canonical path leaves the source di
 file is read — a FIFO or another special file the manifest names is refused instead of opened, because its open would
 block under the workspace lock; the file is read with `NOFOLLOW_LINKS`. The manifest itself refuses a path two sources name, a path that repeats another in case or in
 another Unicode normalisation form — a case-insensitive or normalisation-insensitive filesystem addresses one file in
-either form — a path that is the directory of another, and a path that is its own `sources.json` in any case
+either form — a path that is the directory of another, and a path that is its own `sources.json` in any case. The
+operator kept the full width of that fold on 2026-11-23 after `PLAN-V2-171` deferred it: it also refuses `ß` against
+`ss`, `ı` against `i`, a ligature against its letters and a composed against a decomposed name, and a manifest stored
+before it whose paths collide reads as a `StoreRefusal` with `format_version` still 1
 (link:../adr/core-store/084-the-move-carries-the-manifests-files-and-no-other.adoc[ADR 084]).
 
 The workspace transaction deletes the entry's record last; the caller commits the new scope first and the workspace

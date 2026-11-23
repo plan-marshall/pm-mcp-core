@@ -34,6 +34,14 @@ Five rules, each enforced where its input is defined:
    addresses one file in either form; a file and its directory
    are refused together because one create target cannot be both. The manifest is built where an entry is written, so
    the refusal happens before a directory is staged.
+   The operator kept the full width of this fold on 2026-11-23, asked by deliverable 3 of `PLAN-V2-174` after
+   `PLAN-V2-171` deferred it (R07): it is `Locale.ROOT` upper case then lower case over the NFC form, so it also
+   refuses `ß` against `ss`, `ı` against `i`, a ligature against its letters, and a composed against a decomposed name,
+   even where a case-sensitive filesystem keeps the two files apart. The alternatives — narrowing the fold to ASCII and
+   a documented Unicode set, and refusing at write while tolerating the collision at read — were not taken, because
+   only the full fold never lets one manifest carry two files that a case- or normalisation-insensitive filesystem
+   conflates. The cost is accepted: a manifest stored under the earlier case-only rule whose paths collide now reads as
+   a `StoreRefusal` from the record's own constructor, with `format_version` still 1 (ADR 085).
 2. `PendingEntryCreation.move` refuses to carry an entry whose source directory holds a file or a link that no manifest
    entry names — the manifest itself excepted — with a `StoreRefusal` naming the file, so nothing of the entry is
    dropped silently when its directory is deleted after the move. A link below the source directory is refused as the
@@ -63,6 +71,12 @@ Five rules, each enforced where its input is defined:
 4. *Follow a link and verify its content against the manifest.*
    _Rejected_: the digest would match whatever the link points at, so an entry's directory could redirect a read
    outside it.
+5. *Narrow the fold to ASCII and a documented Unicode set.*
+   _Rejected_ (operator, 2026-11-23): it admits `ß` against `ss` and the other pairs as two files, which a
+   case-insensitive volume conflates, so one manifest could describe one file twice.
+6. *Refuse a colliding path at write and tolerate it at read.*
+   _Rejected_ (operator, 2026-11-23): the reader would accept a manifest the writer refuses, so a stored manifest could
+   describe two paths one file addresses; it would also need a second, lenient construction of the record.
 
 == Consequences
 

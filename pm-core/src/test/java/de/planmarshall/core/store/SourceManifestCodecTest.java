@@ -101,6 +101,14 @@ class SourceManifestCodecTest {
                 .formatted(addedAt, verdict, verdictReason);
     }
 
+    private String sourceStoring(String id, String storedPath) {
+        return "{\"source_id\":\"%s\",\"kind\":\"description\",\"reference\":\"ref\",\"origin\":\"operator\","
+                .formatted(id)
+                + "\"trust\":\"trusted\",\"files\":[{\"path\":\"%s\",\"size\":1,\"sha256\":\"%s\"}],"
+                .formatted(storedPath, digest)
+                + "\"added_at\":\"%s\",\"verdict\":null,\"verdict_reason\":null}".formatted(addedAt);
+    }
+
     @Nested
     @DisplayName("round trip")
     class RoundTrip {
@@ -255,7 +263,9 @@ class SourceManifestCodecTest {
                     () -> assertTrue(refusal.getMessage().contains(variant),
                             "the refusal should name the path in its own case"),
                     () -> assertTrue(refusal.getMessage().contains(path),
-                            "the refusal should name the path stored before it"));
+                            "the refusal should name the path stored before it"),
+                    () -> assertTrue(refusal.getMessage().contains("differ only in case"),
+                            "the refusal should state the rule of the fold"));
         }
 
         @Test
@@ -277,7 +287,9 @@ class SourceManifestCodecTest {
                     () -> assertTrue(refusal.getMessage().contains(capital),
                             "the refusal should name the path as it was stored"),
                     () -> assertTrue(refusal.getMessage().contains(finalSigma),
-                            "the refusal should name the Unicode variant"));
+                            "the refusal should name the Unicode variant"),
+                    () -> assertTrue(refusal.getMessage().contains("differ only in case"),
+                            "the refusal should state the rule of the fold"));
         }
 
         @Test
@@ -299,7 +311,9 @@ class SourceManifestCodecTest {
                     () -> assertTrue(refusal.getMessage().contains(composed),
                             "the refusal should name the composed form"),
                     () -> assertTrue(refusal.getMessage().contains(decomposed),
-                            "the refusal should name the decomposed form"));
+                            "the refusal should name the decomposed form"),
+                    () -> assertTrue(refusal.getMessage().contains("another Unicode normalisation form"),
+                            "the refusal should state the normalisation rule"));
         }
 
         @Test
@@ -321,7 +335,9 @@ class SourceManifestCodecTest {
                     () -> assertTrue(refusal.getMessage().contains(small),
                             "the refusal should name the precomposed form"),
                     () -> assertTrue(refusal.getMessage().contains(combined),
-                            "the refusal should name the combined form"));
+                            "the refusal should name the combined form"),
+                    () -> assertTrue(refusal.getMessage().contains("another Unicode normalisation form"),
+                            "the refusal should state the normalisation rule"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -366,6 +382,24 @@ class SourceManifestCodecTest {
 
             assertTrue(refusal.getMessage().contains("no path of this platform"),
                     "the refusal should name the platform-path rule");
+        }
+
+        @Test
+        @DisplayName("a stored manifest whose paths differ only in case is refused at format version 1")
+        void caseVariantStoredManifest() {
+            var variant = path.toUpperCase(Locale.ROOT);
+            var stored = document("\"format_version\":1", "\"revision\":2",
+                    "\"sources\":[" + sourceStoring(sourceId, path) + ","
+                            + sourceStoring(sourceId + "x", variant) + "]");
+
+            var refusal = assertRefused(stored);
+
+            assertAll(
+                    () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                            "a colliding stored manifest is unreadable"),
+                    () -> assertEquals(1, refusal.current(), "the manifest keeps format version 1"),
+                    () -> assertTrue(refusal.getMessage().contains("differ only in case"),
+                            "the refusal should state the rule of the fold"));
         }
 
         @ParameterizedTest(name = "{0}")
