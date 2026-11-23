@@ -78,7 +78,9 @@ the same pattern and `setUpdate(true)`) and passes `CommitCommand.setOnly(path)`
 other process staged earlier is not carried into the commit. A directory never arrives twice over: the caller's bind admits
 only files of its staging set (link:../../../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer
 Guide]), and the provider refuses a directory and a git pathspec magic (a path that begins with `:`) before it stages
-anything, because a JGit pathspec is prefix-based and would expand a directory to everything below it. A directory is refused in the worktree, in the index and in the head tree; the
+anything, because a JGit pathspec is prefix-based and would expand a directory to everything below it. The path rule is
+one helper the commit shares with the staging set of a scope (`CommitPathRefusals`): the textual rule, the file-system
+rule and the tracked-tree rule. A directory is refused in the worktree, in the index and in the head tree; the
 index is checked whether or not `HEAD` resolves, so a directory staged in a repository without commits and then removed
 from the worktree is refused too, and only the head-tree check needs `HEAD`. The directory checks do not follow a final
 symbolic link, so a link, also one to a directory, one to a target outside the root or a dangling one, is committed as the
@@ -93,9 +95,14 @@ directory a symbolic link carries outside the real root: the parent, or its near
 exist, is resolved with `toRealPath` against the real root, so `alias/private.txt` below a link `alias` to an outside
 directory is refused before any listed path is staged. A commit with nothing to commit is recognised before anything is
 staged, from the worktree and the index through git's status, never from the translated JGit message, which a locale
-would change (link:../adr/provider-git/004-a-directory-is-refused-and-emptiness-is-typed.adoc[ADR 004]), so
-`NOTHING_TO_COMMIT` leaves the index untouched. The commit set stays a subset
-of the staging set (link:../adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR 003]).
+would change (link:../adr/provider-git/004-a-directory-is-refused-and-emptiness-is-typed.adoc[ADR 004]), and the index is
+put back as it was: a listed path whose staged change the worktree reverted is restored from the snapshot taken before
+staging, and for an empty path list — every change of the worktree — the whole index is snapshotted and restored, so
+`NOTHING_TO_COMMIT` leaves the index untouched on both routes. An index that holds unresolved conflict entries under the
+listed paths is refused as `FAILED` with a detail naming the path before anything is staged: the restore keeps one entry
+per path, so it would write the base entry back at stage 0 and the conflict would disappear.
+The commit set stays a subset of the staging set (link:../adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR
+003]).
 
 Tested by the `JGitOperations*Test` classes: a subset with an unrelated pre-staged file and an unrelated dirty file left
 out, a
@@ -103,7 +110,10 @@ deletion, a commit with an empty `paths` that still takes every change, a refuse
 a commit of a glob-named path under its literal name and a name with a bracket, a star and a question mark committed
 literally beside the files their glob reading would match, a name of the option form committed literally, a link to a directory and a dangling link committed as links, a link that replaces a tracked
 directory committed as that link, a path below a link to an outside directory refused with nothing staged although a valid
-path is listed beside it, a directory staged in a repository without commits refused once it is removed, the refused
+path is listed beside it, a directory staged in a repository without commits refused once it is removed, a modified
+submodule and a tracked directory replaced by a file refused by the commit and reported `outside` by the staging set of
+the same name, a staged change the worktree reverted kept in the index for a listed and for an empty path list, a
+conflicted index refused, the refused
 absolute, parent, outside and non-normal paths, and a builder that omits `paths` and commits every change.
 
 [#_the_consumer_of_the_commit_set]

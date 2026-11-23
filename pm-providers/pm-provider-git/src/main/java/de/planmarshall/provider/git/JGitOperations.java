@@ -12,8 +12,6 @@ package de.planmarshall.provider.git;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,7 +43,6 @@ import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.RefUpdate.Result;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
-import org.eclipse.jgit.revwalk.RevTree;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.transport.FetchResult;
@@ -373,9 +370,14 @@ public final class JGitOperations implements GitOperations {
             return GitResult.of(GitOutcome.PATH_REFUSED, refused.get());
         }
         try (Repository repository = openRepository(input.root()); Git git = Git.wrap(repository)) {
-            var trackedTree = refusedTrackedTree(repository, paths);
-            if (trackedTree.isPresent()) {
-                return GitResult.of(GitOutcome.PATH_REFUSED, trackedTree.get());
+            var trackedTree = CommitPathRefusals.refusedTrackedTrees(repository, paths);
+            if (!trackedTree.isEmpty()) {
+                return GitResult.of(GitOutcome.PATH_REFUSED, trackedTree.first());
+            }
+            var conflicted = refusedConflict(repository, paths);
+            if (conflicted.isPresent()) {
+                return GitResult.of(GitOutcome.FAILED,
+                        "the index of " + conflicted.get() + " holds unresolved conflict entries");
             }
             var command = git.commit()
                     .setMessage(input.message())
@@ -386,7 +388,7 @@ public final class JGitOperations implements GitOperations {
             if (!hasWorktreeChanges(git, paths)) {
                 return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, NO_CHANGES);
             }
-            var staged = paths.isEmpty() ? Map.<String, DirCacheEntry>of() : indexEntries(repository, paths);
+            var staged = paths.isEmpty() ? wholeIndex(repository) : indexEntries(repository, paths);
             if (paths.isEmpty()) {
                 git.add().addFilepattern(".").call();
                 git.add().addFilepattern(".").setUpdate(true).call();
@@ -397,10 +399,17 @@ public final class JGitOperations implements GitOperations {
                     command.setOnly(path);
                 }
             }
-            if (!paths.isEmpty() && !hasChanges(repository, paths)) {
+            var empty = paths.isEmpty()
+                    ? git.status().call().isClean()
+                    : !hasChanges(repository, paths);
+            if (empty) {
                 // the status saw a staged change the worktree reverted: staging would overwrite the index and the
                 // commit would be empty, so the index is restored and the call commits nothing
-                restoreIndex(repository, paths, staged);
+                if (paths.isEmpty()) {
+                    restoreWholeIndex(repository, staged);
+                } else {
+                    restoreIndex(repository, paths, staged);
+                }
                 return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, NO_CHANGES);
             }
             RevCommit commit = command.call();
@@ -534,18 +543,10 @@ public final class JGitOperations implements GitOperations {
     }
 
     /**
-     * Refuses, before anything is staged, a path that is no literal repository path of one file: an empty path, a git
-     * pathspec magic (a path that begins with {@code :}), an absolute one, one with a backslash, a control character or
-     * an empty, {@code .} or {@code ..} segment, one that normalises to outside the root, one whose parent directory a
-     * symbolic link carries outside the real root (the parent, or its nearest existing ancestor, is resolved with
-     * {@link Path#toRealPath}), one that is no legal path of the file system, and a directory (JGit's pathspec is
-     * prefix-based and would commit every path below it). Neither the directory check nor the parent confinement
-     * follows a final symbolic link: git records a link as a link, so a link to a directory, a link to a target outside
-     * the root and a dangling link are each committed as that link.
-     * <p>
-     * The glob characters {@code *}, {@code ?} and {@code [} are admitted: JGit's {@code addFilepattern} and
-     * {@code setOnly} stage a path literally, so a file named {@code app/[slug]/page.tsx} is committed under that name
-     * (link:../../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR
+     * Refuses, before anything is staged, a path that is no literal repository path of one file: the textual rule and
+     * the file-system rule of {@link CommitPathRefusals}, shared with the staging set of a scope. The glob characters
+     * {@code *}, {@code ?} and {@code [} are admitted: JGit's {@code addFilepattern} and {@code setOnly} stage a path
+     * literally, so a file named {@code app/[slug]/page.tsx} is committed under that name (link:../../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR
      * workflow-input/006]); the bind admits the same characters.
      *
      * @param root  the worktree root
@@ -554,111 +555,75 @@ public final class JGitOperations implements GitOperations {
      */
     private static Optional<String> refusedCommitPath(Path root, List<String> paths) {
         for (var path : paths) {
-            if (isRefusedPathText(path) || isRefusedLocation(root, path)) {
+            if (isRefusedPathText(path) || CommitPathRefusals.isRefusedLocation(root, path)) {
                 return Optional.of(path);
             }
         }
         return Optional.empty();
     }
 
-    /** The textual refusals, the rule the commit shares with the staging set of a scope ({@link CommitPaths}). */
-    private static boolean isRefusedPathText(String path) {
-        return CommitPaths.isRefusedText(path);
-    }
-
     /**
-     * The file-system refusals: no legal path, absolute on this platform, outside the root lexically, a directory, or a
-     * parent directory that a symbolic link carries outside the real root. The final entry is not followed, so a final
-     * link, dangling or pointing anywhere, stays a legal commit path.
-     */
-    private static boolean isRefusedLocation(Path root, String path) {
-        try {
-            var relative = root.getFileSystem().getPath(path);
-            if (relative.isAbsolute()) {
-                return true;
-            }
-            var normalRoot = root.toAbsolutePath().normalize();
-            var resolved = normalRoot.resolve(relative).normalize();
-            if (!resolved.startsWith(normalRoot) || resolved.equals(normalRoot)
-                    || Files.isDirectory(resolved, LinkOption.NOFOLLOW_LINKS)) {
-                return true;
-            }
-            return !isParentConfined(normalRoot, Objects.requireNonNull(resolved.getParent(), "parent"));
-        } catch (InvalidPathException _) {
-            return true;
-        }
-    }
-
-    /**
-     * Whether the parent directory of a commit path lies inside the real repository root once every symbolic link on
-     * the way is followed. A parent that does not exist is judged by its nearest existing ancestor; an ancestor that is
-     * a dangling link resolves to nothing and is not confined. A root that cannot be resolved is left to the opening
-     * of the repository, which reports it.
-     *
-     * @param normalRoot the absolute, normalised worktree root
-     * @param parent     the lexically confined parent of the path
-     * @return {@code true} if the parent stays inside the real root
-     */
-    private static boolean isParentConfined(Path normalRoot, Path parent) {
-        Path realRoot;
-        try {
-            realRoot = normalRoot.toRealPath();
-        } catch (IOException _) {
-            return true;
-        }
-        Path existing = parent;
-        while (!existing.equals(normalRoot) && !Files.exists(existing, LinkOption.NOFOLLOW_LINKS)) {
-            existing = Objects.requireNonNull(existing.getParent(), "ancestor");
-        }
-        try {
-            return existing.toRealPath().startsWith(realRoot);
-        } catch (IOException _) {
-            return false;
-        }
-    }
-
-    /**
-     * Refuses a path that is a directory of the index or of the head tree even when the worktree no longer holds it: a
-     * deleted {@code src} handed as {@code paths = ["src"]} would otherwise pass the worktree check and stage every
-     * deletion below it, because a JGit pathspec is prefix-based. The index is checked whether or not {@code HEAD}
-     * resolves, so a directory staged in a repository without commits is refused as well; only the head-tree check
-     * needs {@code HEAD}. A path that is a symbolic link in the worktree (read without following it) is the link that
-     * replaces a tracked directory and is not refused: git records it as that link.
+     * The first path of the index that holds an unresolved merge stage, empty when the index is merged. The restore
+     * copies one entry per path, so a conflicted path would be written back as its base entry at stage 0 and the
+     * conflict would disappear; the call is refused instead, before anything is staged. Only the listed paths are
+     * checked, because only they are staged and restored; an empty list means the whole index.
      *
      * @param repository the repository
-     * @param paths      the repository-relative paths to stage and commit
-     * @return the first path that names a tracked directory, empty when every path is a tracked or new file or a link
-     * @throws IOException when the head tree or the index cannot be read
+     * @param paths      the listed paths; empty means the whole index
+     * @return the first conflicted path, empty when the index holds no conflict under the listed paths
+     * @throws IOException when the index cannot be read
      */
-    private static Optional<String> refusedTrackedTree(Repository repository, List<String> paths) throws IOException {
-        if (paths.isEmpty()) {
-            return Optional.empty();
-        }
-        var workTree = repository.getWorkTree().toPath();
+    private static Optional<String> refusedConflict(Repository repository, List<String> paths) throws IOException {
         var index = repository.readDirCache();
-        var headId = repository.resolve(Constants.HEAD + "^{commit}");
-        try (RevWalk walk = new RevWalk(repository)) {
-            var headTree = headId == null ? null : walk.parseCommit(headId).getTree();
-            for (var path : paths) {
-                if (Files.isSymbolicLink(workTree.resolve(path))) {
-                    continue;
-                }
-                if (index.getEntriesWithin(path + "/").length > 0 || isHeadSubtree(repository, headTree, path)) {
-                    return Optional.of(path);
-                }
+        for (var position = 0; position < index.getEntryCount(); position++) {
+            var entry = index.getEntry(position);
+            if (entry.getStage() != DirCacheEntry.STAGE_0
+                    && (paths.isEmpty() || paths.contains(entry.getPathString()))) {
+                return Optional.of(entry.getPathString());
             }
         }
         return Optional.empty();
     }
 
-    private static boolean isHeadSubtree(Repository repository, @Nullable RevTree headTree, String path)
+    /**
+     * The whole index before staging, copied, keyed by path.
+     *
+     * @param repository the repository
+     * @return the snapshot of every index entry
+     * @throws IOException when the index cannot be read
+     */
+    private static Map<String, DirCacheEntry> wholeIndex(Repository repository) throws IOException {
+        var index = repository.readDirCache();
+        var entries = new HashMap<String, DirCacheEntry>();
+        for (var position = 0; position < index.getEntryCount(); position++) {
+            var entry = index.getEntry(position);
+            entries.put(entry.getPathString(), new DirCacheEntry(entry));
+        }
+        return entries;
+    }
+
+    /**
+     * Puts the whole index back as it was before staging, so a call of every change that commits nothing does not
+     * overwrite the staged entries the worktree reverted. Every entry the staging step added and every entry it changed
+     * is covered: the snapshot's paths and the current index's paths are restored together.
+     *
+     * @param repository the repository
+     * @param entries    the snapshot taken before staging
+     * @throws IOException when the index cannot be written
+     */
+    private static void restoreWholeIndex(Repository repository, Map<String, DirCacheEntry> entries)
             throws IOException {
-        if (headTree == null) {
-            return false;
+        var index = repository.readDirCache();
+        var paths = new TreeSet<>(entries.keySet());
+        for (var position = 0; position < index.getEntryCount(); position++) {
+            paths.add(index.getEntry(position).getPathString());
         }
-        try (TreeWalk treeWalk = TreeWalk.forPath(repository, path, headTree)) {
-            return treeWalk != null && treeWalk.isSubtree();
-        }
+        restoreIndex(repository, List.copyOf(paths), entries);
+    }
+
+    /** The textual refusals, the rule the commit shares with the staging set of a scope ({@link CommitPathRefusals}). */
+    private static boolean isRefusedPathText(String path) {
+        return CommitPathRefusals.isRefusedText(path);
     }
 
     @Override
@@ -926,17 +891,7 @@ public final class JGitOperations implements GitOperations {
     }
 
     private Repository openRepository(Path root) throws IOException {
-        var builder = new FileRepositoryBuilder().setFS(fs).setMustExist(true);
-        Path dotGit = root.resolve(Constants.DOT_GIT);
-        if (Files.exists(dotGit)) {
-            builder.setWorkTree(root.toFile());
-        } else {
-            builder.findGitDir(root.toFile());
-            if (builder.getGitDir() == null) {
-                throw new RepositoryNotFoundException(root.toFile());
-            }
-        }
-        return builder.build();
+        return CommitPathRefusals.open(root, fs);
     }
 
     private Repository mainRepository(Path commonDir) throws IOException {
