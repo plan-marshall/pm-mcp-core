@@ -84,6 +84,9 @@ public final class JGitOperations implements GitOperations {
     /** git's {@code upload-pack} refusing a want it does not serve, lower case. */
     private static final String NOT_OUR_REF = "not our ref";
 
+    /** The detail of {@link GitOutcome#NOTHING_TO_COMMIT}. */
+    private static final String NO_CHANGES = "no changes";
+
     /** The detail of a refused abbreviated start point or log revision. */
     private static final String ABBREVIATED_COMMIT_ID = "abbreviated commit id: ";
 
@@ -381,7 +384,7 @@ public final class JGitOperations implements GitOperations {
                     .setSign(Boolean.FALSE)
                     .setAllowEmpty(false);
             if (!hasWorktreeChanges(git, paths)) {
-                return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, "no changes");
+                return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, NO_CHANGES);
             }
             var staged = paths.isEmpty() ? Map.<String, DirCacheEntry>of() : indexEntries(repository, paths);
             if (paths.isEmpty()) {
@@ -398,12 +401,12 @@ public final class JGitOperations implements GitOperations {
                 // the status saw a staged change the worktree reverted: staging would overwrite the index and the
                 // commit would be empty, so the index is restored and the call commits nothing
                 restoreIndex(repository, paths, staged);
-                return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, "no changes");
+                return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, NO_CHANGES);
             }
             RevCommit commit = command.call();
             return GitResult.ok(toInfo(commit));
         } catch (EmptyCommitException _) {
-            return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, "no changes");
+            return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, NO_CHANGES);
         } catch (RepositoryNotFoundException _) {
             return GitResult.of(GitOutcome.NOT_A_REPOSITORY, input.root().toString());
         } catch (RefusingFS.CapabilityRefusedException e) {
