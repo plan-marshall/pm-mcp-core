@@ -18,17 +18,18 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
-import java.net.StandardProtocolFamily;
-import java.net.UnixDomainSocketAddress;
-import java.nio.channels.ServerSocketChannel;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -434,27 +435,39 @@ class PendingEntryCreationTest {
 
     @Test
     @EnabledOnOs({OS.LINUX, OS.MAC})
-    @DisplayName("a special file the manifest names is refused by the source read, never opened")
+    @DisplayName("a FIFO the manifest names is refused before it is opened, so the read never blocks under the lock")
     void refusesASpecialFileTheManifestNames() throws Exception {
         var content = Generators.letterStrings(5, 20).next().getBytes(UTF_8);
         // Fixture path: a short name, because a Unix-domain socket address must fit the platform's path limit
-        var socket = base.resolve("s.md");
-        var stored = new SourceFile("s.md", content.length, StoreDigest.of(content).sha256());
+        var fifo = base.resolve("f.md");
+        assumeTrue(createFifo(fifo), "the platform must offer mkfifo for the fixture");
+        var stored = new SourceFile("f.md", content.length, StoreDigest.of(content).sha256());
         var manifest = new SourceManifest(1, List.of(new Source(sourceIdFor("special"), SourceManifest.Kind.DESCRIPTION,
                 "ref", "operator", Trust.TRUSTED, List.of(stored), at, null, null)));
-        try (var channel = ServerSocketChannel.open(StandardProtocolFamily.UNIX)) {
-            channel.bind(UnixDomainSocketAddress.of(socket));
 
-            var refusal = assertThrows(StoreRefusal.class,
-                    () -> PendingEntryCreation.composeRequest(base, manifest),
-                    "a special file the manifest names should refuse the read");
+        var refusal = assertTimeoutPreemptively(Duration.ofSeconds(5),
+                () -> assertThrows(StoreRefusal.class,
+                        () -> PendingEntryCreation.composeRequest(base, manifest),
+                        "a special file the manifest names should refuse the read"),
+                "the read must refuse the FIFO without opening it");
 
-            assertAll(
-                    () -> assertTrue(refusal.getMessage().contains("s.md"),
-                            "the refusal should name the special file"),
-                    () -> assertTrue(refusal.getMessage().contains("no regular file"),
-                            "the refusal should say the file is no regular file"));
-        }
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("f.md"),
+                        "the refusal should name the special file"),
+                () -> assertTrue(refusal.getMessage().contains("no regular file"),
+                        "the refusal should say the file is no regular file"));
+    }
+
+    /**
+     * Makes a FIFO with the platform's {@code mkfifo}. Plain Java has no API that creates one, and the FIFO is the
+     * special file whose open blocks: a socket, which {@code open(2)} refuses at once, cannot show that the file is
+     * never opened.
+     *
+     * @return whether the command made the FIFO
+     */
+    private static boolean createFifo(Path fifo) throws IOException, InterruptedException {
+        var process = new ProcessBuilder("mkfifo", fifo.toString()).redirectErrorStream(true).start();
+        return process.waitFor() == 0 && Files.exists(fifo, LinkOption.NOFOLLOW_LINKS);
     }
 
     @Test

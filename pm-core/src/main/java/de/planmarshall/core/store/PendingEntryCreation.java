@@ -52,6 +52,12 @@ import de.planmarshall.core.store.SourceManifest.SourceFile;
  * sources refuse one; the question log is moved by {@link QuestionLog#moveEntryQuestions}; the decision store is copied
  * and deleted with the entry.
  * <p>
+ * A special file the manifest names is refused rather than opened, because its open would block under the workspace
+ * lock: the file is checked to be a regular file without following a link, and then opened without following one. The
+ * two are not atomic, so a file replaced by a FIFO between the check and the open blocks the move all the same; plain
+ * Java offers no open that does not wait for a FIFO's peer, and the check narrows the window without closing it. Every
+ * other path of the move is guarded the same way, by a check under the caller's lock rather than by the open itself.
+ * <p>
  * The move targets a plan's scope alone: an epic's sources belong to its git-tracked ledger and its machine store keeps
  * none, so an epic target is refused until the ledger copy of the sources exists. The caller holds the workspace lock
  * and verifies the entry under it ({@link PendingEntryStore#verify}) before the move, and the source directory is the
@@ -103,9 +109,12 @@ public final class PendingEntryCreation {
      *                                  sources belong to its ledger, which this move does not write), the entry does
      *                                  not exist, or a store is a target of its transaction already
      * @throws IllegalStateException    if a transaction was committed
-     * @throws StoreRefusal             if the manifest is unreadable, a stored file differs from its manifest entry,
-     *                                  the source directory holds a file no manifest entry names or a link, or the
-     *                                  transcript is a link, holds one, or holds a file that is no regular file
+     * @throws StoreRefusal             if the manifest is unreadable, a stored file differs from its manifest entry, a
+     *                                  stored file the manifest names is a symbolic link, leaves the source directory,
+     *                                  or is no regular file (a FIFO or another special file is refused instead of
+     *                                  being opened), the source directory holds a file no manifest entry names or a
+     *                                  link, or the transcript is a link, holds one, or holds a file that is no regular
+     *                                  file
      * @throws UncheckedIOException     if the entry's files cannot be read
      */
     public Moved move(ScopeTransaction workspaceTransaction, ScopeTransaction target, EntryId entryId) {
@@ -205,7 +214,8 @@ public final class PendingEntryCreation {
      * in the source directory: a link is refused, and so is a path whose canonical form leaves the directory through
      * one, so a stored source cannot redirect the read out of the entry. Only a regular file is read: a FIFO or another
      * special file the manifest names is refused instead of being opened, because its open would block under the
-     * workspace lock.
+     * workspace lock. The check and the open are two calls, so a file replaced by a FIFO between them is opened; the
+     * window is narrowed to that order alone, because plain Java has no open that waits for no peer (ADR core-store/084).
      */
     private static byte[] verified(Path sourceDirectory, SourceFile stored) {
         var directory = sourceDirectory.normalize();

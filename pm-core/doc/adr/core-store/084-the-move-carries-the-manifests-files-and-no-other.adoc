@@ -54,7 +54,11 @@ Five rules, each enforced where its input is defined:
 3. A stored file is read only after its canonical path was checked to lie in the source directory, only when it is a
    regular file, and with `LinkOption.NOFOLLOW_LINKS`, so a symbolic link is refused instead of followed, a path that
    leaves the directory through a link is refused with it, and a FIFO or another special file the manifest names is
-   refused instead of being opened — that open would block under the workspace lock.
+   refused instead of being opened — that open would block under the workspace lock. The check and the open are two
+   calls and not one atomic act, so a file replaced by a FIFO between them is opened and the move blocks under the
+   lock; plain Java opens no file without waiting for a FIFO's peer, so the bound is the platform's and the check only
+   narrows the window. The guide states the bound beside the rule, and `PendingEntryCreationTest` proves the refusal
+   with a FIFO, the special file whose open blocks, under a deadline that fails if the file is opened.
 4. The transcript is refused as a whole, as the source directory's files are: a transcript that is a link or no
    directory, and a link or a file that is no regular file inside it, refuse the move with a `StoreRefusal`, so the
    transcript a `finish` deletes with the directory is exactly the transcript that was carried.
