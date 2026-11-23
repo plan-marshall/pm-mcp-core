@@ -351,8 +351,8 @@ class JGitOperationsPathTest extends JGitOperationsFixtures {
             jgit.add().addFilepattern(".").call();
             commitThroughGit(jgit);
         }
-        try (Git jgit = Git.open(repo.toFile())) {
-            recordGitlink(jgit.getRepository(), submodule);
+        try (Git jgit = Git.open(repo.toFile()); Git inner = Git.open(nested.toFile())) {
+            recordGitlink(jgit.getRepository(), inner.getRepository(), submodule);
             commitThroughGit(jgit);
         }
         // the nested repository moves to a commit of its own, so the worktree differs from the gitlink
@@ -400,11 +400,12 @@ class JGitOperationsPathTest extends JGitOperationsFixtures {
     }
 
     /**
-     * Records {@code path} as a gitlink of the repository's index, the entry git writes for a submodule, pointing at the
-     * nested repository's current commit.
+     * Records {@code path} as a gitlink of the outer repository's index, the entry git writes for a submodule, pointing
+     * at the nested repository's current commit.
      */
-    private static void recordGitlink(Repository repository, String path) throws Exception {
-        var head = Objects.requireNonNull(repository.resolve(Constants.HEAD), "the nested repository's head");
+    private static void recordGitlink(Repository repository, Repository nestedRepository, String path)
+            throws Exception {
+        var head = Objects.requireNonNull(nestedRepository.resolve(Constants.HEAD), "the nested repository's head");
         var editor = repository.lockDirCache().editor();
         editor.add(new DirCacheEditor.PathEdit(path) {
 

@@ -299,13 +299,15 @@ class CommitTrailerSchemaParityTest {
         return IntStream.concat(IntStream.rangeClosed(0x00, 0x1f), IntStream.rangeClosed(0x7f, 0x9f)).toArray();
     }
 
-    /** The Unicode White_Space code points, the class ECMA-262's {@code \s} names. */
+    /**
+     * The Unicode White_Space code points, derived from the engine's own {@code \p{IsWhite_Space}} property rather than a
+     * list that mirrors it.
+     */
     private static int[] whiteSpace() {
-        return IntStream.concat(
-                IntStream.concat(IntStream.rangeClosed(0x09, 0x0d), IntStream.of(0x20, 0x85)),
-                IntStream.concat(IntStream.of(0x00a0, 0x1680),
-                        IntStream.concat(IntStream.rangeClosed(0x2000, 0x200a),
-                                IntStream.of(0x2028, 0x2029, 0x202f, 0x205f, 0x3000)))).toArray();
+        var property = Pattern.compile("\\p{IsWhite_Space}");
+        return IntStream.rangeClosed(Character.MIN_CODE_POINT, Character.MAX_CODE_POINT)
+                .filter(codePoint -> property.matcher(Character.toString(codePoint)).matches())
+                .toArray();
     }
 
     /** The White_Space code points the name half admits: those that are neither a control nor a line break. */

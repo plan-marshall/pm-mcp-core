@@ -83,13 +83,21 @@ public final class StagingSets {
         Objects.requireNonNull(dirtyPaths, "dirtyPaths");
         var member = member(scope, archiving);
         var roots = new WorkspaceRoots(worktree, Set.of());
-        var trackedTrees = scope == ScopeType.PROJECT || dirtyPaths.isEmpty()
+        // only a name the file-system rule admits converts to a path, so the tracked-tree read runs on those alone: a
+        // name no encoding of this JVM can represent must never reach Path.resolve
+        var confined = new TreeSet<String>();
+        for (var path : dirtyPaths) {
+            if (isConfinedName(roots, worktree, path)) {
+                confined.add(path);
+            }
+        }
+        var trackedTrees = scope == ScopeType.PROJECT || confined.isEmpty()
                 ? Collections.<String>emptySortedSet()
-                : CommitPathRefusals.refusedTrackedTrees(worktree, dirtyPaths);
+                : CommitPathRefusals.refusedTrackedTrees(worktree, confined);
         var staged = new TreeSet<String>();
         var outside = new TreeSet<String>();
         for (var path : dirtyPaths) {
-            if (isConfinedName(roots, worktree, path) && !trackedTrees.contains(path) && member.test(path)) {
+            if (confined.contains(path) && !trackedTrees.contains(path) && member.test(path)) {
                 staged.add(path);
             } else {
                 outside.add(path);
