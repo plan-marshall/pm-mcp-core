@@ -73,7 +73,8 @@ documentation.
 * The specification and the code of a package change in one pull request, and the schema parity tests run in CI.
 * The other repositories (`pm-mcp-clients`, `plan-marshall-mcp`) link the specifications of the engine with relative
   sibling paths into this repository; the design of the clients in `pm-mcp-clients` is the precedent.
-* A change here that breaks a link of the documentation fails the check `links` here, and the other way round.
+* Links into and out of the documentation are checked by `trace.py` of that repository only when someone runs it: no
+  workflow runs a link check here, and no merge requires one (see Status).
 * The project skill `traced-implementation` of the documentation states the single-pull-request flow for this
   repository.
 
