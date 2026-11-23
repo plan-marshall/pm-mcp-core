@@ -837,3 +837,21 @@ judged is an open question of the documentation
 Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
 the result in the specification and the requirement it touches, and deletes this item.
 Source:: `store-schemas/11-enrolment-store.adoc#enrolment-field-semantics`, `concepts/enrolment.adoc` § Policy Before Signing (plan-marshall-documentation).
+
+[#PM-WATCH-STORE-62]
+=== PM-WATCH-STORE-62: The local configuration's patterns are enforced by the assembly
+
+Anchor:: link:../specification/store-schemas/08-project-configuration-local.adoc#_the_schema[Store Schemas § Local
+Configuration] (`commit_identity`, `commit_trailer`),
+link:../../pm-core/src/main/resources/de/planmarshall/core/config/local-config.schema.json[`local-config.schema.json`]
+Hazard:: The schema's `pattern`s are the store's textual rule for `commit_identity` and `commit_trailer`, and no code in
+this repository validates a stored document against it: the codec reads the values and `CommitTrailer.isValidName` /
+`isValidEmail` apply the trailer's textual rule alone, which admits every C0 and C1 control the schema refuses. A value
+written past the schema check — by a writer that skips it, or by hand — reaches the trailer line although the schema
+would have refused it.
+Guard:: The patterns themselves are pinned code point by code point
+(`CommitTrailerSchemaParityTest`, `commit_trailer` and `commit_identity`), and the code's own rule is pinned beside them.
+The validation is the assembly's: the write path and the read path of `local-config.json` there run the schema (the
+`json-schema-validator` a test of `pm-core` uses), and that package's tests are the guard. This repository enforces no
+schema for a stored document.
+Source:: landing of `PLAN-V2-169` (`git-commit-primitives-closeout`), carried item 90d; `PLAN-V2-172` deliverable 4.

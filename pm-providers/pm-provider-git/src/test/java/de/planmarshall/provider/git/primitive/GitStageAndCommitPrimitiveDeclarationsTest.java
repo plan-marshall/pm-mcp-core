@@ -172,6 +172,18 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
     }
 
     @Test
+    @DisplayName("an absolute path after a closing bracket is carried as the outcome's code")
+    void absolutePathAfterAClosingBracketIsACode() {
+        var message = "refused ]/srv/git/worktrees/plan";
+
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
+
+        assertEquals("FAILED",
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "A host path after a closing bracket becomes the code");
+    }
+
+    @Test
     @DisplayName("a relative path inside a message stays as the message states it")
     void relativePathInAMessageIsKept() {
         var message = "file src/Main.java is not a file";
