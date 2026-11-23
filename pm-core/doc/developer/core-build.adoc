@@ -197,21 +197,21 @@ contradicts a success banner: for a cut log the count is read from the ambiguous
 in the lost head as well. The count is taken per execution, the ordinal of the nearest preceding plugin header; every
 plugin header increments it. Within one execution the larger of its summary side (summary and ambiguous lines) and its
 per-class lines is that execution's figure, and the figures of the executions are added, so a failure of an execution
-without a summary is not lost. Each execution's figure is then reduced by the
-failing tests that execution's own filed error-level `Tests run:` lines report, floored at zero, and the executions'
-remainders are added; one execution's over-subtraction therefore never spends itself on another execution's failure. The
+without a summary is not lost. Each execution's figure is then reduced by the failing tests that execution's own filed
+error-level `Tests run:` lines report, floored at zero, and the executions' remainders are added; one execution's
+over-subtraction therefore never spends itself on another execution's failure. The
 filed figure mirrors the collector for the lines it filed, with the retained occurrence's severity: a count line the
 collector never filed (no `[ERROR]` or `[WARNING]` marker) carries no identity, so the error twin that follows it still
 counts. The count path keys a line by its execution ordinal and its whole stored message, not by the collector's first 100
 characters, so two failing classes under one long package prefix are two figures and two modules' identical summary lines
 are two figures too; the cost is that the count can exceed the filed figure where the two keys collide, and that
 difference is filed as the remainder. Every sum saturates at `Long.MAX_VALUE`, and a digit count outside the `long` range
-saturates there rather than parsing as zero. The remainder is filed once, and an error-level count line stays its own diagnostic
-beside it. A tail whose cut removed every execution header is one execution, whose larger side is the mix's figure and can
-be too low. The ordinal is the nearest preceding plugin header, and every plugin header increments it, so only the
-runner attribution is test-plugin-scoped; under `-T` the modules' lines interleave and an
-ordinal is one execution in the log's order, never a module; the cut path never consults `PARALLEL_BUILD_BANNER`, which
-governs `byRunner` of the uncut result alone
+saturates there rather than parsing as zero. The remainder is filed once, and an error-level count line stays its own
+diagnostic beside it. A tail whose cut removed every execution header is one execution, whose larger side is the mix's
+figure and can be too low. The ordinal is the nearest preceding plugin header, and every plugin header increments it, so
+only the runner attribution is test-plugin-scoped; under `-T` the modules' lines interleave and an ordinal is one
+execution in the log's order, never a module; the cut path never consults `PARALLEL_BUILD_BANNER`, which governs
+`byRunner` of the uncut result alone
 (link:../adr/core-build/011-a-cut-build-log-reports-unmeasured.adoc[ADR `core-build/011`],
 link:../adr/core-build/012-the-cut-tails-failing-count-is-taken-per-execution.adoc[ADR `core-build/012`] and
 link:../adr/core-build/013-the-cut-tails-failing-count-reduces-per-execution.adoc[ADR `core-build/013`]).

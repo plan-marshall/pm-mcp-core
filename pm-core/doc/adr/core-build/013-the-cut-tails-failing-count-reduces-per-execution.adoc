@@ -14,8 +14,8 @@ link:011-a-cut-build-log-reports-unmeasured.adoc[`core-build/011`] keeps its `Te
 
 == Context
 
-ADR `core-build/012` took the cut tail's visible failing count per test-plugin execution and reduced it by the failing
-tests the diagnostic collector filed at error level. The landing analysis of PLAN-V2-173 read four residues in that
+ADR `core-build/012` took the cut tail's visible failing count per execution — the one the nearest preceding plugin
+header opens — and reduced it by the failing tests the diagnostic collector filed at error level. The landing analysis of PLAN-V2-173 read four residues in that
 rule:
 
 * The subtraction was global while the visible figure was per execution. An execution whose per-class line and summary

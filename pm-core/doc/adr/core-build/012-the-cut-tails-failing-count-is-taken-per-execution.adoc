@@ -74,8 +74,7 @@ preceding plugin header opens — and the figure of an execution is the larger o
   above `Integer.MAX_VALUE`, which the `unrepresentable` flag only makes irrelevant to the uncut result. Before
   PLAN-V2-177 the guarantee stopped at the `long` range: a digit count of 20 digits or more threw and parsed as zero, so
   the remainder could be emptied. That rule now saturates a digit count outside the `long` range at `Long.MAX_VALUE`,
-  and
-  `Failures + Errors` is added with the same saturated addition (ADR `core-build/013`).
+  and `Failures + Errors` is added with the same saturated addition (ADR `core-build/013`).
 
 `DiagnosticCollector.messageKey(String)` is the message part of the collector's identity; `DiagnosticCollector.key(Diagnostic)`
 builds the full key — category, file, line and that message part — from it. For a count line the category and the
