@@ -55,7 +55,7 @@ All file and line references come from the landing analysis and are re-read at t
 - **No dependency or plugin is added.**
 - **No more than 100 files per pull request** (the watch of the epic ledger; CodeRabbit refuses a larger one): cut the plan into pull requests by deliverable or by module before the first one is opened.
 - **Tests that can fail.** A new test fails on the code it guards (a failing run or a mutation, reported by log id); a test of a refusal asserts the reason, not only the type (CLAUDE.md, R20).
-- **The operator's branch `fix/v2-171-review-minors` (local worktree `.plan/local/worktrees/review-minors-v2-171`, remote branch present, no pull request at 2026-11-23) edits these files** (`PendingEntryRecordsSweep.java`, `JournalScope.java`, `PendingEntryCreation.java`, `PendingEntryStore.java`, `ScopeIntegrity.java`, `SourceManifest.java`, `AuditEventTest.java`, ADRs 036 and 084, the guide, `doc/Traceability.adoc`) for the lane's 12 minors: read `origin/main` first; do not start before it is merged or closed, and drop every point it settled (name the commit).
+- **The lane of PLAN-V2-171 is still running its follow-up pull request #573 (branch `fix/v2-171-review-minors`, open at 2026-11-23, commits `c90396fe` and `0244da7a`), which edits these files** (`PendingEntryRecordsSweep.java`, `JournalScope.java`, `PendingEntryCreation.java`, `PendingEntryStore.java`, `ScopeIntegrity.java`, `SourceManifest.java`, `AuditEventTest.java`, ADRs 036 and 084, the guide, `doc/Traceability.adoc`) for the lane's 12 minors: read `origin/main` first; do not start before it is merged or closed, and drop every point it settled (name the commit).
 - **Deliverable 3 is the operator's decision (R07):** the outline puts it as a question with the recommendation; no implementation of the fold changes before the answer.
 - **The links-check clause is the operator's** (counts of 97, 3252 and 3253 by tool root against a Done-when of `0`): report local broken links and the rest separately.
 - **Do not repeat the mutation claims of 171** as facts: they were not re-run by the analysis. A new test of this plan is shown to fail by its own failing run or mutation, by log id.
@@ -63,7 +63,7 @@ All file and line references come from the landing analysis and are re-read at t
 ## Claim Labels
 
 - OBSERVED: every point was read by the analysis leaf at `origin/main` `f1db02cd`; the orchestrator re-read `PendingEntryRecordsSweep.java:100-125,146-162` (F1: `removed.size()` is the count of the committed removals, the discard loop only appends a note; F2: the catch returns `Failed` with the message only).
-- LEAD (unverified): F3 (that the old walk refused the fixture; read the pre-171 code at `7c1aeb17`), F4 (the blocking open on a FIFO), F10 (an already stored manifest with case variants), the content of the operator's branch (not read).
+- LEAD (unverified): F3 (that the old walk refused the fixture; read the pre-171 code at `7c1aeb17`), F4 (the blocking open on a FIFO), F10 (an already stored manifest with case variants), the content of the follow-up pull request #573 (not read; it also changes the case fold's key normalisation, `0244da7a`).
 
 ## Expected Surface
 
@@ -75,7 +75,7 @@ Source, tests, specification and documentation (specific files, R19; the outline
 
 ## Dependencies and Sequencing
 
-- Depends on: PLAN-V2-171 (shipped, `landings/PLAN-V2-171.md`: the plan this one succeeds), PLAN-V2-167, and the operator's branch `fix/v2-171-review-minors` (merged or closed first).
+- Depends on: PLAN-V2-171 (shipped, `landings/PLAN-V2-171.md`: the plan this one succeeds), PLAN-V2-167, and the follow-up pull request #573 of its lane (`fix/v2-171-review-minors`, merged or closed first).
 - Overlaps with (class level): PLAN-V2-161 (`core-store.adoc`, `store-schemas`), PLAN-V2-133 (parked: the epic's ledger copy of the sources, the same `PendingEntryCreation`), PLAN-V2-125 and 126 (test-conformance of the `store` and `start` test trees), PLAN-V2-168 (`SourceManifest` and `PendingEntryCreation` named in its surface) and every staged plan by guide, ADR and Traceability file: the gate decides at emit; one shared file does not block.
 
 ## Hand-Off Command
@@ -95,4 +95,4 @@ sole sanctioned write mechanism are stated in
 
 ## Carried Open Items
 
-92. **The second residue of the landing of PLAN-V2-171, the sweep's count and report, the refusal tests, the case fold and the stale statements** (`landings/PLAN-V2-171.md`, carried 2026-11-23; merged as #572 `57f9d33f`; read by the analysis leaf at `f1db02cd`; no blocker, no major; the lane's own 12 minors are the operator's branch `fix/v2-171-review-minors`). Deliverables 1 to 4 carry each point: (a) the sweep (the discard count, the report on a throw, the rethrow test); (b) the refusal tests (a fixture the old code refused, type-only assertions, the wrong cause in a message, a named FIFO); (c) the case fold that was not put to the operator and the stored manifest; (d) the `removed_at` guard and the stale statements.
+92. **The second residue of the landing of PLAN-V2-171, the sweep's count and report, the refusal tests, the case fold and the stale statements** (`landings/PLAN-V2-171.md`, carried 2026-11-23; merged as #572 `57f9d33f`; read by the analysis leaf at `f1db02cd`; no blocker, no major; the lane's own 12 minors are its follow-up pull request #573, `fix/v2-171-review-minors`). Deliverables 1 to 4 carry each point: (a) the sweep (the discard count, the report on a throw, the rethrow test); (b) the refusal tests (a fixture the old code refused, type-only assertions, the wrong cause in a message, a named FIFO); (c) the case fold that was not put to the operator and the stored manifest; (d) the `removed_at` guard and the stale statements.
