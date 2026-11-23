@@ -47,8 +47,9 @@ answers to the operator (2026-11-22), who chose the explicit absence.
 * A cut tail can still show a failing count whose `Results:` marker lies in the lost head: the line carries `[WARNING]`
   or `[INFO]` (a `testFailureIgnore` build that ended `BUILD SUCCESS`), and the count scan files it as ambiguous. For a
   cut log the failing tests of those ambiguous summary lines count too, so the tail's visible failure is filed as a
-  `TEST_FAILURE` diagnostic at error severity instead of a passing run. The tail's visible count is taken per test-plugin
-  execution — the larger of that execution's summary side (its summary and ambiguous lines) and its per-class lines — and
+  `TEST_FAILURE` diagnostic at error severity instead of a passing run. The tail's visible count is taken per execution
+  — the one the nearest preceding plugin header opens — as the larger of that execution's summary side (its summary and
+  ambiguous lines) and its per-class lines — and
   is then reduced by the failing tests the error-level count lines already filed report, counted after the collector's
   deduplication. The remainder is filed once, so a failure is never filed twice, and an error-level `Tests run:` line of
   the tail stays its own diagnostic beside the synthetic one. A tail whose cut removed every execution header is one

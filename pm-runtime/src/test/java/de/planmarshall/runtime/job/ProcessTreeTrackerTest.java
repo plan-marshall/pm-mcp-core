@@ -339,8 +339,9 @@ class ProcessTreeTrackerTest {
 
                 @Override
                 public boolean test(JavaClass javaClass) {
-                    return javaClass.getName().equals(primitive)
-                            || javaClass.getName().startsWith(primitive + "$")
+                    // isAssignableTo covers the interface itself and every implementation; the nested types need
+                    // their own clause because they are not the interface's subtypes
+                    return javaClass.getName().startsWith(primitive + "$")
                             || javaClass.isAssignableTo(ProcessGroupSignals.class);
                 }
             };

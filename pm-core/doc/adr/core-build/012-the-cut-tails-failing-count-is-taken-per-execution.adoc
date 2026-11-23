@@ -35,8 +35,8 @@ the operator at refine, with the recommendation ADR `core-build/011` now cites.
 
 == Decision
 
-The visible failing count of a cut tail is taken in the unit the log itself prints — the test-plugin execution — and the
-figure of an execution is the larger of its two sides:
+The visible failing count of a cut tail is taken in the unit the log itself prints — the execution the nearest
+preceding plugin header opens — and the figure of an execution is the larger of its two sides:
 
 * Every count line is attributed to the execution of the nearest preceding execution header. Within one execution, the
   summary side (the summary lines after the `Results:` marker and the ambiguous lines before it) and the per-class lines
@@ -73,7 +73,8 @@ figure of an execution is the larger of its two sides:
 * Every sum on this path saturates at `Long.MAX_VALUE` instead of wrapping. A count line of a tail can carry a value
   above `Integer.MAX_VALUE`, which the `unrepresentable` flag only makes irrelevant to the uncut result. Before
   PLAN-V2-177 the guarantee stopped at the `long` range: a digit count of 20 digits or more threw and parsed as zero, so
-  the remainder could be emptied. That rule now saturates every digit count at `Long.MAX_VALUE`, and
+  the remainder could be emptied. That rule now saturates a digit count outside the `long` range at `Long.MAX_VALUE`,
+  and
   `Failures + Errors` is added with the same saturated addition (ADR `core-build/013`).
 
 `DiagnosticCollector.messageKey(String)` is the message part of the collector's identity; `DiagnosticCollector.key(Diagnostic)`

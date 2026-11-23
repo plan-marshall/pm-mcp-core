@@ -180,7 +180,7 @@ left as a diagnostic:
 * the last contiguous stack-trace block of the log is attached to the last filed diagnostic, as in the original.
 
 The test counts sum every Surefire and Failsafe summary block. A `Tests run:` line carrying `Time elapsed` repeats a
-block's counts and is excluded; a line inside a test-plugin execution, after the `[INFO] Results:` marker, is a summary
+block's counts and is excluded; a line after the `[INFO] Results:` marker of a plugin execution is a summary
 block and is summed across modules and plugins; any other line is ambiguous, and one ambiguous line makes the population
 `Unmeasured`. Each summary block is attributed to the runner of the nearest preceding execution header, and `byRunner`
 carries the executed count (total minus skipped) per runner; an execution header of another plugin resets the attribution,
@@ -194,10 +194,10 @@ count of the whole run, and a cut log never reads as "no tests ran". The `String
 from `JobLog.Complete.cut()` through `BuildOutputParser`, so a job log over the runtime's cap is unmeasured too. The
 failing tests the tail still shows are filed as a `TEST_FAILURE` diagnostic at error severity, so a visible failure still
 contradicts a success banner: for a cut log the count is read from the ambiguous summary lines whose `Results:` marker is
-in the lost head as well. The count is taken per execution — the ordinal of the nearest preceding plugin header, every
-plugin header incrementing it — and within one execution the larger of its summary
-side (summary and ambiguous lines) and its per-class lines is that execution's figure — and the figures of the executions
-are added, so a failure of an execution without a summary is not lost. Each execution's figure is then reduced by the
+in the lost head as well. The count is taken per execution, the ordinal of the nearest preceding plugin header; every
+plugin header increments it. Within one execution the larger of its summary side (summary and ambiguous lines) and its
+per-class lines is that execution's figure, and the figures of the executions are added, so a failure of an execution
+without a summary is not lost. Each execution's figure is then reduced by the
 failing tests that execution's own filed error-level `Tests run:` lines report, floored at zero, and the executions'
 remainders are added; one execution's over-subtraction therefore never spends itself on another execution's failure. The
 filed figure mirrors the collector for the lines it filed, with the retained occurrence's severity: a count line the
@@ -205,8 +205,8 @@ collector never filed (no `[ERROR]` or `[WARNING]` marker) carries no identity, 
 counts. The count path keys a line by its execution ordinal and its whole stored message, not by the collector's first 100
 characters, so two failing classes under one long package prefix are two figures and two modules' identical summary lines
 are two figures too; the cost is that the count can exceed the filed figure where the two keys collide, and that
-difference is filed as the remainder. Every sum saturates at `Long.MAX_VALUE`, and a digit count of any length saturates
-there rather than parsing as zero. The remainder is filed once, and an error-level count line stays its own diagnostic
+difference is filed as the remainder. Every sum saturates at `Long.MAX_VALUE`, and a digit count outside the `long` range
+saturates there rather than parsing as zero. The remainder is filed once, and an error-level count line stays its own diagnostic
 beside it. A tail whose cut removed every execution header is one execution, whose larger side is the mix's figure and can
 be too low. The ordinal is the nearest preceding plugin header, and every plugin header increments it, so only the
 runner attribution is test-plugin-scoped; under `-T` the modules' lines interleave and an

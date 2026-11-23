@@ -401,8 +401,8 @@ public class MavenOutputParser {
          *                     interleave and an ordinal is the log's order, not a module
          * @param message      the line's stored message, the whole of it, so the count key does not collide where the
          *                     collector's first 100 characters do
-         * @param collectorKey the identity the collector filed the line under; empty when it filed the line not, so the
-         *                     cut tail must not file its count again
+         * @param collectorKey the identity the collector filed the line under; empty when the collector did not file the
+         *                     line, so the cut tail must not file its count again
          */
         @Builder
         private record Counts(long total, long failed, long skipped, boolean errorLevel, int execution,
@@ -472,9 +472,9 @@ public class MavenOutputParser {
          * <p>
          * A cut log's tail may hold summary lines whose {@code Results:} marker is in the lost head; they are filed as
          * ambiguous by the scan, and for a cut log they count here too, so a failure the tail shows is never reported as
-         * a passing run (ADR {@code core-build/011}). The tail's visible figure is counted per execution — the ordinal
-         * of the nearest preceding plugin header, every plugin header incrementing it: the
-         * summary side — summary and ambiguous blocks — and the per-class lines of one execution describe the same
+         * a passing run (ADR {@code core-build/011}). The tail's visible figure is counted per execution, the ordinal of
+         * the nearest preceding plugin header; every plugin header increments it. The summary side — summary and
+         * ambiguous blocks — and the per-class lines of one execution describe the same
          * failures, so the larger of the two sides is that execution's figure, and a per-class line beyond what the
          * execution's summary reports belongs to an execution whose summary the cut removed. The figures of two
          * executions are added, so a failure of an execution that printed no summary is not lost. A tail that carries no
