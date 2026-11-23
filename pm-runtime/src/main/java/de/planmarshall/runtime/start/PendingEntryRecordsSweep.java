@@ -151,17 +151,15 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      */
     private Removal remove(JournalScope workspace, PendingEntryStore store, List<EntryId> candidates, Instant at) {
         var state = new RemovalState();
-        Removal removal = null;
         try (var lock = lockManager.openTransaction()) {
             lock.acquire(workspace.lockKey());
-            removal = attempt(lock, workspace, store, candidates, at, state);
+            return attempt(lock, workspace, store, candidates, at, state);
         } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
                 | StoreRefusal e) {
-            // The lock's own release, or a fault of opening or acquiring it: what the removal had done stands, and a
-            // fault it had already answered itself stays the answer
-            return removal != null && removal.fault() != null ? removal : state.fault(e.getMessage(), workspace);
+            // A fault of opening, acquiring or releasing the lock: the state the removal reached travels with it, so
+            // the directories already gone and the entries kept are never dropped by the lock's own release
+            return state.fault(e.getMessage(), workspace);
         }
-        return removal;
     }
 
     /**
@@ -217,32 +215,31 @@ public final class PendingEntryRecordsSweep implements SweepStep {
          */
         private Removal fault(String message, JournalScope workspace) {
             var pending = staged.stream().filter(entryId -> !removed.contains(entryId)).toList();
-            return new Removal(removed, kept, new Fault(message, pending, reach(workspace, phase)));
+            return new Removal(removed, kept, new Fault(message, pending, reach(workspace)));
         }
-    }
 
-    /**
-     * How far a faulted removal got, read from the phase the method had reached and, while the commit was entered, from
-     * the workspace's journal.
-     * <p>
-     * A journal that exists here is the transaction's own: every verification before the commit recovers the scope's
-     * journal away, and a scope that holds one refuses a new transaction before it stages anything. A journal that is
-     * gone while the commit was entered decides nothing: the commit deletes the journal as it closes, so its absence
-     * means either that the commit applied its targets and stopped afterwards or that it never wrote the journal.
-     *
-     * @param workspace the workspace scope whose journal the answer reads
-     * @param phase     the phase the removal had reached
-     * @return the reach; {@link Reach#COMMITTED} only after a returned commit, and the discard's two refusals are caught
-     *         per entry, so no other fault of it is known today
-     */
-    private static Reach reach(JournalScope workspace, Phase phase) {
-        return switch (phase) {
-            case STAGING -> Reach.STAGED;
-            case COMMITTING -> Files.exists(workspace.journalFile(), LinkOption.NOFOLLOW_LINKS)
-                    ? Reach.OWED
-                    : Reach.UNDECIDED;
-            case COMMITTED -> Reach.COMMITTED;
-        };
+        /**
+         * How far the faulted removal got, read from the phase it had reached and, while the commit was entered, from
+         * the workspace's journal.
+         * <p>
+         * A journal that exists here is the transaction's own: every verification before the commit recovers the
+         * scope's journal away, and a scope that holds one refuses a new transaction before it stages anything. A
+         * journal that is gone while the commit was entered decides nothing: the commit deletes the journal as it
+         * closes, so its absence means either that the commit applied its targets and stopped afterwards or that it
+         * never wrote the journal.
+         *
+         * @return the reach; {@link Reach#COMMITTED} only after a returned commit, and the discard's two refusals are
+         *         caught per entry, so no other fault of it is known today
+         */
+        private Reach reach(JournalScope workspace) {
+            return switch (phase) {
+                case STAGING -> Reach.STAGED;
+                case COMMITTING -> Files.exists(workspace.journalFile(), LinkOption.NOFOLLOW_LINKS)
+                        ? Reach.OWED
+                        : Reach.UNDECIDED;
+                case COMMITTED -> Reach.COMMITTED;
+            };
+        }
     }
 
     /**
