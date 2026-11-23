@@ -98,6 +98,25 @@ class WorkflowStatusSchemaParityTest {
     }
 
     @Test
+    @DisplayName("the commit attempt caps are the schema's two closed counters")
+    void commitAttemptCapsEqualSchema() {
+        var caps = SchemaResource.object(properties.get("commit_attempt_caps"));
+        var counters = SchemaResource.object(caps.get("properties"));
+        var changeSet = SchemaResource.object(counters.get("change_set"));
+        var frame = SchemaResource.object(counters.get("frame"));
+
+        assertAll(
+                () -> assertEquals(Set.of("change_set", "frame"), counters.keySet(),
+                        "the caps should hold the two counters"),
+                () -> assertEquals(Set.of("staged_tree", "message_digest", "attempts"),
+                        SchemaResource.object(changeSet.get("properties")).keySet(),
+                        "the change set should name its three members"),
+                () -> assertEquals(Set.of("frame_id", "tasks"),
+                        SchemaResource.object(frame.get("properties")).keySet(),
+                        "the frame should name its two members"));
+    }
+
+    @Test
     @DisplayName("the phases of the status are the values of the phase enum of the schema")
     void phasesEqualSchema() {
         var expected = enumOf("phase");

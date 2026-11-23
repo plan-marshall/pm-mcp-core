@@ -250,6 +250,33 @@
         }
       }
     },
+    "commit_attempt_caps": {
+      "type": ["object", "null"],
+      "description": "The attempts of the two caps of the git.commit-fix loop (timeouts/01, Commit Sub-Process Attempt Caps; state-catalogue/05, git.stage-and-commit): change_set counts the failed commit attempts per identical staged change set (the staged tree id and the message digest), reset when either changes; frame counts the git.commit-fix tasks of one call frame, reset by a new call. Whichever is spent first ends the loop. null before the first counted event.",
+      "additionalProperties": false,
+      "required": ["change_set", "frame"],
+      "properties": {
+        "change_set": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["staged_tree", "message_digest", "attempts"],
+          "properties": {
+            "staged_tree": { "type": "string", "pattern": "^[0-9a-f]{40}$", "description": "The id of the staged tree the failed attempt committed." },
+            "message_digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "The SHA-256 of the commit message the failed attempt carried." },
+            "attempts": { "type": "integer", "minimum": 0, "maximum": 3, "description": "Failed commit attempts of that change set; the compiled cap is the maximum." }
+          }
+        },
+        "frame": {
+          "type": ["object", "null"],
+          "additionalProperties": false,
+          "required": ["frame_id", "tasks"],
+          "properties": {
+            "frame_id": { "type": "string", "minLength": 1, "description": "The identity of the call frame the fix tasks belong to." },
+            "tasks": { "type": "integer", "minimum": 0, "maximum": 3, "description": "git.commit-fix tasks taken in that call frame; the compiled cap is the maximum." }
+          }
+        }
+      }
+    },
     "outline_loop_backs": {
       "type": "integer",
       "minimum": 0,

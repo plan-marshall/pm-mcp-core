@@ -60,6 +60,7 @@ import de.planmarshall.core.id.RoleName;
  * @param waiverRequests     the waiver requests filed in the plan, in the order of the document, each request id once
  *                           and at most one pending; plan scopes only, empty otherwise and when none was filed
  * @param retryCounters      the attempts of the server-rule retries and the condition budgets outside a condition
+ * @param commitAttemptCaps  the attempts of the two {@code git.commit-fix} caps; {@code null} before the first one
  * @param activeJob          the binding of the current job, composite job or task state; {@code null} when the
  *                           current state is none of them
  * @param activeJobs         the jobs of the current job state by name; empty when there is none
@@ -83,6 +84,7 @@ long outlineLoopBacks,
 Map<String, PolicyCounter> policyCounters,
 List<WaiverRequest> waiverRequests,
 RetryCounters retryCounters,
+@Nullable CommitAttemptCaps commitAttemptCaps,
 @Nullable ActiveJob activeJob,
 Map<String, JobEntry> activeJobs,
 Map<String, TaskEntry> activeTasks,
