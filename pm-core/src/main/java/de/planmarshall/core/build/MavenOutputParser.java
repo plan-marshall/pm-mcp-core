@@ -335,7 +335,8 @@ public class MavenOutputParser {
      * {@code Unmeasured}; the values a representable scan adds are each at most {@link Integer#MAX_VALUE}, and the
      * input holds fewer than 2^26 count lines (a count line takes more than 40 characters, the {@code Path} overload
      * reads at most {@link BuildLogText#MAX_BYTES} bytes and the {@code String} overload is bounded by the length of a
-     * Java {@code String}), so each sum of the added values stays below 2^58.
+     * Java {@code String}), so each sum of the added values stays below 2^58. That bound governs the uncut result alone:
+     * the cut tail's failing count is added outside it, so its sums saturate at {@link Long#MAX_VALUE} instead.
      */
     private static final class CountScan {
 
@@ -344,6 +345,8 @@ public class MavenOutputParser {
         private final List<Counts> ambiguousLines = new ArrayList<>();
 
         private final List<Counts> perClassLines = new ArrayList<>();
+
+        private final List<Counts> countLines = new ArrayList<>();
 
         private final Map<String, Long> runnerExecuted = new LinkedHashMap<>();
 
@@ -399,6 +402,7 @@ public class MavenOutputParser {
             var counts = Counts.builder().total(total).failed(failed).skipped(skipped)
                     .errorLevel(line.contains(ERROR_MARKER)).execution(execution)
                     .message(storedMessage(line)).build();
+            countLines.add(counts);
             if (line.contains(TIME_ELAPSED)) {
                 perClassLines.add(counts);
             } else if (resultsSeen) {
@@ -437,11 +441,13 @@ public class MavenOutputParser {
          * execution header is one execution: its two sides cannot be told apart by the log, the larger side is then that
          * execution's figure, and it can be too low for a mix (ADR {@code core-build/012}).
          * <p>
-         * The figure is then reduced by the failing tests the diagnostic collector filed at error level, counted AFTER
+         * The figure is then reduced by the failing tests the diagnostic collector retained at error level, counted AFTER
          * its deduplication: a line the collector dropped as a duplicate of an earlier one adds nothing, because the
-         * failures it reports are already filed. Either side is counted after that same deduplication, so a count line
-         * that stands before the {@code Results:} marker and again after it is one figure. The remainder never goes below
-         * zero.
+         * failures it reports are already filed — and a failure whose identical line was retained as a warning is not
+         * reduced, so it reaches the contradiction check as the remainder. Either side is counted after that same
+         * deduplication, so a count line that stands before the {@code Results:} marker and again after it is one figure.
+         * The additions saturate at {@link Long#MAX_VALUE} rather than wrap, so a hostile count cannot turn the remainder
+         * into zero. The remainder never goes below zero.
          *
          * @return the failing tests of the tail that are not yet a filed diagnostic
          */
@@ -461,31 +467,47 @@ public class MavenOutputParser {
             addFailures(perExecution, perClassLines, 1);
             long visible = 0;
             for (long[] sides : perExecution.values()) {
-                visible += Math.max(sides[0], sides[1]);
+                visible = saturatedAdd(visible, Math.max(sides[0], sides[1]));
             }
             return visible;
         }
 
         private static void addFailures(Map<Integer, long[]> perExecution, List<Counts> lines, int side) {
             for (Counts counts : distinct(lines)) {
-                perExecution.computeIfAbsent(counts.execution(), _ -> new long[2])[side] += counts.failed();
+                var sides = perExecution.computeIfAbsent(counts.execution(), _ -> new long[2]);
+                sides[side] = saturatedAdd(sides[side], counts.failed());
             }
         }
 
         /**
-         * The failing tests of the count lines the collector filed at error level, each line counted once.
+         * The failing tests of the count lines the collector retained at error level, each identity counted once. The
+         * collector keeps the first occurrence of an identity and drops the later ones with whatever severity they carry,
+         * so a failure whose identical line was first filed as a warning is not counted here: it stays in the remainder
+         * and reaches the contradiction check as an error.
          *
          * @return the failing tests an error diagnostic already reports
          */
         private long filedFailures() {
             Set<String> seen = new HashSet<>();
             long filed = 0;
-            for (Counts counts : Stream.of(summaryLines, ambiguousLines, perClassLines).flatMap(List::stream).toList()) {
-                if (counts.errorLevel() && seen.add(key(counts))) {
-                    filed += counts.failed();
+            for (Counts counts : countLines) {
+                if (seen.add(key(counts)) && counts.errorLevel()) {
+                    filed = saturatedAdd(filed, counts.failed());
                 }
             }
             return filed;
+        }
+
+        /**
+         * Adds two non-negative counts without wrapping: a sum past the {@code long} range saturates at
+         * {@link Long#MAX_VALUE}, so a hostile count can neither turn the remainder into zero nor into a negative figure.
+         *
+         * @param left  the first count
+         * @param right the second count
+         * @return their sum, or {@link Long#MAX_VALUE} when it does not fit
+         */
+        private static long saturatedAdd(long left, long right) {
+            return left > Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
         }
 
         /**

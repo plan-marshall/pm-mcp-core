@@ -537,6 +537,49 @@ class BuildLogTextTest {
                 "one remainder is named in the singular");
     }
 
+    @Test
+    @DisplayName("a cut log keeps an error for a failure whose identical line was filed as a warning first")
+    void cutMavenLogKeepsAnErrorForAWarningFirstDuplicate(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the same count line at WARNING before the marker and at ERROR after it: the collector retains the warning
+        var failingTail = """
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                [ERROR] Results:
+                [ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-warning-first-duplicate.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertEquals(1, errorTestFailures(build),
+                "no error diagnostic would leave the failure unseen");
+    }
+
+    @Test
+    @DisplayName("a cut log's failing count saturates instead of wrapping to a passing run")
+    void cutMavenLogSaturatesAnOverflowingFailingCount(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // two executions whose failing counts sum past the long range; a wrapped sum would report no failure
+        var failingTail = """
+                --- surefire:3.5.0:test @ module-a ---
+                [WARNING] Tests run: 1, Failures: 9223372036854775807, Errors: 0, Skipped: 0
+                --- surefire:3.5.0:test @ module-b ---
+                [WARNING] Tests run: 2, Failures: 9223372036854775807, Errors: 0, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-overflowing-count.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.severity() == Severity.ERROR
+                                && diagnostic.category() == Category.TEST_FAILURE),
+                "an overflowing sum still files the failure");
+    }
+
     private static long errorTestFailures(ParsedBuild build) {
         return build.diagnostics().stream()
                 .filter(diagnostic -> diagnostic.severity() == Severity.ERROR

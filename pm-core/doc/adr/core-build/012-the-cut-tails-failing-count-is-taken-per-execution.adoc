@@ -52,10 +52,15 @@ figure of an execution is the larger of its two sides:
   every summary and ambiguous line of the execution, so a count line of that execution which does not carry `Time elapsed`
   (another plugin's per-class form) is counted beside its summary. Either way the figure is evidence with a bounded error,
   not a measurement, which is why the population stays `Unmeasured`.
-* The figure is reduced by the failing tests the error-level count lines already filed report, each such line counted once
-  after that same deduplication, and the remainder is floored at zero. A remainder above zero is filed once as a
-  `TEST_FAILURE` diagnostic at error severity; an error-level `Tests run:` line stays its own diagnostic beside it. The
-  synthetic message says "1 further failing test" in the singular and "N further failing tests" in the plural.
+* The figure is reduced by the failing tests the count lines the collector retained at error level report, each identity
+  counted once: the collector keeps the first occurrence of an identity and drops the later ones with their severity, so
+  a failure whose identical line was retained as a warning is not reduced and reaches the contradiction check as the
+  remainder. The remainder is floored at zero. A remainder above zero is filed once as a `TEST_FAILURE` diagnostic at
+  error severity; an error-level `Tests run:` line stays its own diagnostic beside it. The synthetic message says
+  "1 further failing test" in the singular and "N further failing tests" in the plural.
+* Every sum on this path saturates at `Long.MAX_VALUE` instead of wrapping: a count line of a tail can carry a value above
+  `Integer.MAX_VALUE`, which the `unrepresentable` flag only makes irrelevant to the uncut result, and a wrapped figure
+  would report a failing tail as a passing run.
 
 `DiagnosticCollector.messageKey(String)` is the message part of that identity, so the parser's count and the collector's
 deduplication cannot drift apart; `DiagnosticCollector.key(Diagnostic)` builds the full key — category, file, line and
@@ -74,7 +79,9 @@ alone.
 
 * A cut tail reports the failing tests its blocks show once per execution; the error of the arithmetic is bounded and
   stated in the decision: too low for a header-less mix and for two executions' identical lines, possibly too high for
-  one execution's summary side beside a count line without `Time elapsed`.
+  one execution's summary side beside a count line without `Time elapsed`. An overflowing sum saturates, so the bound is
+  one-sided: the figure never wraps to zero or to a negative number, and a failure whose identical line was retained as a
+  warning is still filed as the remainder.
 * The count never goes negative: the subtraction is floored at zero, where the previous rule could over-subtract across the
   two sides.
 * The `filed` figure mirrors the collector, so a change to the collector's deduplication key is a change of this rule
