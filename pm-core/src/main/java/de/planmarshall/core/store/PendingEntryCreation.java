@@ -298,9 +298,13 @@ public final class PendingEntryCreation {
         if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) {
             return 0;
         }
-        if (Files.isSymbolicLink(directory) || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+        if (Files.isSymbolicLink(directory)) {
             throw StoreRefusal.unreadable(directory, SourceManifest.FORMAT_VERSION,
-                    "the transcript is or passes through a symbolic link", null);
+                    "the transcript is a symbolic link", null);
+        }
+        if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+            throw StoreRefusal.unreadable(directory, SourceManifest.FORMAT_VERSION,
+                    "the transcript is no directory", null);
         }
         var files = new ArrayList<Path>();
         try (var walk = Files.walk(directory)) {

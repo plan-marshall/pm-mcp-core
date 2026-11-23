@@ -375,7 +375,7 @@ class PendingEntryCreationTest {
 
     @Test
     @EnabledOnOs({OS.LINUX, OS.MAC})
-    @DisplayName("a stored path below a linked parent refuses the move, never read through the link")
+    @DisplayName("an unnamed link below the source directory refuses the move before a stored file is read")
     void refusesAPathBelowALinkedParent() throws Exception {
         var parent = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
         var stored = new SourceFile(parent + "/" + SourceManifestCodec.FILE_NAME + ".md", 2,
@@ -389,9 +389,36 @@ class PendingEntryCreationTest {
         Files.writeString(elsewhere.resolve(SourceManifestCodec.FILE_NAME + ".md"), "{}", UTF_8);
         Files.createSymbolicLink(store.sourcesDirectory(entryId).resolve(parent), elsewhere);
 
-        assertThrows(StoreRefusal.class, this::move, "a linked parent of a stored path should refuse the move");
-        assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
-                "nothing should be written into the new scope");
+        var refusal = assertThrows(StoreRefusal.class, this::move,
+                "an unnamed link below sources should refuse the move");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains(parent),
+                        "the refusal should name the linked directory"),
+                () -> assertTrue(refusal.getMessage().contains("symbolic link"),
+                        "the refusal should name the link it found"),
+                () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
+                        "nothing should be written into the new scope"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a transcript that is no directory refuses the move with its own reason")
+    void refusesATranscriptThatIsNoDirectory() throws Exception {
+        prepareEntry();
+        var transcript = store.chatDirectory(entryId);
+        Files.delete(transcript.resolve("session.md"));
+        Files.delete(transcript);
+        Files.writeString(transcript, chat, UTF_8);
+
+        var refusal = assertThrows(StoreRefusal.class, this::move,
+                "a transcript that is a file should refuse the move");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("no directory"),
+                        "the refusal should say the transcript is no directory"),
+                () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
+                        "nothing should be written into the new scope"));
     }
 
     private String sourceIdFor(String prefix) {

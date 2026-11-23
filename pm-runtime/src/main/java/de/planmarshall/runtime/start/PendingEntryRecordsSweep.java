@@ -196,20 +196,25 @@ public final class PendingEntryRecordsSweep implements SweepStep {
         try {
             return Optional.of(store.verify(lock, entryId, auditSink));
         } catch (IllegalArgumentException e) {
-            if (!holdsEntry(e)) {
-                throw e;
-            }
-            kept.add(entryId.value() + " (held: " + e.getMessage() + ")");
+            holdOrRethrow(e, entryId, kept);
             return Optional.empty();
         }
     }
 
     /**
-     * @param refusal a refusal of the verification
-     * @return whether it is the symbolic-link refusal, the one refusal that holds its entry instead of failing the step
+     * Holds an entry for the symbolic-link refusal and rethrows every other refusal, which is a fault of the recovery
+     * or the sidecar code and not a held entry.
+     *
+     * @param refusal the refusal of the verification
+     * @param entryId the entry the verification was about
+     * @param kept    where a held entry is reported
+     * @throws IllegalArgumentException if the refusal is no symbolic-link refusal
      */
-    static boolean holdsEntry(IllegalArgumentException refusal) {
-        return refusal instanceof JournalScope.SymbolicLinkRefusal;
+    static void holdOrRethrow(IllegalArgumentException refusal, EntryId entryId, List<String> kept) {
+        if (!(refusal instanceof JournalScope.SymbolicLinkRefusal)) {
+            throw refusal;
+        }
+        kept.add(entryId.value() + " (held: " + refusal.getMessage() + ")");
     }
 
     /**

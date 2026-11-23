@@ -11,6 +11,7 @@ package de.planmarshall.core.store;
 
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.text.Normalizer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -105,12 +106,14 @@ public record SourceManifest(long revision, List<Source> sources) {
     }
 
     /**
-     * @return the case-folded form of a stored path, the form a case-insensitive filesystem addresses. The fold is
-     *         upper case then lower case: the lower case of a capital sigma is otherwise a final sigma, and the two
-     *         forms would not meet. It errs toward a collision, never toward a missed one.
+     * @return the case-folded form of a stored path, the form a case-insensitive filesystem addresses. The path is
+     *         normalized to NFC first, because a macOS filesystem is normalisation-insensitive and an operator's typed
+     *         name and a directory listing can spell one file in two forms; the fold is then upper case then lower
+     *         case, because the lower case of a capital sigma is otherwise a final sigma and the two forms would not
+     *         meet. It errs toward a collision, never toward a missed one.
      */
     private static String fold(String path) {
-        return path.toUpperCase(Locale.ROOT).toLowerCase(Locale.ROOT);
+        return Normalizer.normalize(path, Normalizer.Form.NFC).toUpperCase(Locale.ROOT).toLowerCase(Locale.ROOT);
     }
 
     /** @return whether one of two case-folded paths lies below the other */
