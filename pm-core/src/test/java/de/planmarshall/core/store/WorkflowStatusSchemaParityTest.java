@@ -63,6 +63,7 @@ class WorkflowStatusSchemaParityTest {
 
     private static final String SCHEMA = "de/planmarshall/core/store/status.schema.json";
     private static final String RETRY_COUNTERS = "retry_counters";
+    private static final String FRESHNESS_RECONCILE = "freshness_reconcile";
 
     private static Map<?, ?> properties;
 
@@ -114,6 +115,17 @@ class WorkflowStatusSchemaParityTest {
                 () -> assertEquals(Set.of("frame_id", "tasks"),
                         SchemaResource.object(frame.get("properties")).keySet(),
                         "the frame should name its two members"));
+    }
+
+    @Test
+    @DisplayName("the freshness reconcile members are the schema's required members")
+    void freshnessReconcileMembersEqualSchema() {
+        var member = SchemaResource.object(properties.get(FRESHNESS_RECONCILE));
+        var required = SchemaResource.array(member.get("required")).stream().map(String::valueOf)
+                .collect(Collectors.toUnmodifiableSet());
+
+        assertEquals(Set.of("commit_sha", "step_id", "prior_build_worktree_sha", "worktree_sha_version",
+                "recorded_at"), required, "the freshness stamp should name the schema's members");
     }
 
     @Test

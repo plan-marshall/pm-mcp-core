@@ -40,7 +40,7 @@ class WorkflowStatusBuilderContractTest {
     @DisplayName("the builder builds the constructor's workflow status")
     void builderBuildsWorkflowStatus() {
         var canonical = new WorkflowStatus(JournalScopeType.PLAN, "plan-core", "phase-5-execute",
-                "execute.step", List.of(), 3, 0, 0, Map.of(), List.of(), RetryCounters.empty(), null, null, Map.of(),
+                "execute.step", List.of(), 3, 0, 0, Map.of(), List.of(), RetryCounters.empty(), null, null, null, Map.of(),
                 Map.of(), null, Map.of(), AT, Map.of());
 
         var built = WorkflowStatus.builder().scopeType(canonical.scopeType()).scopeId(canonical.scopeId())
@@ -51,6 +51,7 @@ class WorkflowStatusBuilderContractTest {
                 .policyCounters(canonical.policyCounters())
                 .waiverRequests(canonical.waiverRequests()).retryCounters(canonical.retryCounters())
                 .commitAttemptCaps(canonical.commitAttemptCaps())
+                .freshnessReconcile(canonical.freshnessReconcile())
                 .activeJob(canonical.activeJob()).activeJobs(canonical.activeJobs())
                 .activeTasks(canonical.activeTasks()).pendingCondition(canonical.pendingCondition())
                 .slots(canonical.slots())
@@ -61,7 +62,7 @@ class WorkflowStatusBuilderContractTest {
                         canonical.callStack(), canonical.instanceVersion(), canonical.loopBackIteration(),
                         canonical.outlineLoopBacks(), canonical.policyCounters(),
                         canonical.waiverRequests(), canonical.retryCounters(), canonical.commitAttemptCaps(),
-                        canonical.activeJob(),
+                        canonical.freshnessReconcile(), canonical.activeJob(),
                         canonical.activeJobs(), canonical.activeTasks(), canonical.pendingCondition(),
                         canonical.slots(), canonical.updatedAt(), canonical.retained()),
                 "the constructor refuses an absent scope type");

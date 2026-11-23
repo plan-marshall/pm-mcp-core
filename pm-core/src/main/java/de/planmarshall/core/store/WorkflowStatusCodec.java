@@ -102,6 +102,12 @@ public class WorkflowStatusCodec {
     private static final String FRAME = "frame";
     private static final String FRAME_ID = "frame_id";
     private static final String TASKS = "tasks";
+    private static final String FRESHNESS_RECONCILE = "freshness_reconcile";
+    private static final String COMMIT_SHA = "commit_sha";
+    private static final String STEP_ID = "step_id";
+    private static final String PRIOR_BUILD_WORKTREE_SHA = "prior_build_worktree_sha";
+    private static final String WORKTREE_SHA_VERSION = "worktree_sha_version";
+    private static final String RECORDED_AT = "recorded_at";
     private static final String OUTLINE_LOOP_BACKS = "outline_loop_backs";
     private static final String INSTANCE_VERSION = "instance_version";
     private static final String POLICY_COUNTERS = "policy_counters";
@@ -178,7 +184,7 @@ public class WorkflowStatusCodec {
     static final Set<String> TYPED_MEMBERS = Set.of(FIELD_FORMAT_VERSION, SCOPE_TYPE, SCOPE_ID, PHASE, STATE,
             CALL_STACK, SLOTS, INSTANCE_VERSION, LOOP_BACK_ITERATION, RETRY_COUNTERS, COMMIT_ATTEMPT_CAPS,
             OUTLINE_LOOP_BACKS, POLICY_COUNTERS,
-            WAIVER_REQUESTS, ACTIVE_JOBS, ACTIVE_JOB, ACTIVE_TASKS, PENDING_CONDITION, UPDATED_AT);
+            WAIVER_REQUESTS, ACTIVE_JOBS, ACTIVE_JOB, ACTIVE_TASKS, PENDING_CONDITION, FRESHNESS_RECONCILE, UPDATED_AT);
 
     /** The members of the schema that are kept as raw JSON text. */
     static final Set<String> RETAINED_MEMBERS = MEMBERS.stream().filter(member -> !TYPED_MEMBERS.contains(member))
@@ -264,6 +270,7 @@ public class WorkflowStatusCodec {
             case ACTIVE_JOB -> writeActiveJob(generator, status.activeJob());
             case ACTIVE_TASKS -> writeTasks(generator, status.activeTasks());
             case PENDING_CONDITION -> writeCondition(generator, status.pendingCondition());
+            case FRESHNESS_RECONCILE -> writeFreshnessReconcile(generator, status.freshnessReconcile());
             case UPDATED_AT -> writeInstant(generator, member, status.updatedAt());
             default -> {
                 var raw = status.retained().get(member);
@@ -514,6 +521,21 @@ public class WorkflowStatusCodec {
         generator.writeEndObject();
     }
 
+    private static void writeFreshnessReconcile(JsonGenerator generator, @Nullable FreshnessReconcile stamp)
+            throws IOException {
+        if (stamp == null) {
+            generator.writeNullField(FRESHNESS_RECONCILE);
+            return;
+        }
+        generator.writeObjectFieldStart(FRESHNESS_RECONCILE);
+        generator.writeStringField(COMMIT_SHA, stamp.commitSha());
+        generator.writeStringField(STEP_ID, stamp.stepId());
+        generator.writeStringField(PRIOR_BUILD_WORKTREE_SHA, stamp.priorBuildWorktreeSha());
+        generator.writeNumberField(WORKTREE_SHA_VERSION, stamp.worktreeShaVersion());
+        writeInstant(generator, RECORDED_AT, stamp.recordedAt());
+        generator.writeEndObject();
+    }
+
     private static void writeNullableString(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
@@ -553,6 +575,8 @@ public class WorkflowStatusCodec {
                 case ACTIVE_TASKS -> status.activeTasks(StrictJson.map(parser, field, WorkflowStatusCodec::readTask));
                 case PENDING_CONDITION -> status.pendingCondition(
                         isNull(parser) ? null : readCondition(parser, document));
+                case FRESHNESS_RECONCILE -> status.freshnessReconcile(
+                        isNull(parser) ? null : readFreshnessReconcile(parser));
                 case UPDATED_AT -> status.updatedAt(instant(parser, field));
                 default -> {
                     if (!RETAINED_MEMBERS.contains(field)) {
@@ -948,6 +972,32 @@ public class WorkflowStatusCodec {
         }
         requireFields(seen, PENDING_CONDITION, KIND, FACTS, RAISED_AT);
         return new PendingCondition(kind, remedyAttempts, integrity, facts, raisedAt);
+    }
+
+    private static FreshnessReconcile readFreshnessReconcile(JsonParser parser) throws IOException {
+        requireObject(parser, FRESHNESS_RECONCILE);
+        @Nullable String commitSha = null;
+        @Nullable String stepId = null;
+        @Nullable String priorBuildWorktreeSha = null;
+        int worktreeShaVersion = 0;
+        @Nullable Instant recordedAt = null;
+        var seen = new HashSet<String>();
+        while (parser.nextToken() == JsonToken.FIELD_NAME) {
+            var field = nextField(parser, seen);
+            switch (field) {
+                case COMMIT_SHA -> commitSha = string(parser, field);
+                case STEP_ID -> stepId = string(parser, field);
+                case PRIOR_BUILD_WORKTREE_SHA -> priorBuildWorktreeSha = string(parser, field);
+                case WORKTREE_SHA_VERSION -> worktreeShaVersion = intOf(integer(parser, field), field);
+                case RECORDED_AT -> recordedAt = instant(parser, field);
+                default -> throw undeclared(field);
+            }
+        }
+        requireFields(seen, FRESHNESS_RECONCILE, COMMIT_SHA, STEP_ID, PRIOR_BUILD_WORKTREE_SHA, WORKTREE_SHA_VERSION,
+                RECORDED_AT);
+        return FreshnessReconcile.builder().commitSha(commitSha).stepId(stepId)
+                .priorBuildWorktreeSha(priorBuildWorktreeSha).worktreeShaVersion(worktreeShaVersion)
+                .recordedAt(recordedAt).build();
     }
 
     private static Integrity readIntegrity(JsonParser parser) throws IOException {
