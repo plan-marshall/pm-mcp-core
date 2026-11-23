@@ -489,8 +489,9 @@ public class MavenOutputParser {
         }
 
         /**
-         * The count lines of one side counted once each, in log order: two lines the diagnostic collector holds for one
-         * are one figure, so a duplicated line never adds a failure the filed diagnostic does not report.
+         * The count lines of one side counted once each: two lines the diagnostic collector holds for one are one
+         * figure, so a duplicated line never adds a failure the filed diagnostic does not report. The first of the equal
+         * lines in the list's order is kept.
          *
          * @param lines the count lines of one side, the summary lines and the ambiguous ones of that side together
          * @return the distinct lines

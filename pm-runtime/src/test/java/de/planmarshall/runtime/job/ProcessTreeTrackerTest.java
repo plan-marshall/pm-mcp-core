@@ -19,7 +19,6 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
@@ -286,9 +285,11 @@ class ProcessTreeTrackerTest {
             var sent = noClasses().that(areTheTrackerOrANestedType())
                     .should().dependOnClassesThat().haveFullyQualifiedName(ProcessGroupSignals.class.getName())
                     .evaluate(imported);
+            var selected = imported.stream().filter(areTheTrackerOrANestedType()::test).toList();
 
             assertAll(
-                    () -> assertTrue(imported.contain(ProcessTreeTracker.class), "the import holds the tracker"),
+                    () -> assertEquals(types.size(), selected.size(),
+                            "the subject selects every imported type"),
                     () -> assertFalse(sent.hasViolation(),
                             "no declared type of the tracker signals numerically"));
         }
