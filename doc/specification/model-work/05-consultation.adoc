@@ -53,7 +53,7 @@ The asker waits in `pm_wait`, which holds the call open, so a consulting worker 
 === The Submit Refers to the Consultation
 _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-78[PM-WATCH-DISP-78]_
 
-Every submit link of an entity whose state declares consultations takes the parameter `consultation_ids` (`list<text[1..64]>`, each a `consultation_id`, link:../hypermedia-format/02-link-grammar.adoc[Hypermedia Format Specification, Link Grammar]). Once the task received an answer, its required submission must list every delivered `consultation_id` and no other, else it is refused `invalid_link_args` naming the missing or unknown reference, and the worker may submit again (xref:02-task-protocol.adoc#execute-submit[Execute & Submit]; link:../../../pm-workflow/doc/developer/workflow-consult.adoc[Consultation Developer Guide]). The reference is recorded with the result, so the decision and the judgment it rested on stay linked.
+Every submit link of an entity whose state declares consultations takes the parameter `consultation_ids` (`list<text[1..64]>`, each a `consultation_id`, link:../hypermedia-format/02-link-grammar.adoc[Hypermedia Format Specification, Link Grammar]). Once the task received an answer, the server validates the list: it must name every delivered `consultation_id` and no other, else the submit is refused `invalid_link_args` naming the missing or unknown reference, and the worker may submit again (xref:02-task-protocol.adoc#execute-submit[Execute & Submit]; link:../../../pm-workflow/doc/developer/workflow-consult.adoc[Consultation Developer Guide]). The reference is recorded with the result, so the decision and the judgment it rested on stay linked.
 
 [#consult-accounting]
 === Accounting

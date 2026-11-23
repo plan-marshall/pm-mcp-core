@@ -224,9 +224,10 @@ _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-
 
 For every task the server computes the required skill set: core conduct, task protocol, the role's skills, the skills of the task's state, the chat skill `skill://pm/chat/SKILL.md` for a `chat-reply` task (xref:01-roles-and-configuration.adoc#chat-skill[Roles & Configuration, The Chat Skill]), the writing skill when the task writes free text, and the project's domain skills with the extension skills whose `domains` name an active domain of the project, each identified by URI and digest (`PM-SKILL-4`).
 
-At launch, the writing skill is derived
-from the schemas of the entity's links, never from the role artifact, and is delivered only where a task writes free text;
-the skills of the launch prompt are recorded per generation in the job record's `delivered_skills`. The offer of a warm
+At launch and when the offer is composed, the writing skill is derived
+from the schemas of the entity's links, never from the role artifact, and is delivered only where a task writes free text,
+so no role can leave the writing skill out; the skills of the launch prompt are recorded per generation in the job
+record's `delivered_skills`. The offer of a warm
 worker, the re-delivery to a generation whose record holds an older digest, the offer bound, harness activation and the
 `skills_not_loaded` refusal at submit are the task protocol's (xref:02-task-protocol.adoc[Task Protocol]).
 
