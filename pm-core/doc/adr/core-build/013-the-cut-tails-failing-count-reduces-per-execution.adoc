@@ -44,9 +44,10 @@ R07 put the three choices to the operator at refine (2026-11-23); each answer is
   own identity (`DiagnosticCollector.key`), with the retained occurrence's severity. A count line with no printed
   severity carries no identity into the reduction, so the identical error line after it still counts as filed. A line
   the collector dropped as a duplicate of a warning is not at error level.
-* The count path keys its visible-side lines by the execution ordinal and the whole stored message, not by the
-  collector's first 100 characters. Two failing classes whose messages differ only past the 100th character are two
-  figures, and two executions' identical summary lines are two figures.
+* The count path keys its visible-side lines by the execution ordinal and the whole line message — the line minus its
+  level prefix, untruncated — not by the collector's first 100 characters or its stored 500. Two failing classes whose
+  messages differ only past the 100th or the 500th character are two figures, and two executions' identical summary
+  lines are two figures.
 * A digit count outside the `long` range saturates at `Long.MAX_VALUE` instead of parsing as zero, and
   `Failures + Errors` is added with the same saturated addition. That sum's saturation is belt-and-braces: a wrapped
   sum would be negative, and the downstream saturated addition recovers `Long.MAX_VALUE` from it anyway, so the guard is
@@ -59,8 +60,8 @@ The bounds this decision keeps or adds:
 
 * The count key differs from the collector's identity. Two lines the key tells apart but the collector's first 100
   characters do not are still one diagnostic, so the count can exceed the filed figure by their difference and that
-  difference is filed as the remainder. The key costs at most a stored message beside the ordinal (500 characters plus
-  the ordinal).
+  difference is filed as the remainder. The key costs at most one per-line-bound message beside the ordinal (the read
+  cuts every line at `BuildLogText.MAX_LINE_LENGTH`, 8192 characters, before the scan sees it).
 * The execution ordinal is the nearest preceding plugin header, and every plugin header increments it, so only the
   runner attribution is test-plugin-scoped. Under `-T` the modules' lines interleave, so an ordinal is one execution in
   the log's order, never a module.

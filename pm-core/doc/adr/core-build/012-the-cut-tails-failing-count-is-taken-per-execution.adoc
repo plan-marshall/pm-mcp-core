@@ -6,7 +6,7 @@
 Accepted (2026-11-23, PLAN-V2-173). Amends the counting of the visible failing count that ADR
 link:011-a-cut-build-log-reports-unmeasured.adoc[`core-build/011`] introduced; its `TestCounts.Unmeasured` decision and its
 evidence rule stay in force. Amended 2026-11-23 (PLAN-V2-177): the unit and the evidence rule stay; the subtraction is
-taken per execution, the count path keys a line by its execution ordinal and its whole stored message, an unmarked line
+taken per execution, the count path keys a line by its execution ordinal and its whole line message, an unmarked line
 carries no identity, and an overflowing digit count saturates instead of reading as zero (ADR
 link:013-the-cut-tails-failing-count-reduces-per-execution.adoc[`core-build/013`]).
 
@@ -47,7 +47,7 @@ preceding plugin header opens — and the figure of an execution is the larger o
   of that identity is `DiagnosticCollector.messageKey(String)`, so the parser's count and the collector's key could not
   drift apart. PLAN-V2-177 corrected this rule: two lines that share only those first 100 characters are not
   byte-identical, the key collided on two failing classes under one long package prefix, and a duplicated line of
-  another execution counted once. The count path now keys by the execution ordinal and the whole stored message; the
+  another execution counted once. The count path now keys by the execution ordinal and the whole line message; the
   collector's identity stays the authority for what it files, and the difference is the remainder (ADR
   `core-build/013`).
 * The figures of the executions are added. A failure of an execution that printed no summary, or whose summary lies in the
@@ -79,8 +79,8 @@ preceding plugin header opens — and the figure of an execution is the larger o
 `DiagnosticCollector.messageKey(String)` is the message part of the collector's identity; `DiagnosticCollector.key(Diagnostic)`
 builds the full key — category, file, line and that message part — from it. For a count line the category and the
 location are fixed, so the message part decides alone. The count path uses its own key, the execution ordinal plus the
-whole stored message, because the first 100 characters collide on two failing classes under one long package prefix;
-the collector's identity stays the authority for what it filed (ADR `core-build/013`).
+whole line message, because the first 100 characters — and the stored 500 — collide on two failing classes under one
+long package prefix; the collector's identity stays the authority for what it filed (ADR `core-build/013`).
 
 == Alternatives Considered
 

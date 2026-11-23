@@ -589,6 +589,7 @@ class BuildLogTextTest {
     void cutMavenLogKeepsASecondExecutionsFailureBesideAnOverSubtractingFirst(@TempDir Path directory)
             throws Exception {
         var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
         // execution A files a per-class line and its summary: 2 filed against 1 visible, so a global subtraction
         // spends A's over-subtraction on B and B's warning-only failure is never filed
         var failingTail = """
@@ -614,6 +615,7 @@ class BuildLogTextTest {
     @DisplayName("a winning summary side does not hide another execution's failure")
     void cutMavenLogKeepsAnotherExecutionsFailureWhenTheSummarySideWins(@TempDir Path directory) throws Exception {
         var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
         // execution A's summary side wins while its per-class line is counted twice in the filed figure
         var failingTail = """
                 --- surefire:3.5.0:test @ module-a ---
@@ -631,7 +633,7 @@ class BuildLogTextTest {
 
         assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
                         diagnostic.severity() == Severity.ERROR
-                                && diagnostic.message().contains("1 further failing test")),
+                                && "the cut log's tail reports 1 further failing test".equals(diagnostic.message())),
                 "the other execution's failure is filed");
     }
 
@@ -639,6 +641,7 @@ class BuildLogTextTest {
     @DisplayName("two failing classes that differ after the key's hundredth character are two failures")
     void cutMavenLogCountsTwoClassesThatDifferAfterTheHundredthCharacter(@TempDir Path directory) throws Exception {
         var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
         // the stored message spends 90 characters on its prefix, so the two class names differ past the 100th one
         var packagePrefix = "com.example." + "a".repeat(80) + ".";
         var failingTail = """
@@ -658,9 +661,33 @@ class BuildLogTextTest {
     }
 
     @Test
+    @DisplayName("two failing classes that differ after the stored bound are two failures")
+    void cutMavenLogCountsTwoClassesThatDifferAfterTheStoredBound(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
+        // the stored message is cut at 500 characters, so the two class names differ past that bound
+        var packagePrefix = "com.example." + "a".repeat(500) + ".";
+        var failingTail = """
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %sFooTest
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %sBarTest
+                """.formatted(packagePrefix, packagePrefix);
+        Path log = directory.resolve("cut-two-classes-past-the-stored-bound.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.severity() == Severity.ERROR
+                                && "the cut log's tail reports 2 failing tests".equals(diagnostic.message())),
+                "two classes past the stored bound are two failures");
+    }
+
+    @Test
     @DisplayName("two modules' identical summary lines are two executions' failures")
     void cutMavenLogCountsIdenticalSummaryLinesOfTwoExecutions(@TempDir Path directory) throws Exception {
         var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
         var failingTail = """
                 --- surefire:3.5.0:test @ module-a ---
                 [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
@@ -683,6 +710,7 @@ class BuildLogTextTest {
     @DisplayName("an unmarked count line does not hide the failure its error duplicate files")
     void cutMavenLogCountsTheErrorLineAnUnmarkedDuplicatePrecedes(@TempDir Path directory) throws Exception {
         var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
         // the unmarked line is no diagnostic, so the collector files the later identical error line
         var failingTail = """
                 Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
@@ -708,6 +736,7 @@ class BuildLogTextTest {
     @DisplayName("a twenty-digit failing count saturates and still files a failure")
     void cutMavenLogSaturatesATwentyDigitFailingCount(@TempDir Path directory) throws Exception {
         var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
         // a count above the long range must not parse as zero and leave the failure unfiled
         var failingTail = """
                 [WARNING] Tests run: 1, Failures: 99999999999999999999, Errors: 0, Skipped: 0

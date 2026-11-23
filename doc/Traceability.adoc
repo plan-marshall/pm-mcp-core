@@ -2960,8 +2960,9 @@ Implementation (in part: the result model of a parsed build — the located diag
 unmeasured test counts, the status with the positive success marker and the `no_tests_ran` verdict — the compiled category
 table of the JVM tools, and the parsers for Maven, Gradle, the OpenRewrite finding log, npm errors, TypeScript, ESLint,
 Jest, TAP and the pyproject log of pytest, ruff and mypy, each a pure function of the log text with no Python and no
-external script; the `failed_unparsed` fallback with its bounded, redacted log tail and the log URI of a build of a
-plan. Not implemented yet: the failure envelope of class `build` and kind `unparsed` that wraps the tail and the
+external script; a cut Maven tail's per-execution failing count, keyed by the whole line and saturated at
+`Long.MAX_VALUE` (ADR `core-build/013`); the `failed_unparsed` fallback with its bounded, redacted log tail and the log
+URI of a build of a plan. Not implemented yet: the failure envelope of class `build` and kind `unparsed` that wraps the tail and the
 gathering of the other failure classes, the forwarded and total sizes of a truncated payload, and the log URI
 `pm://workspace/builds/{job_id}/log` of a plan-less build, which `UnparsedEvidence` refuses for want of a plan id): link:../pm-core/src/main/java/de/planmarshall/core/build/ParsedBuild.java[ParsedBuild],
 link:../pm-core/src/main/java/de/planmarshall/core/build/Diagnostic.java[Diagnostic],
@@ -2979,6 +2980,7 @@ link:../pm-core/src/main/java/de/planmarshall/core/build/PyprojectOutputParser.j
 link:../pm-core/src/main/java/de/planmarshall/core/build/UnparsedEvidence.java[UnparsedEvidence]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/build/MavenOutputParserTest.java[MavenOutputParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/BuildLogTextTest.java[BuildLogTextTest],
 link:../pm-core/src/test/java/de/planmarshall/core/build/GradleOutputParserTest.java[GradleOutputParserTest],
 link:../pm-core/src/test/java/de/planmarshall/core/build/OpenRewriteLogParserTest.java[OpenRewriteLogParserTest],
 link:../pm-core/src/test/java/de/planmarshall/core/build/JvmCategoryPatternsTest.java[JvmCategoryPatternsTest],

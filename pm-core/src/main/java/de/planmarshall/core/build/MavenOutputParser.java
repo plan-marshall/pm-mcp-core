@@ -399,8 +399,10 @@ public class MavenOutputParser {
          * @param execution    the ordinal of the nearest preceding plugin header, so two executions' figures are never
          *                     added together; every plugin header increments it, so under a parallel build the ordinals
          *                     interleave and an ordinal is the log's order, not a module
-         * @param message      the line's stored message, the whole of it, so the count key does not collide where the
-         *                     collector's first 100 characters do
+         * @param message      the line's message with its level prefix removed, untruncated, so the count key does not
+         *                     collide where the collector's stored message (cut at 500 characters) or its first 100
+         *                     characters do; it is the whole line minus the prefix, already bounded by the read's
+         *                     per-line bound
          * @param collectorKey the identity the collector filed the line under; empty when the collector did not file the
          *                     line, so the cut tail must not file its count again
          */
@@ -437,7 +439,7 @@ public class MavenOutputParser {
                     .filter(filedSeverities::containsKey);
             var counts = Counts.builder().total(total).failed(failed).skipped(skipped)
                     .errorLevel(collectorKey.map(filedSeverities::get).orElse(null) == Severity.ERROR)
-                    .execution(execution).message(storedMessage(line))
+                    .execution(execution).message(countMessage(line))
                     .collectorKey(collectorKey.orElse("")).build();
             countLines.add(counts);
             if (line.contains(TIME_ELAPSED)) {
@@ -571,12 +573,13 @@ public class MavenOutputParser {
          * duplicated line never adds a failure the filed diagnostic does not report. The first of the equal lines in the
          * list's order is kept.
          * <p>
-         * The key is the count path's own and is not the collector's identity: it is the execution ordinal plus the
-         * whole stored message. Two failing classes whose messages differ only after the collector's first 100
-         * characters are two figures here, and identical summary lines of two executions are two figures too. The cost is
-         * the longer key (a stored message has at most 500 characters) and the divergence from the collector: two lines
-         * this key tells apart are still one diagnostic where the collector's identity collides, so the count can exceed
-         * what the collector filed and the difference is filed as the remainder.
+         * The key is the count path's own and is not the collector's identity: it is the execution ordinal plus the whole
+         * line message (the line minus its level prefix, untruncated). Two failing classes whose messages differ only
+         * after the collector's first 100 characters — or after its stored 500 — are two figures here, and identical
+         * summary lines of two executions are two figures too. The cost is the longer key (at most the read's per-line
+         * bound) and the divergence from the collector: two lines this key tells apart are still one diagnostic where the
+         * collector's identity collides, so the count can exceed what the collector filed and the difference is filed as
+         * the remainder.
          *
          * @param lines the count lines of one side; the summary side passes its summary lines and its ambiguous lines
          *              together, so a line that stands on both sides of the {@code Results:} marker counts once
@@ -594,9 +597,8 @@ public class MavenOutputParser {
             return counts.execution() + ":" + counts.message();
         }
 
-        private static String storedMessage(String line) {
-            var message = LEVEL_PREFIX.matcher(line.strip()).replaceFirst("");
-            return DiagnosticCollector.storedOrEmpty(message).orElse(message);
+        private static String countMessage(String line) {
+            return LEVEL_PREFIX.matcher(line.strip()).replaceFirst("");
         }
 
         /**

@@ -202,9 +202,9 @@ error-level `Tests run:` lines report, floored at zero, and the executions' rema
 over-subtraction therefore never spends itself on another execution's failure. The
 filed figure mirrors the collector for the lines it filed, with the retained occurrence's severity: a count line the
 collector never filed (no `[ERROR]` or `[WARNING]` marker) carries no identity, so the error twin that follows it still
-counts. The count path keys a line by its execution ordinal and its whole stored message, not by the collector's first 100
-characters, so two failing classes under one long package prefix are two figures and two modules' identical summary lines
-are two figures too; the cost is that the count can exceed the filed figure where the two keys collide, and that
+counts. The count path keys a line by its execution ordinal and its whole line message (the line minus its level prefix,
+untruncated), not by the collector's first 100 or stored 500 characters, so two failing classes under one long package
+prefix are two figures and two modules' identical summary lines are two figures too; the cost is that the count can exceed the filed figure where the two keys collide, and that
 difference is filed as the remainder. Every sum saturates at `Long.MAX_VALUE`, and a digit count outside the `long` range
 saturates there rather than parsing as zero. The remainder is filed once, and an error-level count line stays its own
 diagnostic beside it. A tail whose cut removed every execution header is one execution, whose larger side is the mix's
