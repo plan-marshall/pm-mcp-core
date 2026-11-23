@@ -49,7 +49,8 @@ commit sub-process, which the engine wires later; this record supplies the typed
 == Consequences
 
 * A malformed stamp is a `StoreRefusal` on read, naming the member, rather than a raw object a gate would trust.
-* The stamp is written in the same status transaction as the commit it describes.
+* The writer must write the stamp in the same status transaction as the commit it describes. This revision does not
+  yet wire that writer; it supplies the typed carrier the writer reads.
 
 == Source
 
