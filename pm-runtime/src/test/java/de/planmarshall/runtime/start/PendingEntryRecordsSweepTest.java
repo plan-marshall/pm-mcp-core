@@ -584,7 +584,7 @@ class PendingEntryRecordsSweepTest {
 
     @Test
     @DisplayName("a fault after the commit reports the removal it staged, and the next run completes it")
-    void refusedAuditHandOverReportsTheCommittedRemoval() throws Exception {
+    void refusedAuditHandOverReportsTheCommittedRemoval() {
         create(entry(residue, now));
         cutOffRemoval(residue);
         AuditSink refusing = createMock(AuditSink.class);

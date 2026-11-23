@@ -233,14 +233,12 @@ public final class PendingEntryRecordsSweep implements SweepStep {
         } else {
             report.append("pending entry directories not swept: ").append(removal.fault().message());
             if (!removal.fault().pending().isEmpty()) {
-                report.append(switch (removal.fault().reach()) {
-                    case STAGED -> "; the removals of " + names(removal.fault().pending())
-                            + " were staged and not committed";
-                    case JOURNALED -> "; the removals of " + names(removal.fault().pending())
-                            + " are completed by the recovery of the workspace";
-                    case COMMITTED -> "; the removals of " + names(removal.fault().pending())
-                            + " are committed, and their directories remain";
-                });
+                report.append("; the removals of ").append(names(removal.fault().pending()))
+                        .append(switch (removal.fault().reach()) {
+                            case STAGED -> " were staged and not committed";
+                            case JOURNALED -> " are completed by the recovery of the workspace";
+                            case COMMITTED -> " are committed, and their directories remain";
+                        });
             }
             if (!removal.removed().isEmpty()) {
                 report.append("; removed ").append(names(removal.removed()));
