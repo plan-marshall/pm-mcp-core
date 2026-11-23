@@ -271,7 +271,7 @@
           "additionalProperties": false,
           "required": ["frame_id", "tasks"],
           "properties": {
-            "frame_id": { "type": "string", "minLength": 1, "description": "The identity of the call frame the fix tasks belong to." },
+            "frame_id": { "type": "string", "minLength": 1, "pattern": "\\S", "description": "The identity of the call frame the fix tasks belong to; at least one non-white-space character." },
             "tasks": { "type": "integer", "minimum": 0, "maximum": 3, "description": "git.commit-fix tasks taken in that call frame; the compiled cap is the maximum." }
           }
         }

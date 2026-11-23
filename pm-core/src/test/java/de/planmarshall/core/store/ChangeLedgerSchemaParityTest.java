@@ -66,6 +66,21 @@ class ChangeLedgerSchemaParityTest {
     }
 
     @Test
+    @DisplayName("a commit row carries the file's members with the same recorded drift")
+    void commitRowMembers() {
+        var schema = SchemaParity.load(RESOURCE);
+        var written = ChangeLedgerCodec.write(ChangeLedgerRecord.builder().kind(Kind.COMMIT).worktreeSha(DIGEST)
+                .worktreeShaVersion(ChangeLedgerRecord.WORKTREE_SHA_VERSION).commitSha(COMMIT)
+                .changedPaths(List.of("a.txt")).changeOrigin(ChangeOrigin.PLAN_CHANGE)
+                .recordedAt(Instant.parse("2026-11-23T10:00:00Z")).build());
+
+        var diffs = new TreeSet<>(SchemaParity.memberDiffs(SchemaParity.members(written), schema));
+
+        assertEquals(new TreeSet<>(List.of("file-only:criterion", "file-only:red_tests")), diffs,
+                "a commit row should name the file's members");
+    }
+
+    @Test
     @DisplayName("the required members of the record are the file's required members")
     void recordRequiredMembers() {
         var schema = SchemaParity.load(RESOURCE);

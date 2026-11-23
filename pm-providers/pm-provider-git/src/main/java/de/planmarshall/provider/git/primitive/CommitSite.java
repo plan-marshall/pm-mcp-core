@@ -64,9 +64,8 @@ public interface CommitSite {
      * {@code outside} set — the {@code newdir/} entry of an embedded repository, the name of a modified submodule, a
      * tracked directory that a file replaced — so such an entry is a footprint violation naming it, never a commit that
      * fails on it. The tracked-tree rule stays silent when it cannot read the repository: a checkout whose repository or
-     * index cannot be read stages by the textual and file-system rules alone, and the commit reports the condition. This
-     * is the contract the
-     * assembly's implementation follows; nothing in this module observes the
+     * index cannot be read stages by the textual and file-system rules alone, and the commit reports the condition.
+     * This is the contract the assembly's implementation follows; nothing in this module observes the
      * site's list, so a site that lists a submodule with a trailing slash is caught by no test here
      * ({@code PM-WATCH-DSL-48}).
      *

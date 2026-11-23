@@ -26,7 +26,9 @@ on 2026-11-23 (question 2 of the runbook-lane outline) that the version stays `1
 `ChangeLedgerRecord.Kind` gains `commit` (`"commit"`), and the schema's `kind` enum and description gain it too. A
 `commit` row carries:
 
-* `worktree_sha` — the digest of the tree the commit was made on, with its version, exactly as every other row;
+* `worktree_sha` — the working-tree digest of the checkout at the commit, with its version, exactly as every other row.
+  It is over the working-tree content, which a commit leaves unchanged (a commit changes `HEAD` and the index), so it is
+  the same digest the build rows of that tree carry;
 * `commit_sha` — the commit that was made, required for this kind alone (`ChangeLedgerRecord` refuses a `commit` row
   without it);
 * `changed_paths` — the paths the commit carried;

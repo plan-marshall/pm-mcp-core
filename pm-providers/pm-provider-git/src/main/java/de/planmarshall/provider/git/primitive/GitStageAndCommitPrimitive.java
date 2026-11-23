@@ -127,9 +127,9 @@ public final class GitStageAndCommitPrimitive
 
     /**
      * A token that starts an absolute path inside a detail text: an introducer — the start of the text, white space, a
-     * quote, or an opening, assignment or separator punctuation — before a {@code /}. A closing bracket is no
-     * introducer, so a relative name such as {@code app/[slug]/page.tsx} or {@code (group)/x} stays a name; a name whose
-     * separator follows a non-bracket punctuation is still read as absolute, the fail-closed direction.
+     * quote, or an opening, assignment or separator punctuation — before a {@code /}. A closing bracket is handled by
+     * {@link #BRACKET_PATH}, so a relative name such as {@code app/[slug]/page.tsx} or {@code (group)/x} stays a name;
+     * a name whose separator follows a non-bracket punctuation is still read as absolute, the fail-closed direction.
      */
     private static final Pattern ABSOLUTE_PATH =
             Pattern.compile("(?:^|[\\s\"'(\\[{<=:])/[^\\s)\"']*");
@@ -140,6 +140,15 @@ public final class GitStageAndCommitPrimitive
      */
     private static final Pattern DRIVE_PATH =
             Pattern.compile("(?:^|[\\s\"'(\\[{<=:])[A-Za-z]:[\\\\/][^\\s)\"']*");
+
+    /**
+     * A closing bracket before a {@code /} that starts a token of at least two segments: a relative name with a
+     * bracket separates one segment from the next ({@code app/[slug]/page.tsx}), while a host path after a stray
+     * closing bracket holds further separators ({@code ]/srv/git/worktrees/plan}). A two-segment relative name with a
+     * closing bracket ({@code app/[slug]/a/b.tsx}) is read as absolute, the fail-closed direction.
+     */
+    private static final Pattern BRACKET_PATH =
+            Pattern.compile("(?:^|[\\s\"'(\\[{<=:])[\\])]/(?:[^\\s)\"']*/)+[^\\s)\"']*");
 
     /** The committer while no agent identity resolves. */
     static final Identity COMPILED_COMMITTER = new Identity("plan-marshall-mcp", "noreply@cuioss.de");
@@ -292,9 +301,9 @@ public final class GitStageAndCommitPrimitive
      * one after that replacement, and a text that carries a traversal segment are replaced by the code of the git
      * outcome, because the primitive cannot tell whether a host path of the server is safe to render; and a contract
      * that states no detail is carried as that code. No POSIX absolute path and no drive-qualified path therefore
-     * reaches a fact. The rule errs towards the code: a relative name whose separator follows a non-bracket punctuation
-     * is read as an absolute path and replaced too, while a relative name with a bracket and a closing bracket before
-     * the separator ({@code app/[slug]/page.tsx}, {@code (group)/x}) stays a name.
+     * reaches a fact: a closing bracket before a separator is an introducer too when a further separator follows, so a
+     * two-segment relative name with a bracket ({@code app/[slug]/a/b.tsx}) is still read as absolute — the fail-closed
+     * direction — while {@code app/[slug]/page.tsx} and {@code (group)/x} stay names.
      */
     static String modelDetail(GitOutcome outcome, @Nullable String detail, Path worktree) {
         if (detail == null || detail.isBlank()) {
@@ -314,8 +323,7 @@ public final class GitStageAndCommitPrimitive
             }
             if (normal.startsWith(root)) {
                 var relative = root.relativize(normal).toString();
-                return ABSOLUTE_PATH.matcher(relative).find() ? outcome.name() : relative;
-            }
+                return carriesAbsolutePath(relative) ? outcome.name() : relative;            }
             return outcome.name();
         }
         var absoluteRoot = root.toString();
@@ -324,8 +332,20 @@ public final class GitStageAndCommitPrimitive
         if (scrubbed.contains("../") || scrubbed.contains("..\\")) {
             return outcome.name();
         }
-        return ABSOLUTE_PATH.matcher(scrubbed).find() || DRIVE_PATH.matcher(scrubbed).find() ? outcome.name()
-                : scrubbed;
+        if (carriesAbsolutePath(scrubbed)) {
+            return outcome.name();
+        }
+        return scrubbed;
+    }
+
+    /**
+     * @param text a detail text
+     * @return whether it still names a POSIX absolute path, a drive-qualified path or a host path after a stray
+     *         closing bracket
+     */
+    private static boolean carriesAbsolutePath(String text) {
+        return ABSOLUTE_PATH.matcher(text).find() || DRIVE_PATH.matcher(text).find()
+                || BRACKET_PATH.matcher(text).find();
     }
 
     private static PrimitiveResult<Outcome> messageRefused(ContentViolation violation) {

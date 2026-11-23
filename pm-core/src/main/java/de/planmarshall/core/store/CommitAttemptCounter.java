@@ -7,11 +7,10 @@
  * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
  * the root of this repository.
  */
-package de.planmarshall.provider.git.primitive;
+package de.planmarshall.core.store;
 
 import java.util.Objects;
 
-import de.planmarshall.core.store.CommitAttemptCaps;
 import de.planmarshall.core.store.CommitAttemptCaps.ChangeSet;
 import de.planmarshall.core.store.CommitAttemptCaps.Frame;
 
@@ -24,6 +23,9 @@ import de.planmarshall.core.store.CommitAttemptCaps.Frame;
  * tree id and the message digest: counting an attempt of another change set replaces the entry and starts it at one,
  * which is the spec's own reset rule and why a fix that changes the staged tree never keeps the loop alive on its own
  * (PM-WATCH-DSL-28) — the frame counter does, and a new call frame resets that one.
+ * <p>
+ * The class lives beside the value in this package, not in the provider that runs the commit: both the engine and the
+ * assembly may count through it, and the engine may depend on this package alone.
  *
  * @since 0.1
  */

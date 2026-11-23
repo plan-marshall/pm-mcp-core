@@ -7,11 +7,12 @@
  * No right to use, copy, modify or distribute this file is granted; see the LICENSE.md file at
  * the root of this repository.
  */
-package de.planmarshall.provider.git.primitive;
+package de.planmarshall.core.store;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -200,6 +201,16 @@ class CommitAttemptCounterTest {
             assertAll(
                     () -> assertEquals(3, CommitAttemptCounter.CHANGE_SET_CAP, "the change-set cap is three"),
                     () -> assertEquals(3, CommitAttemptCounter.FRAME_CAP, "the per-frame cap is three"));
+        }
+
+        @Test
+        @DisplayName("the empty counter carries no change set and no frame")
+        void emptyCarriesNothing() {
+            var caps = CommitAttemptCounter.empty().caps();
+
+            assertAll(
+                    () -> assertNull(caps.changeSet(), "the empty counter has no change set"),
+                    () -> assertNull(caps.frame(), "the empty counter has no frame"));
         }
     }
 }

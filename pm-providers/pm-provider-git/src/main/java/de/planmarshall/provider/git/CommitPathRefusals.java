@@ -117,9 +117,8 @@ public final class CommitPathRefusals {
     /**
      * The tracked-tree rule over an opened repository: a name is refused when the index holds an entry below it or the
      * head tree holds a subtree there. A name that is itself a symbolic link in the worktree is not refused by this
-     * rule: git records a link as a link, so the link is a legal commit entry and the entries below the replaced
-     * directory are simply no longer tracked. The index is checked whether or not {@code HEAD} resolves; only the
-     * head-tree check needs {@code HEAD}.
+     * rule: it judges a name by the index and the head tree alone, and git commits a link as a link. The index is
+     * checked whether or not {@code HEAD} resolves; only the head-tree check needs {@code HEAD}.
      *
      * @param repository the repository
      * @param names      the repository-relative candidates

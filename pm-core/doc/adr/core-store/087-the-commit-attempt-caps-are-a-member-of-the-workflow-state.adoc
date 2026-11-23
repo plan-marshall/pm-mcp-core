@@ -34,7 +34,8 @@ an object `{change_set, frame}` otherwise:
   three.
 
 The persisted value is data only, `CommitAttemptCaps` in `de.planmarshall.core.store`; the transitions live in the pure
-class `CommitAttemptCounter` in `de.planmarshall.provider.git.primitive`, next to the primitive that counts them. A
+class `CommitAttemptCounter` in the same package, beside the value, so both the engine (which may depend on `pm-core`
+alone) and the assembly may count through it. A
 counted attempt of another change set, or of another frame, replaces the entry and starts at one, which is the
 specification's own reset rule. The value never exceeds the cap.
 
@@ -58,7 +59,8 @@ The format version stays `1` (R13): the member is added in place, with no reader
   the schema; `CommitAttemptCapsTest` pins the value's grammar and `CommitAttemptCounterTest` the reset and cap rules,
   including the PM-WATCH-DSL-28 hazard: a fix that changes the staged tree resets the change-set counter, and the frame
   counter still ends the loop.
-* The engine that wires the commit sub-process takes the counter from the status store instead of holding it in memory.
+* The engine or the assembly that wires the commit sub-process takes the counter from the status store instead of
+  holding it in memory; the class lives in `pm-core`, so the engine may reach it without depending on the provider.
 
 == Source
 
@@ -67,5 +69,5 @@ The format version stays `1` (R13): the member is added in place, with no reader
 * link:../../../../doc/specification/state-catalogue/05-git-commit-and-push.adoc#state-git.stage-and-commit[State Catalogue § `git.stage-and-commit`]
 * link:../../../../doc/implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-28[Implementation Watch § PM-WATCH-DSL-28]
 * `pm-core/src/main/java/de/planmarshall/core/store/CommitAttemptCaps.java`,
-  `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java`,
-  `pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitAttemptCounter.java`
+  `pm-core/src/main/java/de/planmarshall/core/store/CommitAttemptCounter.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java`

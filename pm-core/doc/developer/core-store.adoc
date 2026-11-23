@@ -59,6 +59,7 @@ version in force of a plan (`instance_version`, see <<_the_instance_version_in_f
 constructor checks every closed value, so a copy with a value outside the schema cannot be built.
 `RetryCounters`:: The typed value of the member `retry_counters` (see <<_retry_counters>>).
 `CommitAttemptCaps`:: The typed value of the member `commit_attempt_caps` (see <<_commit_attempt_caps>>).
+`CommitAttemptCounter`:: The pure counter of the two caps over a `CommitAttemptCaps`; both the engine and the assembly may count through it, because it lives here and not in the provider (see <<_commit_attempt_caps>>).
 `FreshnessReconcile`:: The typed value of the member `freshness_reconcile` (see <<_freshness_reconcile>>).
 `WorkflowStatusCodec`:: Reads and writes the document over `StrictJson`. It checks `format_version` first
 (`FORMAT_VERSION` 1), reads the typed members strictly, each with its one JSON type and its closed values, and
@@ -325,11 +326,12 @@ tree or a changed message, either half starting the count at one
 
 Both counters are capped at `3` (`CommitAttemptCaps.CAP`); whichever is spent first ends the loop. A fix that changes
 the staged tree resets the change-set counter, which is the specification's own rule, so the frame counter is what
-bounds the loop in that case (link:../../../../doc/implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-28[PM-WATCH-DSL-28]).
+bounds the loop in that case (link:../../../doc/implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-28[PM-WATCH-DSL-28]).
 The member is `null` before the first counted event.
 
 The persisted value is data only, `CommitAttemptCaps` in this package; the transitions live in the pure class
-`CommitAttemptCounter` of `de.planmarshall.provider.git.primitive`, next to the primitive that counts them:
+`CommitAttemptCounter` of this package, beside the value, so the engine may reach them without depending on the
+provider that runs the commit:
 `failedCommitAttempt(stagedTree, messageDigest)` and `fixTask(frameId)` each answer a new counter, and
 `changeSetCapSpent()`, `frameCapSpent()` and `exhausted()` read the caps. Counting above a spent cap keeps it spent.
 
