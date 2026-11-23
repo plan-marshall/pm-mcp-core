@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted, amended by ADR link:016-schemas-are-files-of-the-implementing-module.adoc[016] (the schema parity tests read the schema files of the module, not the specification), by ADR link:027-condense-and-point-the-implemented-specification-parts.adoc[027] (an implemented specification section is condensed and pointed, never deleted), and by the setup of the documentation, which has no CI: `trace.py` runs locally before every merge, and no `links.yml` workflow exists (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc[Project Setup])
+Accepted, amended by ADR link:016-schemas-are-files-of-the-implementing-module.adoc[016] (the schema parity tests read the schema files of the module, not the specification), by ADR link:027-condense-and-point-the-implemented-specification-parts.adoc[027] (an implemented specification section is condensed and pointed, never deleted), by the setup of the documentation, which has no CI: no `links.yml` workflow exists (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc[Project Setup]), and by the removal of the pre-merge links-check requirement from this repository's rules on 2026-11-23 (PLAN-V2-175): `trace.py` is no longer required before a merge here, and running it stays allowed
 
 == Date
 
@@ -50,7 +50,7 @@ written there once per milestone exit. A done work package leaves the index of `
 Links between the documents of this repository are relative; a link into the documentation is a relative sibling path,
 and the documentation links here with absolute `https://github.com/plan-marshall/pm-mcp-core/blob/main/doc/...` URLs.
 `trace.py` of the documentation checks both trees, and the workflow `links.yml` of the documentation runs it
-(_superseded_: no such workflow exists, and `trace.py` runs locally before every merge, see Status). The schema parity
+(_superseded_: no such workflow exists, and no merge requires `trace.py`, see Status). The schema parity
 tests read the specification of this repository (`pm.specification.root`) (_superseded by ADR
 link:016-schemas-are-files-of-the-implementing-module.adoc[016]_: they read the schema files of the module).
 
@@ -73,7 +73,8 @@ documentation.
 * The specification and the code of a package change in one pull request, and the schema parity tests run in CI.
 * The other repositories (`pm-mcp-clients`, `plan-marshall-mcp`) link the specifications of the engine with relative
   sibling paths into this repository; the design of the clients in `pm-mcp-clients` is the precedent.
-* A change here that breaks a link of the documentation fails the check `links` here, and the other way round.
+* Links into and out of the documentation are checked by `trace.py` of that repository only when someone runs it: no
+  workflow runs a link check here, and no merge requires one (see Status).
 * The project skill `traced-implementation` of the documentation states the single-pull-request flow for this
   repository.
 
