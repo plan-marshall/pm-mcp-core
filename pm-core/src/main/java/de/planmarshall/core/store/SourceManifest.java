@@ -107,13 +107,17 @@ public record SourceManifest(long revision, List<Source> sources) {
 
     /**
      * @return the case-folded form of a stored path, the form a case-insensitive filesystem addresses. The path is
-     *         normalized to NFC first, because a macOS filesystem is normalisation-insensitive and an operator's typed
-     *         name and a directory listing can spell one file in two forms; the fold is then upper case then lower
+     *         normalized to NFC before AND after the case fold: before, because a macOS filesystem is
+     *         normalisation-insensitive and an operator's typed name and a directory listing can spell one file in two
+     *         forms; after, because the case mapping can itself produce a non-NFC string, so a pair that differs only
+     *         in the order of a combining mark would otherwise be admitted. The fold is then upper case then lower
      *         case, because the lower case of a capital sigma is otherwise a final sigma and the two forms would not
      *         meet. It errs toward a collision, never toward a missed one.
      */
     private static String fold(String path) {
-        return Normalizer.normalize(path, Normalizer.Form.NFC).toUpperCase(Locale.ROOT).toLowerCase(Locale.ROOT);
+        var cased = Normalizer.normalize(path, Normalizer.Form.NFC).toUpperCase(Locale.ROOT)
+                .toLowerCase(Locale.ROOT);
+        return Normalizer.normalize(cased, Normalizer.Form.NFC);
     }
 
     /** @return whether one of two case-folded paths lies below the other */

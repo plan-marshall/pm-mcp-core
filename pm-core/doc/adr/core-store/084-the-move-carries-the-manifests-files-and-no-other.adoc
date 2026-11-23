@@ -29,7 +29,8 @@ Five rules, each enforced where its input is defined:
    normalisation form, a path that is the directory of another, and a path that is the manifest's own file name
    (`sources.json`) or lies below it, in any case,
    with an `IllegalArgumentException` naming the path and the source. The case is folded and the path normalised to NFC
-   because the paths are the operator's file names and a case-insensitive or normalisation-insensitive filesystem
+   before and after that fold — the case mapping can itself produce a non-NFC string — because the paths are the
+   operator's file names and a case-insensitive or normalisation-insensitive filesystem
    addresses one file in either form; a file and its directory
    are refused together because one create target cannot be both. The manifest is built where an entry is written, so
    the refusal happens before a directory is staged.

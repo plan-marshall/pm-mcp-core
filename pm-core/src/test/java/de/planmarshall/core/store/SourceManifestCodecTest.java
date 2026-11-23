@@ -302,6 +302,28 @@ class SourceManifestCodecTest {
                             "the refusal should name the decomposed form"));
         }
 
+        @Test
+        @DisplayName("a pair the case mapping normalises differently is refused: the key is NFC after the fold too")
+        void casedNormalisationVariantPaths() {
+            var base = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+            var small = base + "-\u0390.md";
+            var combined = base + "-\u0399\u0308\u0301.md";
+            var first = new Source(sourceId, Kind.DESCRIPTION, "ref", "operator", Trust.TRUSTED,
+                    List.of(new SourceFile(small, size, digest)), addedAt, null, null);
+            var second = new Source(sourceId + "x", Kind.ISSUE, "ref", "forge", Trust.UNTRUSTED,
+                    List.of(new SourceFile(combined, size, digest)), addedAt, Verdict.CLEAN, null);
+            var sources = List.of(first, second);
+
+            var refusal = assertThrows(IllegalArgumentException.class, () -> new SourceManifest(2, sources),
+                    "a pair the case mapping re-normalises should be refused");
+
+            assertAll(
+                    () -> assertTrue(refusal.getMessage().contains(small),
+                            "the refusal should name the precomposed form"),
+                    () -> assertTrue(refusal.getMessage().contains(combined),
+                            "the refusal should name the combined form"));
+        }
+
         @ParameterizedTest(name = "{0}")
         @ValueSource(strings = {"file first", "nested path first"})
         @DisplayName("a file and a path below it are refused: one stored path is no directory of another")
