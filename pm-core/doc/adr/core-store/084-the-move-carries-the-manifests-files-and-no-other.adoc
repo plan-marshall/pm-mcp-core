@@ -38,12 +38,13 @@ Five rules, each enforced where its input is defined:
    entry names — the manifest itself excepted — with a `StoreRefusal` naming the file, so nothing of the entry is
    dropped silently when its directory is deleted after the move. A link below the source directory is refused as the
    link it is, whether or not the manifest names it.
-3. A stored file is read only after its canonical path was checked to lie in the source directory and with
-   `LinkOption.NOFOLLOW_LINKS`, so a symbolic link is refused instead of followed, and a path that leaves the directory
-   through a link is refused with it.
-4. The transcript is carried as whole as the source directory: a transcript that is a link or no directory, and a link
-   or a file that is no regular file inside it, refuse the move with a `StoreRefusal`, so the transcript a `finish`
-   deletes with the directory is exactly the transcript that was carried.
+3. A stored file is read only after its canonical path was checked to lie in the source directory, only when it is a
+   regular file, and with `LinkOption.NOFOLLOW_LINKS`, so a symbolic link is refused instead of followed, a path that
+   leaves the directory through a link is refused with it, and a FIFO or another special file the manifest names is
+   refused instead of being opened — that open would block under the workspace lock.
+4. The transcript is refused as a whole, as the source directory's files are: a transcript that is a link or no
+   directory, and a link or a file that is no regular file inside it, refuse the move with a `StoreRefusal`, so the
+   transcript a `finish` deletes with the directory is exactly the transcript that was carried.
 5. The caller's verification is the guard of the paths: `move`, `discard`, `read` and `readSources` resolve through
    `JournalScope.resolve`, which follows a link in a parent directory, while `verify` reaches every store through
    `JournalScope.resolveWithoutLinks` and refuses a link below the path base. A caller that acts on an entry verifies it
@@ -69,8 +70,8 @@ Five rules, each enforced where its input is defined:
   manifest before a move carries it, and the refusal names it when it is not.
 * The manifest can no longer describe a directory whose files collide, which the store-level move would otherwise have
   written twice, and it no longer admits two paths a case-insensitive filesystem conflates or a file and its directory.
-* A symbolic link in a source directory or a link in the transcript is a refusal, never a read: the operator removes
-  the link or abandons the entry.
+* A symbolic link in a source directory or a link in the transcript is a refusal, never a read, and so is a FIFO or
+  another special file a source names: the operator removes the link or the special file, or abandons the entry.
 * `SourceManifestCodecTest`, `PendingEntryCreationTest` and `PendingEntryStoreTest` carry the refusals; the guide
   (§ The Pending Entry) states them.
 

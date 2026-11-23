@@ -202,7 +202,9 @@ public final class PendingEntryCreation {
      * <p>
      * The file is read through {@link LinkOption#NOFOLLOW_LINKS} and only after its canonical path was checked to lie
      * in the source directory: a link is refused, and so is a path whose canonical form leaves the directory through
-     * one, so a stored source cannot redirect the read out of the entry.
+     * one, so a stored source cannot redirect the read out of the entry. Only a regular file is read: a FIFO or another
+     * special file the manifest names is refused instead of being opened, because its open would block under the
+     * workspace lock.
      */
     private static byte[] verified(Path sourceDirectory, SourceFile stored) {
         var directory = sourceDirectory.normalize();
@@ -216,6 +218,10 @@ public final class PendingEntryCreation {
             if (Files.isSymbolicLink(file) || !file.toRealPath().startsWith(directory.toRealPath())) {
                 throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
                         "the source file '%s' is or passes through a symbolic link".formatted(stored.path()), null);
+            }
+            if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+                throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
+                        "the source file '%s' is no regular file".formatted(stored.path()), null);
             }
             try (var in = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
                 content = in.readAllBytes();
@@ -289,8 +295,8 @@ public final class PendingEntryCreation {
      * a special file inside it, refuse the move instead of being dropped while {@link #finish} deletes the directory
      * with it.
      *
-     * @throws StoreRefusal         if the transcript is or passes through a symbolic link, or holds one or a file that
-     *                              is no regular file
+     * @throws StoreRefusal         if the transcript is a symbolic link or no directory, or holds one or a file that is
+     *                              no regular file
      * @throws UncheckedIOException if the transcript cannot be read
      */
     private int copyChat(ScopeTransaction target, EntryId entryId) {

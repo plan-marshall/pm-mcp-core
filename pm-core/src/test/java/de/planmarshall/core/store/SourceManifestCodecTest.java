@@ -364,7 +364,8 @@ class SourceManifestCodecTest {
             var refusal = assertThrows(IllegalArgumentException.class,
                     () -> new SourceFile("a\u0000b.md", size, digest), "a NUL in a path should be refused");
 
-            assertTrue(refusal.getMessage().contains("path"), "the refusal should name the path rule");
+            assertTrue(refusal.getMessage().contains("no path of this platform"),
+                    "the refusal should name the platform-path rule");
         }
 
         @ParameterizedTest(name = "{0}")

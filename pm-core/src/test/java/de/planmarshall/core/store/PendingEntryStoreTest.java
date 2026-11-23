@@ -580,7 +580,7 @@ class PendingEntryStoreTest {
             Files.delete(manifest);
             Files.createSymbolicLink(manifest, outside);
 
-            var refusal = assertThrows(IllegalArgumentException.class, () -> verify(id),
+            var refusal = assertThrows(JournalScope.SymbolicLinkRefusal.class, () -> verify(id),
                     "a linked store path should be refused by the verification");
 
             assertTrue(refusal.getMessage().contains("symbolic link"),
