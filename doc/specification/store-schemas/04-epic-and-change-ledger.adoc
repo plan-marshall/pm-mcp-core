@@ -141,7 +141,7 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/store/review-d
 == Change Ledger Record (`change-ledger.jsonl`)
 _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-13[PM-WATCH-JOB-13], link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-9[PM-WATCH-STORE-9], link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-10[PM-WATCH-STORE-10]_
 
-Each line in `plans/<plan_id>/change-ledger.jsonl` of the per-project machine store (or, for a plan-less service call such as `pm_build` with `plan_id: NO_PLAN`, in the workspace scope's `workspace/change-ledger.jsonl`, link:../filesystem-layout/03-project-store.adoc#workspace-home[Filesystem Layout Specification, Workspace Home]) records a `worktree_sha`-stamped build execution, file footprint change, or asynchronous job outcome (`PM-SVC-1`, `PM-IMPL-7`).
+Each line in `plans/<plan_id>/change-ledger.jsonl` of the per-project machine store (or, for a plan-less service call such as `pm_build` with `plan_id: NO_PLAN`, in the workspace scope's `workspace/change-ledger.jsonl`, link:../filesystem-layout/03-project-store.adoc#workspace-home[Filesystem Layout Specification, Workspace Home]) records a `worktree_sha`-stamped build execution, file footprint change, commit, per-task diff, asynchronous job outcome or baseline-red proof (`PM-SVC-1`, `PM-IMPL-7`).
 
 The schema is the file `pm-core/src/main/resources/de/planmarshall/core/store/change-ledger-record.schema.json`.
 

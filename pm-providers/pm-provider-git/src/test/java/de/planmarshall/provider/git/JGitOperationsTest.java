@@ -304,6 +304,36 @@ class JGitOperationsTest extends JGitOperationsFixtures {
     }
 
     @Test
+    @DisplayName("an empty path list with a conflicted index is refused with the path of its conflict")
+    void conflictedIndexWithEmptyPathListIsRefused() throws Exception {
+        var conflicted = file();
+        write(conflicted, text());
+        commit(text());
+        var other = names.next();
+        try (var jgit = Git.open(repo.toFile())) {
+            jgit.branchCreate().setName(other).call();
+            Files.writeString(repo.resolve(conflicted), text(), StandardCharsets.UTF_8);
+            jgit.add().addFilepattern(conflicted).call();
+            commitThroughGit(jgit);
+            jgit.checkout().setName(other).call();
+            Files.writeString(repo.resolve(conflicted), text(), StandardCharsets.UTF_8);
+            jgit.add().addFilepattern(conflicted).call();
+            commitThroughGit(jgit);
+            jgit.checkout().setName(branch).call();
+            var merge = jgit.merge().include(jgit.getRepository().resolve(other)).call();
+            assertTrue(merge.getConflicts() != null && merge.getConflicts().containsKey(conflicted),
+                    "the merge leaves the conflict in the index");
+        }
+
+        var result = git.commit(new CommitInput(repo, text(), author, agent, List.of()));
+
+        assertAll("conflicted index with the whole index listed",
+                () -> assertEquals(GitOutcome.FAILED, result.outcome(), "A conflicted index is refused"),
+                () -> assertTrue(String.valueOf(result.detail()).contains(conflicted),
+                        "The refusal names the conflicted path"));
+    }
+
+    @Test
     @DisplayName("walks the history newest first, bounded by the count")
     void logs() throws Exception {
         write(file(), text());

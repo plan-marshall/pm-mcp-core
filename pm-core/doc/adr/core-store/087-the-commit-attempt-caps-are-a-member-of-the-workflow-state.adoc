@@ -1,0 +1,73 @@
+= ADR 087: The Commit Attempt Caps Are a Member of the Workflow State
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-23
+
+== Context
+
+`git.commit-fix` is bounded by two counters (Timeouts & Budgets § Commit Sub-Process Attempt Caps; State Catalogue §
+`git.stage-and-commit`): at most three failed commit attempts per identical staged change set — the staged tree id and
+the message — reset when either half changes, and at most three `git.commit-fix` tasks per call frame, reset by a new
+call. No code held either counter. A budget that a runtime restart may reset is no budget, so the counters must survive
+a drain and a restart (PM-WF-7, PM-ARCH-4), exactly as `retry_counters` does.
+
+The counter is read and written by the commit sub-process, but the workflow state store is a `pm-core` contract: a
+value persisted in it is a `pm-core` type, and the commit primitive of `pm-provider-git` must not define one. The
+outline put two questions to the operator (R07): where the counter persists, and whether it is a derived fact or a
+status member. The operator chose a new status member on 2026-11-23 (question 1 of the runbook lane's outline).
+
+== Decision
+
+The two caps are a new typed member of `WorkflowStatus`, `commit_attempt_caps`, written through `WorkflowStatusCodec`
+and declared in `status.schema.json` with a codec parity test. The member is `null` before the first counted event and
+an object `{change_set, frame}` otherwise:
+
+* `change_set` is `{staged_tree, message_digest, attempts}`: the SHA-1 of the staged tree, the SHA-256 of the message
+  and the failed attempts of that change set, at most three.
+* `frame` is `{frame_id, tasks}`: the identity of the call frame and the `git.commit-fix` tasks taken in it, at most
+  three.
+
+The persisted value is data only, `CommitAttemptCaps` in `de.planmarshall.core.store`; the transitions live in the pure
+class `CommitAttemptCounter` in the same package, beside the value, so both the engine (which may depend on `pm-core`
+alone) and the assembly may count through it. A
+counted attempt of another change set, or of another frame, replaces the entry and starts at one, which is the
+specification's own reset rule. The value never exceeds the cap.
+
+The format version stays `1` (R13): the member is added in place, with no reader for an older shape.
+
+== Alternatives Considered
+
+1. *Reuse `retry_counters` with two new retry rules.*
+   _Rejected_: the schema describes a `retry_counters` entry as bound to a state whose primitive counts the retry, and
+   the change-set key is no state id but the pair of digests. The reset-by-identity semantics would sit sideways in a
+   member whose contract says a budget is never reset.
+2. *Derive the counts from the change ledger.*
+   _Rejected_: a derived fact is recomputed on read; a budget that must be persisted and never lost by a restart is the
+   opposite of a derived value, and the ledger holds no failed-attempt row to derive from.
+3. *A pure class with no store shape.*
+   _Rejected_: nothing would survive a restart, and the specification's cap is a budget, not a computed answer.
+
+== Consequences
+
+* `WorkflowStatusCodecTest` round-trips the member and `WorkflowStatusSchemaParityTest` pins its two counters against
+  the schema; `CommitAttemptCapsTest` pins the value's grammar and `CommitAttemptCounterTest` the reset and cap rules,
+  including the PM-WATCH-DSL-28 hazard: a fix that changes the staged tree resets the change-set counter, and the frame
+  counter still ends the loop.
+* The engine or the assembly that wires the commit sub-process takes the counter from the status store instead of
+  holding it in memory; the class lives in `pm-core`, so the engine may reach it without depending on the provider.
+
+== Source
+
+* Operator decision of 2026-11-23 (question 1 of the runbook-lane outline)
+* link:../../../../doc/specification/timeouts/01-job-budgets-and-waits.adoc#commit-attempt-caps[Timeouts & Budgets § Commit Sub-Process Attempt Caps]
+* link:../../../../doc/specification/state-catalogue/05-git-commit-and-push.adoc#state-git.stage-and-commit[State Catalogue § `git.stage-and-commit`]
+* link:../../../../doc/implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-28[Implementation Watch § PM-WATCH-DSL-28]
+* `pm-core/src/main/java/de/planmarshall/core/store/CommitAttemptCaps.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/CommitAttemptCounter.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatus.java`

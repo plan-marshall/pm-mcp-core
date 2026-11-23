@@ -1,0 +1,61 @@
+= ADR 089: The Freshness Reconcile Stamp Is Typed Through the Status Codec
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-23
+
+== Context
+
+The schema of the workflow state store declares `freshness_reconcile` around `status.schema.json:336`, and the codec
+whitelisted it as a retained member, re-emitted as raw JSON text. No code wrote it, so the stamp a Phase 6
+`mutates_source` step owes after a commit following the latest successful build (Phase Workflows § Finalize Commit
+Instrumentation, item 3) had no typed carrier: a reader could not tell a valid stamp from any other raw object, and a
+writer had no constructor to build one with.
+
+== Decision
+
+`freshness_reconcile` becomes a typed member of `WorkflowStatus`, `FreshnessReconcile`, read and written by
+`WorkflowStatusCodec`:
+
+* `commit_sha` — the commit the finalized step made (40-digit digest);
+* `step_id` — the finalize step that made it, `default:` or `project:` with a lower-case slug;
+* `prior_build_worktree_sha` — the working-tree digest of the latest successful build (64-digit digest). The record
+  enforces only that a digest is present, so the writer (`git.commit_and_push`) must confirm a successful build exists
+  before it writes the stamp;
+* `worktree_sha_version` — the hash version of that digest, `1`;
+* `recorded_at` — the instant the stamp was recorded.
+
+The member is `null` when no stamp is recorded. The schema already declares the five members and its `const` hash
+version, so the schema file is not changed; `WorkflowStatusSchemaParityTest` pins the record's required members to the
+schema's and `WorkflowStatusCodecTest` round-trips the stamp.
+
+The reader side — the freshness verb that consults the stamp — is the `git.pre-commit-verify-freshness` verb of the
+commit sub-process, which the engine wires later; this record supplies the typed carrier it reads.
+
+== Alternatives Considered
+
+1. *Keep the member raw.*
+   _Rejected_: a retained member is re-emitted unread; a stamp a gate trusts would be unvalidated text, and a malformed
+   digest or step id would pass as a stamp.
+2. *A separate store file for the stamp.*
+   _Rejected_: the schema places it in `mcp/status.json` beside `head_at_completion` and the step records, and a
+   separate file would have to be written in the same transaction for no benefit.
+
+== Consequences
+
+* A malformed stamp is a `StoreRefusal` on read, naming the member, rather than a raw object a gate would trust.
+* The writer must write the stamp in the same status transaction as the commit it describes. This revision does not
+  yet wire that writer; it supplies the typed carrier the writer reads.
+
+== Source
+
+* link:../../../../doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#_finalize_commit_instrumentation_freshness_reconcile_post_pr_re_push_pm_wf_16[Phase Workflows § Finalize Commit Instrumentation]
+* link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc[Workflow DSL § Six-Stage Execution Contract]
+* `pm-core/src/main/java/de/planmarshall/core/store/FreshnessReconcile.java`,
+  `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusCodec.java`,
+  `pm-core/src/main/resources/de/planmarshall/core/store/status.schema.json`

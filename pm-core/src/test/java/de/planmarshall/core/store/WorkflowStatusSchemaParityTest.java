@@ -63,6 +63,7 @@ class WorkflowStatusSchemaParityTest {
 
     private static final String SCHEMA = "de/planmarshall/core/store/status.schema.json";
     private static final String RETRY_COUNTERS = "retry_counters";
+    private static final String FRESHNESS_RECONCILE = "freshness_reconcile";
 
     private static Map<?, ?> properties;
 
@@ -95,6 +96,36 @@ class WorkflowStatusSchemaParityTest {
 
         assertFalse(expected.isEmpty(), "the schema names the retry rules");
         assertEquals(expected, wireNames(), "the retry rules should equal the schema keys");
+    }
+
+    @Test
+    @DisplayName("the commit attempt caps are the schema's two closed counters")
+    void commitAttemptCapsEqualSchema() {
+        var caps = SchemaResource.object(properties.get("commit_attempt_caps"));
+        var counters = SchemaResource.object(caps.get("properties"));
+        var changeSet = SchemaResource.object(counters.get("change_set"));
+        var frame = SchemaResource.object(counters.get("frame"));
+
+        assertAll(
+                () -> assertEquals(Set.of("change_set", "frame"), counters.keySet(),
+                        "the caps should hold the two counters"),
+                () -> assertEquals(Set.of("staged_tree", "message_digest", "attempts"),
+                        SchemaResource.object(changeSet.get("properties")).keySet(),
+                        "the change set should name its three members"),
+                () -> assertEquals(Set.of("frame_id", "tasks"),
+                        SchemaResource.object(frame.get("properties")).keySet(),
+                        "the frame should name its two members"));
+    }
+
+    @Test
+    @DisplayName("the freshness reconcile members are the schema's required members")
+    void freshnessReconcileMembersEqualSchema() {
+        var member = SchemaResource.object(properties.get(FRESHNESS_RECONCILE));
+        var required = SchemaResource.array(member.get("required")).stream().map(String::valueOf)
+                .collect(Collectors.toUnmodifiableSet());
+
+        assertEquals(Set.of("commit_sha", "step_id", "prior_build_worktree_sha", "worktree_sha_version",
+                "recorded_at"), required, "the freshness stamp should name the schema's members");
     }
 
     @Test
