@@ -179,7 +179,7 @@ class CommitAttemptCounterTest {
 
             assertAll(
                     () -> assertEquals(3, counter.caps().changeSet().attempts(), "the cap is never exceeded"),
-                    () -> assertTrue(counter.changeSetCapSpent(), "the cap stays spent"));
+                    () -> assertTrue(counter.changeSetCapSpent(), "the spent cap stays spent"));
         }
 
         @Test
@@ -188,7 +188,8 @@ class CommitAttemptCounterTest {
             var caps = CommitAttemptCounter.empty().fixTask(frameId()).caps();
 
             assertAll(
-                    () -> assertEquals(caps, CommitAttemptCounter.of(caps).caps(), "the caps round-trip"),
+                    () -> assertEquals(caps, CommitAttemptCounter.of(caps).caps(),
+                            "the caps round-trip unchanged"),
                     () -> assertThrows(NullPointerException.class, () -> CommitAttemptCounter.of(null),
                             "an absent value is refused"));
         }
@@ -198,7 +199,7 @@ class CommitAttemptCounterTest {
         void capsAreThree() {
             assertAll(
                     () -> assertEquals(3, CommitAttemptCounter.CHANGE_SET_CAP, "the change-set cap is three"),
-                    () -> assertEquals(3, CommitAttemptCounter.FRAME_CAP, "the frame cap is three"));
+                    () -> assertEquals(3, CommitAttemptCounter.FRAME_CAP, "the per-frame cap is three"));
         }
     }
 }

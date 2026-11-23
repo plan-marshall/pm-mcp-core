@@ -126,12 +126,20 @@ public final class GitStageAndCommitPrimitive
     static final String NO_MESSAGE_DETAIL = "no commit message is resolved";
 
     /**
-     * An absolute-path token inside a detail text: a separator that is no path-name character — a letter, a digit,
-     * {@code .}, {@code _}, {@code ~}, {@code /}, {@code \} or {@code -} — before a {@code /}, up to the next blank or
-     * bracket.
+     * A token that starts an absolute path inside a detail text: an introducer — the start of the text, white space, a
+     * quote, or an opening, assignment or separator punctuation — before a {@code /}. A closing bracket is no
+     * introducer, so a relative name such as {@code app/[slug]/page.tsx} or {@code (group)/x} stays a name; a name whose
+     * separator follows a non-bracket punctuation is still read as absolute, the fail-closed direction.
      */
     private static final Pattern ABSOLUTE_PATH =
-            Pattern.compile("(?<![\\p{L}\\p{N}._~/\\\\-])/[^\\s)\"']*");
+            Pattern.compile("(?:^|[\\s\"'(\\[{<=:])/[^\\s)\"']*");
+
+    /**
+     * A token that starts a drive-qualified absolute path inside a detail text: the same introducers before a drive
+     * letter and a separator, so a Windows path {@code C:\...} or {@code C:/...} is refused whatever the host.
+     */
+    private static final Pattern DRIVE_PATH =
+            Pattern.compile("(?:^|[\\s\"'(\\[{<=:])[A-Za-z]:[\\\\/][^\\s)\"']*");
 
     /** The committer while no agent identity resolves. */
     static final Identity COMPILED_COMMITTER = new Identity("plan-marshall-mcp", "noreply@cuioss.de");
@@ -279,12 +287,14 @@ public final class GitStageAndCommitPrimitive
     /**
      * The detail of a failed commit as the model-facing fact carries it. The contract's detail names the checkout in
      * some of its outcomes, so every occurrence of the absolute root is made the repository-relative root {@code .}; an
-     * absolute path outside the checkout — a {@code /} that follows no path-name character: a letter, a digit,
-     * {@code .}, {@code _}, {@code ~}, {@code /}, {@code \} or {@code -} — a text that still names one after that
-     * replacement, and a text that carries a traversal segment are replaced by the code of the git outcome, because the
-     * primitive cannot tell whether a host path of the server is safe to render; and a contract that states no detail is
-     * carried as that code. No absolute path therefore reaches a fact. The rule errs towards the code: a name whose
-     * punctuation stands before a {@code /} is read as an absolute path and replaced too.
+     * absolute path outside the checkout — a {@code /} that follows an introducer (the start of the text, white space, a
+     * quote, or an opening, assignment or separator punctuation) or a drive-qualified token — a text that still names
+     * one after that replacement, and a text that carries a traversal segment are replaced by the code of the git
+     * outcome, because the primitive cannot tell whether a host path of the server is safe to render; and a contract
+     * that states no detail is carried as that code. No POSIX absolute path and no drive-qualified path therefore
+     * reaches a fact. The rule errs towards the code: a relative name whose separator follows a non-bracket punctuation
+     * is read as an absolute path and replaced too, while a relative name with a bracket and a closing bracket before
+     * the separator ({@code app/[slug]/page.tsx}, {@code (group)/x}) stays a name.
      */
     static String modelDetail(GitOutcome outcome, @Nullable String detail, Path worktree) {
         if (detail == null || detail.isBlank()) {
@@ -314,7 +324,8 @@ public final class GitStageAndCommitPrimitive
         if (scrubbed.contains("../") || scrubbed.contains("..\\")) {
             return outcome.name();
         }
-        return ABSOLUTE_PATH.matcher(scrubbed).find() ? outcome.name() : scrubbed;
+        return ABSOLUTE_PATH.matcher(scrubbed).find() || DRIVE_PATH.matcher(scrubbed).find() ? outcome.name()
+                : scrubbed;
     }
 
     private static PrimitiveResult<Outcome> messageRefused(ContentViolation violation) {

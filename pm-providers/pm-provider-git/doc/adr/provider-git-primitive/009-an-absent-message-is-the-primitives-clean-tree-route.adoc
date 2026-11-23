@@ -16,7 +16,8 @@ is nothing to commit, and the state catalogue routes `ready` unconditionally to 
 required a message (`Params.message` was `requireNonNull`). The sub-workflow's fixture declares `message` as an optional
 input (`commit_message[1..2000]?`), so an absent `message` is an absent optional input of the call; the engine's
 `WorkflowEngine.resolve` resolves the inputs of a sub-workflow call, and the primitive's parameters are bound from them
-by the `ParameterBinder` of the assembly, which turns the absent input into a null `Params.message`. The premise is not
+by the `ParameterBinder` of the assembly, which the specification's unverified lead says turns the absent input into a
+null `Params.message` — a lead about the assembly, not a fact of this repository. The premise is not
 that the engine binds the parameters: it resolves the call's inputs, and the assembly's binder reaches the primitive. The
 primitive, not the binder, decided whether the absent value was legal, and the specification did not say where a clean
 tree goes after `ready` (landing of PLAN-V2-20, L3-1). That the assembly binds `message = null` only on the clean-tree

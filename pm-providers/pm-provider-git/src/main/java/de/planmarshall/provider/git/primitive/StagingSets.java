@@ -50,7 +50,9 @@ import de.planmarshall.provider.git.CommitPathRefusals;
  * {@code .marshall/project-architecture/**};</li>
  * <li>{@link ScopeType#PROJECT}: no staging set, every dirty path is outside.</li>
  * </ul>
- * Every other dirty path is {@code outside}; a refused path is a value, never an exception.
+ * Every other dirty path is {@code outside}; a refused path is a value, never an exception. The tracked-tree rule stays
+ * silent when it cannot read the repository, so the staging set then decides by the textual and file-system rules alone
+ * and the commit reports the condition.
  *
  * @since 0.1
  */
