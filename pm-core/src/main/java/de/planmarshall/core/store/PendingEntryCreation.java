@@ -40,8 +40,9 @@ import de.planmarshall.core.store.SourceManifest.SourceFile;
  * {@link #finish}, which deletes the entry's directory. Two crash windows follow. A stop after the new scope's commit
  * and before the workspace's leaves the entry's record in place; the new scope already holds the stores, so a repeated
  * move is refused by their create targets and the operator ends the entry by abandoning it. A stop after both commits
- * and before {@link #finish} leaves the record gone and the directory behind, which the sweep removes by the evidence
- * of the absent record; a second move then refuses as an entry that does not exist. The directories of the new scope
+ * and before {@link #finish} leaves the record gone and the directory behind, which the sweep removes by the evidence of
+ * the four stores absent from the workspace's sidecar and from the filesystem; a second move then refuses as an entry
+ * that does not exist. The directories of the new scope
  * ({@code sources/}, {@code chat/} and the parents of the stored files) are created before the stores are staged,
  * because a transaction writes stores and never directories.
  * <p>

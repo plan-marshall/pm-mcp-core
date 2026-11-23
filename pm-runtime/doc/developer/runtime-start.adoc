@@ -66,7 +66,7 @@ PeriodicSweep.runOnce(now)
     │    read each entry's record                          (absent = candidate of a cut-off removal)
     │    workspace lock ─► ScopeTransaction of the workspace
     │      for each candidate, verify under the lock:
-    │        PendingEntryStore.verify                       (absent record AND absent sidecar = residue)
+    │        PendingEntryStore.verify                       (four stores absent from the sidecar and the filesystem = residue)
     │        a record that exists now keeps its entry        (an entry opened since the listing)
     │        a tampered entry is kept and reported
     │        a store path through a symbolic link holds that entry and is reported

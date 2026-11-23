@@ -26,6 +26,8 @@ import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The audit records built by the factories of {@link AuditEvent}: those of the store substrate (PM-IMPL-7) and those
@@ -244,6 +246,36 @@ class AuditEventTest {
                 () -> assertThrows(NullPointerException.class,
                         () -> AuditEvent.pendingEntryRemoved(entryId, directory, removedAt, null),
                         "removal needs a transaction id"));
+    }
+
+    @ParameterizedTest(name = "{0}-digit fraction")
+    @ValueSource(ints = {0, 3, 6, 9})
+    @DisplayName("removed_at is the whole-second form or carries exactly 3, 6 or 9 fraction digits")
+    void removedAtFraction(int digits) {
+        var nanos = switch (digits) {
+            case 0 -> 0;
+            case 3 -> 1_000_000;
+            case 6 -> 1_000;
+            default -> 1;
+        };
+        // Contract literals: the fraction forms Instant.toString writes, and none for a whole second
+        var fraction = switch (digits) {
+            case 0 -> "";
+            case 3 -> "\\.\\d{3}";
+            case 6 -> "\\.\\d{6}";
+            default -> "\\.\\d{9}";
+        };
+        var entryId = "ent-" + Generators.letterStrings(4, 8).next().toLowerCase(Locale.ROOT);
+        var removedAt = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next(), nanos);
+
+        var event = AuditEvent.pendingEntryRemoved(entryId, "pending/" + entryId, removedAt, TRANSACTION_ID);
+
+        var removedAtValue = String.valueOf(event.details().get(AuditEvent.DETAIL_REMOVED_AT));
+        assertAll(
+                () -> assertEquals(removedAt.toString(), removedAtValue,
+                        "removed_at is the instant's ISO-8601 form"),
+                () -> assertTrue(removedAtValue.matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}" + fraction + "Z"),
+                        "removed_at has the fraction length Instant writes"));
     }
 
     @Nested
