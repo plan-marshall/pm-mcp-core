@@ -381,7 +381,7 @@ public final class JGitOperations implements GitOperations {
             }
             var staged = paths.isEmpty() ? wholeIndex(repository) : indexEntries(repository, paths);
             stage(git, command, paths);
-            if (isEmptyAfterStaging(git, repository, paths)) {
+            if (isEmptyAfterStaging(repository, paths)) {
                 // the status saw a staged change the worktree reverted: staging would overwrite the index and the
                 // commit would be empty, so the index is restored and the call commits nothing
                 restore(repository, paths, staged);
@@ -452,8 +452,7 @@ public final class JGitOperations implements GitOperations {
      * listed entries only, for an empty list the whole index — never the worktree, whose dirt (a submodule's own
      * checkout among it) says nothing about what the commit would carry.
      */
-    private static boolean isEmptyAfterStaging(Git git, Repository repository, List<String> paths)
-            throws GitAPIException, IOException {
+    private static boolean isEmptyAfterStaging(Repository repository, List<String> paths) throws IOException {
         return paths.isEmpty() ? indexMatchesHead(repository) : !hasChanges(repository, paths);
     }
 
