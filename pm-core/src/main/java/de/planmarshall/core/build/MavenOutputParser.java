@@ -369,7 +369,7 @@ public class MavenOutputParser {
          */
         @Builder
         private record Counts(long total, long failed, long skipped, boolean errorLevel, int execution,
-                String message) {
+        String message) {
         }
 
         void accept(String line) {
