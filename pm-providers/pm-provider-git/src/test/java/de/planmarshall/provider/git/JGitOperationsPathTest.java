@@ -31,7 +31,6 @@ import org.eclipse.jgit.dircache.DirCacheEditor;
 import org.eclipse.jgit.dircache.DirCacheEntry;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.FileMode;
-import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.junit.jupiter.api.DisplayName;
@@ -350,17 +349,17 @@ class JGitOperationsPathTest extends JGitOperationsFixtures {
         try (Git jgit = Git.init().setDirectory(nested.toFile()).call()) {
             Files.writeString(nested.resolve(file()), text(), StandardCharsets.UTF_8);
             jgit.add().addFilepattern(".").call();
-            commitIn(jgit);
+            commitThroughGit(jgit);
         }
         try (Git jgit = Git.open(repo.toFile())) {
             recordGitlink(jgit.getRepository(), submodule);
-            commitIn(jgit);
+            commitThroughGit(jgit);
         }
         // the nested repository moves to a commit of its own, so the worktree differs from the gitlink
         try (Git jgit = Git.open(nested.toFile())) {
             Files.writeString(nested.resolve(file()), text(), StandardCharsets.UTF_8);
             jgit.add().addFilepattern(".").call();
-            commitIn(jgit);
+            commitThroughGit(jgit);
         }
 
         var staging = StagingSets.derive(ScopeType.PLAN, repo, List.of(submodule), false);
@@ -416,14 +415,6 @@ class JGitOperationsPathTest extends JGitOperationsFixtures {
             }
         });
         assertTrue(editor.commit(), "the gitlink is recorded in the index");
-    }
-
-    private void commitIn(Git jgit) throws Exception {
-        jgit.commit().setMessage(text())
-                .setAuthor(new PersonIdent(author.name(), author.email()))
-                .setCommitter(new PersonIdent(agent.name(), agent.email()))
-                .setSign(Boolean.FALSE)
-                .call();
     }
 
     private Status gitStatus() throws Exception {

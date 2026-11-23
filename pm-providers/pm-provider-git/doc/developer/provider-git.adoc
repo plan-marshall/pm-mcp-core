@@ -99,8 +99,9 @@ would change (link:../adr/provider-git/004-a-directory-is-refused-and-emptiness-
 put back as it was: a listed path whose staged change the worktree reverted is restored from the snapshot taken before
 staging, and for an empty path list — every change of the worktree — the whole index is snapshotted and restored, so
 `NOTHING_TO_COMMIT` leaves the index untouched on both routes. An index that holds unresolved conflict entries under the
-listed paths is refused as `FAILED` with a detail naming the path before anything is staged: the restore keeps one entry
-per path, so it would write the base entry back at stage 0 and the conflict would disappear.
+listed paths is refused as `FAILED` with a detail naming the path before anything is staged, before even the emptiness
+read: the restore keeps one entry per path, so it would write the base entry back at stage 0 and the conflict would
+disappear. JGit's own empty-commit refusal after staging is a defensive path behind the pre-check and restores nothing.
 The commit set stays a subset of the staging set (link:../adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR
 003]).
 

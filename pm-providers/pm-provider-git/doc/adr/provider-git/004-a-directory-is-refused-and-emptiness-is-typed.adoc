@@ -88,14 +88,16 @@ both routes.
 The emptiness read of the amendment above runs for every call, but the restore of the index behind it ran only for a
 listed path list: a call with an empty list — every change of the worktree — staged `add .` over the index and, when the
 resulting commit was empty, returned `NOTHING_TO_COMMIT` with the index overwritten. The restore now covers both routes:
-the listed entries for a listed path list and the whole index, snapshotted before staging, for an empty one, so
-`NOTHING_TO_COMMIT` leaves the index untouched either way (`JGitOperationsTest`, `emptyPathListRestoresTheWholeIndex`
-beside `nothingToCommitLeavesTheIndexUntouched`).
+the listed entries for a listed path list and the whole index, snapshotted before staging, for an empty one, so the
+`NOTHING_TO_COMMIT` of that pre-check leaves the index untouched either way (`JGitOperationsTest`,
+`emptyPathListRestoresTheWholeIndex` beside `nothingToCommitLeavesTheIndexUntouched`). JGit's own empty-commit refusal
+after staging is a defensive path behind the pre-check and restores nothing.
 
 The snapshot keeps one entry per path, taken with `DirCache.getEntry(path)`, which answers the first stage. In a
 conflicted index that first stage is the base entry (stage 1), so a restore would write it back at stage 0 and the
 conflict would silently disappear. The call therefore refuses an index that holds unresolved conflict entries under the
 listed paths — the whole index for an empty list — as `FAILED` with a detail naming the path, before anything is staged
+and before the emptiness read
 (`JGitOperationsTest`, `conflictedIndexIsRefused`). Restoring every stage was the alternative; the refusal keeps the
 conflict exactly as the merge left it and needs no second writer of the index.
 

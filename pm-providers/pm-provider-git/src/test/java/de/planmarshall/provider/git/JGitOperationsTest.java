@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Objects;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.dircache.DirCacheEntry;
-import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.treewalk.TreeWalk;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -243,11 +242,11 @@ class JGitOperationsTest extends JGitOperationsFixtures {
             jgit.branchCreate().setName(other).call();
             Files.writeString(repo.resolve(conflicted), text(), StandardCharsets.UTF_8);
             jgit.add().addFilepattern(conflicted).call();
-            commitRaw(jgit);
+            commitThroughGit(jgit);
             jgit.checkout().setName(other).call();
             Files.writeString(repo.resolve(conflicted), text(), StandardCharsets.UTF_8);
             jgit.add().addFilepattern(conflicted).call();
-            commitRaw(jgit);
+            commitThroughGit(jgit);
             jgit.checkout().setName(branch).call();
             var merge = jgit.merge().include(jgit.getRepository().resolve(other)).call();
             assertTrue(merge.getConflicts() != null && merge.getConflicts().containsKey(conflicted),
@@ -260,14 +259,6 @@ class JGitOperationsTest extends JGitOperationsFixtures {
                 () -> assertEquals(GitOutcome.FAILED, result.outcome(), "A conflicted index is refused"),
                 () -> assertTrue(String.valueOf(result.detail()).contains(conflicted),
                         "The refusal names the conflicted path"));
-    }
-
-    private void commitRaw(Git jgit) throws Exception {
-        jgit.commit().setMessage(text())
-                .setAuthor(new PersonIdent(author.name(), author.email()))
-                .setCommitter(new PersonIdent(agent.name(), agent.email()))
-                .setSign(Boolean.FALSE)
-                .call();
     }
 
     @Test

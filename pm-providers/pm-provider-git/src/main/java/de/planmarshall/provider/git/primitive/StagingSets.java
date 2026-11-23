@@ -82,7 +82,9 @@ public final class StagingSets {
         Objects.requireNonNull(dirtyPaths, "dirtyPaths");
         var member = member(scope, archiving);
         var roots = new WorkspaceRoots(worktree, Set.of());
-        var trackedTrees = CommitPathRefusals.refusedTrackedTrees(worktree, dirtyPaths);
+        var trackedTrees = scope == ScopeType.PROJECT || dirtyPaths.isEmpty()
+                ? Collections.<String>emptySortedSet()
+                : CommitPathRefusals.refusedTrackedTrees(worktree, dirtyPaths);
         var staged = new TreeSet<String>();
         var outside = new TreeSet<String>();
         for (var path : dirtyPaths) {

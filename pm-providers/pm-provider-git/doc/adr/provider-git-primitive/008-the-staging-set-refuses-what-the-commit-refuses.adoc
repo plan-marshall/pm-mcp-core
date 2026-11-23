@@ -28,7 +28,10 @@ tracked directory that a file replaced is refused by the index and the head tree
   `CommitPaths.isRefusedText`, the file-system rule (no directory, no absolute name, nothing outside the root, no parent
   that a symbolic link carries outside the real root), and the tracked-tree rule (no name that is a directory of the index
   or of the head tree although the worktree no longer holds it as one). Both `JGitOperations.commit` and
-  `StagingSets.derive` apply it, so the two cannot disagree.
+  `StagingSets.derive` apply it, so a name one refuses by this rule is the other's answer too. Two conditions stay the
+  commit's own and are named there: an index with unresolved conflict entries under the listed paths, and a checkout
+  whose repository or index cannot be read, for which the staging set has no tree answer and the commit reports the
+  condition.
 * `CommitPaths.isRefusedText` is the textual part: it is not empty, does not begin with `:` or `/`,
   holds no backslash and no control character (a newline among them, and the NUL that is one), and has no empty, `.` or
   `..` segment. A directory entry fails it through its empty segment.

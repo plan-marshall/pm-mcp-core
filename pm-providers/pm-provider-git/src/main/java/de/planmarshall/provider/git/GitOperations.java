@@ -89,7 +89,9 @@ public interface GitOperations {
      * worktree and the index first, so a call the status finds unchanged stages nothing and the index keeps the entries
      * it had. A call whose staging yields no change against {@code HEAD} — a staged change the worktree reverted — puts
      * the index back as it was before staging: the listed entries for a listed path list, the whole index for an empty
-     * one, so {@code NOTHING_TO_COMMIT} leaves the index untouched on both routes.
+     * one, so the {@code NOTHING_TO_COMMIT} of that pre-check leaves the index untouched on both routes. The
+     * {@code NOTHING_TO_COMMIT} of JGit's own empty-commit refusal after staging is a defensive path behind the same
+     * pre-check and restores nothing.
      *
      * @param input the input
      * @return {@code OK} with the commit, {@code NOTHING_TO_COMMIT}, {@code PATH_REFUSED}, {@code CAPABILITY_MISSING},

@@ -10,7 +10,6 @@
 package de.planmarshall.provider.git.primitive;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import de.cuioss.test.generator.Generators;
@@ -30,15 +29,15 @@ import de.planmarshall.core.SchemaResource;
  * The patterns of the operator's stored identity halves — {@code commit_trailer} and {@code commit_identity} of
  * {@code local-config.schema.json} — against the code that reads them. Both keys refuse an angle bracket and the line
  * separators of the name half, and the email half refuses white space; unlike {@link CommitTrailer}, the schema refuses
- * every C0 and C1 control as well, so a value that passes the schema check carries no NUL or ESC. The unpaired surrogate
- * is the one rule no ECMA-262 pattern expresses; the prose of the specification states it beside the schema.
+ * every C0 and C1 control as well, so a value the schema check refuses carries no NUL or ESC.
  * <p>
- * The patterns are compiled here with {@code java.util.regex}, the engine of this test, and the whole C0/C1 and white
- * space classes are checked code point by code point rather than sampled. No validator runs in this module: the store's
- * schema check is the assembly's, and nothing in this repository enforces the schema (a Watch records it). U+FEFF is the
- * one deliberate exception of the white-space class: ECMA-262's {@code \s} names it and {@code java.util.regex}'s does
- * not, so the pattern admits it — as {@link CommitTrailer} does — and the test names that rather than sampling around
- * it.
+ * The patterns are compiled here with {@code java.util.regex}, the engine of this test, and the whole C0/C1 and White_Space
+ * classes are checked code point by code point rather than sampled. By the operator's decision of 2026-11-08 (epic
+ * {@code pm-mcp-core-m2-m4-v2}, `runtime-schema-validation`) the schema files serve the tests: no run-time validation of
+ * a stored record runs in this repository or in the assembly, so a pattern here is the declared rule and the codec's own
+ * checks are what a stored value meets (`PM-WATCH-STORE-62`). U+FEFF is the one deliberate exception of the white-space
+ * class: ECMA-262's {@code \s} names it and {@code java.util.regex}'s does not, so the pattern admits it — as
+ * {@link CommitTrailer} does — and the test names that rather than sampling around it.
  */
 @EnableGeneratorController
 @DisplayName("The stored identity schema patterns")
@@ -59,9 +58,6 @@ class CommitTrailerSchemaParityTest {
     /** The Unicode line separators the trailer's own rule refuses; U+0085 is a C1 control as well. */
     private static final int[] LINE_SEPARATORS = {0x0085, 0x2028, 0x2029};
 
-    /** The Unicode White_Space code points above the C1 range; the name half admits them, the email half refuses them. */
-    private static final int[] WHITE_SPACE_ABOVE_C1 = {0x00a0, 0x1680, 0x202f, 0x205f, 0x3000};
-
     private static final String SUPPLEMENTARY = new String(Character.toChars(0x1F600));
 
     @Nested
@@ -77,32 +73,43 @@ class CommitTrailerSchemaParityTest {
             admitted.addAll(admitted(pattern, nameValues(LINE_SEPARATORS)));
             admitted.addAll(admitted(pattern, names(ANGLE_BRACKETS)));
 
-            assertNotEquals(0, controls().length, "The control population is not empty");
+            assertNotEquals(0, controls().length + ANGLE_BRACKETS.length, "The refused population is not empty");
             assertEquals(List.of(), admitted, "The pattern refuses every listed code point");
         }
 
         @Test
-        @DisplayName("the code refuses the angle brackets and the line breaks the trailer carries")
+        @DisplayName("the code refuses the angle brackets and every line break the trailer carries")
         void codeRefusesTheLineBreaks() {
-            var refused = new ArrayList<Integer>(Arrays.stream(LINE_SEPARATORS).boxed().toList());
-
-            assertFalse(CommitTrailer.isValidName("a<b"), "The code refuses the angle bracket");
-            for (var codePoint : refused) {
-                assertFalse(CommitTrailer.isValidName("a" + Character.toString(codePoint) + "b"),
-                        "The code refuses the line separator " + codePointName(codePoint));
+            var accepted = new ArrayList<String>();
+            for (var angleBracket : ANGLE_BRACKETS) {
+                if (CommitTrailer.isValidName("a" + angleBracket + "b")) {
+                    accepted.add(angleBracket);
+                }
             }
+            for (var codePoint : LINE_SEPARATORS) {
+                if (CommitTrailer.isValidName("a" + Character.toString(codePoint) + "b")) {
+                    accepted.add(codePointName(codePoint));
+                }
+            }
+            for (var lineFeed : new int[]{'\r', '\n'}) {
+                if (CommitTrailer.isValidName("a" + Character.toString(lineFeed) + "b")) {
+                    accepted.add(codePointName(lineFeed));
+                }
+            }
+
+            assertNotEquals(0, LINE_SEPARATORS.length, "The line-separator population is not empty");
+            assertEquals(List.of(), accepted, "The code refuses the angle brackets and line breaks");
         }
 
         @Test
-        @DisplayName("the pattern admits the white-space class above C1, as the code does")
-        void admitsWhiteSpaceAboveC1() {
+        @DisplayName("the pattern admits the white-space class outside the controls and the separators")
+        void admitsTheRestOfTheWhiteSpaceClass() {
             var pattern = pattern(TRAILER, "name");
+            var candidates = nameValues(nameAdmittedWhiteSpace());
+            candidates.addAll(nameValues(new int[]{ZERO_WIDTH_NO_BREAK_SPACE}));
 
-            var rejected = rejected(pattern, nameValues(WHITE_SPACE_ABOVE_C1));
-            rejected.addAll(rejected(pattern, nameValues(new int[]{ZERO_WIDTH_NO_BREAK_SPACE})));
-
-            assertNotEquals(0, WHITE_SPACE_ABOVE_C1.length, "The white-space population is not empty");
-            assertEquals(List.of(), rejected, "The name half admits the white-space class");
+            assertNotEquals(0, nameAdmittedWhiteSpace().length, "The admitted white-space population is not empty");
+            assertEquals(List.of(), rejected(pattern, candidates), "The name half admits the white-space class");
         }
 
         @Test
@@ -130,15 +137,30 @@ class CommitTrailerSchemaParityTest {
             var pattern = pattern(TRAILER, "email");
 
             var admitted = admitted(pattern, emailValues(controls()));
-            admitted.addAll(admitted(pattern, emailValues(LINE_SEPARATORS)));
-            admitted.addAll(admitted(pattern, emailValues(WHITE_SPACE_ABOVE_C1)));
-            admitted.addAll(admitted(pattern, emailValues(new int[]{0x20})));
+            admitted.addAll(admitted(pattern, emailValues(whiteSpace())));
             admitted.addAll(admitted(pattern, emails(ANGLE_BRACKETS)));
             admitted.addAll(admitted(pattern, emails(new String[]{"@"})));
 
-            assertNotEquals(0, controls().length + WHITE_SPACE_ABOVE_C1.length + LINE_SEPARATORS.length + 3,
+            assertNotEquals(0, controls().length + whiteSpace().length + 3,
                     "The refused population is not empty");
             assertEquals(List.of(), admitted, "The pattern refuses every code point of the classes");
+        }
+
+        @Test
+        @DisplayName("the code refuses the white space, @ and the angle brackets of the same classes")
+        void codeRefusesTheSameClasses() {
+            var accepted = new ArrayList<String>();
+
+            for (var codePoint : whiteSpace()) {
+                accepted.addAll(acceptedByCode(emailValues(new int[]{codePoint})));
+            }
+            for (var angleBracket : ANGLE_BRACKETS) {
+                accepted.addAll(acceptedByCode(emails(new String[]{angleBracket})));
+            }
+            accepted.addAll(acceptedByCode(emails(new String[]{"@"})));
+
+            assertNotEquals(0, whiteSpace().length, "The white-space population is not empty");
+            assertEquals(List.of(), accepted, "The code refuses the white space and the brackets");
         }
 
         @Test
@@ -147,8 +169,12 @@ class CommitTrailerSchemaParityTest {
             var pattern = pattern(TRAILER, "email");
             var address = "a" + Character.toString(ZERO_WIDTH_NO_BREAK_SPACE) + "b@c.de";
 
-            assertEquals(List.of(), rejected(pattern, List.of(address)),
-                    "The pattern admits U+FEFF as the code does");
+            var rejected = rejected(pattern, List.of(address));
+            if (!CommitTrailer.isValidEmail(address)) {
+                rejected.add(address);
+            }
+
+            assertEquals(List.of(), rejected, "The pattern admits U+FEFF as the code does");
         }
 
         @Test
@@ -179,7 +205,19 @@ class CommitTrailerSchemaParityTest {
             admitted.addAll(admitted(pattern, nameValues(LINE_SEPARATORS)));
             admitted.addAll(admitted(pattern, names(ANGLE_BRACKETS)));
 
+            assertNotEquals(0, controls().length + ANGLE_BRACKETS.length, "The refused population is not empty");
             assertEquals(List.of(), admitted, "The pattern refuses every listed code point");
+        }
+
+        @Test
+        @DisplayName("the pattern admits the white-space class outside the controls and the separators")
+        void admitsTheRestOfTheWhiteSpaceClass() {
+            var pattern = pattern(IDENTITY, "name");
+            var candidates = nameValues(nameAdmittedWhiteSpace());
+            candidates.addAll(nameValues(new int[]{ZERO_WIDTH_NO_BREAK_SPACE}));
+
+            assertNotEquals(0, nameAdmittedWhiteSpace().length, "The admitted white-space population is not empty");
+            assertEquals(List.of(), rejected(pattern, candidates), "The name half admits the white-space class");
         }
 
         @Test
@@ -203,12 +241,12 @@ class CommitTrailerSchemaParityTest {
             var pattern = pattern(IDENTITY, "email");
 
             var admitted = admitted(pattern, emailValues(controls()));
-            admitted.addAll(admitted(pattern, emailValues(LINE_SEPARATORS)));
-            admitted.addAll(admitted(pattern, emailValues(WHITE_SPACE_ABOVE_C1)));
-            admitted.addAll(admitted(pattern, emailValues(new int[]{0x20})));
+            admitted.addAll(admitted(pattern, emailValues(whiteSpace())));
             admitted.addAll(admitted(pattern, emails(ANGLE_BRACKETS)));
             admitted.addAll(admitted(pattern, emails(new String[]{"@"})));
 
+            assertNotEquals(0, controls().length + whiteSpace().length + 3,
+                    "The refused population is not empty");
             assertEquals(List.of(), admitted, "The pattern refuses every code point of the classes");
         }
 
@@ -245,16 +283,54 @@ class CommitTrailerSchemaParityTest {
         return rejected;
     }
 
+    /** The candidates the trailer's own email rule did accept, for the code half of the parity. */
+    private static List<String> acceptedByCode(List<String> candidates) {
+        var accepted = new ArrayList<String>();
+        for (var candidate : candidates) {
+            if (CommitTrailer.isValidEmail(candidate)) {
+                accepted.add(candidate);
+            }
+        }
+        return accepted;
+    }
+
+    /** The C0 and C1 control code points, the class the pattern refuses beyond what the trailer refuses. */
     private static int[] controls() {
         return IntStream.concat(IntStream.rangeClosed(0x00, 0x1f), IntStream.rangeClosed(0x7f, 0x9f)).toArray();
     }
 
-    private static List<String> nameValues(int[] codePoints) {
-        return Arrays.stream(codePoints).mapToObj(codePoint -> "a" + Character.toString(codePoint) + "b").toList();
+    /** The Unicode White_Space code points, the class ECMA-262's {@code \s} names. */
+    private static int[] whiteSpace() {
+        return IntStream.concat(
+                IntStream.concat(IntStream.rangeClosed(0x09, 0x0d), IntStream.of(0x20, 0x85)),
+                IntStream.concat(IntStream.of(0x00a0, 0x1680),
+                        IntStream.concat(IntStream.rangeClosed(0x2000, 0x200a),
+                                IntStream.of(0x2028, 0x2029, 0x202f, 0x205f, 0x3000)))).toArray();
     }
 
-    private static List<String> names(String[] values) {
-        return Arrays.stream(values).map(value -> "a" + value + "b").toList();
+    /** The White_Space code points the name half admits: those that are neither a control nor a line break. */
+    private static int[] nameAdmittedWhiteSpace() {
+        var separators = IntStream.concat(IntStream.of(LINE_SEPARATORS), IntStream.of('\r', '\n')).toArray();
+        return Arrays.stream(whiteSpace())
+                .filter(codePoint -> Arrays.stream(controls()).noneMatch(control -> control == codePoint))
+                .filter(codePoint -> Arrays.stream(separators).noneMatch(separator -> separator == codePoint))
+                .toArray();
+    }
+
+    private static ArrayList<String> nameValues(int[] codePoints) {
+        var values = new ArrayList<String>();
+        for (var codePoint : codePoints) {
+            values.add("a" + Character.toString(codePoint) + "b");
+        }
+        return values;
+    }
+
+    private static ArrayList<String> names(String[] values) {
+        var names = new ArrayList<String>();
+        for (var value : values) {
+            names.add("a" + value + "b");
+        }
+        return names;
     }
 
     private static List<String> emailValues(int[] codePoints) {

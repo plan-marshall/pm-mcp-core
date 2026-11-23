@@ -94,8 +94,9 @@ public final class CommitPathRefusals {
     /**
      * The tracked-tree rule over the checkout's own repository: the names that are a directory of the index or of the
      * head tree although the worktree no longer holds them as one. The worktree root is opened through
-     * {@link RefusingFS}, so no operation starts a process. A checkout whose repository or index cannot be read yields
-     * no name: the commit reports the condition, and the staging set never silently widens a refusal it cannot read.
+     * {@link RefusingFS}, so no operation starts a process. A checkout whose repository or index cannot be read yields no
+     * name: the staging set then decides by the textual and file-system rules alone, and the commit reports the
+     * condition, so no rule is invented for a state the rule cannot read.
      *
      * @param worktree the worktree root
      * @param names    the repository-relative candidates
