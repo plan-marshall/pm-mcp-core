@@ -38,12 +38,22 @@ Targets, from ADR 025: the layers and lanes of § target-lanes, the structure of
 Five deliverables, one commit each, in this order; the cut line, if the outline wants one, is Deliverable 4. Each reads the finding's row in ADR 025 first and says in the progress note what it found at the head.
 
 1. **The scope read and the retention table opened (order 1).** Re-read findings F1, F5, F7 and the structure rule S7 of ADR 025 at the head of `origin/main` (the tree moved after the ADR's snapshot: the ADR counts 18 and 2 `*SchemaParityTest` classes where the tree has 21 and 3, and 55 `*RecordsTest` in `pm-workflow` where it has 56) and list, per finding, the classes it moves, with the line counts; write the retention table (`Removed test | Retained test | Assertions carrying the behaviour | Break-the-code evidence`) in the pull request body and in the new ADR, one row per deletion or merge, **before** the first deletion; the rows are filled as the deliverables land. Done when: the list and the empty-by-design table exist before any test is removed, and the ADR has its number.
+   - Skills: pm-dev-java:java-core, pm-dev-java:java-lombok, pm-dev-java:java-null-safety, pm-dev-java:javadoc, pm-dev-java:junit-core, pm-dev-java-cui:cui-testing, pm-documents:ref-asciidoc
+   - Persona: implementer
 2. **The generator-based builder check (F1).** The 79 `*BuilderContractTest` classes of `pm-core`, the 44 `*RecordsTest` of `pm-runtime` and the 56 of `pm-workflow` repeat one check per record by hand. Replace the population by one generator-driven check per module that finds the records with a builder by reflection (a closed list: the records of four or more components, CLAUDE.md Code Standards) and proves builder-equals-canonical-constructor for every component, so that a record with a builder and no check cannot exist. Each hand-written class goes only if the generated check carries every assertion it carried (the retention table row names the assertions, and the break-the-code run drops a component from one builder). Test order: the generated check first, then the deletions.
+   - Skills: pm-dev-java:java-core, pm-dev-java:java-lombok, pm-dev-java:java-null-safety, pm-dev-java:javadoc, pm-dev-java:junit-core, pm-dev-java-cui:cui-testing, pm-documents:ref-asciidoc
+   - Persona: implementer
 3. **The shared fixtures (F7, S2, S4).** One home for the enrolment composition (`JobEnrolmentFixture` and its twins), the git layout of a worktree and the fixtures that more than one test class of a module repeats, sized per stage. **Ask-at-refine:** whether `pm-core:tests` publishes fixtures beside its generators (a change of ADR 012 and of CLAUDE.md § Generator Artifacts, the operator's decision); the alternative is one fixture class per module in its own test tree, which needs no decision. See Carried Open Items.
+   - Skills: pm-dev-java:java-core, pm-dev-java:java-lombok, pm-dev-java:java-null-safety, pm-dev-java:javadoc, pm-dev-java:junit-core, pm-dev-java-cui:cui-testing, pm-documents:ref-asciidoc
+   - Persona: implementer
 4. **The `@Nested` form of the question-log and project-resolution tests (F5, S7).** Merge the classes of one unit into `@Nested` classes where ADR 025 F5 names them, and take the `TestBases` temp directory of the remaining classes to `@TempDir` (S7: 8 integration tests, 4 unit classes and the fixture still use `TestBases`, ADR 025 F10; the three `QuestionLogRecordReader*Test` classes were done by PLAN-V2-140). A class that needs a Unix-domain socket path stays on `TestBases` (a `@TempDir` path may exceed the socket path limit; ADR 025 F10 gives the reason). No test is removed by the merge; the method count of each module is the same before and after unless a retention row says otherwise.
+   - Skills: pm-dev-java:java-core, pm-dev-java:java-lombok, pm-dev-java:java-null-safety, pm-dev-java:javadoc, pm-dev-java:junit-core, pm-dev-java-cui:cui-testing, pm-documents:ref-asciidoc
+   - Persona: implementer
 5. **The result (R05, R06).** The final measurement as in ADR 024 (three idle runs of `verify -Ppre-commit` and one `verify -Pcoverage`, the host load per run, the module times), the coverage per module against the baseline of ADR 024 (no module below its figure), the test counts before and after with every difference explained (PLAN-V2-140's runs 4 and 6 differ by 39 tests that nobody explained), the retention table complete, the ADR (amended or new) and the guides.
 
 **Done when:** Deliverables 1 to 5; the retention table lists every removed, merged or moved test with its break-the-code evidence and is not "none" unless the reading closed every finding without a deletion (then the ADR says so with the evidence); no module is below its coverage baseline (`verify -Pcoverage` per module, the figures in the pull request body); the test count before and after is explained row by row; `verify -Ppre-commit` is not slower than the final measurement of ADR 024 (about 235 s) by more than the run-to-run variance; the guide lines that name a moved fixture are changed. **Sonar:** the SonarCloud search of the pull request (`pullRequest=<N>&resolved=false`) lists no open issue other than one dismissed with its reason, and its quality gate is green, before the pull request is reported ready.
+   - Skills: pm-dev-java:java-core, pm-dev-java:java-lombok, pm-dev-java:java-null-safety, pm-dev-java:javadoc, pm-dev-java:junit-core, pm-dev-java-cui:cui-testing, pm-documents:ref-asciidoc
+   - Persona: implementer
 
 ## Standing Constraints
 
@@ -63,17 +73,17 @@ Plan-specific constraints (the epic-wide rules are in `standing-rules.md`):
 All claims read at `62bf986d` (`origin/main`) through the landing analysis of PLAN-V2-140; the outline re-reads each before it acts.
 
 - OBSERVED: the retention tables of ADR 024 and ADR 025 are empty ("none"): `doc/adr/024-verify-duration-measured-and-cut.adoc` lines 663-668, `doc/adr/025-test-design-layering-base-classes-and-fixtures.adoc` lines 461-466.
-  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ADR 024:664 and ADR 025:465 hold 4+|none
+  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: retention-table row 4+|none at ADR 024:664 and ADR 025:465, neither amended since
 - OBSERVED: PLAN-V2-140 changed `LspClientTest.java`, `QuestionLogRecordReaderBoundaryTest.java`, `QuestionLogRecordReaderReadTest.java`, `QuestionLogRecordReaderTest.java` and `pom.xml` (+14 lines: `reuseForks` true in the root `pluginManagement`), no test was removed or merged, the method counts of the three question-log classes are 5, 20 and 9 before and after.
-  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: 91a131f9 (#403) changed LspClientTest and the three QuestionLogRecordReader tests; test counts unchanged
+  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: holds for #403 (91a131f9); reuseForks override now pom.xml:175-184; QuestionLogRecordReaderTest has 21 methods at main
 - OBSERVED: the repository holds 79 `*BuilderContractTest` in `pm-core`, 44 `*RecordsTest` in `pm-runtime`, 56 `*RecordsTest` in `pm-workflow` (ADR 025 F1 states 55 for `pm-workflow`).
-  - verdict: contradicted | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: pm-workflow *RecordsTest is 57, not 56 (PolicyCallRecordsTest, #503); pm-core 79 and pm-runtime 44 hold; ADR 025:78,137 still say 55
+  - verdict: contradicted | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: 80 pm-core *BuilderContractTest (spec 79); pm-workflow 57 *RecordsTest (spec 56); pm-runtime 44 plus ProviderDefaultBuilderContractTest as stated; ADR 025:71,78,137 still say 79 and 55
 - OBSERVED: ADR 025 § Leads for the Operator names four leads: fixtures in `pm-core:tests` (a change of ADR 012), `toBuilder` on `ProjectEnrolment`, the fakes statement of ADR 012 (PLAN-V2-136 owns it), and the follow-up for F1, F5 and F7.
-  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ADR 025:482 Leads for the Operator holds the four bullets
+  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ADR 025 Leads for the Operator at :482 holds exactly four bullets
 - HYPOTHESIS: the generated builder check can find every record with a builder by reflection without a hand-kept list; verify-first: count the records with `@Builder` in `src/main` of the module and compare it with the count of the hand-written classes; a record the reflection misses (a nested record, a generic one) is a finding of the first deliverable.
-  - verdict: unverifiable | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: informational: files with @Builder in src/main are 83, 55, 65
+  - verdict: unverifiable | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Lombok Builder has SOURCE retention; a static builder() would be the discriminator; nested and generic records not shown by reading
 - HYPOTHESIS: a `@TempDir` path stays under the Unix-domain socket path limit (108 bytes) for the classes that open no socket; the three question-log classes prove it for those three (ADR 025 F10).
-  - verdict: unverifiable | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: depends on the host temp path
+  - verdict: unverifiable | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: depends on the host java.io.tmpdir; the three reader tests use @TempDir
 
 ## Expected Surface
 
@@ -83,13 +93,14 @@ Declared by directory at the staging; the first deliverable replaces each direct
 - OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/` — the `*RecordsTest` classes, `JobEnrolmentFixture`, the `TestBases` users, the question-log and project-resolution tests
 - OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/` — the `*RecordsTest` classes
 - OBSERVED: `doc/adr/025-test-design-layering-base-classes-and-fixtures.adoc` — read, amended only in the lines this plan makes false (the counts, the leads); history stays
-- HYPOTHESIS: `doc/adr/026-the-test-design-follows-the-layers-and-the-retention-table.adoc` — one new ADR (or an amendment of `doc/adr/012-generator-artifacts.adoc` if the operator decides the fixtures in `pm-core:tests`)
+- HYPOTHESIS: `doc/adr/034-the-test-design-follows-the-layers-and-the-retention-table.adoc` — one new ADR (or an amendment of `doc/adr/012-generator-artifacts.adoc` if the operator decides the fixtures in `pm-core:tests`)
 - OBSERVED: `pm-core/doc/developer/core-store.adoc`, `pm-runtime/doc/developer/runtime-question.adoc` — the guide lines that name a moved fixture
-- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/config/ProjectEnrolment.java` — `toBuilder`, only if Carried Open Items 2 is decided
+- HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/store/ProjectEnrolment.java` — `toBuilder`, only if Carried Open Items 2 is decided
 
 Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`, `doc/Traceability.adoc`. No `pom.xml`.
 
 - OBSERVED (cleanup 2026-11-19, understated surface; the files the Deliverables name and the surface did not): `pm-core/src/test/resources/hand-written-doubles.txt`, `pm-runtime/src/test/resources/hand-written-doubles.txt`, `pm-workflow/src/test/resources/hand-written-doubles.txt`.
+- OBSERVED (understated, added by the cleanup re-ground of 2026-11-23 at `origin/main` `8c7eac6f`): `doc/adr/012-generator-artifacts.adoc`, `CLAUDE.md`, `pm-core/pom.xml`, `pm-runtime/pom.xml`, `pm-runtime/doc/developer/runtime-job.adoc`, `pm-runtime/doc/developer/runtime-start.adoc`, `pm-runtime/README.adoc`, `doc/adr/README.adoc`.
 
 ## Dependencies and Sequencing
 
@@ -137,3 +148,13 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Re-Ground Record of 2026-11-23 (cleanup)
+
+Read by a read-only leaf at `origin/main` `8c7eac6faa00b26d0e11f0307c768d85e4fd044b`; the orchestrator did not re-read each point (the verdicts above carry the producer `pm-mcp-core-m2-m4-v2/cleanup`). The outline re-reads every line it acts on. Where this record and an older statement of the spec disagree, this record wins; the older text is kept as the audit record.
+
+- Counts at the head: pm-core 80 `*BuilderContractTest` (the new one is `profile/HarnessVerificationBuilderContractTest`, #552) not 79; pm-workflow 57 `*RecordsTest` not 56; pm-runtime 44 plus `config/ProviderDefaultBuilderContractTest`; `*SchemaParityTest` 27 pm-core, 4 pm-runtime, 1 pm-provider-git (ADR 025 says 18 and 2); ADR 025 :71,78,93-94,136-138,158 still carry 79, 55, 18, 2. Hand-written-double baselines: pm-core 85, pm-workflow 91, pm-runtime 89 non-comment lines (spec 81, 81, 91).
+- The new ADR number is NOT 026 (taken by `026-the-kept-hand-written-test-doubles-are-a-closed-list.adoc`; 027 to 033 exist): the next free number is 034, indexed in `doc/adr/README.adoc` (lines 53-56).
+- D4: seven integration tests use `TestBases` (`BoundedVerificationKilledRuntimeIT`, `JobRecoveryKilledRuntimeIT`, `ProjectRecoveryKilledRuntimeIT`, `RecoveryStepsKilledRuntimeIT`, `RelayVersionCheckKilledRuntimeIT`, `RuntimeDrainKilledRuntimeIT`, `StartupColdStartIT`); `PeriodicSweepKilledRuntimeIT` already uses `@TempDir` (:73). `JobEnrolmentFixture` is referenced by 12 test classes (ADR 025 F7 says 9); its four `with*` helpers :192, 201, 210, 233.
+- The hand-written doubles are now PLAN-V2-125 and 126's (PLAN-V2-136 merged, #411). `pm-core:tests` already publishes a non-generator helper package (`de/planmarshall/core/testing/assertions/**`, `pm-core/pom.xml:144-149`): a precedent for the helper share, and the reason the constraint "`pom.xml` is not edited" conflicts with Carried Open Item 1 and item (d) (`pm-runtime/pom.xml:147-153` test-jar execution): both POMs are now in the surface and the constraint is the operator's to lift or keep.
+- Surface corrections: `ProjectEnrolment` is `pm-core/src/main/java/de/planmarshall/core/store/ProjectEnrolment.java` (`@Builder` :73, 15 components, no `toBuilder`), not `.../config/`; `pm-core/doc/developer/core-store.adoc` names none of the fixtures; `runtime-job.adoc:416` names `JobEnrolmentFixture`, `runtime-start.adoc:557` and `pm-runtime/README.adoc:59-69` name `TestBases`. `reuseForks` override now `pom.xml:175-184`. Lombok `@Builder` has SOURCE retention: a static `builder()` is the only reflective discriminator.

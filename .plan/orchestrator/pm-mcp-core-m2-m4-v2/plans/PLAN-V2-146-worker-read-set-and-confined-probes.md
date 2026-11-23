@@ -66,15 +66,15 @@ Five deliverables, one commit each, in this order (the rationale for five: each 
 All lines read at `origin/main` `77f2a83d` through the grounding of 2026-11-14; the outline re-reads each before it acts.
 
 - OBSERVED: `JobConfinementComposer.forJob` (`:145`, case `LLM` `:176`, case `PROBE` `:182`) composes the write set; `JobConfinement` writes `--write`, `--read`, `--deny-read` (`pm-runtime/src/main/java/de/planmarshall/runtime/job/`).
-  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: JobConfinementComposer.forJob :151, LLM :183, PROBE :190; JobConfinement WRITE :49, READ :52, DENY_READ :58, READ_ONLY :55
+  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: JobConfinementComposer.forJob :151, LLM :183, PROBE :190; JobConfinement WRITE :49, READ :52, READ_ONLY :55, DENY_READ :58
 - OBSERVED: `readable_paths` is required in `harness-profile-v1.schema.json` (`:356,420`), pinned as `UNIMPLEMENTED_HEADLESS` in `HarnessProfileSchemaParityTest.java:49`, absent from `ProfileValidator` and `HeadlessBlock`; `writablePaths()` has no credential rule (`ProfileValidator.java:~945-962`).
-  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: schema :359 and required :423; pin HarnessProfileSchemaParityTest:53; no readable_paths in ProfileValidator or HeadlessBlock
+  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: schema readable_paths :359, required :424; UNIMPLEMENTED_HEADLESS :54; ProfileValidator HEADLESS :237-242; writablePaths :1049-1067 has no credential rule
 - OBSERVED: `SubprocessJobRunner.startProbe` (`:649`) and `startWorker` (`:549`) have no production caller; `forProbe` is called with `List.of()` (`:~709`); the hook flag is `false` (`:~960`); the data-home variable is `null` (`:578-579`); `WorkerSupervisor.java:315` passes `egressProxy(null)`.
-  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: startProbe :694 and startWorker :578 have no production caller; forProbe :754-755; WorkerSupervisor:315
+  - verdict: contradicted | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: startProbe :697 has no production caller, but startWorker :581 HAS one (WorkerSupervisor.java:310 via SupervisorEnvironment.java:148); forProbe List.of() :757,:759; WorkerSupervisor.java:318 egressProxy(null)
 - OBSERVED: the real `pm-exec` report is `{"pm_exec":"launched",...,"no_new_privs":b}` (`pm-mcp-clients` `Launcher.java:79-81`) while `LaunchReport.parse` refuses undeclared members (`:164`) and `FakePmExec` omits them: PLAN-V2-149 aligns it.
-  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: pm-exec Launcher.java:79-81 emits pm_exec and no_new_privs; LaunchReport.parse :171; FakePmExec:61-73 omits both
+  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: job-runtime/02:68 lists 16 explicit Linux paths plus macOS Keychains, no patterns; no CredentialLocations class
 - HYPOTHESIS: the credential-location list of the specification can be copied as a closed list into `CredentialLocations`; verify-first by reading `job-runtime/02-confinement-and-environment.adoc`; a location the specification names by pattern is carried as the pattern.
-  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: job-runtime/02:76 lists 16 explicit paths, no patterns; no CredentialLocations class
+  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: pm-exec Launcher.java:79-81 emits pm_exec and no_new_privs (clients fcf87728); LaunchReport.parse :152 refuses undeclared (:171); FakePmExec omits both
 
 ## Expected Surface
 
@@ -87,6 +87,7 @@ All lines read at `origin/main` `77f2a83d` through the grounding of 2026-11-14; 
 Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`. No `pom.xml`.
 
 - OBSERVED (cleanup 2026-11-19, understated surface; the files the Deliverables name and the surface did not): `pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeBudget.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeCandidate.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HeadlessBlock.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java`, `pm-runtime/src/main/resources/de/planmarshall/runtime/start/login-environment.schema.json`.
+- OBSERVED (understated, added by the cleanup re-ground of 2026-11-23 at `origin/main` `8c7eac6f`): `doc/plans/README.adoc`, `pm-runtime/src/test/java/de/planmarshall/runtime/launch/HeadlessBlockRecordsTest.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/log/RuntimeLogMessages.java`, `doc/LogMessages.adoc`.
 
 ## Dependencies and Sequencing
 
@@ -117,3 +118,12 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Re-Ground Record of 2026-11-23 (cleanup)
+
+Read by a read-only leaf at `origin/main` `8c7eac6faa00b26d0e11f0307c768d85e4fd044b`; the orchestrator did not re-read each point (the verdicts above carry the producer `pm-mcp-core-m2-m4-v2/cleanup`). The outline re-reads every line it acts on. Where this record and an older statement of the spec disagree, this record wins; the older text is kept as the audit record.
+
+- Line shifts (facts hold): `JobConfinementComposer.forJob` :151, `case LLM` :183, `case PROBE` :190; `JobConfinement` `WRITE` :49, `READ` :52, `READ_ONLY` :55, `DENY_READ` :58; schema `readable_paths` :359, required list :424; `HarnessProfileSchemaParityTest.UNIMPLEMENTED_HEADLESS` :54; `ProfileValidator` `HEADLESS` :237-242, `HEADLESS_OPTIONAL` :244, `headlessMembers` :605-607, `writablePaths()` :1049-1067 (refuses a harness home and a managed bundle path; no credential rule); `startProbe` :697, `startWorker` :581, `forProbe` :757-759; `WorkerSupervisor.java:318` `egressProxy(null)`.
+- Claim 2 corrected: `startWorker` HAS a production caller (`WorkerSupervisor.java:310` via `SupervisorEnvironment.java:148`); `startProbe` has none. The hook flag belongs to the `forJob` callers (`SubprocessJobRunner.java:615` worker, :1020 process job); `forProbe` has no hook flag (`JobConfinementComposer.java:254`).
+- D1: the holder is `pm-runtime/.../launch/HeadlessBlock.java` (`writablePaths(home)` :143, projection :134, constructor call :114), not `HarnessProfile`; a new component changes `HeadlessBlockRecordsTest.java:60,:64`. D3: the code's `CONTAINER_SOCKETS` :78 lists `/var/run/docker.sock`, `/run/docker/docker.sock` ..., the specification names the first two, the XDG one and the `DOCKER_HOST` path: reconcile before listing engine sockets. D5: the package file now has 14 tasks (11 git metadata done, 12 self-check, 13 git identity, 14 concept) and a section "Remaining outside this repository"; its `Depends on` is the README row (`doc/plans/README.adoc:39`), so `doc/plans/README.adoc` is in the surface (it contradicted the spec's own "Not surface").
+- Everything of D1 to D5 is open on main: no `CredentialLocations`, `WorkerReadSet`, listed mode, socket list or `readablePaths`. The `LLM` case still returns `denied(enrolment)` (:207): a listed mode needs a decision on `--deny-read` for workers.
