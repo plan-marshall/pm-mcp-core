@@ -187,8 +187,8 @@ class PendingEntryRecordsSweepTest {
 
         var removals = auditEvents.getValues().subList(before, auditEvents.getValues().size());
         assertAll(
-                () -> assertEquals(new Outcome.Done("removed 1 pending entry directories"), outcome,
-                        "the step must report one removed directory"),
+                () -> assertEquals(new Outcome.Done("removed 1 pending entry directories: [" + residue.value() + "]"),
+                        outcome, "the step must name the one removed directory"),
                 () -> assertFalse(Files.exists(store.entryDirectory(residue)), "the residue directory must be gone"),
                 () -> assertEquals(1, removals.size(), "one audit record must be owed by the removal"),
                 () -> assertEquals(PENDING_ENTRY_REMOVED, removals.getFirst().event(),
@@ -215,9 +215,10 @@ class PendingEntryRecordsSweepTest {
 
         var removals = auditEvents.getValues().subList(before, auditEvents.getValues().size());
         var transactionIds = removals.stream().map(removal -> removal.details().get("transaction_id")).toList();
+        var expected = List.of(residue.value(), second.value()).stream().sorted().toList();
         assertAll(
-                () -> assertEquals(new Outcome.Done("removed 2 pending entry directories"), outcome,
-                        "the step must report two removed directories"),
+                () -> assertEquals(new Outcome.Done("removed 2 pending entry directories: " + expected), outcome,
+                        "the step must count and name the two removed directories"),
                 () -> assertEquals(List.of(PENDING_ENTRY_REMOVED, PENDING_ENTRY_REMOVED),
                         removals.stream().map(AuditEvent::event).toList(), "two removal records must be owed"),
                 () -> assertEquals(2, transactionIds.size(), "each removal record carries a transaction id"),
@@ -253,8 +254,8 @@ class PendingEntryRecordsSweepTest {
         var removals = auditEvents.getValues().subList(before, auditEvents.getValues().size());
         assertAll(
                 () -> assertEquals(Optional.empty(), store.read(residue), "the move must delete the record"),
-                () -> assertEquals(new Outcome.Done("removed 1 pending entry directories"), outcome,
-                        "the sweep must remove the cut creation's directory"),
+                () -> assertEquals(new Outcome.Done("removed 1 pending entry directories: [" + residue.value() + "]"),
+                        outcome, "the sweep must name the cut creation's removed directory"),
                 () -> assertFalse(Files.exists(store.entryDirectory(residue)),
                         "the directory of the cut creation must be gone"),
                 () -> assertTrue(Files.exists(plan.pathBase().resolve("request.md")),
@@ -301,8 +302,8 @@ class PendingEntryRecordsSweepTest {
                         "the created scope must keep the carried source"),
                 () -> assertEquals(transcript, Files.readString(plan.pathBase().resolve("chat/session.md")),
                         "the created scope must keep the carried transcript"),
-                () -> assertEquals(new Outcome.Done("removed 1 pending entry directories"), outcome,
-                        "the sweep must remove the populated cut creation's directory"),
+                () -> assertEquals(new Outcome.Done("removed 1 pending entry directories: [" + residue.value() + "]"),
+                        outcome, "the sweep must name the populated removed directory"),
                 () -> assertFalse(Files.exists(store.entryDirectory(residue)),
                         "the populated directory of the cut creation must be gone"),
                 () -> assertEquals(1, removals.size(),
@@ -367,8 +368,9 @@ class PendingEntryRecordsSweepTest {
 
         var reason = assertInstanceOf(Outcome.Failed.class, outcome, "an unreadable record fails the step").reason();
         assertAll(
-                () -> assertTrue(reason.startsWith("removed 1 pending entry directories; kept unreadable entries"),
-                        "the report must count the removed directory"),
+                () -> assertTrue(reason.startsWith("removed 1 pending entry directories: [" + residue.value()
+                                + "]; kept unreadable entries"),
+                        "the report must name the removed directory"),
                 () -> assertTrue(reason.contains(broken.value() + " (unreadable)"),
                         "the report must name the unreadable record"),
                 () -> assertFalse(Files.exists(store.entryDirectory(residue)), "the readable residue is removed"),
@@ -396,6 +398,8 @@ class PendingEntryRecordsSweepTest {
 
         var reason = assertInstanceOf(Outcome.Failed.class, outcome, "two failed entries fail the step").reason();
         assertAll(
+                () -> assertTrue(reason.startsWith("removed 1 pending entry directories: [" + residue.value() + "]"),
+                        "the report must name the removed directory"),
                 () -> assertTrue(reason.contains("kept unreadable entries"),
                         "the report must name the unreadable entries"),
                 () -> assertTrue(reason.contains(broken.value()), "the report must name the unreadable record"),
@@ -407,8 +411,8 @@ class PendingEntryRecordsSweepTest {
     }
 
     @Test
-    @DisplayName("a directory the discard cannot remove is reported, and the removed count is kept in the report")
-    void discardRefusedAfterCommitKeepsTheCount() {
+    @DisplayName("a directory the discard cannot remove is named as kept, and the count is the directories gone")
+    void discardRefusedAfterCommitCountsTheDirectoriesGone() {
         create(entry(residue, now));
         cutOffRemoval(residue);
         var recreated = new AtomicBoolean();
@@ -428,9 +432,10 @@ class PendingEntryRecordsSweepTest {
 
         var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a refused discard fails the step").reason();
         assertAll(
-                () -> assertTrue(reason.startsWith("removed 1 pending entry directories; kept or failed entries:"),
-                        "the report must keep the removed count"),
+                () -> assertTrue(reason.startsWith("removed 0 pending entry directories; kept or failed entries:"),
+                        "the report must count only the directories gone"),
                 () -> assertTrue(reason.contains(residue.value()), "the report must name the kept directory"),
+                () -> assertTrue(reason.contains("record again"), "the report must name the refused discard"),
                 () -> assertTrue(Files.exists(store.entryDirectory(residue)), "the directory must still be there"));
         verify(sink);
     }
@@ -490,8 +495,9 @@ class PendingEntryRecordsSweepTest {
 
         var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a linked store path fails the step").reason();
         assertAll(
-                () -> assertTrue(reason.startsWith("removed 1 pending entry directories; kept or failed entries:"),
-                        "the report must count the removed directory"),
+                () -> assertTrue(reason.startsWith("removed 1 pending entry directories: [" + residue.value()
+                                + "]; kept or failed entries:"),
+                        "the report must name the removed directory"),
                 () -> assertTrue(reason.contains(linked.value() + " (held: "),
                         "the report must name the held entry"),
                 () -> assertFalse(Files.exists(store.entryDirectory(residue)), "the readable residue is removed"),
@@ -514,8 +520,9 @@ class PendingEntryRecordsSweepTest {
 
         var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a mismatching record fails the step").reason();
         assertAll(
-                () -> assertTrue(reason.startsWith("removed 1 pending entry directories; kept unreadable entries"),
-                        "the report must count the removed directory"),
+                () -> assertTrue(reason.startsWith("removed 1 pending entry directories: [" + residue.value()
+                                + "]; kept unreadable entries"),
+                        "the report must name the removed directory"),
                 () -> assertTrue(reason.contains(named.value() + " (unreadable)"),
                         "the report must name the directory of the record"),
                 () -> assertFalse(reason.contains(stated.value()), "the report must not name the stated id"),
@@ -539,8 +546,9 @@ class PendingEntryRecordsSweepTest {
 
         var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a record not readable fails the step").reason();
         assertAll(
-                () -> assertTrue(reason.startsWith("removed 1 pending entry directories; kept unreadable entries"),
-                        "the report must count the removed directory"),
+                () -> assertTrue(reason.startsWith("removed 1 pending entry directories: [" + residue.value()
+                                + "]; kept unreadable entries"),
+                        "the report must name the removed directory"),
                 () -> assertTrue(reason.contains(locked.value() + " (io: "),
                         "the report must name the I/O failure of the record"),
                 () -> assertFalse(Files.exists(store.entryDirectory(residue)), "the readable residue is removed"),
@@ -548,19 +556,25 @@ class PendingEntryRecordsSweepTest {
     }
 
     @Test
-    @DisplayName("a workspace journal still to recover is reported as a failure, and nothing is removed")
+    @DisplayName("a workspace journal still to recover fails the step, and the report keeps the unreadable entries")
     void journalToRecoverFails() throws Exception {
         create(entry(residue, now));
         cutOffRemoval(residue);
+        var broken = entryId();
+        Files.createDirectories(store.entryDirectory(broken));
+        // Fixture: a truncated record that does not parse
+        Files.writeString(store.entryDirectory(broken).resolve(PendingEntryStore.RECORD), "{\"format_version\":1,");
         Files.writeString(workspace.journalFile(), "{}", StandardCharsets.UTF_8);
 
         var outcome = sweep.run(projectId, now);
 
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a journal to recover fails the step").reason();
         assertAll(
-                () -> assertTrue(assertInstanceOf(Outcome.Failed.class, outcome,
-                                "a journal to recover fails the step").reason()
-                                .startsWith("pending entry directories not swept: "),
+                () -> assertTrue(reason.startsWith("pending entry directories not swept: "),
                         "the report must say that nothing was swept"),
+                () -> assertTrue(reason.contains("kept unreadable entries"),
+                        "the report must name the unreadable entries of the listing"),
+                () -> assertTrue(reason.contains(broken.value()), "the report must name the unreadable record"),
                 () -> assertTrue(Files.exists(store.entryDirectory(residue)),
                         "the residue directory must stay in the store"));
     }

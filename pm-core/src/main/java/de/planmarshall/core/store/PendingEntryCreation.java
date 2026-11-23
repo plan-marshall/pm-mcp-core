@@ -40,8 +40,9 @@ import de.planmarshall.core.store.SourceManifest.SourceFile;
  * {@link #finish}, which deletes the entry's directory. Two crash windows follow. A stop after the new scope's commit
  * and before the workspace's leaves the entry's record in place; the new scope already holds the stores, so a repeated
  * move is refused by their create targets and the operator ends the entry by abandoning it. A stop after both commits
- * and before {@link #finish} leaves the record gone and the directory behind, which the sweep removes by the evidence
- * of the absent record; a second move then refuses as an entry that does not exist. The directories of the new scope
+ * and before {@link #finish} leaves the record gone and the directory behind, which the sweep removes by the evidence of
+ * the four stores absent from the workspace's sidecar and from the filesystem; a second move then refuses as an entry
+ * that does not exist. The directories of the new scope
  * ({@code sources/}, {@code chat/} and the parents of the stored files) are created before the stores are staged,
  * because a transaction writes stores and never directories.
  * <p>
@@ -202,7 +203,9 @@ public final class PendingEntryCreation {
      * <p>
      * The file is read through {@link LinkOption#NOFOLLOW_LINKS} and only after its canonical path was checked to lie
      * in the source directory: a link is refused, and so is a path whose canonical form leaves the directory through
-     * one, so a stored source cannot redirect the read out of the entry.
+     * one, so a stored source cannot redirect the read out of the entry. Only a regular file is read: a FIFO or another
+     * special file the manifest names is refused instead of being opened, because its open would block under the
+     * workspace lock.
      */
     private static byte[] verified(Path sourceDirectory, SourceFile stored) {
         var directory = sourceDirectory.normalize();
@@ -216,6 +219,10 @@ public final class PendingEntryCreation {
             if (Files.isSymbolicLink(file) || !file.toRealPath().startsWith(directory.toRealPath())) {
                 throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
                         "the source file '%s' is or passes through a symbolic link".formatted(stored.path()), null);
+            }
+            if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+                throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
+                        "the source file '%s' is no regular file".formatted(stored.path()), null);
             }
             try (var in = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
                 content = in.readAllBytes();
@@ -285,12 +292,12 @@ public final class PendingEntryCreation {
 
     /**
      * Copies the regular files of the entry's transcript into the target's {@code chat/}, in name order. The transcript
-     * is carried as whole as the source directory: a transcript that is a symbolic link or no directory, and a link or
-     * a special file inside it, refuse the move instead of being dropped while {@link #finish} deletes the directory
-     * with it.
+     * is refused as a whole, as a source directory's files are: a transcript that is a symbolic link or no directory,
+     * and a link or a special file inside it, refuse the move instead of being dropped while {@link #finish} deletes
+     * the directory with it.
      *
-     * @throws StoreRefusal         if the transcript is or passes through a symbolic link, or holds one or a file that
-     *                              is no regular file
+     * @throws StoreRefusal         if the transcript is a symbolic link or no directory, or holds one or a file that is
+     *                              no regular file
      * @throws UncheckedIOException if the transcript cannot be read
      */
     private int copyChat(ScopeTransaction target, EntryId entryId) {
