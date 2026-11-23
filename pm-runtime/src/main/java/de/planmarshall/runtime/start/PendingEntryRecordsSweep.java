@@ -10,6 +10,8 @@
 package de.planmarshall.runtime.start;
 
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
@@ -17,6 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+
+import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
@@ -57,8 +61,11 @@ import de.planmarshall.core.store.StoreRefusal;
  * not remove — the held and tampered ones and a directory whose discard was refused — in one report: an entry whose
  * record cannot be read, whose store path is refused, or whose directory the discard could not remove is named there,
  * and the step's outcome is a failure then, after the readable residue was removed. A fault of the removal itself is
- * reported with the unreadable entries collected before it, so that fault never drops them; an entry kept earlier in
- * the same run, held or tampered, is not named then, and nothing was committed, so the next run re-judges it.
+ * reported with what the run had staged for removal, what it had removed and every entry it kept as they stood, so
+ * that fault drops none of them; whether the fault left the removals committed is decided by the workspace's journal,
+ * not by the fault: a fault before the journal is written leaves every store as it was, and the next run re-judges
+ * every entry; a fault after it leaves the deletions applied or owed to the recovery of the workspace, and the next
+ * run then re-judges only the directories whose discard did not run (ADR runtime-start/016).
  *
  * @since 0.1
  */
@@ -109,7 +116,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                     candidates.add(entryId);
                 }
             }
-            removal = candidates.isEmpty() ? new Removal(List.of(), List.of())
+            removal = candidates.isEmpty() ? new Removal(List.of(), List.of(), null)
                     : remove(workspace, store, candidates, at);
         } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
                 | StoreRefusal e) {
@@ -119,9 +126,95 @@ public final class PendingEntryRecordsSweep implements SweepStep {
             }
             return new RecoveryStep.Outcome.Failed(failure.toString());
         }
-        var report = new StringBuilder("removed " + removal.removed().size() + " pending entry directories");
-        if (!removal.removed().isEmpty()) {
-            report.append(": ").append(removal.removed().stream().map(EntryId::value).toList());
+        var report = report(removal, unreadable);
+        if (removal.fault() != null || !unreadable.isEmpty() || !removal.kept().isEmpty()) {
+            return new RecoveryStep.Outcome.Failed(report);
+        }
+        return new RecoveryStep.Outcome.Done(report);
+    }
+
+    /**
+     * Removes the residue in one workspace transaction and deletes the directories after it. Every candidate is
+     * re-judged under the workspace lock before it is removed, so an entry opened between the listing and the lock is
+     * kept: its record is applied by the creator's transaction before the sweep takes the lock.
+     * <p>
+     * A fault of the removal is no exception of this method but part of its answer: what the run had staged, removed
+     * and kept travels into the report as it stood when the fault struck. Whether the fault left the staged removals
+     * committed is decided by the workspace's journal, which the answer carries as the fault's own witness, so the
+     * report claims no more than the journal holds.
+     *
+     * @return what the directories are gone, what the run kept, and the fault that stopped it
+     */
+    private Removal remove(JournalScope workspace, PendingEntryStore store, List<EntryId> candidates, Instant at) {
+        try (var lock = lockManager.openTransaction()) {
+            lock.acquire(workspace.lockKey());
+            var transaction = ScopeTransaction.open(lock, workspace, auditSink, clock);
+            var kept = new ArrayList<String>();
+            var staged = new ArrayList<EntryId>();
+            var removed = new ArrayList<EntryId>();
+            try {
+                for (var entryId : candidates) {
+                    var integrity = verifyUnderLock(store, lock, entryId, kept);
+                    integrity.ifPresent(verdict -> stageIfResidue(transaction, store, entryId, verdict, at, staged,
+                            kept));
+                }
+                if (staged.isEmpty()) {
+                    return new Removal(removed, kept, null);
+                }
+                transaction.commit();
+                for (var entryId : staged) {
+                    discard(store, entryId, removed, kept);
+                }
+                return new Removal(removed, kept, null);
+            } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
+                    | StoreRefusal e) {
+                // A journal that exists here is this transaction's own: every verification before the commit recovers
+                // the scope's journal away, and a scope that holds one refuses a new transaction before it stages anything
+                var journaled = !staged.isEmpty()
+                        && Files.exists(workspace.journalFile(), LinkOption.NOFOLLOW_LINKS);
+                return new Removal(removed, kept, new Fault(e.getMessage(), List.copyOf(staged), journaled));
+            }
+        }
+    }
+
+    /**
+     * Deletes one directory whose stores the transaction removed. A refusal is named as the entry that was kept and
+     * leaves the other staged directories to be deleted.
+     */
+    private static void discard(PendingEntryStore store, EntryId entryId, List<EntryId> removed, List<String> kept) {
+        try {
+            store.discard(entryId);
+            removed.add(entryId);
+        } catch (IllegalStateException e) {
+            kept.add(entryId.value() + " (record again: " + e.getMessage() + ")");
+        } catch (UncheckedIOException e) {
+            kept.add(entryId.value() + " (" + e.getMessage() + ")");
+        }
+    }
+
+    /**
+     * The one report of a run, complete or stopped by a fault: the directories it removed, and — when a fault struck —
+     * the entries whose removal it had staged with the journal's witness of whether they are committed, then every
+     * entry it kept and every unreadable one the listing collected.
+     */
+    private static String report(Removal removal, List<String> unreadable) {
+        var report = new StringBuilder();
+        if (removal.fault() == null) {
+            report.append("removed ").append(removal.removed().size()).append(" pending entry directories");
+            if (!removal.removed().isEmpty()) {
+                report.append(": ").append(names(removal.removed()));
+            }
+        } else {
+            report.append("pending entry directories not swept: ").append(removal.fault().message());
+            if (!removal.fault().staged().isEmpty()) {
+                report.append(removal.fault().journaled()
+                        ? "; the removals of " + names(removal.fault().staged())
+                                + " are completed by the recovery of the workspace"
+                        : "; the removals of " + names(removal.fault().staged()) + " were staged and not committed");
+            }
+            if (!removal.removed().isEmpty()) {
+                report.append("; removed ").append(names(removal.removed()));
+            }
         }
         if (!unreadable.isEmpty()) {
             report.append("; kept unreadable entries ").append(unreadable);
@@ -129,60 +222,24 @@ public final class PendingEntryRecordsSweep implements SweepStep {
         if (!removal.kept().isEmpty()) {
             report.append("; kept or failed entries: ").append(removal.kept());
         }
-        if (!unreadable.isEmpty() || !removal.kept().isEmpty()) {
-            return new RecoveryStep.Outcome.Failed(report.toString());
-        }
-        return new RecoveryStep.Outcome.Done(report.toString());
+        return report.toString();
     }
 
-    /**
-     * Removes the residue in one workspace transaction and deletes the directories after it. Every candidate is
-     * re-judged under the workspace lock before it is removed, so an entry opened between the listing and the lock is
-     * kept: its record is applied by the creator's transaction before the sweep takes the lock.
-     *
-     * @return the directories that are gone, and every entry that was kept or whose directory the discard refused
-     */
-    private Removal remove(JournalScope workspace, PendingEntryStore store, List<EntryId> candidates, Instant at) {
-        try (var lock = lockManager.openTransaction()) {
-            lock.acquire(workspace.lockKey());
-            var transaction = ScopeTransaction.open(lock, workspace, auditSink, clock);
-            var staged = new ArrayList<EntryId>();
-            var kept = new ArrayList<String>();
-            for (var entryId : candidates) {
-                var integrity = verifyUnderLock(store, lock, entryId, kept);
-                integrity.ifPresent(verdict -> removeIfResidue(transaction, store, entryId, verdict, at, staged,
-                        kept));
-            }
-            if (staged.isEmpty()) {
-                return new Removal(List.of(), kept);
-            }
-            transaction.commit();
-            var removed = new ArrayList<EntryId>();
-            for (var entryId : staged) {
-                try {
-                    store.discard(entryId);
-                    removed.add(entryId);
-                } catch (IllegalStateException e) {
-                    kept.add(entryId.value() + " (record again: " + e.getMessage() + ")");
-                } catch (UncheckedIOException e) {
-                    kept.add(entryId.value() + " (" + e.getMessage() + ")");
-                }
-            }
-            return new Removal(removed, kept);
-        }
+    private static List<String> names(List<EntryId> entryIds) {
+        return entryIds.stream().map(EntryId::value).toList();
     }
 
     /**
      * Removes one candidate whose stores are absent, keeps it as tampered when a store differs, and keeps it silently
      * when it is verified: an entry opened between the lock-free listing and the lock is intact, which is no failure.
      */
-    private void removeIfResidue(ScopeTransaction transaction, PendingEntryStore store, EntryId entryId,
-            PendingEntryStore.Integrity integrity, Instant at, List<EntryId> removed, List<String> kept) {
+    private void stageIfResidue(ScopeTransaction transaction, PendingEntryStore store, EntryId entryId,
+            PendingEntryStore.Integrity integrity, Instant at, List<EntryId> staged, List<String> kept) {
         if (integrity instanceof PendingEntryStore.Integrity.Absent) {
             store.remove(transaction, entryId);
             transaction.owe(AuditEvent.pendingEntryRemoved(entryId.value(),
                     PendingEntryStore.directoryPath(entryId), at, transaction.recordId().value()));
-            removed.add(entryId);
+            staged.add(entryId);
         } else if (integrity instanceof PendingEntryStore.Integrity.Tampered) {
             kept.add(entryId.value() + " (tampered)");
         }
@@ -228,8 +285,19 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      *
      * @param removed the directories that are gone: a refused discard is not among them
      * @param kept    the entries that were kept or whose directory the discard refused, each with its reason
+     * @param fault   the fault that stopped the removal; {@code null} when it completed
      */
-    private record Removal(List<EntryId> removed, List<String> kept) {
+    private record Removal(List<EntryId> removed, List<String> kept, @Nullable Fault fault) {
+    }
+
+    /**
+     * The fault of a removal, with the entries its transaction had staged.
+     *
+     * @param message   the fault's message
+     * @param staged    the entries whose removal the transaction had staged
+     * @param journaled whether the workspace's journal survived the fault, so the recovery completes the staged removals
+     */
+    private record Fault(String message, List<EntryId> staged, boolean journaled) {
     }
 
     /**
