@@ -5,7 +5,7 @@
   "status": "shipped",
   "lane": "runbook",
   "plan_marshall_plan_id": "rb-v2-171-pending-entry-residue-closeout",
-  "pr": "#572",
+  "pr": "#572, #573",
   "landing": "landings/PLAN-V2-171.md",
   "seq": 159
 }

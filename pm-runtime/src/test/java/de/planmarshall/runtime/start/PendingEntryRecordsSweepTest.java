@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
@@ -32,6 +33,7 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -228,7 +230,7 @@ class PendingEntryRecordsSweepTest {
     }
 
     @Test
-    @DisplayName("the directory of a creation cut after both its commits is removed by the evidence of its absent record")
+    @DisplayName("the directory of a creation cut after both its commits is removed by four absent stores")
     void creationCutAfterBothCommits() throws Exception {
         create(entry(residue, now));
         var plan = JournalScope.plan(base, projectId, "plan-" + Generators.letterStrings(3, 12).next()
@@ -434,16 +436,22 @@ class PendingEntryRecordsSweepTest {
     }
 
     @Test
-    @DisplayName("a refusal that is no symbolic-link refusal holds no entry: one link holds one entry alone")
+    @DisplayName("only the symbolic-link refusal holds an entry; any other refusal is rethrown as its fault")
     void secondCauseIsNoHeldEntry() {
+        var held = new ArrayList<String>();
+        var entry = entryId();
         var link = new JournalScope.SymbolicLinkRefusal("Store path 'x' passes through a symbolic link below base");
         var other = new IllegalArgumentException("the recovery of the workspace broke");
 
+        PendingEntryRecordsSweep.holdOrRethrow(link, entry, held);
+
         assertAll(
-                () -> assertTrue(PendingEntryRecordsSweep.holdsEntry(link),
+                () -> assertEquals(List.of(entry.value() + " (held: " + link.getMessage() + ")"), held,
                         "the link refusal should hold its entry"),
-                () -> assertFalse(PendingEntryRecordsSweep.holdsEntry(other),
-                        "another refusal should be no held entry"));
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> PendingEntryRecordsSweep.holdOrRethrow(other, entry, held),
+                        "another refusal should be rethrown, not held"),
+                () -> assertEquals(1, held.size(), "another refusal should add no held entry"));
     }
 
     @Test

@@ -19,7 +19,8 @@ constructs the types and calls them from its `StartupEvent` observer, its signal
 also covers:
 
 * the step of the periodic sweep, `PendingEntryRecordsSweep`, which removes the directory of a pending entry whose
-  removal a stop cut off, by the evidence of its absent record and never by its age
+  removal a stop cut off, by the evidence of its four stores absent from the workspace's digest sidecar and from the
+  filesystem, and never by its age
   (<<_the_pending_record_step>>);
 * the stalled-scope detection (<<_the_stalled_scope_detection>>);
 * the audit chain seam of the bounded verification, whose broken outcome carries a reason and the first broken line

@@ -403,10 +403,10 @@ public final class PendingEntryStore {
      * @param entryId     the entry
      * @param auditSink   where the record of a roll-forward of the recovery is handed over
      * @return whether the entry is verified, absent, or tampered
-     * @throws IllegalArgumentException if the transaction does not hold the key of the scope
+     * @throws IllegalArgumentException         if the transaction does not hold the key of the scope
      * @throws JournalScope.SymbolicLinkRefusal if a store path passes through a symbolic link below the path base
-     * @throws StoreRefusal             if the journal or the sidecar is unreadable or of another format version
-     * @throws UncheckedIOException     if a file of the entry cannot be read
+     * @throws StoreRefusal                     if the journal or the sidecar is unreadable or of another format version
+     * @throws UncheckedIOException             if a file of the entry cannot be read
      */
     public Integrity verify(LockTransaction transaction, EntryId entryId, AuditSink auditSink) {
         Objects.requireNonNull(transaction, "transaction");
