@@ -214,7 +214,9 @@ class AuditEventTest {
     void pendingEntryRemoved() {
         var entryId = "ent-" + Generators.letterStrings(4, 8).next().toLowerCase(Locale.ROOT);
         var directory = "pending/" + entryId;
-        var removedAt = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next());
+        // The instant carries a fraction, so removed_at's documented form (a fraction when there is one) is guarded
+        var removedAt = Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next(),
+                Generators.longs(1, 999_999_999L).next());
 
         var event = AuditEvent.pendingEntryRemoved(entryId, directory, removedAt, TRANSACTION_ID);
 
@@ -227,6 +229,9 @@ class AuditEventTest {
                 () -> assertEquals(Map.of("entry_id", entryId, "store", directory, "removed_at",
                                 removedAt.toString(), "transaction_id", TRANSACTION_ID), event.details(),
                         "pending removal names entry, directory, instant, transaction"),
+                () -> assertTrue(String.valueOf(event.details().get(AuditEvent.DETAIL_REMOVED_AT))
+                                .matches("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3,9}Z"),
+                        "removed_at is an ISO-8601 instant with its fraction"),
                 () -> assertThrows(NullPointerException.class,
                         () -> AuditEvent.pendingEntryRemoved(null, directory, removedAt, TRANSACTION_ID),
                         "removal needs an entry id"),

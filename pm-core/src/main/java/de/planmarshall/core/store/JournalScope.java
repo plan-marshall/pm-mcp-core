@@ -173,8 +173,10 @@ Path sidecarFile, List<Path> ownedDirectories, LockKey lockKey) {
 
     /**
      * Resolves a store path of the scope as {@link #resolve(String)} does and refuses a path that passes through a
-     * symbolic link below the path base. Writes, moves and the tail repair of a store follow links, so a link inside
-     * the scope would let them modify a file outside it.
+     * symbolic link below the path base. A transaction writes and deletes its targets through this check, so a link
+     * inside the scope cannot make it modify a file outside it; a read or a filesystem operation that resolves through
+     * {@link #resolve(String)} instead follows a link in a parent directory, which is why a caller that acts on what it
+     * read verifies the store first ({@link PendingEntryStore#verify}, ADR core-store/084).
      *
      * @param relativePath a path relative to the path base
      * @return the store file, absolute and normalized, reached without a symbolic link below the path base
