@@ -43,8 +43,9 @@ import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
  * {@code build} all yield {@link JobEvidence.ParseResult#NOTHING}.
  * <p>
  * The parsed build becomes the {@link JobEvidence.ParseResult}: the positive success marker the tool printed, the
- * number of diagnostics the parser located, and the contradicting evidence — an error-severity diagnostic or a
- * measured failing test count. A warning beside a green build contradicts nothing. A green {@code status} alone is not
+ * number of diagnostics the parser located, the contradicting evidence — an error-severity diagnostic or a
+ * measured failing test count — and the parser's {@link TestCounts}, so the population leaves the dispatcher instead of
+ * staying in the parse. A warning beside a green build contradicts nothing. A green {@code status} alone is not
  * a success marker: a tool that prints no positive marker keeps a zero exit {@code indeterminate} by row 8 of the
  * outcome derivation rather than guessing a success from the absence of diagnostics. The npm family prints three kinds
  * of marker and each is dispatched: Jest's and TAP's passing summary, and the install family's completion line
@@ -105,10 +106,15 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
     /**
      * Parses the log of an ended job whose read may have cut it.
      * <p>
-     * The cut fact reaches the Maven parser alone, because it is the one parser of the dispatch that reports a figure
-     * the lost head can falsify: a cut Maven log reports {@link TestCounts.Unmeasured} instead of a tail-only count
-     * (ADR {@code core-build/011}). The other parsers read their count lines from the tail as well, but their results
-     * carry no population whose absence the dispatcher could state.
+     * The cut fact reaches the Maven parser alone, because its count scan is the one place a lost head falsifies the
+     * figure the tail still prints: a cut Maven log reports {@link TestCounts.Unmeasured} instead of a tail-only count
+     * (ADR {@code core-build/011}). The other parsers read their count lines from the tail too — Gradle, pyproject, Jest
+     * and TAP each build a {@link TestCounts} — but none of them takes a cut fact, so their figure is the tail's and is
+     * reported as measured.
+     * <p>
+     * The population travels beside the contradiction: the result carries the parser's {@link TestCounts} in its three
+     * states, so a consumer tells a log with no count line ({@code null}) from a cut or unaggregatable one
+     * ({@code Unmeasured}) and from a measured figure (ADR {@code runtime-job/015}).
      *
      * @param job       the job record, whose kind and budget key select the parser
      * @param output    the job's output after its launch report
@@ -190,7 +196,7 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
                 .anyMatch(diagnostic -> diagnostic.severity() == Severity.ERROR)
                 || unplacedErrors || failingTests(build.testCounts());
         return new JobEvidence.ParseResult(markerAdmitted && build.successMarker(), build.diagnostics().size(),
-                contradicting, null);
+                contradicting, null, build.testCounts());
     }
 
     private static boolean failingTests(@Nullable TestCounts counts) {

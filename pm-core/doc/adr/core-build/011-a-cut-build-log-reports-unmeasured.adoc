@@ -7,7 +7,10 @@ Accepted; amended 2026-11-22 (PLAN-V2-166): a cut log reports `TestCounts.Unmeas
 operator reversed the 2026-11-21 choice after the landing analysis found the flag read by no code of this repository
 (`landings/PLAN-V2-163.md`, C5). Amended again 2026-11-22 (PLAN-V2-170): the cut reaches the daemon path through the
 job-log read, the failing count of a cut tail is counted from the summary lines whose `Results:` marker was cut, and the
-file is renamed to the slug this decision carries.
+file is renamed to the slug this decision carries. Amended 2026-11-23 (PLAN-V2-173): the counting rule of the tail's
+visible failing count is ADR link:012-the-cut-tails-failing-count-is-taken-per-execution.adoc[`core-build/012`]; this
+decision keeps the `Unmeasured` state and the evidence rule, and its decision bullet now states the rule the code
+implements.
 
 == Date
 
@@ -43,12 +46,15 @@ answers to the operator (2026-11-22), who chose the explicit absence.
   path, not a tail-only figure.
 * A cut tail can still show a failing count whose `Results:` marker lies in the lost head: the line carries `[WARNING]`
   or `[INFO]` (a `testFailureIgnore` build that ended `BUILD SUCCESS`), and the count scan files it as ambiguous. For a
-  cut log the failing count is read from those ambiguous summary lines too, so the tail's visible failure is filed as one
-  error diagnostic instead of a passing run. The blocks keep the precedence of the count itself — a summary line when the
-  tail holds one, else an ambiguous summary line, then a per-class line — so a per-class line and its summary line are
-  never added together and the tail's failing tests are reported once. When the log's own failing `Tests run:` line was
-  already filed as an `[ERROR]` diagnostic, only the still-unfiled failures are added: a cut tail files each failing
-  count once.
+  cut log the failing tests of those ambiguous summary lines count too, so the tail's visible failure is filed as a
+  `TEST_FAILURE` diagnostic at error severity instead of a passing run. The tail's visible count is taken per test-plugin
+  execution — the larger of that execution's summary side (its summary and ambiguous lines) and its per-class lines — and
+  is then reduced by the failing tests the error-level count lines already filed report, counted after the collector's
+  deduplication. The remainder is filed once, so a failure is never filed twice, and an error-level `Tests run:` line of
+  the tail stays its own diagnostic beside the synthetic one. A tail whose cut removed every execution header is one
+  execution: its two sides cannot be told apart by the log, the larger side is that execution's figure, and the figure of
+  a mix of the two sides stays an approximation. ADR link:012-the-cut-tails-failing-count-is-taken-per-execution.adoc[`core-build/012`]
+  records the counting rule.
 * `TestCounts.Measured` carries the four counts and the per-runner map, and `TestCounts.from` takes them; the state that
   says "no measurement" is `TestCounts.Unmeasured`, which has no count accessor, so the cut cannot be read as a zero.
 
@@ -69,10 +75,12 @@ answers to the operator (2026-11-22), who chose the explicit absence.
   parser changes, because the flag is passed to the Maven count scan alone.
 * A cut log never reads as `noTestsRan`: `ParsedBuild.noTestsRanFrom` needs a null count, and the cut reports the
   explicit absence instead, so a lost head cannot turn into a "no tests" verdict.
-* A cut log keeps the failing count its tail shows as one `TEST_FAILURE` diagnostic at error severity, so a visible
-  failure still contradicts a success banner even though the total is no measurement (the finding codereview raised
-  against the first form of this change, extended by PLAN-V2-170 to the summary line whose `Results:` marker was cut).
-  The diagnostic is evidence, not a count: `testCounts()` stays `Unmeasured`. A consumer tells absent from unmeasured by
+* A cut log keeps the failing tests its tail shows that no filed diagnostic reports as one further `TEST_FAILURE`
+  diagnostic at error severity, so a visible failure still contradicts a success banner even though the total is no
+  measurement (the finding codereview raised against the first form of this change, extended by PLAN-V2-170 to the summary
+  line whose `Results:` marker was cut, and reduced to the unfiled remainder by ADR `core-build/012`). An error-level
+  `Tests run:` line of the tail is each its own diagnostic beside that synthetic one. The diagnostic is evidence, not a
+  count: `testCounts()` stays `Unmeasured`. A consumer tells absent from unmeasured by
   the two states of `TestCounts`: a log with no count line carries no `TestCounts` (`null`), and a cut log carries
   `Unmeasured`, which has no count accessor; neither is `Measured(0, …)`, so no consumer reads a lost head as a passing
   run.

@@ -132,7 +132,7 @@ class SubprocessJobRunnerTest {
     private static final String BUDGET_KEY = "git:status";
     private static final BudgetDerivation FLOOR = new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null);
     private static final Map<String, String> ENVIRONMENT = Map.of("PATH", "/usr/bin:/bin");
-    private static final ParseResult SUCCESS = new ParseResult(true, 0, false, null);
+    private static final ParseResult SUCCESS = new ParseResult(true, 0, false, null, null);
 
     /** The enrolled {@code git} of the fixture: its first argument selects what the job does. */
     private static final String GIT_SCRIPT = """

@@ -14,6 +14,7 @@ import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.words
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -29,6 +30,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.build.BuildLogText;
 import de.planmarshall.core.build.EslintOutputParser;
+import de.planmarshall.core.build.TestCounts;
 import de.planmarshall.core.build.TypeScriptOutputParser;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecord;
@@ -101,6 +103,25 @@ class BuildOutputParserTest {
         assertAll(
                 () -> assertTrue(cut.contradictingEvidence(), "a cut log keeps its visible failing count"),
                 () -> assertFalse(whole.contradictingEvidence(), "an uncut tail without a marker is no evidence"));
+    }
+
+    @Test
+    @DisplayName("the parse result carries the population of every parser the dispatcher selects")
+    void parseResultCarriesThePopulation() {
+        var cutMaven = PARSER.parse(job(JobId.Kind.BUILD, maven()), """
+                [INFO] Tests run: 3, Failures: 0, Errors: 0, Skipped: 0
+                [INFO] BUILD SUCCESS
+                """, true);
+        var jest = PARSER.parse(job(JobId.Kind.BUILD, npm()), """
+                PASS src/example.test.js
+                Tests: 4 passed, 4 total
+                """, false);
+
+        assertAll(
+                () -> assertInstanceOf(TestCounts.Unmeasured.class, cutMaven.testCounts(),
+                        "a cut log's unmeasured population leaves the dispatcher"),
+                () -> assertInstanceOf(TestCounts.Measured.class, jest.testCounts(),
+                        "a measured population leaves the dispatcher"));
     }
 
     @Test

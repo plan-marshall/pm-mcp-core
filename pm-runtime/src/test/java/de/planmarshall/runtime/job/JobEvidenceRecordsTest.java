@@ -42,7 +42,7 @@ class JobEvidenceRecordsTest {
                 Generators.letterStrings(1, 20).next());
 
         var constructed = new JobEvidence.ParseResult(successMarker, diagnostics, contradictingEvidence,
-                selfReportContradiction);
+                selfReportContradiction, null);
         var built = JobEvidence.ParseResult.builder()
                 .successMarker(successMarker)
                 .diagnostics(diagnostics)
@@ -61,7 +61,7 @@ class JobEvidenceRecordsTest {
         var waitStatus = new JobEvidence.Exited(Generators.integers(0, 255).next());
         var log = Generators.enumValues(JobEvidence.LogState.class).next();
         var parse = new JobEvidence.ParseResult(Generators.booleans().next(),
-                Generators.integers(0, 1000).next(), Generators.booleans().next(), null);
+                Generators.integers(0, 1000).next(), Generators.booleans().next(), null, null);
         var declaredExitCodes = Set.<Integer>of();
         var exitReliable = true;
 
@@ -90,7 +90,7 @@ class JobEvidenceRecordsTest {
                 .waitStatus(waitStatus)
                 .log(log)
                 .parse(new JobEvidence.ParseResult(Generators.booleans().next(),
-                        Generators.integers(0, 1000).next(), Generators.booleans().next(), null))
+                        Generators.integers(0, 1000).next(), Generators.booleans().next(), null, null))
                 .declaredExitCodes(Set.<Integer>of())
                 .exitReliable(true);
         var refusal = assertThrows(NullPointerException.class, builder::build,

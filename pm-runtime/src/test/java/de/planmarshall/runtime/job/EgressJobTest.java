@@ -113,7 +113,7 @@ class EgressJobTest {
                 .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                 .termination(new TerminationProtocol(ProcessGroupSignals.system())).environment(environment())
                 .probeEnvironment((candidate, jobId) -> ENVIRONMENT)
-                .parser((kind, output, cut) -> new JobEvidence.ParseResult(true, 0, false, null))
+                .parser((kind, output, cut) -> new JobEvidence.ParseResult(true, 0, false, null, null))
                 .primitives(request -> Optional.empty()).jobTokens(new JobTokenStore()).build();
     }
 

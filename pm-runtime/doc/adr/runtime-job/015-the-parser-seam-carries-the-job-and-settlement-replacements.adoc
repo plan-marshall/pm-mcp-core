@@ -6,7 +6,9 @@
 Accepted. Amended 2026-11-22 (PLAN-V2-170): the parser seam gained the third parameter `boolean outputCut` — the
 runner passes `JobLog.Complete.cut()` — so a cut job log reaches the Maven parser as `TestCounts.Unmeasured` (ADR
 `core-build/011`). The assembly `plan-marshall-mcp` adapts its `OutputParser` lambda after the `SNAPSHOT` deploy, the
-same follow-up the decision below records.
+same follow-up the decision below records. Amended 2026-11-23 (PLAN-V2-173): `JobEvidence.ParseResult` carries the
+parser's `TestCounts` as a fifth component, so the population leaves the dispatcher in its three states instead of
+staying in the parse; the assembly adapts the same way after the `SNAPSHOT` deploy.
 
 Superseded in part by link:016-the-npm-passing-summary-is-the-success-marker.adoc[ADR `runtime-job/016`] (2026-11-10):
 the rule of the last bullet of Consequences stays, its list of tools without a positive success marker shrinks to
@@ -39,10 +41,12 @@ The interface is a public seam of `pm-runtime` that the assembly `plan-marshall-
   takes the first component of the budget key as the build system, selecting `MavenOutputParser`,
   `GradleOutputParser`, `PyprojectOutputParser`, or, for `npm`, the npm error parser or the TypeScript, ESLint, Jest and
   TAP scanner whose markers the log carries. It maps a `ParsedBuild` to `JobEvidence.ParseResult`: the tool's positive
-  success marker, the number of located diagnostics and the contradicting evidence (an error-severity diagnostic, the
-  errors of ESLint's printed summary, or a measured failing test count). A job of another kind, a key of an unknown build
-  system and a log no scanner recognises yield `ParseResult.NOTHING`. `OpenRewriteLogParser` is not dispatched: it
-  reports the findings of a rewrite run, not a build's success or failure.
+  success marker, the number of located diagnostics, the contradicting evidence (an error-severity diagnostic, the
+  errors of ESLint's printed summary, or a measured failing test count) and the parser's `TestCounts`, which carries the
+  population in its three states — absent, `Unmeasured`, `Measured` — so a consumer tells them apart (amendment of
+  2026-11-23). A job of another kind, a key of an unknown build system and a log no scanner recognises yield
+  `ParseResult.NOTHING`. `OpenRewriteLogParser` is not dispatched: it reports the findings of a rewrite run, not a
+  build's success or failure.
 * `JobSettlement.of(store, lockManager, Map<Name, SettlementStep> replacements)` is added beside the existing factory.
   A name the map does not carry keeps the default step; a replacement filed under another name than its own, or one
   that replaces the implemented `FATE` or `SLOT_RELEASE` step, is refused.
@@ -62,7 +66,8 @@ The interface is a public seam of `pm-runtime` that the assembly `plan-marshall-
 == Consequences
 
 * Every caller that supplies an `OutputParser` (the assembly `plan-marshall-mcp`, the tests) must adapt to the new
-  parameter. The assembly's construction of the runner with `BuildOutputParser` and with the settlement steps is owed to
+  parameter, and every caller that constructs a `JobEvidence.ParseResult` to its `TestCounts` component. The
+  assembly's construction of the runner with `BuildOutputParser` and with the settlement steps is owed to
   `plan-marshall-mcp` after the `SNAPSHOT` deploy (R16(2)); this repository names it and does not change the assembly.
 * A later package that brings one of the seam's stores passes its step to `JobSettlement.of` and to the runner's
   builder; it adds a step class and touches neither the settlement nor the runner.
