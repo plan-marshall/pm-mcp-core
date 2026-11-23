@@ -54,6 +54,10 @@ commit and the staging set of a scope.
 |link:{src}/FootprintBoundary.java[`FootprintBoundary`]
 |The verdict of the footprint check that runs before anything is staged.
 
+|link:{src}/CommitAttemptCounter.java[`CommitAttemptCounter`]
+|The two caps of the `git.commit-fix` loop over the persisted `CommitAttemptCaps` of `pm-core`: the change-set counter
+and the per-frame counter, and the reset rule of each (<<_the_commit_attempt_caps>>).
+
 |link:{src}/GitResolveMessagePrimitive.java[`GitResolveMessagePrimitive`]
 |`git.resolve-message`: the message of a call from its message mode.
 
@@ -269,6 +273,25 @@ Every `GitOutcome` maps to exactly one outcome: `OK` to `committed`, `NOTHING_TO
 other, `CAPABILITY_MISSING` of the native variant among them, to `failed` with `commit_failed` and the facts
 `git_outcome` and `detail`.
 
+[#_the_commit_attempt_caps]
+== The Commit Attempt Caps
+
+`CommitAttemptCounter` counts the two caps of the `git.commit-fix` loop over the persisted `CommitAttemptCaps` of
+`pm-core` (Timeouts & Budgets § Commit Sub-Process Attempt Caps; State Catalogue § `git.stage-and-commit`; ADR
+core-store/087):
+
+* the change-set cap: three failed `git.stage-and-commit` attempts per identical staged change set — the staged tree id
+  and the message digest — reset to one whenever either half changes;
+* the frame cap: three `git.commit-fix` tasks per call frame, reset by a new frame.
+
+`of(caps)` and `empty()` build the counter, `failedCommitAttempt(stagedTree, messageDigest)` and `fixTask(frameId)`
+answer the next one, and `changeSetCapSpent()`, `frameCapSpent()` and `exhausted()` read the caps; counting above a
+spent cap keeps it spent. A fix that changes the staged tree resets the change-set counter — the specification's own
+rule — so the frame counter is what ends the loop in that case
+(link:../../../../doc/implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-28[PM-WATCH-DSL-28]). The persisted value is
+`CommitAttemptCaps` in `de.planmarshall.core.store`, the member `commit_attempt_caps` of the workflow state, so a
+restart never resets a budget.
+
 == Invariants and Failure Modes
 
 * *The trailer is written once.* Only `CommitMessages.withTrailer` writes it, and it refuses a message that already holds
@@ -281,9 +304,10 @@ other, `CAPABILITY_MISSING` of the native variant among them, to `failed` with `
   `Violated` with an empty or oversized list).
 * *Nothing reaches a command line.* The message and the paths reach the repository through the API of the git contract.
 
-What is not in this package: the mapping of `footprint_violation` to the engine condition, the commit attempt counters,
-the `change-ledger.jsonl` row, the `head_at_completion` stamp, `freshness_reconcile`, and the CLI variant of the contract
-(`git commit -F -`), the only one that runs repository hooks.
+What is not in this package: the `change-ledger.jsonl` row, the `head_at_completion` stamp and the
+`freshness_reconcile` stamp, which live in `pm-core`, and the CLI variant of the contract (`git commit -F -`), the only
+one that runs repository hooks. The mapping of `footprint_violation` to the engine condition is declared here on the
+primitive's reason and raised by the engine.
 
 == Extending
 

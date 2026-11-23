@@ -50,12 +50,16 @@ _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/R
 `WorkflowStatus`:: The immutable record of one scope's status document. The members the engine owns are typed: the
 position (`scope_type`, `scope_id`, `phase`, `state`, `call_stack` with its `CallFrame` records and `BoundArg` values),
 the loop-back accounting (`loop_back_iteration`, `outline_loop_backs`, `policy_counters`), the retry counts
-(`retry_counters`), the bindings of the current state (`active_job`, `active_jobs`, `active_tasks`), the condition
-overlay (`pending_condition`), the waiver requests of a plan (`waiver_requests`, see <<_waiver_requests>>), the instance
+(`retry_counters`), the two caps of the commit sub-process (`commit_attempt_caps`, see <<_commit_attempt_caps>>), the
+bindings of the current state (`active_job`, `active_jobs`, `active_tasks`), the condition
+overlay (`pending_condition`), the stamp of a finalize commit after the latest build (`freshness_reconcile`, see
+<<_freshness_reconcile>>), the waiver requests of a plan (`waiver_requests`, see <<_waiver_requests>>), the instance
 version in force of a plan (`instance_version`, see <<_the_instance_version_in_force>>) and
 `updated_at`. Every other member of the closed schema is kept in `retained()` as the raw JSON text it was read with. The engine updates the record through its `with…` and `toBuilder()` copies; the
 constructor checks every closed value, so a copy with a value outside the schema cannot be built.
 `RetryCounters`:: The typed value of the member `retry_counters` (see <<_retry_counters>>).
+`CommitAttemptCaps`:: The typed value of the member `commit_attempt_caps` (see <<_commit_attempt_caps>>).
+`FreshnessReconcile`:: The typed value of the member `freshness_reconcile` (see <<_freshness_reconcile>>).
 `WorkflowStatusCodec`:: Reads and writes the document over `StrictJson`. It checks `format_version` first
 (`FORMAT_VERSION` 1), reads the typed members strictly, each with its one JSON type and its closed values, and
 captures every other declared member verbatim. It writes every member in the order the schema declares it: the typed
@@ -302,6 +306,60 @@ of a sub-workflow when it pops or unwinds that sub-workflow's call frame. Nothin
 leaving states within a frame keeps them, and a restart reads the same values from the store
 (link:../adr/core-store/005-retry-count-clearing-rule.adoc[ADR 005]). The engine counts no retry itself; the retrying
 primitives of later packages count through `RetryCounters`.
+
+[#_commit_attempt_caps]
+== Commit Attempt Caps
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
+
+`commit_attempt_caps` persists the two caps of the `git.commit-fix` loop, so a runtime restart never resets either
+budget (Timeouts & Budgets § Commit Sub-Process Attempt Caps; State Catalogue § `git.stage-and-commit`; ADR 087):
+
+[cols="2,3,3"]
+|===
+|Counter |Counted by |Reset by
+
+|`change_set` (`staged_tree`, `message_digest`, `attempts`)|a failed `git.stage-and-commit` attempt|a changed staged
+tree or a changed message, either half starting the count at one
+|`frame` (`frame_id`, `tasks`)|a `git.commit-fix` task|a new call frame
+|===
+
+Both counters are capped at `3` (`CommitAttemptCaps.CAP`); whichever is spent first ends the loop. A fix that changes
+the staged tree resets the change-set counter, which is the specification's own rule, so the frame counter is what
+bounds the loop in that case (link:../../../../doc/implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-28[PM-WATCH-DSL-28]).
+The member is `null` before the first counted event.
+
+The persisted value is data only, `CommitAttemptCaps` in this package; the transitions live in the pure class
+`CommitAttemptCounter` of `de.planmarshall.provider.git.primitive`, next to the primitive that counts them:
+`failedCommitAttempt(stagedTree, messageDigest)` and `fixTask(frameId)` each answer a new counter, and
+`changeSetCapSpent()`, `frameCapSpent()` and `exhausted()` read the caps. Counting above a spent cap keeps it spent.
+
+Tested by `CommitAttemptCapsTest` (the empty value, the cap, the grammar of both counters) and
+`CommitAttemptCounterTest` (three attempts spend the change set, a changed tree or message resets it, three tasks
+spend the frame, and the PM-WATCH-DSL-28 hazard: a changed tree still ends the loop through the frame cap).
+
+[#_freshness_reconcile]
+== The Freshness Reconcile Stamp
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
+
+`freshness_reconcile` is the stamp of a Phase 6 commit made after the latest successful build (Phase Workflows §
+Finalize Commit Instrumentation, item 3; ADR 089). It is `null` when no such stamp is recorded and otherwise an object:
+
+[cols="2,4"]
+|===
+|Member |Meaning
+
+|`commit_sha` |the commit the finalized step made, a 40-digit digest
+|`step_id` |the finalize step that made it, `default:` or `project:` with a lower-case slug
+|`prior_build_worktree_sha` |the working-tree digest of the latest successful build, a 64-digit digest
+|`worktree_sha_version` |the hash version of that digest, `1`
+|`recorded_at` |the instant the stamp was recorded
+|===
+
+`FreshnessReconcile` is the typed value; the record requires all five members, so a stamp is never written when no
+successful build exists. `WorkflowStatusCodec` reads and writes it like the other typed members: a malformed digest or
+step id is a `StoreRefusal` naming the member. The reader side, the `git.pre-commit-verify-freshness` verb, consumes the
+stamp when the engine wires it. Tested by `FreshnessReconcileTest` (the grammar of every member and its hash version)
+and `WorkflowStatusCodecTest` (the round trip, and the byte-for-byte write of a document that carries the stamp).
 
 [#_delete_mode]
 == The Delete Mode of the Transaction Journal
@@ -1252,7 +1310,9 @@ clears the escalation; `escalate` sets `E = max(t, min(2 * t, C))` for a timed-o
 learned value scaled by `1.25`, else the role floor — never below the role's `budget_floor_seconds`, whose compiled
 minimum is `60`. The fixed probe budgets are unchanged (`runtime.job.ProbeBudget`).
 `ChangeLedgerRecord`, `ChangeLedgerCodec`, `ChangeLedger`:: One line of a `change-ledger.jsonl`: a
-`worktree_sha`-stamped build, change, job, task-diff or baseline-red row. The ledger takes the `JournalScope` of its
+`worktree_sha`-stamped build, change, commit, job, task-diff or baseline-red row. A `commit` row names the commit
+(`commit_sha`, required for that kind alone), the paths it carried and the tree it was made on, so the freshness gate
+can attribute a commit to a `worktree_sha` (ADR 088). The ledger takes the `JournalScope` of its
 scope and appends through `ScopeTransaction.append`, which repairs a torn tail and draws the digest entry of the scope,
 so a line is journaled with the other stores of the same decision and never rewritten; a digest of `unavailable`
 carries how the git invocation failed and never satisfies a freshness gate (ADR 044).
@@ -1312,6 +1372,9 @@ link:../adr/core-store/043-qualification-settings-replaced-in-place.adoc[ADR 043
 |`StoreRefusal` with outcome `conflict` naming the file; nothing is written.
 
 |An unavailable digest without its failure, or a `baseline` on another kind
+|`ChangeLedgerRecord` throws `IllegalArgumentException`; the line is not appended.
+
+|A `commit` row without its `commit_sha`
 |`ChangeLedgerRecord` throws `IllegalArgumentException`; the line is not appended.
 |===
 
@@ -2723,6 +2786,12 @@ read and the aggregate carries its coverage.
   keeps `format_version` 1 across its in-place shape change, and a flat `pending/<entry_id>.json` is no entry.
 * link:../adr/core-store/086-the-cross-commit-window-belongs-to-the-assembly.adoc[ADR 086]: the recovery of a creation
   cut between the new scope's commit and the workspace's is owed to the assembly's `start.create-scope`.
+* link:../adr/core-store/087-the-commit-attempt-caps-are-a-member-of-the-workflow-state.adoc[ADR 087]: the two caps of
+  `git.commit-fix` are a typed member of the workflow state, data in `pm-core` and transitions in `pm-provider-git`.
+* link:../adr/core-store/088-a-commit-is-a-kind-of-the-change-ledger.adoc[ADR 088]: a `commit` row records the commit
+  and the paths it carried, at the format version `1` in place.
+* link:../adr/core-store/089-the-freshness-reconcile-stamp-is-typed-through-the-status-codec.adoc[ADR 089]: the
+  `freshness_reconcile` stamp is a typed status member with its schema members.
 
 == The Intent Record
 
