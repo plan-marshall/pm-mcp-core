@@ -129,8 +129,9 @@ sweeps both.
   before the workspace's journal, so nothing is committed and the next run re-judges every entry; *journalled* after
   it, so the recovery of the workspace completes the removals; *committed* once the transaction's commit returned, so
   the removals are applied and only the directories remain. Whether a fault that came before the commit's return left
-  the staged removals committed is decided by the journal, never by the fault's type. A refusal of the discard's own
-  two faults is no fault of the run: it is caught per entry and the directory is named as kept.
+  the staged removals committed is decided by the journal, never by the fault's type. The discard's two refusals are no
+  fault of the run: they are caught per entry and the directory is named as kept, so only a fault outside them reaches
+  the *committed* arm.
 * All removals of a run are one transaction, committed only if a directory is removed. A stopped removal is completed
   by the recovery of the workspace, which hands the owed records over again.
 * A workspace whose journal still waits for its recovery cannot be written: the step fails and removes nothing.

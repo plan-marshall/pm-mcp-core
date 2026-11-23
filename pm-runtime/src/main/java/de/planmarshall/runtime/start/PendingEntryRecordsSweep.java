@@ -56,17 +56,19 @@ import de.planmarshall.core.store.StoreRefusal;
  * never the id of the transaction. Every candidate is re-judged under the workspace lock before it is removed, so an
  * entry opened between the listing and the lock is kept. The directories themselves are deleted after that
  * transaction, each as the last act, so a stop before it leaves the residue for the next run. A run whose removal
- * notes, every one of them, and names every entry it kept or could
+ * completes reports how many directories it left gone, names every one of them, and names every entry it kept or could
  * not remove — the held and tampered ones and a directory whose discard was refused — in one report: an entry whose
  * record cannot be read, whose store path is refused, or whose directory the discard could not remove is named there,
  * and the step's outcome is a failure then, after the readable residue was removed. A fault of the removal itself is
  * reported with what the run had staged for removal, what it had removed and every entry it kept as they stood, so
  * that fault drops none of them, and it says how far the removal got: before the workspace's journal, so nothing is
  * committed and the next run re-judges every entry; after the journal, so the recovery completes the removals; or after
- * the commit returned, so the removals are committed and only the directories remain. Whether a fault that came before
+ * the commit returned, so the removals are committed and only the directories remain. Only the first two of those three
+ * are reachable today, because the discard's two refusals are caught per entry; the third names what a fault of the
+ * discard outside them would report, and no refusal of the discard is a fault of the run.
+ * Whether a fault that came before
  * the commit's return left the deletions committed is decided by the workspace's journal, never by the fault's type
- * (ADR runtime-start/016). A refusal of the discard is no fault of the run: its two named refusals are caught per entry
- * and the directory is named as kept.
+ * (ADR runtime-start/016).
  *
  * @since 0.1
  */
@@ -102,7 +104,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      * @param at        the instant of the sweep's run, which the removal records carry
      * @return the directories that are gone, named one by one; a failure naming every entry kept or failed and every
      *         unreadable entry the listing collected, and, when the removal itself faults, what it had staged for
-     *         removal and removed as it stood and whether the workspace's journal completes the staged removals
+     *         removal and removed as it stood and how far the removal got — staged, journalled or committed
      */
     @Override
     public RecoveryStep.Outcome run(String projectId, Instant at) {
@@ -187,7 +189,11 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      * journal away, and a scope that holds one refuses a new transaction before it stages anything. The probe runs
      * under the workspace lock, so no other writer can change the answer.
      *
+     * @param workspace the workspace scope whose journal the answer reads
+     * @param staged    the entries the removal had staged
      * @param committed whether the transaction's commit returned
+     * @return the reach; {@link Reach#COMMITTED} only after a returned commit, because the discard's two refusals are
+     *         caught per entry and no other fault of it is known
      */
     private static Reach reach(JournalScope workspace, List<EntryId> staged, boolean committed) {
         if (committed) {
