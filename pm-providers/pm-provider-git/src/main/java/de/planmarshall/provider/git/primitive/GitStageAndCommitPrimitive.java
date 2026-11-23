@@ -295,7 +295,8 @@ public final class GitStageAndCommitPrimitive
                 return ".";
             }
             if (normal.startsWith(root)) {
-                return root.relativize(normal).toString();
+                var relative = root.relativize(normal).toString();
+                return ABSOLUTE_PATH.matcher(relative).find() ? outcome.name() : relative;
             }
             return outcome.name();
         }

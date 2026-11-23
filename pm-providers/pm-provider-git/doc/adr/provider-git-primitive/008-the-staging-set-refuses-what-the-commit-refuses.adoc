@@ -27,9 +27,10 @@ whole plan commit — an availability defect, not an integrity one. The textual 
   `StagingSets.derive` puts it in the `outside` set of the staging set. The footprint check therefore refuses it with
   `footprint_violation` and names it, a typed answer of the primitive instead of a git detail surfaced through
   `commit_failed`.
-* The dirty paths of the site are unquoted, list an embedded repository and a modified submodule by their directory, and
-  list a rename by both sides, the old path and the new one; the staging set reads them as they come, so an embedded
-  repository is a footprint violation and a rename is staged on both sides.
+* The dirty paths of the site are NUL-separated (`-z`; `core.quotePath=false` alone still escapes a quote, a backslash
+  and a control character), list an embedded repository and a modified submodule by their directory, and list a rename by
+  both sides, the old path and the new one; the staging set reads them as they come, so an embedded repository is a
+  footprint violation and a rename is staged on both sides.
 * The commit's own refusal stays: a bound `files` path is refused at the bind (`path.staging`), and a path that reaches
   the commit anyway is refused there instead of being read as a pathspec.
 

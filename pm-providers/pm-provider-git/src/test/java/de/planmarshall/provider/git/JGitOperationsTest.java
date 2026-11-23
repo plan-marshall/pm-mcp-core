@@ -147,6 +147,27 @@ class JGitOperationsTest extends JGitOperationsFixtures {
     }
 
     @Test
+    @DisplayName("a staged change the worktree reverted is nothing to commit and keeps the staged entry")
+    void stagedDriftKeepsTheIndex() throws Exception {
+        // the fixture README holds A: stage B, then put the worktree back to A, so only the index differs from HEAD
+        var original = Files.readString(repo.resolve("README.md"));
+        Files.writeString(repo.resolve("README.md"), text());
+        try (var jgit = Git.open(repo.toFile())) {
+            jgit.add().addFilepattern("README.md").call();
+        }
+        Files.writeString(repo.resolve("README.md"), original);
+        var staged = indexEntry("README.md").getObjectId();
+
+        var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("README.md")));
+
+        assertAll("staged drift",
+                () -> assertEquals(GitOutcome.NOTHING_TO_COMMIT, result.outcome(),
+                        "The staged drift is nothing to commit"),
+                () -> assertEquals(staged, indexEntry("README.md").getObjectId(),
+                        "The staged entry is kept"));
+    }
+
+    @Test
     @DisplayName("a listed path without a change leaves the index untouched")
     void nothingToCommitLeavesTheIndexUntouched() throws Exception {
         // the content equals HEAD, and only the stat moves, so an add would refresh the index entry and stage it

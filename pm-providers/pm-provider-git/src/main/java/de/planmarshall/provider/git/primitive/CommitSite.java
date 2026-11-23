@@ -57,8 +57,9 @@ public interface CommitSite {
      * are listed by their directory: an embedded repository is reported as {@code newdir/} because git does not descend
      * into another repository, and a modified submodule is reported as its directory. A rename is listed by both sides,
      * the old path and the new one, as git's rename detection reports it. A listed path is unquoted — the site reads the
-     * status NUL-separated ({@code -z}) or with {@code core.quotePath=false} — so a name outside ASCII arrives as that
-     * name and not as a backslash escape, which the staging set's textual rule refuses. The staging set of the scope
+     * status NUL-separated ({@code -z}) — so a name outside ASCII, a name with a double quote, a backslash or a control
+     * character arrives verbatim and not as an escape; {@code core.quotePath=false} alone is not enough, because git
+     * keeps escaping those characters. The staging set of the scope
      * ({@code StagingSets}) puts a name that no commit can stage in the {@code outside} set, so a directory entry is a
      * footprint violation naming it, never a commit that fails on it.
      *

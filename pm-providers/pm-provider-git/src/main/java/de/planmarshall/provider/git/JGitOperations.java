@@ -17,8 +17,10 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
@@ -30,6 +32,8 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.InvalidRemoteException;
 import org.eclipse.jgit.api.errors.JGitInternalException;
 import org.eclipse.jgit.dircache.DirCacheCheckout;
+import org.eclipse.jgit.dircache.DirCacheEditor;
+import org.eclipse.jgit.dircache.DirCacheEntry;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.errors.TransportException;
 import org.eclipse.jgit.lib.Constants;
@@ -379,6 +383,7 @@ public final class JGitOperations implements GitOperations {
             if (!hasWorktreeChanges(git, paths)) {
                 return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, "no changes");
             }
+            var staged = paths.isEmpty() ? Map.<String, DirCacheEntry>of() : indexEntries(repository, paths);
             if (paths.isEmpty()) {
                 git.add().addFilepattern(".").call();
                 git.add().addFilepattern(".").setUpdate(true).call();
@@ -388,6 +393,12 @@ public final class JGitOperations implements GitOperations {
                     git.add().addFilepattern(path).setUpdate(true).call();
                     command.setOnly(path);
                 }
+            }
+            if (!paths.isEmpty() && !hasChanges(repository, paths)) {
+                // the status saw a staged change the worktree reverted: staging would overwrite the index and the
+                // commit would be empty, so the index is restored and the call commits nothing
+                restoreIndex(repository, paths, staged);
+                return GitResult.of(GitOutcome.NOTHING_TO_COMMIT, "no changes");
             }
             RevCommit commit = command.call();
             return GitResult.ok(toInfo(commit));
@@ -406,8 +417,8 @@ public final class JGitOperations implements GitOperations {
 
     /**
      * Whether staging the listed paths would make a change against {@code HEAD}, read from the worktree and the index
-     * before anything is staged, so a call with nothing to commit leaves the index untouched. A path whose content is
-     * unchanged and one whose change is already staged are both no change of the commit, and an untracked file is one.
+     * before anything is staged, so a call the status finds unchanged stages nothing. A change that exists only in the
+     * index is caught after staging and undone there ({@link #hasChanges(Repository, List)}).
      *
      * @param git   the repository's git
      * @param paths the listed paths; empty means the whole worktree
@@ -420,6 +431,102 @@ public final class JGitOperations implements GitOperations {
             status.addPath(path);
         }
         return !status.call().isClean();
+    }
+
+    /**
+     * The index entries of the listed paths before staging, copied, keyed by path; a path without an entry is absent
+     * from the map.
+     *
+     * @param repository the repository
+     * @param paths      the listed paths
+     * @return the snapshot of their index entries
+     * @throws IOException when the index cannot be read
+     */
+    private static Map<String, DirCacheEntry> indexEntries(Repository repository, List<String> paths)
+            throws IOException {
+        var index = repository.readDirCache();
+        var entries = new HashMap<String, DirCacheEntry>();
+        for (var path : paths) {
+            var entry = index.getEntry(path);
+            if (entry != null) {
+                entries.put(path, new DirCacheEntry(entry));
+            }
+        }
+        return entries;
+    }
+
+    /**
+     * Puts the snapshotted entries of the listed paths back and removes the ones that had none, so a call that commits
+     * nothing does not overwrite a staged entry the worktree reverted.
+     *
+     * @param repository the repository
+     * @param paths      the listed paths
+     * @param entries    the snapshot taken before staging
+     * @throws IOException when the index cannot be written
+     */
+    private static void restoreIndex(Repository repository, List<String> paths,
+            Map<String, DirCacheEntry> entries) throws IOException {
+        var editor = repository.lockDirCache().editor();
+        for (var path : paths) {
+            var previous = entries.get(path);
+            if (previous == null) {
+                editor.add(new DirCacheEditor.DeletePath(path));
+            } else {
+                editor.add(new DirCacheEditor.PathEdit(path) {
+
+                    @Override
+                    public void apply(DirCacheEntry entry) {
+                        entry.setObjectId(previous.getObjectId());
+                        entry.setFileMode(previous.getFileMode());
+                    }
+                });
+            }
+        }
+        if (!editor.commit()) {
+            throw new IOException("the index of " + paths.size() + " paths could not be restored");
+        }
+    }
+
+    /**
+     * Whether the index differs from {@code HEAD} for the listed paths, so the commit would not be empty. JGit reports
+     * an empty commit with a translated message on a generic exception, so the condition is read here, from the typed
+     * index and tree instead of from that text.
+     *
+     * @param repository the repository
+     * @param paths      the listed paths
+     * @return whether the staged state of the paths differs from the head tree
+     * @throws IOException when the index or the head tree cannot be read
+     */
+    private static boolean hasChanges(Repository repository, List<String> paths) throws IOException {
+        var headId = repository.resolve(Constants.HEAD + "^{commit}");
+        if (headId == null) {
+            return true;
+        }
+        try (RevWalk walk = new RevWalk(repository)) {
+            var headTree = walk.parseCommit(headId).getTree();
+            var index = repository.readDirCache();
+            for (var path : paths) {
+                var entry = index.getEntry(path);
+                try (TreeWalk treeWalk = TreeWalk.forPath(repository, path, headTree)) {
+                    if (!sameEntry(entry, treeWalk)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+    }
+
+    /**
+     * Compares a staged entry with the entry of the head tree: the object id and the file mode, so a change of the
+     * executable bit alone is a change.
+     */
+    private static boolean sameEntry(@Nullable DirCacheEntry entry, @Nullable TreeWalk head) {
+        if (entry == null || head == null || head.getObjectId(0) == null) {
+            return entry == null && head == null;
+        }
+        return entry.getObjectId().equals(head.getObjectId(0))
+                && entry.getFileMode() == head.getFileMode(0);
     }
 
     /**

@@ -77,9 +77,10 @@ checkout), its `ScopeType` and the epic's archive flag.
 read with `--untracked-files=all`, so every untracked file is listed by its own path and an untracked directory is
 expanded to the files below it, where the plain porcelain status would collapse it to `newdir/`. Two entries are the
 exceptions and are listed by their directory: an embedded repository, which git does not descend into, and a modified
-submodule. A rename is listed by both sides, the old path and the new one. The list is unquoted (NUL-separated, `-z`, or
-`core.quotePath=false`), so a name outside ASCII arrives as that name, not as a backslash escape; the staging set's
-textual rule refuses a backslash. The git contract has no `status` operation, so the site answers it.
+submodule. A rename is listed by both sides, the old path and the new one. The list is NUL-separated (`-z`), so a name
+outside ASCII, a name with a double quote, a backslash or a control character arrives verbatim and not as an escape;
+`core.quotePath=false` alone is not enough, because git keeps escaping those characters. The git contract has no `status`
+operation, so the site answers it.
 `localTrailer`, `machineTrailer`:: The stored `commit_trailer` of the project and of the machine, each a
 `CommitTrailer.Stored` whose halves may be absent or invalid; empty when the level stores none.
 `commitIdentity`, `agentIdentity`:: The operator's `commit_identity`, the author, and the agent identity resolved from the

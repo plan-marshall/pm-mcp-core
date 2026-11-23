@@ -184,6 +184,19 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
     }
 
     @Test
+    @DisplayName("a host path beside a relativized checkout path is carried as the outcome's code")
+    void hostPathBesideARelativizedPathIsACode() {
+        var root = repo.toAbsolutePath().normalize().toString();
+
+        var result = GitStageAndCommitPrimitive.map(
+                GitResult.of(GitOutcome.FAILED, root + "/a: /home/operator/private"), repo);
+
+        assertEquals("FAILED",
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "The relativized rest is scanned for a host path");
+    }
+
+    @Test
     @DisplayName("a sibling directory whose name extends the root is carried as the code, not mangled")
     void siblingOfTheRootIsACode() {
         var root = repo.toAbsolutePath().normalize().toString();
