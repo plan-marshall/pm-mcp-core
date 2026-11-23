@@ -11,11 +11,13 @@ package de.planmarshall.core.build;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -190,8 +192,10 @@ public class MavenOutputParser {
      * {@link BuildLogText#readLog(Path)}, and a caller that holds text whose read it cannot see (the daemon's
      * {@code JobLog}) passes it from the length of the file the read took. A cut log reports
      * {@link TestCounts.Unmeasured}, whatever the tail carries: the summary blocks of the modules in the lost head are not
-     * in it, so no number of the tail is a count of the whole run, and the failing count the tail still reports is filed
-     * as one error diagnostic. An uncut text is parsed as {@link #parse(String)} parses it.
+     * in it, so no number of the tail is a count of the whole run. The failing tests the tail still shows are filed as a
+     * {@code TEST_FAILURE} diagnostic at error severity (ADR {@code core-build/011}): the tail's visible count, minus the
+     * failing tests an error-level {@code Tests run:} line the collector already filed reports, and only when that
+     * remainder is above zero (ADR {@code core-build/012}). An uncut text is parsed as {@link #parse(String)} parses it.
      *
      * @param logText the log text as the caller holds it; ANSI escape sequences are stripped here
      * @param cut     whether the text is the tail alone of a log the read cut
@@ -208,8 +212,11 @@ public class MavenOutputParser {
      * <p>
      * A log the read cuts ({@link BuildLogText#readLog(Path)}) reports {@link TestCounts.Unmeasured}: a summary
      * block of a module in the lost head is not in it, so the tail's figure is no count of the whole run, and a cut
-     * log never claims that no test ran. The failing count the tail reports is filed as one error diagnostic, because a
-     * visible failure is evidence whether or not the total is a measurement (ADR {@code core-build/011}).
+     * log never claims that no test ran. The failing tests the tail shows are filed as a {@code TEST_FAILURE} diagnostic
+     * at error severity, because a visible failure is evidence whether or not the total is a measurement: the tail's
+     * visible count, reduced by the failing tests an error-level count line already filed reports, is added once, and an
+     * error-level {@code Tests run:} line of the tail stays its own diagnostic beside it (ADR {@code core-build/011} and
+     * {@code core-build/012}).
      *
      * @param logFile the file to read
      * @return the parsed build
@@ -251,9 +258,10 @@ public class MavenOutputParser {
      */
     private static List<Diagnostic> withVisibleFailures(List<Diagnostic> diagnostics, long failures,
             boolean besideFiledCount) {
+        var plural = failures == 1 ? "" : "s";
         var message = besideFiledCount
-                ? "the cut log's tail reports %d further failing tests".formatted(failures)
-                : "the cut log's tail reports %d failing tests".formatted(failures);
+                ? "the cut log's tail reports %d further failing test%s".formatted(failures, plural)
+                : "the cut log's tail reports %d failing test%s".formatted(failures, plural);
         var withFailures = new ArrayList<>(diagnostics);
         withFailures.add(Diagnostic.builder()
                 .message(message)
@@ -345,6 +353,8 @@ public class MavenOutputParser {
 
         private boolean unrepresentable;
 
+        private int execution;
+
         /**
          * The counts of one {@code Tests run:} line.
          *
@@ -353,9 +363,13 @@ public class MavenOutputParser {
          * @param skipped    the skipped tests
          * @param errorLevel whether the line carries {@code [ERROR]}, so the diagnostic collector files it as a diagnostic
          *                   and the cut tail must not file its count again
+         * @param execution  the ordinal of the test-plugin execution the line belongs to, so two executions' figures are
+         *                   never added together
+         * @param message    the line's stored message, the identity the collector deduplicates by
          */
         @Builder
-        private record Counts(long total, long failed, long skipped, boolean errorLevel) {
+        private record Counts(long total, long failed, long skipped, boolean errorLevel, int execution,
+                String message) {
         }
 
         void accept(String line) {
@@ -363,6 +377,7 @@ public class MavenOutputParser {
             if (runner.isPresent()) {
                 currentRunner = TEST_RUNNERS.get(runner.get());
                 resultsSeen = false;
+                execution++;
             } else if (RESULTS_MARKER.matcher(line.strip()).matches()) {
                 resultsSeen = true;
             } else {
@@ -382,7 +397,8 @@ public class MavenOutputParser {
                 unrepresentable = true;
             }
             var counts = Counts.builder().total(total).failed(failed).skipped(skipped)
-                    .errorLevel(line.contains(ERROR_MARKER)).build();
+                    .errorLevel(line.contains(ERROR_MARKER)).execution(execution)
+                    .message(storedMessage(line)).build();
             if (line.contains(TIME_ELAPSED)) {
                 perClassLines.add(counts);
             } else if (resultsSeen) {
@@ -413,23 +429,85 @@ public class MavenOutputParser {
          * <p>
          * A cut log's tail may hold summary lines whose {@code Results:} marker is in the lost head; they are filed as
          * ambiguous by the scan, and for a cut log they count here too, so a failure the tail shows is never reported as
-         * a passing run (ADR {@code core-build/011}). Two figures describe the tail: the summary side — summary and
-         * ambiguous blocks — and the per-class lines. The larger of the two is the tail's visible failure count, because
-         * a per-class block beyond what the summaries report belongs to an execution whose summary the cut removed,
-         * while a per-class line of an execution that does report its summary adds nothing. The figure of the side chosen
-         * is then reduced by the {@code [ERROR]} lines the diagnostic collector already filed, so a failure is never
-         * filed twice. A per-class line and its summary are therefore never added together, and a failure of an
-         * execution whose summary is missing is not lost.
+         * a passing run (ADR {@code core-build/011}). The tail's visible figure is counted per test-plugin execution: the
+         * summary side — summary and ambiguous blocks — and the per-class lines of one execution describe the same
+         * failures, so the larger of the two sides is that execution's figure, and a per-class line beyond what the
+         * execution's summary reports belongs to an execution whose summary the cut removed. The figures of two
+         * executions are added, so a failure of an execution that printed no summary is not lost. A tail that carries no
+         * execution header is one execution: its two sides cannot be told apart by the log, and the larger side is then an
+         * approximation of a mix (ADR {@code core-build/012}).
+         * <p>
+         * The figure is then reduced by the failing tests the diagnostic collector filed at error level, counted AFTER
+         * its deduplication: a line the collector dropped as a duplicate of an earlier one adds nothing, because the
+         * failures it reports are already filed. The remainder never goes below zero.
          *
          * @return the failing tests of the tail that are not yet a filed diagnostic
          */
         long unfiledFailures() {
-            long summarySide = failuresOf(summaryLines) + failuresOf(ambiguousLines);
-            long perClassSide = failuresOf(perClassLines);
-            if (perClassSide >= summarySide) {
-                return perClassSide - failuresOf(filed(perClassLines));
+            return Math.max(0, visibleFailures() - filedFailures());
+        }
+
+        /**
+         * The failing tests the cut tail shows, summed over the test-plugin executions of the tail.
+         *
+         * @return the tail's visible failing count
+         */
+        private long visibleFailures() {
+            Map<Integer, long[]> perExecution = new LinkedHashMap<>();
+            addFailures(perExecution, summaryLines, 0);
+            addFailures(perExecution, ambiguousLines, 0);
+            addFailures(perExecution, perClassLines, 1);
+            long visible = 0;
+            for (long[] sides : perExecution.values()) {
+                visible += Math.max(sides[0], sides[1]);
             }
-            return summarySide - failuresOf(filed(summaryLines)) - failuresOf(filed(ambiguousLines));
+            return visible;
+        }
+
+        private static void addFailures(Map<Integer, long[]> perExecution, List<Counts> lines, int side) {
+            for (Counts counts : distinct(lines)) {
+                perExecution.computeIfAbsent(counts.execution(), _ -> new long[2])[side] += counts.failed();
+            }
+        }
+
+        /**
+         * The failing tests of the count lines the collector filed at error level, each line counted once.
+         *
+         * @return the failing tests an error diagnostic already reports
+         */
+        private long filedFailures() {
+            Set<String> seen = new HashSet<>();
+            long filed = 0;
+            for (Counts counts : Stream.of(summaryLines, ambiguousLines, perClassLines).flatMap(List::stream).toList()) {
+                if (counts.errorLevel() && seen.add(key(counts))) {
+                    filed += counts.failed();
+                }
+            }
+            return filed;
+        }
+
+        /**
+         * The count lines counted once each, in log order: two lines the diagnostic collector holds for one are one
+         * figure, so a duplicated line never adds a failure the filed diagnostic does not report.
+         *
+         * @param lines the count lines of one side
+         * @return the distinct lines
+         */
+        private static List<Counts> distinct(List<Counts> lines) {
+            Map<String, Counts> distinct = new LinkedHashMap<>();
+            for (Counts counts : lines) {
+                distinct.putIfAbsent(key(counts), counts);
+            }
+            return List.copyOf(distinct.values());
+        }
+
+        private static String key(Counts counts) {
+            return DiagnosticCollector.messageKey(counts.message());
+        }
+
+        private static String storedMessage(String line) {
+            var message = LEVEL_PREFIX.matcher(line.strip()).replaceFirst("");
+            return DiagnosticCollector.storedOrEmpty(message).orElse(message);
         }
 
         /**
@@ -441,14 +519,6 @@ public class MavenOutputParser {
         boolean filesFailingCount() {
             return Stream.of(summaryLines, ambiguousLines, perClassLines).flatMap(List::stream)
                     .anyMatch(counts -> counts.errorLevel() && counts.failed() > 0);
-        }
-
-        private static long failuresOf(List<Counts> lines) {
-            return lines.stream().mapToLong(Counts::failed).sum();
-        }
-
-        private static List<Counts> filed(List<Counts> lines) {
-            return lines.stream().filter(Counts::errorLevel).toList();
         }
 
         Optional<TestCounts> result(String logText, boolean cut) {

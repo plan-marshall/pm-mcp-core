@@ -68,7 +68,18 @@ class DiagnosticCollector {
      */
     static String key(Diagnostic diagnostic) {
         return diagnostic.category().name() + ":" + diagnostic.file() + ":" + diagnostic.line() + ":"
-                + truncate(diagnostic.message(), DEDUP_MESSAGE_LENGTH);
+                + messageKey(diagnostic.message());
+    }
+
+    /**
+     * The message part of a deduplication key: the first 100 characters of a stored message. A parser that counts how
+     * many of its own lines the collector filed asks this, so its count and the collector's identity cannot drift apart.
+     *
+     * @param message the stored message
+     * @return the first {@value #DEDUP_MESSAGE_LENGTH} characters of the message
+     */
+    static String messageKey(String message) {
+        return truncate(message, DEDUP_MESSAGE_LENGTH);
     }
 
     /**
