@@ -2028,9 +2028,9 @@ class SubprocessJobRunnerTest {
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
             var overCap = fixture.base.resolve("over-cap-output");
             try (var channel = Files.newByteChannel(overCap, StandardOpenOption.CREATE,
-                    StandardOpenOption.WRITE)) {
+                         StandardOpenOption.WRITE)) {
                 channel.position(JobLog.MAX_BYTES + 1L);
-                channel.write(ByteBuffer.wrap(new byte[] {'x'}));
+                channel.write(ByteBuffer.wrap(new byte[]{'x'}));
             }
             Files.writeString(fixture.tools.get(HostToolName.GIT),
                     "#!/bin/sh\nexec " + FakePmExec.tool("cat") + " " + overCap + "\n");
