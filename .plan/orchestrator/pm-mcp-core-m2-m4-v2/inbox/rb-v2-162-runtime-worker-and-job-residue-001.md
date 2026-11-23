@@ -4,8 +4,8 @@ sender_id=rb-v2-162-runtime-worker-and-job-residue
 epic=pm-mcp-core-m2-m4-v2
 kind=landing
 created=2026-11-22T20:23:56Z
-revision=2
-amended=2026-11-22T23:07:25Z
+revision=3
+amended=2026-11-23T20:29:23Z
 
 ```landing-facts
 schema=landing-facts/1
@@ -47,8 +47,8 @@ Deliverable 1 is met. Deliverables 2 to 5 are not met as written; their remainin
 - 61 (this run): both refusal texts reworded to name what was refused, the pins updated in the same commit `8b196917`; the inverted `@throws` corrected in `61942366`. Order `none`: the texts are pinned contract literals, so no failing run was captured.
 
 **D2 — the hold and the worker (items 55, 19, 30).** Not met.
-- Met: 19 (the `ProbeBudget` seam, with the reason it is an override and not the clock seam item 19 named, recorded in its Javadoc at `61942366`), 55(a) (ADR runtime-worker/016 § Clarification and the guide state the token-versus-time budget and name the time budget as owed), 55(b) in part (an answer leaves HOLDING; `holdOpened` re-decides the budget), 55(c) (`PM_RUNTIME_WARN_152`).
-- Open: 55(b)'s task-naming half (the `WorkerCalls.answerDelivered` port names no task; closing it is a port change owed to the assembly), 55(d)(e)(f), and item 30 entirely.
+- Met: 19 (the `ProbeBudget` seam, with the reason it is an override and not the clock seam item 19 named, recorded in its Javadoc), 55(a) (ADR runtime-worker/016 § Clarification and the guide), 55(b) in part (an answer leaves HOLDING; `holdOpened` re-decides the budget), 55(c), 30(a) (the worker-vector statements corrected in the guide, the ADR, the Model Work part and the Failure Modes rows), 58(a)(b) (the start-failure rows settled with the wiring; the skill sentence narrowed to `PromptComposer`'s checks).
+- Open: 55(b)'s task-naming half (a `WorkerCalls` port change owed to the assembly), 55(d)(e)(f), 30(b)(c), 58(c)(d).
 
 **D3 — the supervisor residue and the git-metadata guard (items 42, 41).** Not met.
 - Met: 42(e), 41(c), 41(e).
@@ -64,7 +64,7 @@ Deliverable 1 is met. Deliverables 2 to 5 are not met as written; their remainin
 - 50(a): `JobRecordSchemaParityTest.kindRulesEqualSchema`, order `none` (a parity pin; it fails when the schema rule or a member changes), commit `8b196917`.
 - Open: 44(a)'s PEM `REDACTION_BOUND` re-measure, 44(c), 44(d), 44(e).
 
-Per-head test runs: `pm-core` 5 667 green at `8b196917` (65 s, log `4043075966684382b1cec196c4e0d484`), `pm-runtime` 8 427 green at `8b196917` (839 s, log `59ea2b6c0b7449d5981fa5eb8dd2cd9b`), `pm-core` 5 667 green (71 s, log `8cc2625a3f4346238fa84944245434e9`); after the self-review fixes, `pm-core` 5 667 green (57 s, log `2093d6b1f4f741199d63c4c5c337079e`) and `pm-runtime` 8 427 green (830 s, log `4ffb767e262a4127a96a6b5343bb3a71`) at `61942366`.
+Per-head test runs: `pm-core` 5 667 green at `8b196917` (65 s, log `4043075966684382b1cec196c4e0d484`), `pm-runtime` 8 427 green at `8b196917` (839 s, log `59ea2b6c0b7449d5981fa5eb8dd2cd9b`), `pm-core` 5 667 green (71 s, log `8cc2625a3f4346238fa84944245434e9`); after the self-review fixes, `pm-core` 5 667 green (57 s, log `2093d6b1f4f741199d63c4c5c337079e`) and `pm-runtime` 8 427 green (830 s, log `4ffb767e262a4127a96a6b5343bb3a71`) at `61942366`; after the item 30/58 corrections, `pm-runtime` 8 427 green (838 s, log `0b20b385f29d445f944bd4c4d5e6fc7e`) at `77d08aea`.
 
 ## 2. Personas and skills
 
@@ -88,14 +88,14 @@ Self-review round of this continuation (a general sub-agent, `persona-code-revie
 6. `ProbeBudget` delivered an override, not the clock seam item 19 named, with no recorded reason — the reason is now in its Javadoc.
 7. `PM_RUNTIME_WARN_152` was added although the spec's R12 parameter said "none" — recorded in §7.
 
-CI: head `e0e80dc1` was fully green (build 25/27, integration tests, SonarCloud). The final head `61942366` carries **no build check** (only the two review bots), so this landing does not claim CI green on it.
+CI: head `e0e80dc1` was fully green (build 25/27, integration tests, SonarCloud). The later heads `61942366` and `77d08aea` carry **no build check** at all (no CI run was created; only the two review bots list), so this landing does not claim CI green on them.
 PR comments: no review thread (0) and no review (0); the only bot comments are rate-limit notices and the SonarCloud summary.
 
 ## 5. Reviewers
 
 | Reviewer | Role | Result | Head | History |
 |---|---|---|---|---|
-| coderabbit | required | refused (rate limited) | e0e80dc1 | triggered 2026-11-22T22:14:09Z ("Action not completed — Review rate limited"); the next allowed trigger is not before 2026-11-22T23:44Z. No qualifying review exists, so the review gate is not met. |
+| coderabbit | required | refused (rate limited) | 77d08aea | triggered 2026-11-22T22:14:09Z and again 2026-11-23T20:18:30Z; both "Action not completed — Review rate limited"; the next allowed trigger is not before 2026-11-23T21:48:38Z. No qualifying review exists, so the review gate is not met. |
 | sourcery | optional | refused (review budget) | e0e80dc1 | triggered 2026-11-22T22:14:18Z; "you've used your own review budget". |
 
 ## 6. Operator questions
@@ -108,6 +108,7 @@ PR comments: no review thread (0) and no review (0); the only bot comments are r
 Guard: none on this harness (unenforced). The run's own actions are counted below.
 
 - **R20 reading (spec's First Instruction).** The first run read the five skills; this continuation applied them but did not re-read the SKILL.md files. Reported as a deviation.
+- **R17 (links check).** The spec's Done-when asks for the links check (`BROKEN LINKS 0`, `INLINE SCHEMA BLOCKS 0`). It was **not run**: the checker is a script of the sibling `plan-marshall-documentation` checkout outside this repository, and the lane's Executor rule allows only `python3 .plan/execute-script.py …`. Recorded as not run rather than claimed.
 - **R12 (plan parameter).** The spec's parameter is "R12 — none (no message)". The first run added `PM_RUNTIME_WARN_152` and regenerated `doc/log-messages/pm-runtime.adoc`; the template and listing agree, but the addition is a deviation from the parameter that this landing records.
 - **Shell file operations.** Reading, searching and listing must use the file tools. This run used shell `grep -n` on `JobLog.java`, `SupervisionPass.java`, `WorkerActivityPump.java`, `JobConfinementComposer.java`, `SecretRedactor.java`, `DiagnosticCollector.java` and the termination files; shell `wc -l` on the landing files; shell `ls` on the progress and worktree directories; and one pipe (`git diff … | tail -5`). Each is a Shell rule break.
 - **Executor and builds.** Every build ran through `plan-marshall:build-maven:maven`; no direct maven, no `javac`, no `python3 -c`. Every CI action ran through `ci`. The pm-runtime runs were re-attached with bounded waits after a `running` result — the sanctioned re-attach, never a backgrounded build.
@@ -122,7 +123,8 @@ Guard: none on this harness (unenforced). The run's own actions are counted belo
 
 ## 9. Residue
 
-- The second pull request of this plan carries items 30; 41(a)(b)(d)(f)(g); 42(a)(c)(d)(f)(h); 44(a)'s PEM re-measure and (c)(d)(e); 48(b)(c-release)(d)(e) and its nine minor points; 55(b)'s task naming (owed to the assembly port), 55(d)(e)(f); 58; 75(b)-(f).
+- The second pull request of this plan carries items 30(b)(c); 41(a)(b)(d)(f)(g); 42(a)(c)(d)(f)(h); 44(a)'s PEM re-measure and (c)(d)(e); 48(b)(c-release)(d)(e) and its nine minor points; 55(b)'s task naming (owed to the assembly port), 55(d)(e)(f); 58(c)(d); 75(b)-(f).
+- Item 30(a)'s state-catalogue part reads as a miscitation at the head: the cited line 232 is the operator-side `precondition_unmet` list, which holds no launch refusals; the refusal list that does (Model Work § Launch Refusals) now names `argument_rejected`. No edit was made there.
 - Sonar on the final head `61942366` is **undecidable**: the analysis is stale (`e0e80dc1`), and `sonar-stale-delta` answers `carry_forward: false` (`delta_buildable`). The 12 open issues measured at `e0e80dc1` (S1192, S3776, S5785) are neither dismissed nor re-measured; the quality gate at `e0e80dc1` was OK. The PR is not reported ready.
 - CodeRabbit holds no qualifying review; the next trigger is not before 2026-11-22T23:44Z.
 - No base-evidence worktree was created (no base-sha Done-when this run); `cleanup_owed` is false.
