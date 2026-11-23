@@ -199,7 +199,7 @@ side (summary and ambiguous lines) and its per-class lines is that execution's f
 are added, so a failure of an execution without a summary is not lost. The sum is then reduced by the failing tests the
 error-level `Tests run:` lines already filed report, each of those lines counted once after the collector's
 deduplication; the remainder is filed once, and an error-level count line stays its own diagnostic beside it. A tail whose
-cut removed every execution header is one execution, whose larger side is an approximation of a mix
+cut removed every execution header is one execution, whose larger side is the mix's figure and can be too low
 (link:../adr/core-build/011-a-cut-build-log-reports-unmeasured.adoc[ADR `core-build/011`] and
 link:../adr/core-build/012-the-cut-tails-failing-count-is-taken-per-execution.adoc[ADR `core-build/012`]).
 

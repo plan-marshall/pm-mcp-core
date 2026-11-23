@@ -434,8 +434,8 @@ public class MavenOutputParser {
          * failures, so the larger of the two sides is that execution's figure, and a per-class line beyond what the
          * execution's summary reports belongs to an execution whose summary the cut removed. The figures of two
          * executions are added, so a failure of an execution that printed no summary is not lost. A tail that carries no
-         * execution header is one execution: its two sides cannot be told apart by the log, and the larger side is then an
-         * approximation of a mix (ADR {@code core-build/012}).
+         * execution header is one execution: its two sides cannot be told apart by the log, the larger side is then that
+         * execution's figure, and it can be too low for a mix (ADR {@code core-build/012}).
          * <p>
          * The figure is then reduced by the failing tests the diagnostic collector filed at error level, counted AFTER
          * its deduplication: a line the collector dropped as a duplicate of an earlier one adds nothing, because the

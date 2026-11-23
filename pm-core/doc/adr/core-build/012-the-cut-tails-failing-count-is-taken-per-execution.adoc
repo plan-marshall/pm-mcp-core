@@ -39,19 +39,28 @@ figure of an execution is the larger of its two sides:
   summary side (the summary lines after the `Results:` marker and the ambiguous lines before it) and the per-class lines
   (`Time elapsed`) describe the same failures, so the larger of the two sides is that execution's figure: a per-class line
   and its summary are never added together.
+* Each side is first counted after the collector's deduplication: two count lines whose stored message has the same first
+  100 characters are one figure, exactly as the diagnostic collector files them as one diagnostic. The message part of
+  that identity is `DiagnosticCollector.messageKey(String)`, so the parser's count and the collector's key cannot drift
+  apart.
 * The figures of the executions are added. A failure of an execution that printed no summary, or whose summary lies in the
-  lost head, is therefore not lost.
+  lost head, is therefore not lost. Two executions that print byte-identical failing lines are one figure for the same
+  reason they are one diagnostic, so the added figure can be too low for them.
 * A tail whose cut removed every execution header is one execution. Its two sides cannot be told apart by the log, the
-  larger side is that execution's figure, and the figure of that mix stays an approximation.
-* Within a side, count lines whose stored message has the same first 100 characters are one line: that is the identity the
-  diagnostic collector deduplicates by, so a duplicated count line adds no failure.
+  larger side is that execution's figure, and that side drops the smaller side's failures: the figure of such a mix is too
+  low, never a sum of two executions. Where both sides belong to one execution, the summary side can be too high: it sums
+  every summary and ambiguous line of the execution, so a count line of that execution which does not carry `Time elapsed`
+  (another plugin's per-class form) is counted beside its summary. Either way the figure is evidence with a bounded error,
+  not a measurement, which is why the population stays `Unmeasured`.
 * The figure is reduced by the failing tests the error-level count lines already filed report, each such line counted once
   after that same deduplication, and the remainder is floored at zero. A remainder above zero is filed once as a
   `TEST_FAILURE` diagnostic at error severity; an error-level `Tests run:` line stays its own diagnostic beside it. The
   synthetic message says "1 further failing test" in the singular and "N further failing tests" in the plural.
 
-`DiagnosticCollector.messageKey(String)` is that identity, so the parser's count and the collector's deduplication cannot
-drift apart; `DiagnosticCollector.key(Diagnostic)` is built from it.
+`DiagnosticCollector.messageKey(String)` is the message part of that identity, so the parser's count and the collector's
+deduplication cannot drift apart; `DiagnosticCollector.key(Diagnostic)` builds the full key — category, file, line and
+that message part — from it. For a count line the category and the location are fixed, so the message part decides
+alone.
 
 == Alternatives Considered
 
@@ -63,8 +72,9 @@ drift apart; `DiagnosticCollector.key(Diagnostic)` is built from it.
 
 == Consequences
 
-* A cut tail reports the failing tests its blocks show once, per execution; the arithmetic of a header-less mix remains an
-  approximation and is stated as one.
+* A cut tail reports the failing tests its blocks show once per execution; the error of the arithmetic is bounded and
+  stated in the decision: too low for a header-less mix and for two executions' identical lines, possibly too high for
+  one execution's summary side beside a count line without `Time elapsed`.
 * The count never goes negative: the subtraction is floored at zero, where the previous rule could over-subtract across the
   two sides.
 * The `filed` figure mirrors the collector, so a change to the collector's deduplication key is a change of this rule

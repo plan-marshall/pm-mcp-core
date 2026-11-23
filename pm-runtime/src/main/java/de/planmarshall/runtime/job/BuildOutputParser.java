@@ -109,8 +109,9 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
      * The cut fact reaches the Maven parser alone, because its count scan is the one place a lost head falsifies the
      * figure the tail still prints: a cut Maven log reports {@link TestCounts.Unmeasured} instead of a tail-only count
      * (ADR {@code core-build/011}). The other parsers read their count lines from the tail too — Gradle, pyproject, Jest
-     * and TAP each build a {@link TestCounts} — but none of them takes a cut fact, so their figure is the tail's and is
-     * reported as measured.
+     * and TAP each build a {@link TestCounts} — but none of them takes a cut fact, so the population they derive from
+     * the tail is the one carried: measured, or unmeasured by their own rules (a TAP run that did not finish its plan,
+     * a summary whose parts disagree), never because the read cut the log.
      * <p>
      * The population travels beside the contradiction: the result carries the parser's {@link TestCounts} in its three
      * states, so a consumer tells a log with no count line ({@code null}) from a cut or unaggregatable one
