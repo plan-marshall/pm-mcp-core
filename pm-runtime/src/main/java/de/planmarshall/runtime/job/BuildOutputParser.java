@@ -111,7 +111,12 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
      * (ADR {@code core-build/011}). The other parsers read their count lines from the tail too — Gradle, pyproject, Jest
      * and TAP each build a {@link TestCounts} — but none of them takes a cut fact, so the population they derive from
      * the tail is the one carried: measured, or unmeasured by their own rules (a TAP run that did not finish its plan,
-     * a summary whose parts disagree), never because the read cut the log.
+     * a summary whose parts disagree), never because the read cut the log. A cut Jest, TAP, Gradle or pyproject tail
+     * therefore yields a tail-only {@link TestCounts.Measured} that leaves in this result with no cut fact beside it,
+     * and only a cut Maven log reports {@code Unmeasured} because of the cut. The carried population is deliberate: no
+     * production code branches on the result's {@code testCounts()} yet, and ADR {@code core-build/011} rejected a
+     * tail-only figure no consumer branches on, so the fact is stated rather than added as a field (ADR
+     * {@code runtime-job/015}).
      * <p>
      * The population travels beside the contradiction: the result carries the parser's {@link TestCounts} in its three
      * states, so a consumer tells a log with no count line ({@code null}) from one the parser could not aggregate
