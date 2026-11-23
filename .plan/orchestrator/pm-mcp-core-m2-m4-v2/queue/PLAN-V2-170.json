@@ -2,10 +2,10 @@
   "id": "PLAN-V2-170",
   "slug": "cut-log-and-statement-closeout",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-170-cut-log-and-statement-closeout",
+  "pr": "#570",
+  "landing": "landings/PLAN-V2-170.md",
   "seq": 158
 }
