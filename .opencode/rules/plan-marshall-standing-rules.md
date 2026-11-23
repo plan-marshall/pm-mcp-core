@@ -32,9 +32,7 @@ decision-log records (ADRs) live in the module (section "Module Documentation").
 the specification, watch and traceability here in its own pull request; it opens a pull request in the documentation
 only to correct a requirement or to change `cross-cutting.adoc` or a specification that lives there. Every concrete
 implementation follows the project skill `traced-implementation`, which lives there with `doc-review`; the skills of
-the same names here only point to them. Links here are relative, also into the documentation (sibling paths); check
-them with `python3 ../plan-marshall-documentation/.claude/skills/doc-review/scripts/trace.py ../plan-marshall-documentation/doc .`
-(`BROKEN LINKS 0`, `INLINE SCHEMA BLOCKS 0`); no workflow runs it, so it runs locally before every merge.
+the same names here only point to them. Links here are relative, also into the documentation (sibling paths).
 
 ## Project Setup
 
