@@ -25,6 +25,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.core.spi.CycleMeasure;
 import de.planmarshall.core.spi.OutcomeClass;
@@ -123,17 +124,20 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
                 "A host path outside the checkout becomes a code");
     }
 
-    @Test
-    @DisplayName("a message that still names a host path is carried as the outcome's code")
-    void embeddedHostPathIsACode() {
-        // the shape of JGitOperations.failure(e): an exception message beside an absolute path outside the checkout
-        var message = "java.io.IOException: /srv/git/worktrees/plan";
-
+    // the message shapes are the contract: the detail of JGitOperations.failure(e) and a refusal detail, each beside a
+    // host path the fact must never carry
+    @ParameterizedTest(name = "detail \"{0}\"")
+    @ValueSource(strings = {
+            "java.io.IOException: /srv/git/worktrees/plan",
+            "IOException: path=/srv/git/worktrees/plan",
+            "refused ]/srv/git/worktrees/plan"})
+    @DisplayName("a message that still names an absolute host path is carried as the outcome's code")
+    void messageNamingAHostPathIsACode(String message) {
         var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
 
         assertEquals("FAILED",
                 result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
-                "A message naming a host path is carried as the code");
+                "A message naming a host path becomes the code");
     }
 
     @Test
@@ -157,18 +161,6 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
         assertEquals("FAILED",
                 result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
                 "A blank detail becomes the code");
-    }
-
-    @Test
-    @DisplayName("an absolute path after a key-value separator is carried as the outcome's code")
-    void hostPathAfterASeparatorIsACode() {
-        var message = "IOException: path=/srv/git/worktrees/plan";
-
-        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
-
-        assertEquals("FAILED",
-                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
-                "A host path after a separator becomes the code");
     }
 
     @Test

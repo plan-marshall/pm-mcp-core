@@ -79,11 +79,19 @@ public interface GitOperations {
      * so {@code app/[slug]/page.tsx} commits that file, and a symbolic link, also one to a directory or a dangling one,
      * is committed as the link. A path that is empty, begins with {@code :} (git pathspec magic), is absolute, outside
      * the root, not in normal form (an empty, {@code .} or {@code ..} segment), carries a backslash or a control
-     * character, or names a directory is refused with {@code PATH_REFUSED} before anything is staged.
+     * character, names a directory, or is a directory of the index or of the head tree is refused with
+     * {@code PATH_REFUSED} before anything is staged ({@link CommitPathRefusals} is the one rule, shared with the
+     * staging set of a scope). An index that holds unresolved conflict entries under the listed paths is refused as
+     * {@code FAILED} with a detail naming the path: the restore of the case below keeps one entry per path and would
+     * write the base entry back at stage 0.
      * <p>
      * Nothing is staged when the listed paths carry no change against {@code HEAD}: the change is read from the
      * worktree and the index first, so a call the status finds unchanged stages nothing and the index keeps the entries
-     * it had.
+     * it had. A call whose staging yields no change against {@code HEAD} — a staged change the worktree reverted — puts
+     * the index back as it was before staging: the listed entries for a listed path list, the whole index for an empty
+     * one, so the {@code NOTHING_TO_COMMIT} of that pre-check leaves the index untouched on both routes. The
+     * {@code NOTHING_TO_COMMIT} of JGit's own empty-commit refusal after staging is a defensive path behind the same
+     * pre-check and restores nothing.
      *
      * @param input the input
      * @return {@code OK} with the commit, {@code NOTHING_TO_COMMIT}, {@code PATH_REFUSED}, {@code CAPABILITY_MISSING},

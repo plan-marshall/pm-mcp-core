@@ -53,15 +53,19 @@ public interface CommitSite {
     /**
      * The status is read with untracked files listed one by one ({@code git status --porcelain --untracked-files=all}),
      * so every untracked file is listed by its own path and no untracked directory is collapsed to {@code newdir/}: an
-     * untracked directory is expanded to the files below it here, by the site. Two entries are the exceptions, and both
-     * are listed by their directory: an embedded repository is reported as {@code newdir/} because git does not descend
-     * into another repository, and a modified submodule is reported as its directory. A rename is listed by both sides,
-     * the old path and the new one, as git's rename detection reports it. A listed path is unquoted — the site reads the
-     * status NUL-separated ({@code -z}) — so a name outside ASCII, a name with a double quote, a backslash or a control
-     * character arrives verbatim and not as an escape; {@code core.quotePath=false} alone is not enough, because git
-     * keeps escaping those characters. The staging set of the scope
-     * ({@code StagingSets}) puts a name that no commit can stage in the {@code outside} set, so a directory entry is a
-     * footprint violation naming it, never a commit that fails on it.
+     * untracked directory is expanded to the files below it here, by the site. Two entries are the exceptions: an
+     * embedded repository is reported as {@code newdir/} because git does not descend into another repository, and a
+     * modified submodule by its name alone ({@code sub}), without a trailing slash, while the worktree holds it as a
+     * directory. A rename is listed by both sides, the old path and the new one, as git's rename detection reports it.
+     * A listed path is unquoted — the site reads the status NUL-separated ({@code -z}) — so a name outside ASCII, a name
+     * with a double quote, a backslash or a control character arrives verbatim and not as an escape;
+     * {@code core.quotePath=false} alone is not enough, because git keeps escaping those characters. The staging set of
+     * the scope ({@code StagingSets}, over {@code CommitPathRefusals}) puts a name that no commit can stage in the
+     * {@code outside} set — the {@code newdir/} entry of an embedded repository, the name of a modified submodule, a
+     * tracked directory that a file replaced — so such an entry is a footprint violation naming it, never a commit that
+     * fails on it. This is the contract the assembly's implementation follows; nothing in this module observes the
+     * site's list, so a site that lists a submodule with a trailing slash is caught by no test here
+     * ({@code PM-WATCH-DSL-48}).
      *
      * @param context the call
      * @return the dirty files of the target checkout, each a repository-relative path, with {@code .marshall/local/**}

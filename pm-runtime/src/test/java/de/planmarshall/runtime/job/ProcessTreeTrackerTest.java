@@ -19,14 +19,16 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.InstantSource;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,9 +60,6 @@ class ProcessTreeTrackerTest {
 
     private final Map<Long, Instant> starts = new ConcurrentHashMap<>();
     private final Set<Member> tree = ConcurrentHashMap.newKeySet();
-
-    /** The name of the numeric group-signal primitive the sweep must not use: every signal is a handle's. */
-    private static final String GROUP_SIGNALS = "ProcessGroupSignals";
 
     private long root;
     private long first;
@@ -276,20 +275,42 @@ class ProcessTreeTrackerTest {
     class Signals {
 
         @Test
-        @DisplayName("the tracker depends on no group-signal primitive: every signal goes through a handle")
+        @DisplayName("the tracker and every type declared in it depend on no group-signal primitive")
         void dependsOnNoGroupSignal() {
-            var imported = new ClassFileImporter().importClasses(ProcessTreeTracker.class,
-                    ProcessTreeTracker.Member.class, Survivor.class, ProcessGroupSignals.class);
+            var types = new ArrayList<Class<?>>();
+            types.add(ProcessTreeTracker.class);
+            types.addAll(List.of(ProcessTreeTracker.class.getDeclaredClasses()));
+            var imported = new ClassFileImporter().importClasses(types);
 
-            var sent = noClasses().that().haveSimpleName("ProcessTreeTracker")
-                    .should().dependOnClassesThat().haveSimpleName(GROUP_SIGNALS)
+            var sent = noClasses().that(areTheTrackerOrANestedType())
+                    .should().dependOnClassesThat().haveFullyQualifiedName(ProcessGroupSignals.class.getName())
                     .evaluate(imported);
+            var selected = imported.stream().filter(areTheTrackerOrANestedType()::test).toList();
 
             assertAll(
-                    () -> assertTrue(imported.contain(ProcessTreeTracker.class), "the import holds the tracker"),
-                    () -> assertTrue(imported.contain(ProcessGroupSignals.class),
-                            "the target class of the rule is found"),
-                    () -> assertFalse(sent.hasViolation(), "the tracker has no numeric signal of its own"));
+                    () -> assertEquals(types.size(), selected.size(),
+                            "the subject selects every imported type"),
+                    () -> assertFalse(sent.hasViolation(),
+                            "no declared type of the tracker signals numerically"));
+        }
+
+        /**
+         * The subject of the rule: the tracker and every type declared in it, so a nested record, interface or helper
+         * that reached for the numeric primitive is a violation too. Both the enclosing name and the nested types come
+         * from the class literal, so a renamed class is a compile error here and a newly nested type is imported by the
+         * reflection over the declared classes, never by a name list that could go stale.
+         *
+         * @return the predicate selecting the tracker and its declared types
+         */
+        private static DescribedPredicate<JavaClass> areTheTrackerOrANestedType() {
+            var enclosing = ProcessTreeTracker.class.getName();
+            return new DescribedPredicate<>("the tracker and its nested types") {
+
+                @Override
+                public boolean test(JavaClass javaClass) {
+                    return javaClass.getName().equals(enclosing) || javaClass.getName().startsWith(enclosing + "$");
+                }
+            };
         }
     }
 }
