@@ -70,26 +70,27 @@ Six deliverables, one commit each, in this order (the rationale for six: the sta
 All lines read at `origin/main` `77f2a83d` through the grounding of 2026-11-14; the outline re-reads each before it acts.
 
 - OBSERVED: no production caller of `SubprocessJobRunner.startProbe` (`:649`) or `startWorker` (`:549`); `WorkerSupervisor.java:315` passes `egressProxy(null)`; no `WorkerEgressProxy` caller (PLAN-V2-59 says so too); `ProbeWorkspace`, `DecoyServers`, `VerifyingBinaryCheck`, `ProbeBudget`, `ProbeCandidate`, `ProbeVerification` exist with tests.
-  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: startProbe and startWorker have no production caller; WorkerSupervisor:315; WorkerEgressProxy has no caller outside itself
+  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: SubprocessJobRunner.startProbe :697 and startWorker :581; WorkerSupervisor:318 egressProxy(null); WorkerEgressProxy used only by its tests and OutboundCallsArchTest
 - OBSERVED: in `plan-marshall-mcp` (`e2707f6`) nothing carries `verify-profile`, `VerificationRecord` or `ProfileVerification`; in `pm-mcp-clients` only `ConsentKind.VERIFY_HARNESS_PROFILE` and the mock scenario `harness.verify-profile` (`pm-mock-runtime/.../onboarding.json:~1193`).
-  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: plan-marshall-mcp origin/main has no verify-profile or VerificationRecord; pm-mcp-clients has ConsentKind.VERIFY_HARNESS_PROFILE :33
+  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: no verify-profile or VerificationRecord in plan-marshall-mcp 02639c1 or pm-mcp-clients fcf87728 code; ConsentKind.VERIFY_HARNESS_PROFILE at ConsentKind.java:33
 - OBSERVED: the stage table is `01-profile-schema.adoc:355-410`, "How it runs" at about `:351` (the runtime runs the stages as jobs of its own: the real job launcher, the real relay `pm-mcp serve --job` and the real supervisor).
-  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: stage table :355-410, How it runs :351
+  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: 01-profile-schema.adoc How it runs :352, stage table :356-411
 - OBSERVED: the isolation stage's controls exist (`ProbeWorkspace`: canary, `0700`, outside path, `observe`; `DecoyServers`: loopback MCP and endpoint decoys with hit recording); its result `ProfileStages.IsolationResult(boolean, ...)` is hand-fed; the decoy placement in the home, the hook or plugin decoys and the fallback runs are absent.
-  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ProbeWorkspace and DecoyServers exist; IsolationResult hand-fed :92/:258
+  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ProbeWorkspace and DecoyServers exist as described; ProfileStages.IsolationResult :93 hand-fed via isolation(...) :258; no decoy placement or fallback runs
 - HYPOTHESIS: the `DecoyServers` loopback servers are not blocked by the outbound-call guard (it covers client sockets); verify-first by running `OutboundCallsArchTest` on the new code and by reading its rule.
-  - verdict: corroborated | checked_at: e2ae86272b2dd82773c2c200a745303509e31c93 | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: OutboundCallsArchTest Javadoc :84-86 excludes listening types; DecoyServers:12 imports HttpServer
+  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: OutboundCallsArchTest:84-86 excludes listening types; DecoyServers imports HttpServer only; a run on new code is still owed
 
 ## Expected Surface
 
 - HYPOTHESIS: `pm-runtime/src/main/java/de/planmarshall/runtime/verify/` — `StageRunner`, `StageWorkers`, `HarnessScanner`, the stage tasks and the decoy placement (new package with `package-info.java`; the outline names the classes) and their tests under `pm-runtime/src/test/java/de/planmarshall/runtime/verify/`
 - OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProbeWorkspace.java`, `.../DecoyServers.java`, `.../VerifyingBinaryCheck.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/job/SubprocessJobRunner.java`, `.../ProbeBudget.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessEventVerification.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/launch/VerifiedUsage.java` — used and, for the decoy placement and the runner's needs, edited (shared with PLAN-V2-146, 59, 134, 126 and 141)
 - OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/ProbeWorkspaceTest.java`, `.../DecoyServersTest.java`, `.../VerifyingBinaryCheckTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeJobTest.java` — the existing pins
-- OBSERVED: `doc/implementation-watch/harness-profiles.adoc`, `doc/implementation-watch/job-runtime.adoc`, `doc/Traceability.adoc`, `doc/plans/profile-verification-stages.adoc`, `doc/plans/machine-onboarding-unit.adoc`, `pm-runtime/doc/developer/runtime-worker.adoc`, `pm-runtime/doc/developer/runtime-launch.adoc`; HYPOTHESIS: ADRs in `pm-runtime/doc/adr/runtime-worker/`
+- OBSERVED: `doc/implementation-watch/harness-profiles.adoc`, `doc/implementation-watch/job-runtime.adoc`, `doc/Traceability.adoc`, `doc/plans/profile-verification-stages.adoc`, `pm-runtime/doc/developer/runtime-worker.adoc`, `pm-runtime/doc/developer/runtime-launch.adoc`; HYPOTHESIS: ADRs in `pm-runtime/doc/adr/runtime-worker/`
 
 Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`. No `pom.xml`.
 
 - OBSERVED (cleanup 2026-11-19, understated surface; the files the Deliverables name and the surface did not): `pm-core/src/main/java/de/planmarshall/core/profile/HarnessProbe.java`, `pm-core/src/main/java/de/planmarshall/core/profile/HarnessScan.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/job/WorkerEgressProxy.java`.
+- OBSERVED (understated, added by the cleanup re-ground of 2026-11-23 at `origin/main` `8c7eac6f`): `pm-runtime/src/main/java/de/planmarshall/runtime/log/RuntimeLogMessages.java`, `doc/LogMessages.adoc`, `pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProfileWorkerEligibility.java`, `pm-runtime/README.adoc`.
 
 ## Dependencies and Sequencing
 
@@ -120,3 +121,12 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Re-Ground Record of 2026-11-23 (cleanup)
+
+Read by a read-only leaf at `origin/main` `8c7eac6faa00b26d0e11f0307c768d85e4fd044b`; the orchestrator did not re-read each point (the verdicts above carry the producer `pm-mcp-core-m2-m4-v2/cleanup`). The outline re-reads every line it acts on. Where this record and an older statement of the spec disagree, this record wins; the older text is kept as the audit record.
+
+- Line shifts: `SubprocessJobRunner.startProbe` :697 (was :649), `startWorker` :581 (was :549); `WorkerSupervisor.java:318` `egressProxy(null)` (was :315); `ProfileStages.IsolationResult` :93; `01-profile-schema.adoc` isolation row text :389, "real home" in PM-WATCH-CLIENT-16 (`harness-profiles.adoc` ~:170); the mock scenario `harness.verify-profile` at `pm-mock-runtime/.../onboarding.json:1286`.
+- D2: `startProbe` takes `ProbeRequest<ProbeCandidate>(candidate, consented)` and refuses `CONSENT_REQUIRED` on a boolean only: the consent kind (`scan_harnesses`, `probe_harness_login`, `probe_harness_models`) is decided by the caller.
+- D6: `doc/plans/machine-onboarding-unit.adoc` was deleted by `1e9466ac` (PLAN-V2-153, #470): nothing is left to keep for it; `doc/plans/profile-verification-stages.adoc` has no "Remaining" list and its scope (README `:306-310`) is the stages `usage` and `settings` only, so D6 must add the runner and the other stages or rewrite the scope. The package `project-onboarding-unit.adoc` exists beside it (successor not shown).
+- Open on main: no `verify` package, `VerificationStages`, `StageRunner`, `StageWorkers` or `HarnessScanner`; PLAN-V2-146, 147 and 149 have not landed (the plan's own "do not emit before 146 and 147" holds). `ConsentKind` `SCAN_HARNESSES`, `PROBE_HARNESS_LOGIN`, `PROBE_HARNESS_MODELS` rememberable, `VERIFY_HARNESS_PROFILE` not. `OutboundCallsArchTest:84-86` excludes listening types; a run on new code is owed. Next free ADR in `runtime-worker`: 023.
