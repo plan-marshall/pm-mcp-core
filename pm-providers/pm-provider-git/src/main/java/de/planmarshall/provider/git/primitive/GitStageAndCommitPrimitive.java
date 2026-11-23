@@ -132,27 +132,30 @@ public final class GitStageAndCommitPrimitive
      */
     private static final String INTRODUCER = "[\\s\"'`|;,!?*#&+@%$^~(\\[<=:>]";
 
+    /** The introducer-anchored prefix every host-path pattern starts with. */
+    private static final String HOST_PREFIX = "(?:^|" + INTRODUCER + ")";
+
     /**
      * A token that starts an absolute path inside a detail text: an introducer before a {@code /}. A closing bracket
      * other than {@code >} is handled by {@link #BRACKET_PATH}, so a relative name such as
      * {@code app/[slug]/page.tsx} or {@code (group)/x} stays a name; a name whose separator follows another
      * punctuation is still read as absolute, the fail-closed direction.
      */
-    private static final Pattern ABSOLUTE_PATH = Pattern.compile("(?:^|" + INTRODUCER + ")/[^\\s)\"']*");
+    private static final Pattern ABSOLUTE_PATH = Pattern.compile(HOST_PREFIX + "/[^\\s)\"']*");
 
     /**
      * A token that starts a drive-qualified absolute path inside a detail text: the same introducers before a drive
      * letter and a separator, so a Windows path {@code C:\...} or {@code C:/...} is refused whatever the host.
      */
     private static final Pattern DRIVE_PATH =
-            Pattern.compile("(?:^|" + INTRODUCER + ")[A-Za-z]:[\\\\/][^\\s)\"']*");
+            Pattern.compile(HOST_PREFIX + "[A-Za-z]:[\\\\/][^\\s)\"']*");
 
     /**
      * A token that starts a UNC path inside a detail text: the same introducers before two backslashes, a server and a
      * share, so {@code \\server\share\...} is refused whatever the host.
      */
     private static final Pattern UNC_PATH =
-            Pattern.compile("(?:^|" + INTRODUCER + ")\\x5c\\x5c[^\\s)\"']+\\x5c[^\\s)\"']*");
+            Pattern.compile(HOST_PREFIX + "\\x5c\\x5c[^\\s)\"']+\\x5c[^\\s)\"']*");
 
     /**
      * A closing bracket that follows an introducer and is followed by a {@code /} of a token of at least two segments:
@@ -163,7 +166,7 @@ public final class GitStageAndCommitPrimitive
      * fail-closed direction.
      */
     private static final Pattern BRACKET_PATH =
-            Pattern.compile("(?:^|" + INTRODUCER + ")[\\])}]/[^\\s)\"'/]*/[^\\s)\"']*");
+            Pattern.compile(HOST_PREFIX + "[\\])}]/[^\\s)\"'/]*/[^\\s)\"']*");
 
     /** The committer while no agent identity resolves. */
     static final Identity COMPILED_COMMITTER = new Identity("plan-marshall-mcp", "noreply@cuioss.de");
