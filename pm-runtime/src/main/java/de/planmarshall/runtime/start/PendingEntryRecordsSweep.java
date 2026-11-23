@@ -65,10 +65,9 @@ import de.planmarshall.core.store.StoreRefusal;
  * committed and the next run re-judges every entry; after the journal, so the recovery completes the removals; or after
  * the commit returned, so the removals are committed and only the directories remain. Only the first two of those three
  * are reachable today, because the discard's two refusals are caught per entry; the third names what a fault of the
- * discard outside them would report, and no refusal of the discard is a fault of the run.
- * Whether a fault that came before
- * the commit's return left the deletions committed is decided by the workspace's journal, never by the fault's type
- * (ADR runtime-start/016).
+ * discard outside them would report, and no refusal of the discard is a fault of the run. Whether a fault that came
+ * before the commit's return left the deletions committed is decided by the workspace's journal, never by the fault's
+ * type (ADR runtime-start/016).
  *
  * @since 0.1
  */
@@ -192,8 +191,8 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      * @param workspace the workspace scope whose journal the answer reads
      * @param staged    the entries the removal had staged
      * @param committed whether the transaction's commit returned
-     * @return the reach; {@link Reach#COMMITTED} only after a returned commit, because the discard's two refusals are
-     *         caught per entry and no other fault of it is known
+     * @return the reach; {@link Reach#COMMITTED} only after a returned commit, and the discard's two refusals are caught
+     *         per entry, so no other fault of it is known today
      */
     private static Reach reach(JournalScope workspace, List<EntryId> staged, boolean committed) {
         if (committed) {
