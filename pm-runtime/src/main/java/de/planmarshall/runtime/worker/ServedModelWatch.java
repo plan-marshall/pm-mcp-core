@@ -32,10 +32,10 @@ import de.planmarshall.core.store.ServedModels;
  * therefore belongs to one generation and is restarted at every attempt, with the previous model equal to the launch
  * model again, so a warm worker that stays on a fallback model shows the change in each task's journal.
  * <p>
- * The comparison is a seam: the default treats a launch alias and the full identifier it stands for as one model (the
- * release plus a trailing snapshot suffix of eight digits or an ISO date), so that an alias writes no entry and a
- * switch from one release to another is seen; the assembly may supply its own rule, for example one that resolves an
- * alias through the harness's {@code models_probe} listing.
+ * The comparison is a seam: the default treats two equal identifiers as one model and an identifier and the same model
+ * with a trailing snapshot suffix of eight digits or an ISO date as one model, in either order; two different releases
+ * stay two models, and a switch between them is a change. The assembly may supply its own rule, for example one that
+ * resolves an alias through the harness's {@code models_probe} listing.
  *
  * @since 0.1
  */
@@ -103,12 +103,14 @@ public final class ServedModelWatch {
             return Optional.empty();
         }
         served.add(model);
-        if (sameModel.test(launchModel, model)) {
-            previous = launchModel;
-            return Optional.empty();
-        }
         var last = previous == null ? launchModel : previous;
         if (sameModel.test(last, model)) {
+            previous = model;
+            return Optional.empty();
+        }
+        if (sameModel.test(launchModel, model) && !sameModel.test(launchModel, last)) {
+            // Back in the launch family from another model: a return records nothing, the reported release still wins.
+            previous = model;
             return Optional.empty();
         }
         previous = model;
@@ -123,19 +125,21 @@ public final class ServedModelWatch {
     }
 
     /**
-     * The default comparison: two equal identifiers name one model, and so do a launch model and the same model with a
-     * trailing snapshot suffix.
+     * The default comparison: two equal identifiers name one model, and so does an identifier and the same model with a
+     * trailing snapshot suffix, in either order — a launch alias and the release it was reported as are one model, and
+     * so are the two spellings of one release. Two different releases stay two models.
      *
-     * @param launch the model the task was launched with
-     * @param served the model a turn reported
+     * @param first  one identifier
+     * @param second the other identifier
      * @return whether the two identifiers name one model
      */
-    public static boolean sameModel(String launch, String served) {
-        if (launch.equals(served)) {
-            return true;
-        }
-        return served.length() > launch.length() && served.startsWith(launch)
-                && SNAPSHOT_SUFFIX.matcher(served.substring(launch.length())).matches();
+    public static boolean sameModel(String first, String second) {
+        return first.equals(second) || carriesSnapshotOf(second, first) || carriesSnapshotOf(first, second);
+    }
+
+    private static boolean carriesSnapshotOf(String candidate, String base) {
+        return candidate.length() > base.length() && candidate.startsWith(base)
+                && SNAPSHOT_SUFFIX.matcher(candidate.substring(base.length())).matches();
     }
 
     /**

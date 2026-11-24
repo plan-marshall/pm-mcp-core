@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.Builder;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
@@ -76,8 +77,8 @@ public final class ProfileStages {
      * beside the figures rather than inside them, so a harness that reports no model declares {@code null} and no
      * consumer of {@link #USAGE_FIGURES} reads a non-numeric value.
      */
-    public static final List<String> USAGE_MEMBERS = List.of(INPUT_TOKENS, OUTPUT_TOKENS, CACHE_READ, CACHE_CREATION,
-            REASONING, COST_USD, TOOL_USES, MODEL);
+    public static final List<String> USAGE_MEMBERS =
+            Stream.concat(USAGE_FIGURES.stream(), Stream.of(MODEL)).toList();
 
     /** The figures the enrolment's usage report carries, in schema order; the cost is recorded data and never shown. */
     public static final List<String> REPORT_FIGURES = List.of(INPUT_TOKENS, OUTPUT_TOKENS, CACHE_READ, CACHE_CREATION,

@@ -194,13 +194,14 @@ class WorkerActivityPumpTest {
     @DisplayName("a mapper without the model pointer writes no model_differs entry")
     void noModelPointer(@TempDir Path base) {
         var model = Generators.letterStrings(3, 12).next();
+        var launch = "launch-" + Generators.letterStrings(3, 12).next();
         var journal = ActivityJournal.ofScope(base, project,
                 new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, plan),
                 new FileLockManager(_ -> {
                 }));
         var log = base.resolve("worker.log");
         append(log, line(model));
-        var pump = pump(journal, Map.of(), new ServedModelWatch(model));
+        var pump = pump(journal, Map.of(), new ServedModelWatch(launch));
 
         pump.pump(task, generation, 1, new JobLog(log));
 

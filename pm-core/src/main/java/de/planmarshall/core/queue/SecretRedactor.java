@@ -672,12 +672,9 @@ public class SecretRedactor {
                 launch = REDACTED;
                 served = REDACTED;
             }
-            if (launch != null) {
-                masked = masked.withLaunchModel(launch);
-            }
-            if (served != null) {
-                masked = masked.withServedModel(served);
-            }
+            // One construction, both identifiers: a wither would rebuild the entry while the other identifier is still
+            // the raw text, and that intermediate pair can be refused.
+            masked = masked.toBuilder().launchModel(launch).servedModel(served).build();
         }
         return masked;
     }

@@ -868,8 +868,9 @@ _Requirements: link:../../../doc/Traceability.adoc#PM-WORK-7[§ PM-WORK-7], link
 
 The model a harness answers with is not part of a turn's usage object: `ActivityEventMapper.servedModel(line)` reads it
 through the profile's `headless.usage.model` pointer on every line of the output stream that carries one, whatever kind
-the line maps to or whether it maps at all. The shipped `claude` declares the model of its `assistant` lines, whose text
-its mapping reads, while its turn is the `result` line; a pointer that is `null`, resolves to no value, or resolves to
+the line maps to or whether it maps at all. The shipped `claude` profile maps its turn from the `result` line (the
+specification's mapping makes the per-message usage of `assistant` lines the turn, PLAN-V2-147) and declares the model
+of its `assistant` lines, whose text its mapping reads; a pointer that is `null`, resolves to no value, or resolves to
 something that is not a non-empty string of at most 128 characters without a control character reads as not reported,
 and the reading never falls back to the launch model.
 

@@ -106,24 +106,64 @@ class ServedModelWatchTest {
     @DisplayName("a launch alias and the full identifier it stands for are one model")
     void alias() {
         var launch = identifier();
-        var watch = new ServedModelWatch(launch);
+        var eightDigits = new ServedModelWatch(launch);
+        var isoDate = new ServedModelWatch(launch);
 
         assertAll(
-                () -> assertTrue(watch.see(launch + "-20250514").isEmpty(),
+                () -> assertTrue(eightDigits.see(launch + "-20250514").isEmpty(),
                         "an eight-digit snapshot suffix is the launch model"),
-                () -> assertTrue(watch.see(launch + "-2025-05-14").isEmpty(),
+                () -> assertTrue(isoDate.see(launch + "-2025-05-14").isEmpty(),
                         "an ISO-date snapshot suffix is the launch model"));
     }
 
     @Test
-    @DisplayName("a switch from one release to another is seen")
+    @DisplayName("a switch from one release of the launch alias to another is seen")
+    void aliasReleaseSwitch() {
+        var base = identifier();
+        var first = base + "-20250514";
+        var second = base + "-20250929";
+        var watch = new ServedModelWatch(base);
+
+        var entries = java.util.stream.Stream.of(watch.see(first), watch.see(second)).flatMap(Optional::stream)
+                .toList();
+
+        assertAll(
+                () -> assertEquals(List.of(difference(base, second)), entries,
+                        "the second release writes the one entry"),
+                () -> assertEquals(ServedModels.of(List.of(first, second)), watch.served(),
+                        "both reported releases are named"));
+    }
+
+    @Test
+    @DisplayName("the two spellings of one release are one model in either order")
+    void symmetricSpellings() {
+        var launch = identifier();
+        var release = identifier() + "-20260101";
+        var shortForm = release.substring(0, release.length() - "-20260101".length());
+        var longFirst = new ServedModelWatch(launch);
+        var shortFirst = new ServedModelWatch(launch);
+
+        assertAll(
+                () -> {
+                    longFirst.see(release);
+                    assertTrue(longFirst.see(shortForm).isEmpty(), "the short spelling writes no second entry");
+                },
+                () -> {
+                    shortFirst.see(shortForm);
+                    assertTrue(shortFirst.see(release).isEmpty(), "the long spelling writes no second entry");
+                });
+    }
+
+    @Test
+    @DisplayName("a release switch from one release to another is seen")
     void releaseSwitch() {
-        var launch = identifier() + "-20250514";
-        var other = identifier() + "-20250601";
+        var base = identifier();
+        var launch = base + "-20250514";
+        var other = base + "-20250601";
         var watch = new ServedModelWatch(launch);
 
         assertEquals(Optional.of(difference(launch, other)), watch.see(other),
-                "another release of another model is a change");
+                "another release of the same model is a change");
     }
 
     @Test

@@ -198,6 +198,9 @@ public class ProfileValidator {
     /** The one refusal detail that names a JSON Pointer, used wherever a pointer is read from the document. */
     private static final String MSG_NOT_A_POINTER = "not a JSON Pointer: '%s'";
 
+    /** An RFC 6901 JSON Pointer: a leading slash, and `~` only as the escapes `~0` and `~1`. */
+    private static final Pattern JSON_POINTER = Pattern.compile("/(?:[^~]|~[01])*");
+
     private static final Set<String> TOP_LEVEL = Set.of(NAME_SCHEMA_VERSION, NAME_DISPLAY_NAME, NAME_ICON,
             NAME_MIN_DAEMON_VERSION, NAME_TOOLS, NAME_SKILL_LOADING, NAME_HEADLESS, NAME_CONNECTION, NAME_WORKER, NAME_DETECTION,
             NAME_IDENTITY);
@@ -941,9 +944,7 @@ public class ProfileValidator {
             var resultPointer = required(output, pointer, NAME_RESULT_POINTER);
             if (!resultPointer.isNull()) {
                 var value = text(resultPointer, pointer + "/result_pointer", NAME_RESULT_POINTER, 256);
-                if (!value.startsWith("/")) {
-                    throw invalid(pointer + "/result_pointer", MSG_NOT_A_POINTER.formatted(value));
-                }
+                requirePointer(value, pointer + "/result_pointer");
             }
         }
 
@@ -963,9 +964,20 @@ public class ProfileValidator {
                     continue;
                 }
                 var pointerValue = text(value, pointer + "/" + member, member, 256);
-                if (ProfileStages.MODEL.equals(member) && !pointerValue.startsWith("/")) {
-                    throw invalid(pointer + "/" + member, MSG_NOT_A_POINTER.formatted(pointerValue));
+                if (ProfileStages.MODEL.equals(member)) {
+                    requirePointer(pointerValue, pointer + "/" + member);
                 }
+            }
+        }
+
+        /**
+         * Requires a value to be an RFC 6901 JSON Pointer: a leading slash and no {@code ~} other than the escapes
+         * {@code ~0} and {@code ~1}. A pointer with a malformed escape resolves to nothing at run time, so it would load
+         * and read as not reported for ever.
+         */
+        private void requirePointer(String value, String pointer) {
+            if (!JSON_POINTER.matcher(value).matches()) {
+                throw invalid(pointer, MSG_NOT_A_POINTER.formatted(value));
             }
         }
 

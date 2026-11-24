@@ -18,9 +18,11 @@ the distinct models of a row's turns as
 `served_models`, and to write a `model_differs` entry once per change
 (link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#served-model[The Model That Answered]).
 
-Two facts shape the reading. The shipped `claude` declares the model of its `assistant` messages, while its `turn` is
-the `result` line, so a reader that read the model only on turn lines would see none. And a harness may report an alias
-at launch and the fully qualified identifier on a line, so exact equality alone would write a false entry on every line.
+Two facts shape the reading. The shipped `claude` profile maps its `turn` from the `result` line while the
+specification's mapping makes the per-message usage of its `assistant` lines the turn (PLAN-V2-147), and it declares the
+model of its `assistant` lines: a reader that read the model only on turn lines would see none. And a harness may report
+an alias at launch and the fully qualified identifier on a line, so exact equality alone would write a false entry on
+every line.
 
 The turn's usage object is a closed seven-member object of numeric figures
 (link:../runtime-worker/013-the-turn-keeps-tool-uses-and-cost-raw.adoc[ADR 013]); the model is no figure and must not
@@ -43,9 +45,12 @@ model, and `restart()` begins the next attempt, so a warm worker that stays on a
 task's journal; the launch model is the generation's and does not change while the generation serves task after task.
 
 The comparison is a seam: `ServedModelWatch(launchModel, BiPredicate)` takes the rule, and the default treats two equal
-identifiers as one model and a launch model plus a trailing snapshot suffix of eight digits or an ISO date after a
-hyphen as one model, so that an alias writes nothing and a switch from one release to another is seen. The assembly may
-supply a rule that resolves an alias through the harness's `models_probe` listing.
+identifiers as one model and an identifier and the same model with a trailing snapshot suffix of eight digits or an ISO
+date after a hyphen as one model, in either order — a launch alias and the release it was reported as are one model, the
+two spellings of one release are one model, and two different releases stay two models. The watch compares each reported
+identifier with the previous reported one, not with the launch model, so a switch from one release of the launch alias to
+another is recorded once and a return to the launch model is not. The assembly may supply a rule that resolves an alias
+through the harness's `models_probe` listing.
 
 `WorkerActivityPump` takes the watch as a collaborator, asks the mapper for the model of every line before it maps the
 line, and writes the `model_differs` entry ahead of the line's own entry. The two-argument constructor delegates with

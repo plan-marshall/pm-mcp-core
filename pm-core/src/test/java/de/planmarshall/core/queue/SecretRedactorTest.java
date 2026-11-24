@@ -914,6 +914,29 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("a masked pair whose launch text becomes the raw served text is built in one step")
+    void entryModelDiffersIntermediateCollision() {
+        var suffix = Generators.letterStrings(4, 12).next();
+        var entry = ActivityEntry.builder()
+                .seq(Generators.integers(1, 100).next())
+                .attempt(Generators.integers(1, 10).next())
+                .source(ActivityEntry.Source.SERVER)
+                .kind(ActivityEntry.Kind.MODEL_DIFFERS)
+                .launchModel("password=abcd" + suffix)
+                .servedModel("password=" + SecretRedactor.REDACTED + suffix)
+                .at(Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next()))
+                .build();
+
+        var redacted = SecretRedactor.redact(entry);
+
+        assertAll("a pair that collides across the two identifiers",
+                () -> assertEquals(SecretRedactor.REDACTED, redacted.launchModel(),
+                        "the launch identifier is masked whole"),
+                () -> assertEquals(SecretRedactor.REDACTED, redacted.servedModel(),
+                        "the served identifier is masked whole"));
+    }
+
+    @Test
     @DisplayName("identifiers that differ only by an invisible character become one masked pair")
     void entryModelDiffersInvisibleCollision() {
         var model = Generators.letterStrings(4, 12).next();
