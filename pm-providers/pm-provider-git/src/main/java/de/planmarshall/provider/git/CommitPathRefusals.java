@@ -57,9 +57,10 @@ public final class CommitPathRefusals {
      * The textual rule, the one the commit shares with the staging set.
      * <p>
      * It stays a delegation rather than a second copy: {@link CommitPaths} owns the grammar ({@code CommitPathsTest}
-     * pins it), and this class is the one entry point both readers — {@code JGitOperations.commit} and
-     * {@code StagingSets.derive} — name for all three parts of the rule, so neither composes the textual rule with
-     * {@link #isRefusedLocation(Path, String)} itself and the two readers cannot reach different rules.
+     * pins it), and this class holds the shared implementations. Both readers compose the predicates themselves —
+     * {@code JGitOperations.commit} and {@code StagingSets.derive} each test the textual rule and
+     * {@link #isRefusedLocation(Path, String)} — so no combined answer is offered, and the two read the same
+     * implementations rather than copies of them.
      *
      * @param path a repository-relative path
      * @return whether the path is no literal commit path of one file by its text alone

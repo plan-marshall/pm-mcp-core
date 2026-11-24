@@ -23,8 +23,8 @@ import lombok.experimental.UtilityClass;
  * it with {@link GitOutcome#PATH_REFUSED}, and {@code StagingSets} puts such a dirty name in the {@code outside} set, so
  * the footprint check names it instead of a commit failing on it.
  * <p>
- * The rule is read through {@code CommitPathRefusals.isRefusedText}, the façade both readers name for all three parts
- * of the commit's path rule; this class keeps the text grammar itself, which {@code CommitPathsTest} pins.
+ * The rule is read through {@code CommitPathRefusals.isRefusedText}, which delegates here; this class keeps the text
+ * grammar itself, which {@code CommitPathsTest} pins, and each reader composes it with the other two parts of the rule.
  *
  * @since 0.1
  */

@@ -123,7 +123,10 @@ class WorkflowStatusSchemaParityTest {
         var frame = SchemaResource.object(SchemaResource.object(counters.get("frame")).get("properties"));
         var tree = hex(40);
         var digest = hex(64);
+        var shortTree = hex(39);
         var shortDigest = digest.substring(1);
+        var treePattern = pattern(changeSet.get("staged_tree"));
+        var digestPattern = pattern(changeSet.get("message_digest"));
 
         assertAll(
                 () -> assertEquals(Set.of("change_set", "frame"), counters.keySet(),
@@ -138,6 +141,14 @@ class WorkflowStatusSchemaParityTest {
                         "the schema maximum is the compiled frame cap"),
                 () -> assertDoesNotThrow(() -> new CommitAttemptCaps.ChangeSet(tree, digest, 1),
                         "the record admits a change set the schema admits"),
+                () -> assertTrue(treePattern.matcher(tree).find(),
+                        "the schema's tree pattern admits the record's tree"),
+                () -> assertFalse(treePattern.matcher(shortTree).find(),
+                        "the schema's tree pattern is the record's forty digits"),
+                () -> assertTrue(digestPattern.matcher(digest).find(),
+                        "the schema's digest pattern admits the record's digest"),
+                () -> assertFalse(digestPattern.matcher(shortDigest).find(),
+                        "the schema's digest pattern is the record's sixty-four"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new CommitAttemptCaps.ChangeSet(tree + "0", digest, 1),
                         "the record refuses a tree outside the schema's pattern"),

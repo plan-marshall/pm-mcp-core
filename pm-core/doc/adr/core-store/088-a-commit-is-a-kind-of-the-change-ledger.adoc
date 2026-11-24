@@ -30,9 +30,10 @@ on 2026-11-23 (question 2 of the runbook-lane outline) that the version stays `1
   row. It is taken *before* the commit. The digest takes the `HEAD` commit id and every path the status reports as its
   input (Working-Tree Hash, rule 1), so the commit's own move of `HEAD` and of the status path set changes it: a digest
   taken after the commit is the digest of another tree than the one the commit was made on. Taken before the commit it is
-  the state the commit was made on: when no `mutates_source` step changed the tree after the latest successful build it
-  equals that build row's digest, and when one did, no build row carries it — the `freshness_reconcile` stamp then holds
-  the build's digest beside this commit, and that pair is what licensed the push;
+  the state the commit was made on: when the tree is the one the latest successful build ran on it equals that build
+  row's digest, and otherwise a build row need not carry it — a later step may have left the tree other than it built —
+  and the `freshness_reconcile` stamp then holds the build's digest beside this commit, which is the pair that licensed
+  the push;
 * `commit_sha` — the commit that was made, required for this kind alone (`ChangeLedgerRecord` refuses a `commit` row
   without it);
 * `changed_paths` — the paths the commit carried;

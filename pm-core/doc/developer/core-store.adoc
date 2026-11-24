@@ -1322,9 +1322,10 @@ minimum is `60`. The fixed probe budgets are unchanged (`runtime.job.ProbeBudget
 `worktree_sha`-stamped build, change, commit, job, task-diff or baseline-red row. A `commit` row names the commit
 (`commit_sha`, required for that kind alone), the paths it carried and the digest of the tree it was made on, taken
 before the commit: a commit moves `HEAD` and the status path set the digest has as inputs, so only a digest taken before
-it names the tree the commit was made on. When no `mutates_source` step changed the tree after the latest successful
-build, that digest equals the build row's; when one did, no build row carries it and the `freshness_reconcile` stamp
-holds the build's digest beside this commit, which is the pair that licensed the push (ADR 088). The
+it names the tree the commit was made on. When the tree is the one the latest successful
+build ran on, that digest equals the build row's; otherwise a build row need not carry it — a later step may have left
+the tree other than it built — and the `freshness_reconcile` stamp holds the build's digest beside this commit, which is
+the pair that licensed the push (ADR 088). The
 freshness gate itself reads `build` and `baseline_red` rows and the stamp, never a `commit` row (State
 Catalogue § `git.verify-freshness`). The ledger takes the `JournalScope` of its
 scope and appends through `ScopeTransaction.append`, which repairs a torn tail and draws the digest entry of the scope,
