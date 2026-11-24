@@ -27,8 +27,9 @@ import org.jspecify.annotations.Nullable;
  * The value carries no combined predicate, so the caller's rule is stated here instead of being enforced: after a
  * {@code hook_failed} outcome of {@code git.stage-and-commit} a caller reads both predicates,
  * {@link #changeSetSpent()} and {@link #frameSpent()}, and writes their disjunction
- * {@code changeSetSpent() || frameSpent()} as the {@code attempts_exhausted} condition; each counting event reads its
- * own cap — the change-set cap at a failed commit attempt, the frame cap at a {@code git.commit-fix} task. So the frame
+ * {@code changeSetSpent() || frameSpent()} as the {@code attempts_exhausted} outcome of the state; each counting event
+ * reads its own cap — the change-set cap at a failed commit attempt, the frame cap at a {@code git.commit-fix} task. So
+ * the frame
  * cap may be spent after the third task and the loop still ends only at the next failed commit attempt, never between a
  * task and the attempt that follows it. The state catalogue's {@code git.stage-and-commit} row pins that guard, and
  * {@code CommitAttemptCounterTest.Hazard} pins both arms of the disjunction.

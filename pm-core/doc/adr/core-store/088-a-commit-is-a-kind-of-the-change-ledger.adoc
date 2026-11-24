@@ -16,7 +16,7 @@ commit itself: a `change` row names a footprint change, not the commit that carr
 a commit to the tree it was made on. The freshness verb never needed such a row for its own decision:
 `git.pre-commit-verify-freshness` reads `build` and `baseline_red` rows of the same `worktree_sha` and the
 `freshness_reconcile` stamp, and answers the `fresh` and `exempt` verdicts without a commit row (State Catalogue §
-`git.verify-freshness`; Workflow DSL § Six-Stage Execution Contract, stage 4). The new kind is the attribution record
+`git.verify-freshness`; Workflow DSL § Six-Stage Execution Contract, stage 5). The new kind is the attribution record
 those rows cannot be.
 
 The format is a stored contract: `change-ledger-record.schema.json` is read by a schema-parity test (R10), and a new
