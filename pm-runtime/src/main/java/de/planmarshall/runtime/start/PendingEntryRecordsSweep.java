@@ -129,7 +129,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                     : remove(workspace, store, candidates, at);
         } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
                 | StoreRefusal e) {
-            var failure = new StringBuilder("pending entry directories not swept: ").append(e.getMessage());
+            var failure = new StringBuilder("pending entry directories not swept: ").append(described(e));
             if (!unreadable.isEmpty()) {
                 failure.append("; kept unreadable entries ").append(unreadable);
             }
@@ -176,7 +176,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
             // A fault of opening, acquiring or releasing the lock: the state the removal reached travels with it, so
             // the directories already gone and the entries kept are never dropped by the lock's own release
             var first = attempted == null ? null : attempted.fault();
-            return first == null ? state.fault(e.getMessage(), workspace)
+            return first == null ? state.fault(e, workspace)
                     : state.faultBeside(first, e);
         }
     }
@@ -208,7 +208,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
             return new Removal(state.removed, state.kept, null);
         } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
                 | StoreRefusal e) {
-            return state.fault(e.getMessage(), workspace);
+            return state.fault(e, workspace);
         }
     }
 
@@ -229,28 +229,27 @@ public final class PendingEntryRecordsSweep implements SweepStep {
         }
 
         /**
+         * @param stopped   the fault that stopped the removal
+         * @param workspace the workspace the reach is read from
          * @return the answer of a faulted removal: the state as it stood, with the entries whose directory the run had
          *         not deleted, and the reach the phase and the workspace's journal decide
          */
-        private Removal fault(String message, JournalScope workspace) {
+        private Removal fault(RuntimeException stopped, JournalScope workspace) {
             var pending = staged.stream().filter(entryId -> !removed.contains(entryId)).toList();
-            return new Removal(removed, kept, new Fault(message, pending, reach(workspace)));
+            return new Removal(removed, kept, new Fault(described(stopped), pending, reach(workspace)));
         }
 
         /**
          * @param first   the fault the attempt had already built
          * @param release the fault the lock's own release raised afterwards
          * @return the answer of a faulted removal that keeps the first fault's message, its entries and its reach, with
-         *         the release fault reported beside it — by its message, or by its exception type when it carries none,
-         *         so that the report never prints {@code null} — because the release comes after another writer may
-         *         have left the workspace's journal, so reading the reach again there would turn an undecided removal
-         *         into an owed one
+         *         the release fault reported beside it — because the release comes after another writer may have left
+         *         the workspace's journal, so reading the reach again there would turn an undecided removal into an
+         *         owed one. An exception that carries no message is named by its type, on the first fault
+         *         ({@link #fault}) and on the release fault alike
          */
         private Removal faultBeside(Fault first, RuntimeException release) {
-            var releaseMessage = release.getMessage() == null
-                    ? release.getClass().getSimpleName() + " with no message"
-                    : release.getMessage();
-            var message = first.message() + "; the lock's release failed: " + releaseMessage;
+            var message = first.message() + "; the lock's release failed: " + described(release);
             return new Removal(removed, kept, new Fault(message, first.pending(), first.reach()));
         }
 
@@ -333,6 +332,20 @@ public final class PendingEntryRecordsSweep implements SweepStep {
 
     private static List<String> names(List<EntryId> entryIds) {
         return entryIds.stream().map(EntryId::value).toList();
+    }
+
+    /**
+     * Names a fault by its message, or by its exception type when it carries none, so that the fault text this method
+     * composes never prints {@code null} in place of a message. Of the five types a removal catches,
+     * {@link InternalFaultException} and {@link StoreRefusal} compose a non-null message in their constructors, so a
+     * missing one can only come of the other three.
+     *
+     * @param fault the fault to name
+     * @return its message, or the simple name of its type when it carries none
+     */
+    private static String described(RuntimeException fault) {
+        var message = fault.getMessage();
+        return message == null ? fault.getClass().getSimpleName() + " with no message" : message;
     }
 
     /**
