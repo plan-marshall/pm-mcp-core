@@ -62,7 +62,7 @@ _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-
 
 _See Requirements link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7: Worker Activity & Off-Track Signals], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-3[PM-WORK-3: Supervision & Recycling], link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-1[PM-WORK-1: Roles as Configuration]_
 
-Detection decides only whether a worker is alive. A worker that is alive and busy but makes no progress (it repeats one call, works for many turns without following a link of its task, spends far more on a plan task than its size predicts, changes files outside the plan task's footprint, builds into the same failure again and again, keeps changing one file without building, or starts another agent) is noticed by the *off-track signals*, which the runtime computes from the worker's activity journal (link:../harness-profiles/01-profile-schema.adoc#worker-activity[Harness Profiles Specification, What a Worker Does]) and the task's records, never by a model. A signal is not a limit: it never ends a plan, and it never becomes a decision or waits for the operator.
+Detection decides only whether a worker is alive. A worker that is alive and busy but makes no progress (it repeats one call, works for many turns without following a link of its task, builds into the same failure again and again, keeps changing one file without building, or starts another agent) is noticed by the *off-track signals*, which the runtime computes from the worker's activity journal (link:../harness-profiles/01-profile-schema.adoc#worker-activity[Harness Profiles Specification, What a Worker Does]) and the task's records, never by a model. A signal is not a limit: it never ends a plan, and it never becomes a decision or waits for the operator.
 
 [cols="1,4"]
 |===
@@ -73,12 +73,6 @@ Detection decides only whether a worker is alive. A worker that is alive and bus
 
 |`no_progress`
 |The worker completed `N` turns (`turn` entries) without following a link of its task (a server entry of the activity: `ack`, a `submit`, `ask`, `consult:<role>`, `yield`, `infeasible`).
-
-|`over_size`
-|The tokens spent on the current plan task of an envelope task (the `total_tokens` of its turns since the plan task was yielded) exceed `N` times its `predicted_cost_tokens` (xref:06-envelopes-questions-deadlines.adoc#cost-sizing[Cost Sizing]). Only for envelope tasks.
-
-|`outside_footprint`
-|The unplanned changes already recorded for the current plan task of an envelope task (changes inside the worktree beyond its declared footprint, link:../phase-workflows/03-q-gate-and-execute.adoc#_task_envelope_execution_independent_server_verification[Phase Workflows Specification, Task Envelope Execution]) reach `N` files. Only for envelope tasks.
 
 |`failing_again`
 |The worker's last `N` builds of the current plan task (since the plan task was yielded, or since the attempt began outside an envelope task) are terminal `pm_build` results with status `failed`, each against another working-tree digest than the build before it, with one failure signature: the set of `(file, rule_or_test)` pairs of their `failures`, messages left out (link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/02-service-and-skill-tools.adoc[MCP Tools Specification, `pm_build`]). A succeeded build, a build with another signature or without located failures (`failed_unparsed`), and an `expect: red` run start the counting again; a build against the same digest as the one before it is not counted. The worker changed code between the builds and the same tests or errors still fail.
@@ -112,22 +106,9 @@ Detection decides only whether a worker is alive. A worker that is alive and bus
 |===
 
 * *Told, not asked*: a `yield` or a `restart` the server took is a report to the operator of the kind `task.off_track`, whose detail is the task's activity (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#reports[Runtime & Interaction Model Specification, Reports to the Operator]); no signal adds to what needs the operator.
-* *Verified by scenarios*: each signal and each action is a scenario of the fixture harness with a scripted output stream (a looping worker, a busy worker without links, a worker far over its size, a worker changing an unplanned file, a worker building into one failure, a worker changing one file without building, a worker whose process tree starts an enrolled harness or the operator binary), beside the fault matrix of link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4].
+* *Verified by scenarios*: each signal and each action is a scenario of the fixture harness with a scripted output stream (a looping worker, a busy worker without links, a worker building into one failure, a worker changing one file without building, a worker whose process tree starts an enrolled harness or the operator binary), beside the fault matrix of link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-TEST-4[PM-TEST-4].
 
 A model that watches the activity and judges whether a worker is on track is a later improvement (link:../../../../plan-marshall-documentation/doc/later-improvements.adoc#L-17[Later Improvements, L-17]).
-
-[#over-size-distribution]
-=== The `over_size` Distribution
-_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7: Worker Activity & Off-Track Signals]_
-_Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-80[PM-WATCH-DISP-80]_
-
-What a change of a role's `over_size` multiple would have done to past work is computed by the runtime per project and role, never by a client:
-
-* *Measured plan tasks*: every plan task of an envelope task of the role in the project whose activity journal is kept (link:../timeouts/03-retention-harness-config.adoc#activity-journal-bounds[Timeouts & Budgets Specification, Activity journal bounds]) and whose `predicted_cost_tokens` (xref:06-envelopes-questions-deadlines.adoc#cost-sizing[Cost Sizing]) is above zero. Its *ratio* is the tokens spent on it, measured as the signal measures them (the `total_tokens` of its turns from the start of the plan task to its end), divided by its `predicted_cost_tokens`. A plan task without a predicted cost is not measured, never counted as zero.
-* *Multiple in force*: the role's `over_size` threshold, the compiled multiple (link:../timeouts/01-job-budgets-and-waits.adoc#off-track-thresholds[Timeouts & Budgets Specification, Off-track signal thresholds]) or the lower value of the role artifact's `off_track` member.
-* *Buckets*: the ratios are counted in buckets one multiple wide from `0`, each from its inclusive lower to its exclusive upper bound, up to the whole multiple at or above the larger of the multiple in force and the proposed one; the last bucket is open-ended (`<N>x+`): it holds every ratio at or above its lower bound and is served with the first whole multiple above its largest ratio as its upper bound. A bucket without a plan task is left out, and a role without a measured plan task has no bucket.
-* *Proposed multiple*: where a multiple is proposed for the role, each bucket also counts its plan tasks whose ratio exceeds the proposed multiple, the tasks the proposal would have flagged; without a proposal the distribution carries no proposed multiple and flags no task. Which act proposes a multiple is open: see link:../../../../plan-marshall-documentation/doc/discussions/open-questions.adoc#over-size-proposal[Open Questions].
-* *Served*: the project's answer holds one distribution per role of its effective role set whose tasks include envelope tasks, in the order of that set, a role without a measured plan task included without a bucket (route: link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#over-size-distribution[Runtime & Interaction Model Specification, The `over_size` Distribution of a Project]; wire form: link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/runtime-model/06-event-catalogue.adoc#oversize-distribution[Runtime & Interaction Model Specification of the clients, The `over_size` Distribution]). A client shows the served distribution and never recomputes a bucket or a share.
 
 [#recycling]
 == Recycling Warm Workers

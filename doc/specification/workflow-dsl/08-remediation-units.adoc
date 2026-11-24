@@ -32,7 +32,7 @@ Every blocking failure of a plan gets a bounded self-remedy through a remediatio
 
 |`remediation.review-findings`
 |Open findings without a terminal disposition (wait region, barrier re-fetch, self-review, security audit), structural refusals, and missing review evidence (`evidence_missing`); the screen job `remediation-review.screen` and the triage task `remediation-review.triage` (role `triage-review`, one disposition per finding group) precede the budget check
-|`retry` (window-gated per-bot re-trigger; never for `unregistered_kind`, `not_wired`, or `refused_hard`), `fix` (in-branch; bound only at call sites after the pull request exists), `loop_back`; review-chain-terminus findings are fix-free, dependency-delta findings `FIX`-only (`triage-review`)
+|`retry` (window-gated per-bot re-trigger; never for `unregistered_kind`, `not_wired`, or `refused_hard`), `fix` (in-branch; bound only at call sites after the pull request exists), `loop_back`; review-chain-terminus findings are fix-free (`triage-review`)
 |`resolved`, `waived` (`review_evidence[:<bot_kind>]`, `findings:<class>`; security findings are never waivable), `exhausted`, `fix_requested`
 
 |`remediation.analysis`
@@ -68,7 +68,7 @@ The budgets are call arguments of the phase units (the template values). The pla
 |`refine.remediate-qgate`, `outline.remediate-qgate`, `plan.remediate-qgate` (the `blocking` verdict of `<phase>.qgate`)
 |`remediation.qgate-findings`
 |0 / 3
-|`resolved`, `waived` -> the phase exit (waived findings dispositioned accepted-by-waiver); `fix_requested` -> `refine.analyze`, `plan.revise-tasks`, or in Phase 3 the phase's exit `rework`, on which the plan unit calls the outline again at the authoring entry of the plan's lane (`outline.deep` or `outline.light-regate`), with `facts.qgate_findings`; `exhausted`, `stepped_out` -> the phase's exit `returned`, which the plan unit routes to `plan.return` (which forwards to `finalize.hand-back` when the plan branch holds commits beyond the base)
+|`resolved`, `waived` -> the phase exit (waived findings dispositioned accepted-by-waiver); `fix_requested` -> `refine.analyze`, `plan.revise-tasks`, or in Phase 3 the phase's exit `rework`, on which the plan unit calls the outline again at the authoring entry of the plan's lane (`outline.deep` or `outline.light`), with `facts.qgate_findings`; `exhausted`, `stepped_out` -> the phase's exit `returned`, which the plan unit routes to `plan.return` (which forwards to `finalize.hand-back` when the plan branch holds commits beyond the base)
 
 |`execute.remediate-build` (`execute.deliverable-build`, `execute.verify-sweep`), `land.remediate-build` (`land.verify-sweep`), `finalize.remediate-build` (`finalize.pre-push-quality-gate`)
 |`remediation.build-failure`
@@ -85,7 +85,7 @@ The budgets are call arguments of the phase units (the template values). The pla
 |1 / 3
 |As for CI, completing `default:analysis-roundtrip`
 
-|`finalize.remediate-review` (`findings_open`, `bot_refused_structural`, `review_evidence_missing`, `cap_exceeded`), `finalize.remediate-barrier` (`findings_untriaged` and `evidence_missing` of the pre-merge barrier; `resolved`, `waived` -> `finalize.merge-gate`), `finalize.remediate-self-review` and `finalize.remediate-security-audit` (findings of `finalize.self-review` and `finalize.security-audit`, one call state per step; `actions=[loop_back]`, `retry_budget=0`: before the pull request exists a fix runs only in the `loop_back` form)
+|`finalize.remediate-review` (`findings_open`, `bot_refused_structural`, `review_evidence_missing`), `finalize.remediate-barrier` (`findings_untriaged` and `evidence_missing` of the pre-merge barrier; `resolved`, `waived` -> `finalize.merge-gate`), `finalize.remediate-self-review` and `finalize.remediate-security-audit` (findings of `finalize.self-review` and `finalize.security-audit`, one call state per step; `actions=[loop_back]`, `retry_budget=0`: before the pull request exists a fix runs only in the `loop_back` form)
 |`remediation.review-findings`
 |1 / 3
 |As for CI, completing `default:automatic-review` in the wait region and its own step in each Settle-band call state

@@ -82,7 +82,7 @@ The decision points are closed; a state that takes a decision of the table write
 |The values the projection read; the setting in force (the plan's own setting, or `local_config` of the project or the machine); no threshold
 |`minimal`, `standard`, `full`
 
-|`lane.budget` (`init.light-gate`, `outline.light-regate`, link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#light-gate[Light Gate])
+|`lane.budget` (`outline.light-gate`, link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#light-gate[Light Gate])
 |`server_rule` `lane.budget-check`
 |`approach`
 |`\|A\| + \|neighbours\|` against `25` and `\|A\|` against `8` (`compiled`)
@@ -100,18 +100,6 @@ The decision points are closed; a state that takes a decision of the table write
 |Its confidence; the counts of its questions per sort (`answered`, `minor`, `operator`); no threshold
 |`ask`, `continue`, `not_run`
 
-|`outline.change-type` (`outline.detect-change-type`, `outline.light-detect-change-type`, link:../phase-workflows/03-q-gate-and-execute.adoc#_single_writer_heuristic_vs_judgment_fallback[Change-Type Contract])
-|`server_rule` `ChangeTypeHeuristic`
-|`interpretation`
-|The top score against `0.70` (`compiled`) and the top-two tie
-|a change type, or `null` (reason `ambiguous`)
-
-|`outline.classify-change-type`, `outline.light-classify-change-type`
-|`role` `classify`
-|`interpretation`
-|Its confidence; the heuristic's scores are its facts
-|a change type
-
 |`outline.domain-narrowing` (the single narrowing pass)
 |`server_rule` narrowing pass
 |`placement`
@@ -124,6 +112,12 @@ The decision points are closed; a state that takes a decision of the table write
 |Pending `3-outline` findings against `0`, the dry-run, the Q-Gate outcome
 |`pass`, `blocked`
 
+|`outline.change-type` (the outline's acceptance in `outline.deep` and `outline.light`, and every accepted revision that changes the deliverables, link:../phase-workflows/03-q-gate-and-execute.adoc#change-type-derivation[Phase Workflows Specification, Server-Derived `change_type`])
+|`server_rule` the derivation
+|`scope`
+|The deliverables' declared types in the compiled priority order; no threshold
+|the plan's `change_type`
+
 |`qgate.verdict` (`refine.qgate`, `outline.qgate`, `plan.qgate`)
 |`role` `qgate`
 |`assurance`
@@ -133,7 +127,7 @@ The decision points are closed; a state that takes a decision of the table write
 |`replan.trigger` (every checkpoint evaluation that measured, link:../phase-workflows/08-dynamic-re-planning.adoc#replan-triggers[Triggers & Detection])
 |`server_rule` the checkpoint
 |`scope`
-|Overlapping paths against `base_overlap_min_files` (shipped `5`), conflicted files against `conflict_min_files` (shipped `10`) (`unit`, `replan.pmwf`), changed files and diff characters against a required bot's `structural_caps` (`compiled` or `team_config`)
+|Conflicted files of the trial merge against `conflict_min_files` (shipped `10`) (`unit`, `replan.pmwf`)
 |`raise`, `hold`
 
 |`replan.budget` (`replan.gather`)
@@ -178,6 +172,12 @@ The decision points are closed; a state that takes a decision of the table write
 |No threshold; the call's `touches` and, for a shortcut, its `site`, `limit`, and `ends_when`
 |the call, among the alternatives the writer weighed (not exported to the corpus: the alternatives are the writer's own, not a closed set)
 
+|`sanity.item` (`sanity.apply`, one record per answered item, link:../phase-workflows/09-sanity-check.adoc#sanity-check-storage[Phase Workflows Specification, Sanity Check, Storage])
+|`operator`
+|`assurance`
+|The item's step, key, and evidence; no threshold
+|`accept`, `accept_kind`, `fix`
+
 |`decision.interpret` (`decision.interpret`, xref:06-envelopes-questions-deadlines.adoc#own-words[Answers in the Operator's Own Words])
 |`role` `interpret`
 |the question's
@@ -202,7 +202,7 @@ Every other state takes no decision of its own: an implementation, review, or au
 [#decision-confidence]
 === Decision Confidence of a Task
 
-Every closing link of a task whose state is a decision point of a role (`refine.builder-check`, `outline.classify-change-type`, `outline.light-classify-change-type`, `<phase>.qgate`, `replan.review`, `remediation-<class>.choose`, `decision.interpret`) carries the parameter `confidence:int[0..100]` besides its own parameters (link:../hypermedia-format/02-link-grammar.adoc#decision-confidence-parameter[Hypermedia Format Specification, Decision Confidence Parameter]): the worker's confidence that its choice is right. A submit without it is refused `missing_param` (link:../workflow-dsl/05-primitives.adoc#independent-transition-validation[Workflow DSL Specification, Independent Server-Side Transition & Parameter Validation]). The confidence is recorded and shown; it never gates the decision, so every role decision has a calibrated value before any threshold is set on it. A triage submit carries one `confidence` per finding group in its `triage-groups` items (link:07-untrusted-text-screening.adoc#batched-triage[Batched Triage]), and each group's decision-log record takes its own group's confidence.
+Every closing link of a task whose state is a decision point of a role (`refine.builder-check`, `<phase>.qgate`, `replan.review`, `remediation-<class>.choose`, `decision.interpret`) carries the parameter `confidence:int[0..100]` besides its own parameters (link:../hypermedia-format/02-link-grammar.adoc#decision-confidence-parameter[Hypermedia Format Specification, Decision Confidence Parameter]): the worker's confidence that its choice is right. A submit without it is refused `missing_param` (link:../workflow-dsl/05-primitives.adoc#independent-transition-validation[Workflow DSL Specification, Independent Server-Side Transition & Parameter Validation]). The confidence is recorded and shown; it never gates the decision, so every role decision has a calibrated value before any threshold is set on it. A triage submit carries one `confidence` per finding group in its `triage-groups` items (link:07-untrusted-text-screening.adoc#batched-triage[Batched Triage]), and each group's decision-log record takes its own group's confidence.
 
 [#question-decisions]
 === Question Decisions & Quorum
@@ -291,11 +291,6 @@ The operator verb `pm-operator decision-log export` (link:https://github.com/pla
 |`decision/own-words`
 |the record's `decider.role` (`interpret` in the default units)
 |"Which reading of the operator's words?"; the closed result kinds with the part's options; the target is the reading the operator confirmed in the read-back, or the one the operator's correction led to
-
-|`outline.classify-change-type`
-|`decision/change-type`
-|the record's `decider.role` (`classify` in the default units)
-|"Which change type?"; the six change types
 
 |`qgate.verdict`
 |`decision/gate`

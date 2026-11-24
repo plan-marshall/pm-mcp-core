@@ -1,0 +1,94 @@
+= State Catalogue: Sanity Check
+:toc: left
+:toclevels: 3
+:toc-title: Table of Contents
+:sectnums:
+:source-highlighter: highlight.js
+:nofooter:
+
+link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[State Catalogue] » Sanity Check
+
+[#state-catalogue-sanity-check]
+== Phase `sanity-check`
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-13[PM-WF-13: Finalize Step Ordering Bands, Verdict Currency & Pre-Merge Barrier]_
+
+The phase `sanity-check` (`phase-sanity-check.pmwf`, phase value `phase-sanity-check`, its states prefixed `sanity`) is the phase sub-workflow the plan unit calls between `execute` and `finalize` (xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]): after the phase `execute` ended with its exit `exit` (`execute.exit-barrier` (`pass`), `execute.land` (`passed`)), before any push and before any pull request exists, for local-only plans and the land lane too. Its entry is `start`; its exits are `passed` and `hand_back`. The mechanism, its steps, the one question, and the storage are specified in link:../phase-workflows/09-sanity-check.adoc#sanity-check[Phase Workflows Specification, Sanity Check].
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-sanity.check]]`sanity.check`
+|`phase-sanity-check`
+|`call`
+|The phase's entry `start` (the plan unit's `phases.sanity-check` or `phases.sanity-check-light`, after `execute` ended with its exit `exit`, also after a re-entry into `execute` from `finalize`).
+|`call sanity-check (push_mode=never)` (<<state-catalogue-sanity-check-unit>>) over the plan's change against its base; a re-run after a re-entry asks only items without a decision.
+|`passed` -> the phase's exit `passed`, on which the plan unit calls the phase `finalize` at its entry `start` (`finalize.settle-commit`, `settle_trigger` order `0`); `stepped_out` -> the phase's exit `hand_back`, on which the plan unit calls the phase `finalize` at its entry `hand_back` (`finalize.hand-back`).
+|link:../phase-workflows/09-sanity-check.adoc#sanity-check[Phase Workflows Specification, Sanity Check]
+|===
+
+[#state-catalogue-sanity-check-unit]
+== Sub-Workflow `sanity-check`
+
+Declared in `sanity-check.pmwf` (`scope subworkflow`, designable: the project's copy `.marshall/config/sanity-check.pmwf` lists its steps; link:../workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL Specification, Designable Workflow Units]); its states carry the prefix `sanity` and the phase of their caller. Callers: `sanity.check` (the phase, `push_mode=never`) and `finalize.sanity-recheck` (the run before the landing, `push_mode=post_pr_conditional`, xref:07-plan-finalize-merge-post-run.adoc#state-finalize.sanity-recheck[`finalize.sanity-recheck`]). Inputs: `push_mode` (`enum[never|post_pr_conditional]`) and `fix_budget` (an `int`, shipped `2`, bounded by the compiled hard cap of the link:../timeouts/01-job-budgets-and-waits.adoc#fix-budget[fix budget]; `0` for a `land` plan, bound by its composition). Exit contract: `passed` plus `stepped_out`. The unit asks the operator at most once per run, never runs a model step except the fix task, and holds no merge lease.
+
+[cols="2,1,1,2,3,2,2"]
+|===
+|State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
+
+|[[state-sanity.run]]`sanity.run`
+|the caller's phase value
+|`composite_job`
+|The unit's entry (its start state); `sanity.commit` (`done`); `sanity.retry-wait` (`retry`); `sanity.apply` (`settled` without a team-file change).
+|`composite_job sanity.run-steps`: runs the steps the unit lists, in order (each a job of the extension point `ext-point-sanity-check-step`: git, the change ledger, and the build tool's offline listing of the build that ran; no model, no network) over the change since the `HEAD` the plan's last run evaluated (the whole change against the base on the first run), and filters every item whose key carries a decision of the plan or of a team file under `.marshall/sanity/`. Records each step's result (`clean`, `items`, `indeterminate`) and the `HEAD` it evaluated.
+|`clean` (no item without a decision, and no item answered `fix` still found) -> `sanity.passed`; `items` (an item without a decision) -> `sanity.question`; `fix_open` (only items answered `fix` that the run still finds, `fix_budget` left) -> `sanity.fix`; `fix_spent` (the same with `fix_budget` spent) -> `sanity.stepped-out` (cause `exhausted`, the items in the gap); `indeterminate` (a step could not read what it needs, its cause named) -> `sanity.retry-wait`; `cancelled` -> `sanity.retry-wait`.
+|link:../phase-workflows/09-sanity-check.adoc#sanity-check-steps[Phase Workflows Specification, Sanity Check, Steps]
+
+|[[state-sanity.retry-wait]]`sanity.retry-wait`
+|the caller's phase value
+|`composite_job`
+|`sanity.run` (`indeterminate`, `cancelled`).
+|The server's retry wait: records the cause and the attempts left of the compiled server-rule retry budget (link:../timeouts/01-job-budgets-and-waits.adoc#server-rule-retry[Timeouts & Budgets Specification, Server-Rule Retry Budget]) and waits the retry backoff (`TIME`) before the run repeats; with the budget spent it settles at once. A step that cannot read is never reported clean.
+|`retry` (budget left, the backoff elapsed) -> `sanity.run`; `retry_spent` -> `sanity.stepped-out` (cause `indeterminate`, the step and its cause in the gap).
+|link:../phase-workflows/09-sanity-check.adoc#sanity-check-steps[Phase Workflows Specification, Sanity Check, Steps]
+
+|[[state-sanity.question]]`sanity.question`
+|the caller's phase value
+|`operator_wait`
+|`sanity.run` (`items`).
+|The one question of the run (link:../workflow-dsl/02-units-jobs-decisions.adoc#operator-wait[Workflow DSL Specification, Waiting for the Operator]): every item without a decision, grouped by step, each with its evidence (never a credential's value). Per item the repeatable operator links `accept`, `accept_kind` (only where the item's step supports it, recorded after a confirmation that states its consequence), and `fix`; each answer is recorded as given and may be changed until the wait closes. No quorum answers it, the plan's asking variant neither adds nor removes it, and it has no time limit.
+|`answered` (every item has an answer) -> `sanity.apply`.
+|link:../phase-workflows/09-sanity-check.adoc#sanity-check-question[Phase Workflows Specification, Sanity Check, The One Question]
+
+|[[state-sanity.apply]]`sanity.apply`
+|the caller's phase value
+|`auto`
+|`sanity.question` (`answered`).
+|`auto sanity.apply-answers`: appends one decision-log record per answer (decision point `sanity.item`, decider `operator`, the item's key, evidence, and answer); for an `accept` of a `dependencies` item and for every `accept_kind`, writes the team file `.marshall/sanity/<check>.json` in the plan's worktree (the one write under `.marshall/` a plan makes, admitted by the protected-path check for exactly that file and content).
+|`fix_requested` (an item answered `fix`, `fix_budget` left, no `credential_shaped` item among them) -> `sanity.fix`; `credential_fix` (a `credential_shaped` item answered `fix`) -> `sanity.stepped-out` (cause `credential_shaped`, the hand-back taking its local form); `budget_spent` (an item answered `fix` with `fix_budget` spent, `0` for a `land` plan) -> `sanity.stepped-out` (cause `exhausted`, the items in the gap); `settled` with a team-file change -> `sanity.commit`; `settled` without one -> `sanity.run`.
+|link:../phase-workflows/09-sanity-check.adoc#sanity-check-storage[Phase Workflows Specification, Sanity Check, Storage]
+
+|[[state-sanity.fix]]`sanity.fix`
+|the caller's phase value
+|`job`
+|`sanity.apply` (`fix_requested`); `sanity.run` (`fix_open`).
+|`job llm sanity-fix role implement`: one task in the plan's worktree whose `facts` carry every item answered `fix` with its evidence (for a `fix_red_missing` item: revert the production change, take the red run, restore it); the entity submits once. Charges one unit of `fix_budget`; the task of the last fix the budget allows runs on the role's escalation assignment where one is set and qualified.
+|`submitted` -> `sanity.commit`; `infeasible`, `lost` -> `sanity.stepped-out` (cause `fix_failed`, the task's evidence in the gap).
+|link:../phase-workflows/09-sanity-check.adoc#sanity-check-question[Phase Workflows Specification, Sanity Check, The One Question]
+
+|[[state-sanity.commit]]`sanity.commit`
+|the caller's phase value
+|`call`
+|`sanity.apply` (`settled` with a team-file change); `sanity.fix` (`submitted`).
+|`call git.commit_and_push (message_mode=step_or_fallback, push_mode=<the unit's input>)`, with the fixed message of its call site (link:../workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL Specification, Stage 3]); the footprint check of Stage 4 and, on a push, the credential barrier of Stage 6 apply as to every commit.
+|`done` -> `sanity.run` (the steps run again over the new `HEAD`); `stepped_out` -> `sanity.stepped-out`.
+|xref:05-git-commit-and-push.adoc#state-catalogue-git[`git.commit_and_push`]
+
+|[[state-sanity.passed]][[state-sanity.stepped-out]]`sanity.passed`, `sanity.stepped-out`
+|the caller's phase value
+|`terminal`
+|`sanity.run` (`clean`, `fix_spent`); `sanity.retry-wait` (`retry_spent`), `sanity.apply` (`credential_fix`, `budget_spent`), `sanity.fix` (`infeasible`, `lost`), `sanity.commit` (`stepped_out`).
+|Declared `state sanity.passed terminal passed success`, `state sanity.stepped-out terminal stepped_out stepped_out`; the step-out records its cause and the open items for the caller's gap.
+|The caller's `passed` and `stepped_out` transitions (`sanity.check`, `finalize.sanity-recheck`).
+|link:../phase-workflows/09-sanity-check.adoc#sanity-check[Phase Workflows Specification, Sanity Check]
+|===

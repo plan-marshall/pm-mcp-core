@@ -54,7 +54,7 @@ commit sub-process, which the engine wires later; this record supplies the typed
 
 == Source
 
-* link:../../../../doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#_finalize_commit_instrumentation_freshness_reconcile_post_pr_re_push_pm_wf_16[Phase Workflows § Finalize Commit Instrumentation]
+* link:https://github.com/plan-marshall/pm-mcp-core/blob/d1ce3bf8/doc/specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#_finalize_commit_instrumentation_freshness_reconcile_post_pr_re_push_pm_wf_16[Phase Workflows § Finalize Commit Instrumentation]
 * link:../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc[Workflow DSL § Six-Stage Execution Contract]
 * `pm-core/src/main/java/de/planmarshall/core/store/FreshnessReconcile.java`,
   `pm-core/src/main/java/de/planmarshall/core/store/WorkflowStatusCodec.java`,

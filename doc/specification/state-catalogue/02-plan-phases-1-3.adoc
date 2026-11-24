@@ -10,7 +10,7 @@ link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[Sta
 
 == Plan Workflow
 
-The plan unit (`plan.pmwf`) is a workflow of the six phase sub-workflows `phase-1-init.pmwf`, `phase-2-refine.pmwf`, `phase-3-outline.pmwf`, `phase-4-plan.pmwf`, `phase-5-execute.pmwf` (which calls the land lane's `land.pmwf`), and `phase-6-finalize.pmwf`, called `init` … `finalize` for short; it calls `init` first, and each phase's outcome decides its next call (xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]; link:../workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL Specification, Workflow Definition Units]). The start state of `init` is `init.classify`. Each plan executes its own composed, versioned plan instance of these templates, each resolved by level (link:../store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas Specification, Plan Instance]); version 1 is composed when its start creates the plan (`start.create`, xref:09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap[Starts]), with the variants of the plan behaviour axes bound at the plan's start by their precedence and the others pruned with the reason `plan_default` (link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]). Every model state names a role of the default role set; the role per state and its fallback while unqualified are listed in link:../phase-workflows/01-planning-phases-1-2.adoc#phase-roles[Phase Workflows Specification, Model Work per State]. The lane topology is specified in link:../phase-workflows/01-planning-phases-1-2.adoc#_lifecycle_topology_phases_14[Phase Workflows Specification, Lifecycle Topology]. Every source is gathered, stored in the entry's source directory, and, if it comes from outside the machine, screened over the stored copy by its source unit before the plan exists (xref:09-bootstrap-and-lessons.adoc#state-catalogue-source[Source Units]), so no plan state waits for a source; the models of the plan read the sources in the plan's source directory. A recipe's plan runs the recipe's own workflow (link:../domain-extensions/05-recipes-and-extension-points.adoc#recipe-workflow[Domain Extensions Specification, A Recipe Is a Workflow]).
+The plan unit (`plan.pmwf`) is a workflow of the seven phase sub-workflows `phase-1-init.pmwf`, `phase-2-refine.pmwf`, `phase-3-outline.pmwf`, `phase-4-plan.pmwf`, `phase-5-execute.pmwf` (which calls the land lane's `land.pmwf`), `phase-sanity-check.pmwf` (xref:20-sanity-check.adoc#state-catalogue-sanity-check[Sanity Check]), and `phase-6-finalize.pmwf`, called `init` … `finalize` for short; it calls `init` first, and each phase's outcome decides its next call (xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]; link:../workflow-dsl/02-units-jobs-decisions.adoc#workflow-definition-units[Workflow DSL Specification, Workflow Definition Units]). The start state of `init` is `init.classify`. Each plan executes its own composed, versioned plan instance of these templates, each resolved by level (link:../store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas Specification, Plan Instance]); version 1 is composed when its start creates the plan (`start.create`, xref:09-bootstrap-and-lessons.adoc#state-catalogue-bootstrap[Starts]), with the variants of the plan behaviour axes bound at the plan's start by their precedence and the others pruned with the reason `plan_default` (link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]). Every model state names a role of the default role set; the role per state and its fallback while unqualified are listed in link:../phase-workflows/01-planning-phases-1-2.adoc#phase-roles[Phase Workflows Specification, Model Work per State]. The lane topology is specified in link:../phase-workflows/01-planning-phases-1-2.adoc#_lifecycle_topology_phases_14[Phase Workflows Specification, Lifecycle Topology]. Every source is gathered, stored in the entry's source directory, and, if it comes from outside the machine, screened over the stored copy by its source unit before the plan exists (xref:09-bootstrap-and-lessons.adoc#state-catalogue-source[Source Units]), so no plan state waits for a source; the models of the plan read the sources in the plan's source directory. A recipe's plan runs the recipe's own workflow (link:../domain-extensions/05-recipes-and-extension-points.adoc#recipe-workflow[Domain Extensions Specification, A Recipe Is a Workflow]).
 
 [#state-catalogue-init]
 === Phase 1: `init`
@@ -25,7 +25,7 @@ The init questions are server-raised question records of class `init`, asked as 
 |`phase-1-init`
 |`auto`
 |The plan's creation by its start (`start.create`, or `start.launch` for a plan of an epic; start state of the phase `init`, which the plan unit calls first); every answer of `init.sibling-collision`, `init.domain-choice`; `init.options` (`set`).
-|Re-entrant: raises the next unanswered init question in fixed order (sibling collision, domain, the plan's open options), never re-asks an answered one, and never rewrites a write-once output. Runs in fixed order: request-aspect classification over the plan's sources, workflow settings resolution, initial planning-lane router (which reads the resolved `minimum_lane`) and `scope_estimate`, sibling collision detector, `main_sha` base stamp. The lesson premise was checked by `source-lesson` before the plan existed; its evidence is an `amendments[]` entry (`source: fact`) when the operator used the lesson despite a resolved or invalid premise. The posture is asked where the lane is chosen: the plan's own value, else the project's or the machine's, else `init.options` asks it; its prunes (reason `posture`) compose an instance version. For source `local_changes`: collision detector and settings only. For source `pr`: sets the closed `planning_lane` value `adopt` (fixed at creation, outside the lane ratchet, like `land`), takes the pull request's changed files as `declared_files`, runs the collision detector over them (an overlap raises `init.sibling-collision` like every source), settings, and base stamp; the plan instance carries the finalize steps (no tasks).
+|Re-entrant: raises the next unanswered init question in fixed order (sibling collision, domain, the plan's open options), never re-asks an answered one, and never rewrites a write-once output. Runs in fixed order: workflow settings resolution, initial planning-lane router (which reads the resolved `minimum_lane`), sibling collision detector (a `land` or `adopt` plan only), `main_sha` base stamp. The lesson premise was checked by `source-lesson` before the plan existed; its evidence is an `amendments[]` entry (`source: fact`) when the operator used the lesson despite a resolved or invalid premise. The posture is asked where the lane is chosen: the plan's own value, else the project's or the machine's, else `init.options` asks it; its prunes (reason `posture`) compose an instance version. For source `local_changes`: collision detector and settings only. For source `pr`: sets the closed `planning_lane` value `adopt` (fixed at creation, outside the lane ratchet, like `land`), takes the pull request's changed files as `declared_files`, runs the collision detector over them (an overlap raises `init.sibling-collision` like every source), settings, and base stamp; the plan instance carries the finalize steps (no tasks).
 |`init.sibling-collision`; `init.domain-choice` (ambiguous domain); `options_open` (an option the plan needs here that neither the plan, the project, nor the machine sets) -> `init.options`; `init.ready` (no question open); `returned` (an answer whose effect is the `returned` route) -> `plan.return`.
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_deterministic_init_classifiers_workflow_settings[Phase Workflows Specification, Deterministic Init Classifiers], link:../phase-workflows/01-planning-phases-1-2.adoc#initial-lane-router[Initial Planning-Lane Router]; link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Plan Source Contracts]
 
@@ -41,10 +41,10 @@ The init questions are server-raised question records of class `init`, asked as 
 |[[state-init.sibling-collision]]`init.sibling-collision`
 |`phase-1-init`
 |`call`
-|`init.classify` (the sibling collision detector found an overlap with a live plan).
+|`init.classify` (the sibling collision detector of a `land` or `adopt` plan found an overlap of its captured or pull-request paths with a live plan's realized footprint).
 |`call decision`: options `proceed` (`recommended`) and `return`. `facts`: the overlapping plans, modules, and paths.
 |`answered` -> `init.classify` (`return` leaves it `returned`); `withdrawn` -> this state (asked anew).
-|link:../phase-workflows/01-planning-phases-1-2.adoc#_deterministic_init_classifiers_workflow_settings[Phase Workflows Specification, Deterministic Init Classifiers item 4]
+|link:../phase-workflows/01-planning-phases-1-2.adoc#_deterministic_init_classifiers_workflow_settings[Phase Workflows Specification, Deterministic Init Classifiers item 3]
 
 |[[state-init.domain-choice]]`init.domain-choice`
 |`phase-1-init`
@@ -60,16 +60,9 @@ The init questions are server-raised question records of class `init`, asked as 
 |`auto`
 |`init.classify` (no question open).
 |Routes by `planning_lane` alone (one outcome per lane); like every plan transition it is checked by the Clean Main Checkout Guard (link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#_planning_transition_guards_real_world_invariants[Phase Workflows Specification, Clean Main Checkout Guard]).
-|`deep` -> the phase's exit `deep`, on which the plan unit calls the phase `refine` at its entry `start` (`refine.baseline-reconcile`); `light` -> `init.light-gate`; `land` -> the phase's exit `land`, on which the plan unit calls the phase `execute` at its entry `land` (`execute.land`, which calls the land lane); `adopt` (source `pr`) -> the phase's exit `adopt`, on which the plan unit calls the phase `finalize` at its entry `adopt` (`finalize.adopt-pr`).
+|`deep` -> the phase's exit `deep`, on which the plan unit calls the phase `refine` at its entry `start` (`refine.analyze`); `light` -> the phase's exit `light`, on which the plan unit calls the phase `outline` at its entry `light` (`outline.light`, `phase_2_mode = collapsed_light`); `land` -> the phase's exit `land`, on which the plan unit calls the phase `execute` at its entry `land` (`execute.land`, which calls the land lane); `adopt` (source `pr`) -> the phase's exit `adopt`, on which the plan unit calls the phase `finalize` at its entry `adopt` (`finalize.adopt-pr`).
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_lifecycle_topology_phases_14[Phase Workflows Specification, Lifecycle Topology]; link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#land-lane[Land Lane]; link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Plan Source Contracts (`pr`)]
 
-|[[state-init.light-gate]]`init.light-gate`
-|`phase-1-init`
-|`auto`
-|`init.ready` (`light` plans only).
-|`auto lane.budget-check` over the request's declared files: server budget trigger over declared files `A` and one-hop neighbours (cap `25`, band `8`), fail toward `deep` on unresolved neighbours, baseline probe; records `lane_budget` in `audit.jsonl`. The same primitive runs in `outline.light-regate`.
-|Pass -> the phase's exit `light`, on which the plan unit calls the phase `outline` at its entry `light` (`outline.light-detect-change-type`, `phase_2_mode = collapsed_light`, `facts.light_read_set`); budget, `neighbours_indeterminate`, or `baseline_conflict` -> the phase's exit `deep` (one-way ratchet to `deep`: the plan unit calls the phase `refine`, `refine.baseline-reconcile`).
-|link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#light-gate[Phase Workflows Specification, Light Gate]
 |===
 
 [#state-catalogue-refine]
@@ -81,18 +74,10 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |===
 |State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
 
-|[[state-refine.baseline-reconcile]]`refine.baseline-reconcile`
-|`phase-2-refine`
-|`auto`
-|The phase's entry `start` (the phase `init` ended with its exit `deep`: `init.ready` (`deep`), `init.light-gate` (escalation); or the phase `outline` ended with its exit `escalate_to_deep`: `outline.light`, `outline.light-regate` (escalation), with the phase set back to `phase-2-refine` and `phase_2_mode = full`).
-|Non-mutating merge-conflict probe against upstream (only when a base branch is configured; native JGit `ResolveMerger` or CLI `git merge-tree`). Outcomes: `no_overlap`, `overlap_no_content_conflict` (`auto_reconcilable: true`), `overlap_with_content_conflict` (blocking Q-Gate findings).
-|`refine.analyze` (every outcome; a content conflict carries its blocking findings into refinement).
-|link:../phase-workflows/01-planning-phases-1-2.adoc#_phase_entry_baseline_reconciliation[Phase Workflows Specification, Phase Entry & Baseline Reconciliation]
-
 |[[state-refine.analyze]]`refine.analyze`
 |`phase-2-refine`
 |`job`
-|`refine.baseline-reconcile`; `refine.awaiting_answers` (the single second task); `refine.remediate-qgate` (`fix_requested`: a remediation pass with `facts.qgate_findings`).
+|The phase's entry `start` (the phase `init` ended with its exit `deep`: `init.ready` (`deep`); or the phase `outline` ended with its exit `escalate_to_deep`: `outline.light`, `outline.light-gate` (escalation), with the phase set back to `phase-2-refine` and `phase_2_mode = full`); `refine.awaiting_answers` (the single second task); `refine.remediate-qgate` (`fix_requested`: a remediation pass with `facts.qgate_findings`).
 |`job llm refine role refine`: the task's entity submits `submit:refine` (`intent`, the intent record, `pr_title`, six dimension scores, `evidence_class`, `compatibility`, `simplicity`, per-claim hypothesis verdicts of a plan of an epic, open questions in the optional `decision:schema[decision-envelope]?`).
 |Return evaluation: `builder_check` (where `qgate` or `ready` would follow and no builder check ran for the plan) -> `refine.builder-check`; `qgate` (confidence at or above threshold, a lesson-derived plan) -> `refine.qgate`; `ready` (confidence at or above threshold, any other plan) -> `refine.ready`; `ask` (below threshold on the first pass, or a refuted hypothesis) -> `refine.awaiting_answers`; `refuted_again` (a claim refuted again) -> `refine.hypothesis-refuted`; below threshold on the second pass or in a remediation pass: `qgate` or `ready` with `low_confidence_manual_review: true`; `infeasible`, `lost` -> `plan.return`.
 |link:../phase-workflows/01-planning-phases-1-2.adoc#quality-dimensions[Phase Workflows Specification, Six Quality Dimensions]; link:../phase-workflows/01-planning-phases-1-2.adoc#_single_batch_clarification_relaunch_ceiling[Single-Batch Clarification & Relaunch Ceiling]
@@ -150,7 +135,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`auto`
 |`refine.analyze` (`ready`), `refine.builder-check` (`continue`), `refine.qgate` (`clean`), `refine.remediate-qgate` (`resolved`, `waived`), `refine.apply-narrowing`.
 |Phase 2 exit guards: artifact gate (a valid intent record and the `## Clarified Request` rendered from it, non-empty `pr_title`), Blocking Findings Guard, Clean Main Checkout Guard.
-|The phase's exit `ready`, on which the plan unit calls the phase `outline` at its entry `start` (`outline.detect-change-type`).
+|The phase's exit `ready`, on which the plan unit calls the phase `outline` at its entry `start` (`outline.deep`).
 |link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#_planning_transition_guards_real_world_invariants[Phase Workflows Specification, Planning Transition Guards]
 |===
 
@@ -161,52 +146,28 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |===
 |State id |Phase value |Kind |Entered from |Offered links / outcomes |Exits to |Defined in
 
-|[[state-outline.detect-change-type]][[state-outline.light-detect-change-type]]`outline.detect-change-type` (deep lane), `outline.light-detect-change-type` (light lane)
-|`phase-3-outline`
-|`auto`
-|`outline.detect-change-type`: the phase's entry `start` (the phase `refine` ended with its exit `ready`: `refine.ready`). `outline.light-detect-change-type`: the phase's entry `light` (the phase `init` ended with its exit `light`: `init.light-gate` (pass)).
-|`ChangeTypeHeuristic` over the rendered clarified request (else `original_input`); writes `change_type` only when unambiguous. Outcomes: `detected` (unambiguous), `ambiguous`. The two states differ only in their lane's targets, so neither reads the lane.
-|`outline.detect-change-type`: `detected` -> `outline.deep`; `ambiguous` -> `outline.classify-change-type`. `outline.light-detect-change-type`: `detected` -> `outline.light`; `ambiguous` -> `outline.light-classify-change-type`.
-|link:../phase-workflows/03-q-gate-and-execute.adoc#_single_writer_heuristic_vs_judgment_fallback[Phase Workflows Specification, Single-Writer Heuristic vs Judgment Fallback]
-
-|[[state-outline.classify-change-type]][[state-outline.light-classify-change-type]]`outline.classify-change-type` (deep lane), `outline.light-classify-change-type` (light lane)
-|`phase-3-outline`
-|`job`
-|The change-type detection of the same lane (`ambiguous`).
-|`job llm change-type role classify`: the entity submits `submit:change-type` (`change_type` enum, `rationale:text[1..500]`); skill `pm/outline/detect-change-type`. A `zero_tool` role receives the rendered clarified request in-band (link:../model-work/01-roles-and-configuration.adoc#closed-task-in-band[Model Work Specification, A Closed Task without Tools]); one that does not fit closes the task `input_too_large`, and the change type is assumed. The return evaluation writes `change_type` and returns `classified`.
-|`outline.classify-change-type`: `classified` -> `outline.deep`; `infeasible`, `lost` -> `outline.assume-change-type`. `outline.light-classify-change-type`: `classified` -> `outline.light`; `infeasible`, `lost` -> `outline.light-assume-change-type`.
-|link:../phase-workflows/03-q-gate-and-execute.adoc#_single_writer_heuristic_vs_judgment_fallback[Phase Workflows Specification, Judgment Fallback]
-
-|[[state-outline.assume-change-type]][[state-outline.light-assume-change-type]]`outline.assume-change-type` (deep lane), `outline.light-assume-change-type` (light lane)
-|`phase-3-outline`
-|`auto`
-|The change-type classification of the same lane (`infeasible`, `lost`).
-|`auto outline.assume-change-type`, the fallback of the role `classify`: writes `change_type: feature`, recorded with the fallback's reason and listed in the pull request body.
-|`outline.assume-change-type`: `assumed` -> `outline.deep`. `outline.light-assume-change-type`: `assumed` -> `outline.light`.
-|link:../phase-workflows/03-q-gate-and-execute.adoc#_single_writer_heuristic_vs_judgment_fallback[Phase Workflows Specification, Judgment Fallback]
-
 |[[state-outline.deep]]`outline.deep`
 |`phase-3-outline`
 |`job`
-|`outline.detect-change-type` (`detected`), `outline.classify-change-type` (`classified`), `outline.assume-change-type` (`assumed`); `outline.awaiting_answers` (the single second task); the phase's entry `rework` (the deep lane's rework call `phases.outline-rework`, xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]), among them the `loop_back_outline` of `plan.derive-tasks` (`derivation_failed`), whose failure is a blocking `3-outline` finding the reworked outline answers.
-|`job llm outline role outline` (after a loop-back from Phase 5 the task's worker runs in the kept plan worktree): the entity submits `submit:outline` (`outline:schema[outline-record]`, open questions in the optional `decision:schema[decision-envelope]?`); full discovery, ADR scan, consumer sweeps. The submit primitive validates the outline before accepting it (`OutlineValidator`: intent markers, six-bucket classifier, `Added dependencies`, change-type scope reconciliation, the task-derivation dry-run; then the single domain narrowing pass, which may set `pr_title_stale`); a refusal, including a non-derivable outline, is `invalid_link_args`, a `rejected` representation of this state. An unchanged outline in a remediation pass is refused `fix_unchanged`.
+|The phase's entry `start` (the phase `refine` ended with its exit `ready`: `refine.ready`); `outline.awaiting_answers` (the single second task); the phase's entry `rework` (the deep lane's rework call `phases.outline-rework`, xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]), among them the `loop_back_outline` of `plan.derive-tasks` (`derivation_failed`), whose failure is a blocking `3-outline` finding the reworked outline answers.
+|`job llm outline role outline` (after a loop-back from Phase 5 the task's worker runs in the kept plan worktree): the entity submits `submit:outline` (`outline:schema[outline-record]`, open questions in the optional `decision:schema[decision-envelope]?`); full discovery, ADR scan, consumer sweeps. The submit primitive validates the outline before accepting it (`OutlineValidator`: intent markers, six-bucket classifier, the read-only refusal of `analysis` and `verification` deliverables, the task-derivation dry-run; then the single domain narrowing pass, which may set `pr_title_stale`, and the derivation of the plan's `change_type` from the deliverables, link:../phase-workflows/03-q-gate-and-execute.adoc#change-type-derivation[Phase Workflows Specification, Server-Derived `change_type`]); a refusal, including a non-derivable outline, is `invalid_link_args`, a `rejected` representation of this state. An unchanged outline in a remediation pass is refused `fix_unchanged`.
 |Return evaluation: `accepted` -> `outline.qgate` (also with open questions on the second pass, listed in the outline gate's `facts`); `bypass` (accepted, the surgical bypass holds) -> `outline.gate`; `ask` (open questions on the first pass) -> `outline.awaiting_answers`; `infeasible`, `lost` -> `plan.return`.
 |link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#planning-lanes[Phase Workflows Specification, Planning Lanes]; link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-validation-gate[Phase 3 Validation Rules]
 
 |[[state-outline.light]]`outline.light`
 |`phase-3-outline`
 |`job`
-|`outline.light-detect-change-type` (`detected`), `outline.light-classify-change-type` (`classified`), `outline.light-assume-change-type` (`assumed`); `outline.light-regate` (pass).
-|`job llm outline role outline`, one collapsed light task: the entity submits `submit:outline` carrying `intent`, `pr_title`, and `outline` (no `decision` parameter), read bound `facts.light_read_set`; or `outcome = escalate_to_deep` with `escalation_trigger` (`premise`, `cross_module_ripple`, `public_symbol_deletion`). No Q-Gate. The submit primitive runs the widen-only domain merge and then validates as in `outline.deep`, the derivation dry-run included; a refusal is `invalid_link_args` to the worker.
-|`accepted` -> `outline.gate` (records `phase-2-refine` done); `escalate_to_deep` -> the phase's exit `escalate_to_deep`, on which the plan unit calls the phase `refine` at its entry `start` (`refine.baseline-reconcile`); `infeasible`, `lost` -> `plan.return`.
+|The phase's entry `light` (the phase `init` ended with its exit `light`: `init.ready` (`light`)); the phase's entry `rework_light` (the light lane's rework call `phases.outline-rework-light`, xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]): a fix the outline Q-Gate remediation or the outline review requested, `loop_back_outline` of the light lane's `plan`, `execute`, or `finalize` (`plan.revise-tasks`, `plan.derive-tasks` (`derivation_failed`)), and the `reauthor` of `execute.replan` and `finalize.replan`, the worktree kept.
+|`job llm outline role outline`, one collapsed light task: the entity submits `submit:outline` carrying `intent`, `pr_title`, and `outline` (no `decision` parameter); or `outcome = escalate_to_deep` with `escalation_trigger` (`premise`, `cross_module_ripple`, `public_symbol_deletion`). No Q-Gate. The submit primitive runs the widen-only domain merge and then validates as in `outline.deep`, the derivation dry-run included; a refusal is `invalid_link_args` to the worker.
+|`accepted` -> `outline.light-gate` (records `phase-2-refine` done); `escalate_to_deep` -> the phase's exit `escalate_to_deep`, on which the plan unit calls the phase `refine` at its entry `start` (`refine.analyze`); `infeasible`, `lost` -> `plan.return`.
 |link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#light-envelope[Phase Workflows Specification, Collapsed Light Envelope]; link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-validation-gate[Phase 3 Validation Rules]
 
-|[[state-outline.light-regate]]`outline.light-regate`
+|[[state-outline.light-gate]]`outline.light-gate`
 |`phase-3-outline`
 |`auto`
-|The phase's entry `rework_light` (the light lane's rework call `phases.outline-rework-light`, xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]): a fix the outline Q-Gate remediation or the outline review requested, `loop_back_outline` of the light lane's `plan`, `execute`, or `finalize` (`plan.revise-tasks`, `plan.derive-tasks` (`derivation_failed`)), and the `reauthor` of `execute.replan` and `finalize.replan`, the worktree kept.
-|`auto lane.budget-check` over the `Affected files` of the current `outline.md` (the light gate's budget trigger, neighbour resolution, and baseline probe; records `lane_budget`). No Phase 1 state is re-entered.
-|Pass -> `outline.light` (a new task with the new `facts.light_read_set`); budget, `neighbours_indeterminate`, or `baseline_conflict` -> the phase's exit `escalate_to_deep` (one-way ratchet to `deep`: the plan unit calls the phase `refine`, `refine.baseline-reconcile`).
+|`outline.light` (`accepted`).
+|`auto lane.budget-check` over the `Affected files` of the accepted outline record: the light gate's budget trigger over the files and their one-hop neighbours (cap `25`, band `8`), failing toward `deep` on unresolved neighbours; records `lane_budget` in `audit.jsonl`.
+|Pass -> `outline.gate`; budget or `neighbours_indeterminate` -> the phase's exit `escalate_to_deep` (one-way ratchet to `deep`: the plan unit calls the phase `refine`, `refine.analyze`).
 |link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#light-gate[Phase Workflows Specification, Light Gate]
 
 
@@ -231,14 +192,14 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`call`
 |`outline.qgate` (`blocking`); `outline.gate` (`findings_pending`).
 |As xref:01-conventions-generic-conditions.adoc#state-phase.remediate-qgate[`<phase>.remediate-qgate`].
-|`resolved`, `waived` -> `outline.gate`; `fix_requested` -> the phase's exit `rework`, on which the plan unit calls the phase again at the authoring entry of the plan's lane (`outline.deep` for `deep`, `outline.light-regate` for `light`; xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]); `exhausted`, `stepped_out` -> the phase's exit `returned`, which the plan unit routes to `plan.return`.
+|`resolved`, `waived` -> `outline.gate`; `fix_requested` -> the phase's exit `rework`, on which the plan unit calls the phase again at the authoring entry of the plan's lane (`outline.deep` for `deep`, `outline.light` for `light`; xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]); `exhausted`, `stepped_out` -> the phase's exit `returned`, which the plan unit routes to `plan.return`.
 |link:../phase-workflows/03-q-gate-and-execute.adoc#_q_gate_validation_loop[Phase Workflows Specification, Q-Gate Validation Loop]
 
 |[[state-outline.gate]]`outline.gate`
 |`phase-3-outline`
 |`auto`
-|`outline.qgate` (`clean`), `outline.remediate-qgate` (`resolved`, `waived`), `outline.deep` (`bypass`), `outline.light` (`accepted`).
-|Server gate, never a model or operator approval: passes when the outline Q-Gate returned `clean`, `resolved`, or `waived` (or does not apply: light lane, surgical bypass), the derivation dry-run passes, and no `3-outline` finding is pending. The review applies when the plan's bound asking variant asks the outline (`ask.every-phase`, `ask.key-points`, xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-axes[Axis Variants]); the operator is never asked separately whether to review. `facts`: `added_dependencies[]`, the open outline questions of a second pass.
+|`outline.qgate` (`clean`), `outline.remediate-qgate` (`resolved`, `waived`), `outline.deep` (`bypass`), `outline.light-gate` (pass).
+|Server gate, never a model or operator approval: passes when the outline Q-Gate returned `clean`, `resolved`, or `waived` (or does not apply: light lane, surgical bypass), the derivation dry-run passes, and no `3-outline` finding is pending. The review applies when the plan's bound asking variant asks the outline (`ask.every-phase`, `ask.key-points`, xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-axes[Axis Variants]); the operator is never asked separately whether to review. `facts`: the open outline questions of a second pass.
 |`pass` -> the phase's exit `passed`, on which the plan unit calls the phase `plan` at its entry `start` (`plan.derive-tasks`); `review` -> `outline.review`; `findings_pending` (a pending `3-outline` finding or a failing dry-run, filed as a blocking `3-outline` finding) -> `outline.remediate-qgate`.
 |link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-gate[Phase Workflows Specification, Server Outline Gate]
 
@@ -255,6 +216,6 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`auto`
 |`outline.review` (every resolution).
 |Router: `auto outline.route-review` reads the review record's answer; for `revise` it checks and charges, on the deep lane, the fix budget of `remediation.qgate-findings`, on the light lane the plan's counter `outline_review_revisions` (link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-gate[Phase Workflows Specification, Outline Review]).
-|`approve` -> the phase's exit `passed`, on which the plan unit calls the phase `plan` at its entry `start` (`plan.derive-tasks`); `revise` (budget left) -> the phase's exit `rework`, on which the plan unit calls the phase again at the authoring entry of the plan's lane (`outline.deep` for `deep`, `outline.light-regate` for `light`); `budget_spent` (a `revise` with the fix budget spent) -> the phase's exit `returned`, which the plan unit routes to `plan.return`.
+|`approve` -> the phase's exit `passed`, on which the plan unit calls the phase `plan` at its entry `start` (`plan.derive-tasks`); `revise` (budget left) -> the phase's exit `rework`, on which the plan unit calls the phase again at the authoring entry of the plan's lane (`outline.deep` for `deep`, `outline.light` for `light`); `budget_spent` (a `revise` with the fix budget spent) -> the phase's exit `returned`, which the plan unit routes to `plan.return`.
 |link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-gate[Phase Workflows Specification, Server Outline Gate]
 |===

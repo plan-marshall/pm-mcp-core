@@ -178,7 +178,7 @@ The following rules apply to every identifier in the registry; a table row state
 |link:../hypermedia-format/02-link-grammar.adoc#named-parameter-schemas[Hypermedia Format, Named Parameter Schemas]; `schema_ref` link:../workflow-dsl/01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Workflow DSL, EBNF]
 
 |[[id-phase]]`phase`
-|Closed enum. Persisted (canonical) value: `phase-1-init`, `phase-2-refine`, `phase-3-outline`, `phase-4-plan`, `phase-5-execute`, `phase-6-finalize`, `completed`, `aborted`, `epic`, `workspace`, `machine`. Representation projection (1:1): `init`, `refine`, `outline`, `plan`, `execute`, `finalize`, `completed`, `aborted`, `epic`, `workspace`, `machine`. A plan's phase is the phase sub-workflow on its call stack (link:../store-schemas/03-findings-and-review-records.adoc#phase-sub-workflows[Store Schemas, Phases as Sub-Workflows]). Every persisted `phase` field (status, findings, metrics, amendments) uses the canonical value.
+|Closed enum. Persisted (canonical) value: `phase-1-init`, `phase-2-refine`, `phase-3-outline`, `phase-4-plan`, `phase-5-execute`, `phase-sanity-check`, `phase-6-finalize`, `completed`, `aborted`, `epic`, `workspace`, `machine`. Representation projection (1:1): `init`, `refine`, `outline`, `plan`, `execute`, `sanity-check`, `finalize`, `completed`, `aborted`, `epic`, `workspace`, `machine`. A plan's phase is the phase sub-workflow on its call stack (link:../store-schemas/03-findings-and-review-records.adoc#phase-sub-workflows[Store Schemas, Phases as Sub-Workflows]). Every persisted `phase` field (status, findings, metrics, amendments) uses the canonical value.
 |build
 |—
 |Closed; extended only with a schema version

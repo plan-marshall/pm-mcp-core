@@ -24,24 +24,24 @@ The mechanism, its triggers, thresholds, actions, guards, and fallbacks are spec
 |`phase-5-execute`
 |`auto`
 |`execute.deliverable-build` (`succeeded`).
-|The plan's task boundary in Phase 5. A revision the operator accepted in a chat that waits for it (`queued_revision`) is applied first: validated again against the plan as it is, then applied as `replan.apply` applies one (composition event `replan`; its new plan tasks are run by the next envelope task), or recorded `refused` or `lapsed` (xref:../state-catalogue.adoc#state-chat.apply[`chat.apply`]), each of which clears `queued_revision`. Then `replan.detect`: fetches the base and evaluates `base_advanced` and the projected `downstream_limit`, skipping every kind and evidence key a re-planning record already carries; a raised trigger is written to `replan_pending` in the transaction of the transition. A failed fetch skips `base_advanced`.
-|`none` -> `execute.envelope-ready`; `trigger` -> `execute.replan`.
+|The plan's task boundary in Phase 5. A revision the operator accepted in a chat that waits for it (`queued_revision`) is applied here: validated again against the plan as it is, then applied as `replan.apply` applies one (composition event `replan`; its new plan tasks are run by the next envelope task), or recorded `refused` or `lapsed` (xref:../state-catalogue.adoc#state-chat.apply[`chat.apply`]), each of which clears `queued_revision`. It fetches nothing and raises no trigger.
+|`none` (nothing queued, or the queued revision applied, refused, or lapsed) -> `execute.envelope-ready`.
 |link:../phase-workflows/08-dynamic-re-planning.adoc#replan-triggers[Phase Workflows Specification, Triggers & Detection]; link:../phase-workflows/08-dynamic-re-planning.adoc#replan-chat[Revision from a Chat]
 
 |[[state-execute.replan]]`execute.replan`
 |`phase-5-execute`
 |`call`
-|`execute.replan-check` (`trigger`); `execute.envelope-ready` (`infeasible_pending`); `execute.exit-barrier` (`none_runnable`); `execute.remediate-build` (`exhausted`, trigger `ceiling`). Every entering transaction writes `replan_pending`.
+|`execute.envelope-ready` (`infeasible_pending`); `execute.exit-barrier` (`none_runnable`); `execute.remediate-build` (`exhausted`, trigger `ceiling`). Every entering transaction writes `replan_pending`.
 |`call replan` (no parameters; the unit reads `replan_pending`).
-|`done` with `guard result.runnable` -> `execute.envelope-ready`; `done` with `guard not result.runnable` -> `execute.verify-sweep`; `reentered` -> `execute.envelope-ready`; `reauthor` -> the phase's exit `loop_back_outline` (the plan unit calls the phase `outline` again at the authoring entry of the calling lane, `outline.deep` for `deep` and `outline.light-regate` for `light`, the worktree kept; xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]); `hand_back`, `stepped_out` -> the phase's exit `hand_back`.
+|`done` with `guard result.runnable` -> `execute.envelope-ready`; `done` with `guard not result.runnable` -> `execute.verify-sweep`; `reentered` -> `execute.envelope-ready`; `reauthor` -> the phase's exit `loop_back_outline` (the plan unit calls the phase `outline` again at the authoring entry of the calling lane, `outline.deep` for `deep` and `outline.light` for `light`, the worktree kept; xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]); `hand_back`, `stepped_out` -> the phase's exit `hand_back`.
 |link:../phase-workflows/08-dynamic-re-planning.adoc#replan-apply[Phase Workflows Specification, Apply, Re-Entry & Instance Version]
 
 |[[state-finalize.replan]]`finalize.replan`
 |`phase-6-finalize`
 |`call`
-|`finalize.sync-baseline`, `finalize.merge-sync`, and `finalize.land-main` (`replan`; the merge lease released first); `finalize.review-cap-check` (`replan`); the `exhausted` outcome of the remediation call states of finalize before the merge (`finalize.remediate-sync-conflict`, `finalize.remediate-build`, `finalize.remediate-security-audit`, `finalize.remediate-self-review`, `finalize.remediate-ci`, `finalize.remediate-analysis`, `finalize.remediate-review`, `finalize.remediate-barrier-ci`, `finalize.remediate-barrier`, `finalize.remediate-merge-conflict`), trigger `ceiling`. Every entering transaction writes `replan_pending`.
+|`finalize.sync-baseline`, `finalize.merge-sync`, and `finalize.land-main` (`replan`, trigger `merge_conflict`; the merge lease released first); the `exhausted` outcome of the remediation call states of finalize before the merge (`finalize.remediate-sync-conflict`, `finalize.remediate-build`, `finalize.remediate-security-audit`, `finalize.remediate-self-review`, `finalize.remediate-ci`, `finalize.remediate-analysis`, `finalize.remediate-review`, `finalize.remediate-barrier-ci`, `finalize.remediate-barrier`, `finalize.remediate-merge-conflict`), trigger `ceiling`. Every entering transaction writes `replan_pending`.
 |`call replan` (no parameters).
-|`done` -> `finalize.next-step` (verdict currency re-fires what the new `HEAD` invalidated); `reentered` -> `finalize.reenter-execute` (a loop-back into the plan's worktree: the plan unit calls the phase `execute` again at its entry `reentry`, `execute.worktree-init`); `reauthor` -> `finalize.loop-back-outline` (charged to the outline loop-back budget inside the unit; the plan unit calls the phase `outline` again at the authoring entry of the calling lane, `outline.deep` for `deep` and `outline.light-regate` for `light`, the worktree kept); `hand_back`, `stepped_out` -> `finalize.hand-back`.
+|`done` -> `finalize.next-step` (verdict currency re-fires what the new `HEAD` invalidated); `reentered` -> `finalize.reenter-execute` (a loop-back into the plan's worktree: the plan unit calls the phase `execute` again at its entry `reentry`, `execute.worktree-init`); `reauthor` -> `finalize.loop-back-outline` (charged to the outline loop-back budget inside the unit; the plan unit calls the phase `outline` again at the authoring entry of the calling lane, `outline.deep` for `deep` and `outline.light` for `light`, the worktree kept); `hand_back`, `stepped_out` -> `finalize.hand-back`.
 |link:../phase-workflows/08-dynamic-re-planning.adoc#replan-apply[Phase Workflows Specification, Apply, Re-Entry & Instance Version]
 |===
 
@@ -75,7 +75,7 @@ Exit contract: `done` (result `{runnable: bool}`: whether a plan task is runnabl
 |`auto`
 |`replan.gather` (`fallback`); `replan.review` (`lost`, `infeasible`).
 |`replan.conservative-fallback`: takes the trigger's fallback without a task and records it with its reason (`budget_spent`, `no_outline`, the task's `task_reason` such as `role_unqualified`, or `infeasible`).
-|`continue` (`base_advanced`, `merge_conflict`, `downstream_limit`) -> `replan.done`; `hand_back` (`infeasible`, `ceiling`) -> `replan.hand-back`.
+|`continue` (`merge_conflict`) -> `replan.done`; `hand_back` (`infeasible`, `ceiling`) -> `replan.hand-back`.
 |link:../phase-workflows/08-dynamic-re-planning.adoc#replan-fallback[Phase Workflows Specification, Conservative Fallback]
 
 |[[state-replan.apply]]`replan.apply`
