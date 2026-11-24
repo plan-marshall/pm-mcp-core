@@ -44,8 +44,8 @@ import de.planmarshall.core.SchemaResource;
  * class is swept from the engine's own property on both sides — the email halves refuse it, the name halves admit it
  * outside the controls and the separators. The remaining admit populations are the generated and enumerated values each
  * case names, never a code-point sweep: an admitted sample never proves a class, which is why the refuse side is the
- * sweep. The literal {@code a..b@c.de} that the spec of PLAN-V2-176 named as an admit sample was never added — the LEAD
- * of PLAN-V2-179 found no descendant of it in this tree — so the addresses below are the ones this class names. By the
+ * sweep. The literal {@code a..b@c.de} is never admitted as a sample: it was never added, and no descendant of it exists
+ * in this tree, so the addresses below are the ones this class names. By the
  * operator's decision of 2026-11-08 (epic
  * {@code pm-mcp-core-m2-m4-v2}, {@code runtime-schema-validation}) the schema files serve the tests: no run-time
  * validation of a stored record runs here, so a pattern here is the declared rule and the codec's own checks are what a

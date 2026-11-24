@@ -362,7 +362,7 @@
     } },
     "freshness_reconcile": {
       "type": ["object", "null"],
-      "description": "Recorded by git.commit_and_push when any mutates_source finalize step commits after the latest successful build (not only steps at order >= 10; for example architecture-refresh at 9 on re-entry), matching phase-workflows.adoc, Finalize Commit Instrumentation item 3. Never recorded when no successful build exists (prior_build_worktree_sha is required); the refusal then names no_successful_build.",
+      "description": "Recorded by git.commit_and_push when any mutates_source finalize step commits after the latest successful build (not only steps at order >= 10; for example architecture-refresh at 9 on re-entry), matching phase-workflows.adoc, Finalize Commit Instrumentation item 3. Never recorded when no successful build exists: the record enforces only that prior_build_worktree_sha, its digest, is present, so the writer (git.commit_and_push) confirms the successful build before it writes the stamp (ADR core-store/089); the refusal then names no_successful_build.",
       "required": ["commit_sha", "step_id", "prior_build_worktree_sha", "worktree_sha_version", "recorded_at"],
       "additionalProperties": false,
       "properties": {
