@@ -112,9 +112,9 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
      * plan touches it.
      * The other parsers read their count lines from the tail too — Gradle, pyproject, Jest and TAP each build a
      * {@link TestCounts} — and the population they derive from the tail is the one carried: measured, or unmeasured by
-     * their own rules (a TAP run that did not finish its plan, a summary whose parts disagree). The carried population
-     * is deliberate: no production code branches on the result's {@code testCounts()} yet, and ADR
-     * {@code core-build/011} rejected a tail-only figure no consumer branches on, so the fact is stated rather than
+     * a parser's own rule where it has one (a summary whose parts disagree, or a count too large for a {@code long}).
+     * The carried population is deliberate: no production code branches on the result's {@code testCounts()} yet, and
+     * ADR {@code core-build/011} rejected a tail-only figure no consumer branches on, so the fact is stated rather than
      * added as a field (ADR {@code runtime-job/015}).
      * <p>
      * The population travels beside the contradiction: the result carries the parser's {@link TestCounts} in its three
