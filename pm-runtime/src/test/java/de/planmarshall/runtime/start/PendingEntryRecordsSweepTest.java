@@ -732,6 +732,7 @@ class PendingEntryRecordsSweepTest {
                     () -> assertFalse(reason.contains("completed by the recovery"),
                             "another writer's journal must not turn it owed"));
             verify(guarded);
+            verify(guardedManager);
         } finally {
             Files.setPosixFilePermissions(journalDirectory, Set.of(PosixFilePermission.OWNER_READ,
                     PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
