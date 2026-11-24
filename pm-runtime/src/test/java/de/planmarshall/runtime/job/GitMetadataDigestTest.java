@@ -83,6 +83,22 @@ class GitMetadataDigestTest {
     }
 
     @Test
+    @DisplayName("Should follow an includeIf path without evaluating its condition")
+    void shouldFollowIncludeIfWithoutEvaluatingItsCondition() throws Exception {
+        var root = repository();
+        Files.writeString(root.resolve(".git/config"),
+                "[includeIf \"gitdir:/elsewhere/\"]\n\tpath = conditional.cfg\n");
+        Files.writeString(root.resolve(".git/conditional.cfg"), "[core]\n\thooksPath = " + name() + "\n");
+        var before = GitMetadataDigest.of(root);
+        Files.writeString(root.resolve(".git/conditional.cfg"), "[core]\n\thooksPath = " + name() + "\n");
+
+        var changed = GitMetadataDigest.differences(before, GitMetadataDigest.of(root));
+
+        assertEquals(Set.of(".git/conditional.cfg"), changed,
+                "the conditional target is digested without its condition");
+    }
+
+    @Test
     @DisplayName("Should differ when a hook file is added or its mode changes")
     void shouldDifferOnHooks() throws Exception {
         var root = repository();
