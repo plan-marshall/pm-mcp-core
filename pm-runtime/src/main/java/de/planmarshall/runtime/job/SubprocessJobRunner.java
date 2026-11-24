@@ -1044,10 +1044,12 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             gitMetadataGuard.record(job.projectRoot);
         }
         Launched launched;
+        @Nullable Launch launch = null;
         var started = false;
         var explained = false;
         try {
-            launched = launcher.launch(launchOf.apply(log.path()));
+            launch = launchOf.apply(log.path());
+            launched = launcher.launch(launch);
             started = true;
         } catch (IOException e) {
             explained = true;
@@ -1077,7 +1079,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             var awaited = awaitReport(job, launched.process(), log, spawnedAt.plus(reportWait(job.budget)));
             observedLength = awaited.observedLength();
             if (awaited.report() != null) {
-                reported = postSpawnRecord(job.latest, awaited.report(), spawnedAt);
+                reported = postSpawnRecord(job.latest, awaited.report(), spawnedAt,
+                        launch != null && !launch.confinement().readOnlyPaths().isEmpty());
                 writePostSpawn(job, reported);
             }
             var length = observedLength;
@@ -1103,13 +1106,24 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
     }
 
     /** The record that replaces the write-ahead record once the launch report is read. */
-    private static JobRecord postSpawnRecord(JobRecord writeAhead, LaunchReport report, Instant spawnedAt) {
+    private static JobRecord postSpawnRecord(JobRecord writeAhead, LaunchReport report, Instant spawnedAt,
+            boolean readOnlySent) {
         var builder = writeAhead.toBuilder().pid(report.pid()).processStartedAt(report.processStartedAt())
                 .spawnedAt(spawnedAt).confinement(report.confinement()).landlockAbi(report.landlockAbi());
         if (writeAhead.kind() == JobId.Kind.LLM) {
-            builder.gitMetadata(report.gitMetadata() != null ? report.gitMetadata() : GitMetadata.UNENFORCED);
+            builder.gitMetadata(gitMetadataFor(report.gitMetadata(), readOnlySent));
         }
         return builder.build();
+    }
+
+    /**
+     * @param reported     the launcher's git-metadata value; {@code null} when the report names none
+     * @param readOnlySent whether the composition sent at least one read-only git-metadata path
+     * @return the value the worker's record carries: a launcher cannot have enforced git metadata when the composition
+     *         sent no read-only path for it, so the record then states {@code unenforced} whatever the report says
+     */
+    static GitMetadata gitMetadataFor(@Nullable GitMetadata reported, boolean readOnlySent) {
+        return reported != null && readOnlySent ? reported : GitMetadata.UNENFORCED;
     }
 
     /**
