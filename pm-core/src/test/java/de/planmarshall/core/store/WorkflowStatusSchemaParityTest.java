@@ -123,6 +123,7 @@ class WorkflowStatusSchemaParityTest {
         var frame = SchemaResource.object(SchemaResource.object(counters.get("frame")).get("properties"));
         var tree = hex(40);
         var digest = hex(64);
+        var shortDigest = digest.substring(1);
 
         assertAll(
                 () -> assertEquals(Set.of("change_set", "frame"), counters.keySet(),
@@ -141,7 +142,7 @@ class WorkflowStatusSchemaParityTest {
                         () -> new CommitAttemptCaps.ChangeSet(tree + "0", digest, 1),
                         "the record refuses a tree outside the schema's pattern"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new CommitAttemptCaps.ChangeSet(tree, digest.substring(1), 1),
+                        () -> new CommitAttemptCaps.ChangeSet(tree, shortDigest, 1),
                         "the record refuses a message digest outside the pattern"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> new CommitAttemptCaps.ChangeSet(tree, digest, CommitAttemptCaps.CAP + 1),
@@ -160,6 +161,10 @@ class WorkflowStatusSchemaParityTest {
         var required = SchemaResource.array(member.get("required")).stream().map(String::valueOf)
                 .collect(Collectors.toUnmodifiableSet());
         var stamp = stamp(hex(40), hex(64));
+        var commitSha = stamp.commitSha();
+        var priorDigest = stamp.priorBuildWorktreeSha();
+        var shortCommit = hex(39);
+        var shortPrior = hex(63);
 
         assertAll(
                 () -> assertFalse(required.isEmpty(), "the schema names the required members"),
@@ -168,22 +173,18 @@ class WorkflowStatusSchemaParityTest {
                 () -> assertEquals(members(), required, "the stamp's members should be the schema's required ones"),
                 () -> assertEquals(FreshnessReconcile.WORKTREE_SHA_VERSION, constant(declared, "worktree_sha_version"),
                         "the schema const is the record's hash version"),
-                () -> assertTrue(pattern(declared.get("commit_sha")).matcher(stamp.commitSha()).find(),
+                () -> assertTrue(pattern(declared.get("commit_sha")).matcher(commitSha).find(),
                         "the record's commit sha is the schema's pattern"),
                 () -> assertTrue(pattern(declared.get("step_id")).matcher(stamp.stepId()).find(),
                         "the record's step id is the schema's pattern"),
-                () -> assertTrue(pattern(declared.get("prior_build_worktree_sha"))
-                                .matcher(stamp.priorBuildWorktreeSha()).find(),
+                () -> assertTrue(pattern(declared.get("prior_build_worktree_sha")).matcher(priorDigest).find(),
                         "the record's prior digest is the schema's pattern"),
-                () -> assertThrows(IllegalArgumentException.class, () -> stamp(hex(39), hex(64)),
+                () -> assertThrows(IllegalArgumentException.class, () -> stamp(shortCommit, priorDigest),
                         "the record refuses a commit sha outside the pattern"),
-                () -> assertThrows(IllegalArgumentException.class, () -> stamp(hex(40), hex(63)),
+                () -> assertThrows(IllegalArgumentException.class, () -> stamp(commitSha, shortPrior),
                         "the record refuses a prior digest outside the pattern"),
-                () -> assertThrows(IllegalArgumentException.class, () -> FreshnessReconcile.builder()
-                                .commitSha(stamp.commitSha()).stepId("default:UPPER")
-                                .priorBuildWorktreeSha(stamp.priorBuildWorktreeSha())
-                                .worktreeShaVersion(FreshnessReconcile.WORKTREE_SHA_VERSION)
-                                .recordedAt(stamp.recordedAt()).build(),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> stamp(commitSha, priorDigest, "default:UPPER"),
                         "the record refuses a step id the schema refuses"));
     }
 
@@ -477,8 +478,12 @@ class WorkflowStatusSchemaParityTest {
     }
 
     private static FreshnessReconcile stamp(String commitSha, String priorBuildWorktreeSha) {
-        return FreshnessReconcile.builder().commitSha(commitSha)
-                .stepId("default:" + Generators.letterStrings(1, 8).next().toLowerCase())
+        return stamp(commitSha, priorBuildWorktreeSha,
+                "default:" + Generators.letterStrings(1, 8).next().toLowerCase());
+    }
+
+    private static FreshnessReconcile stamp(String commitSha, String priorBuildWorktreeSha, String stepId) {
+        return FreshnessReconcile.builder().commitSha(commitSha).stepId(stepId)
                 .priorBuildWorktreeSha(priorBuildWorktreeSha)
                 .worktreeShaVersion(FreshnessReconcile.WORKTREE_SHA_VERSION)
                 .recordedAt(Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next())).build();
