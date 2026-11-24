@@ -103,8 +103,9 @@ class HeadlessBlockTest {
     @DisplayName("checks the supported version range")
     void supportedVersions() {
         var inside = "1." + minor();
-        var above = Generators.integers(2, 99).next() + "." + minor();
-        var below = "0." + minor();
+        // The exclusive upper and inclusive lower bounds of >=1.0.0 <2.0.0 are the contract edges.
+        var above = "2.0.0";
+        var below = "0.9.9";
         assertAll(
                 () -> assertTrue(block.supports(inside), "a version inside the range is supported"),
                 () -> assertFalse(block.supports(above), "a version above the range is not supported"),

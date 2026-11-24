@@ -62,7 +62,7 @@ class ColdStartComparisonTest {
 
             var verdict = ColdStartComparison.compare(samples, samples, RELATIVE, ABSOLUTE);
 
-            assertAll(
+            assertAll(verdict.describe(0, 300),
                     () -> assertTrue(verdict.agrees(), "identical populations must agree"),
                     () -> assertEquals(verdict.emptyQuartile(), verdict.seededQuartile(),
                             "identical populations share their quartile"),
@@ -82,7 +82,8 @@ class ColdStartComparisonTest {
 
             var verdict = ColdStartComparison.compare(calm, noisy, RELATIVE, ABSOLUTE);
 
-            assertTrue(verdict.agrees(), "one-sided outliers must not break agreement");
+            assertAll(verdict.describe(0, 300),
+                    () -> assertTrue(verdict.agrees(), "one-sided outliers must not break agreement"));
         }
 
         @Test
@@ -100,7 +101,7 @@ class ColdStartComparisonTest {
             var medianAllowed = (long) (RELATIVE * Math.max(verdict.emptyMedian(), verdict.seededMedian()))
                     + ABSOLUTE.toNanos();
 
-            assertAll(
+            assertAll(verdict.describe(0, 300),
                     () -> assertTrue(Math.abs(verdict.seededMedian() - verdict.emptyMedian()) > medianAllowed,
                             "the medians carry the noise"),
                     () -> assertTrue(verdict.agrees(), "the lower quartiles must still agree"));
@@ -121,7 +122,8 @@ class ColdStartComparisonTest {
 
             var verdict = ColdStartComparison.compare(empty, seeded, RELATIVE, ABSOLUTE);
 
-            assertFalse(verdict.agrees(), "a population three times as slow is rejected");
+            assertAll(verdict.describe(0, 300),
+                    () -> assertFalse(verdict.agrees(), "a population three times as slow is rejected"));
         }
 
         @Test

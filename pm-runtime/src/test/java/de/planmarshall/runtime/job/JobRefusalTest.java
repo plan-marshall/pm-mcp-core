@@ -82,7 +82,7 @@ class JobRefusalTest {
         var refusal = refusalOf(reason);
         var expectedPaths = reason == Reason.BUILD_CONFIG_CHANGED ? List.of(first, second) : List.<String>of();
 
-        assertAll(
+        assertAll(refusal.detail(),
                 () -> assertEquals(reason, refusal.reason(), "the refusal carries its reason"),
                 () -> assertEquals(detail, refusal.detail(), "the refusal carries its detail"),
                 () -> assertEquals(expectedPaths, refusal.changedPaths(),

@@ -136,12 +136,16 @@ class HarnessVerifierTest {
     void unsupportedVersion() {
         store.enrol(enrolment(RuntimeGenerators.sha256Digests().next(), version));
         evidence.set(true);
-        var unsupported = Generators.integers(2, 9).next() + "." + Generators.integers(0, 20).next() + "."
-                + Generators.integers(0, 20).next();
-        var verification = verifier(CLIENT + " " + unsupported).verify(CLIENT, LaunchFixtures.block());
+        // The exclusive upper and inclusive lower bounds of >=1.0.0 <2.0.0 are the contract edges.
+        var above = "2.0.0";
+        var below = "0.9.9";
+        var verification = verifier(CLIENT + " " + above).verify(CLIENT, LaunchFixtures.block());
         assertEquals(LaunchRefusal.HARNESS_VERSION_UNSUPPORTED, refusal(verification),
-                "an unsupported version refuses the launch");
-        assertEquals(1, probes.get(), "the changed executable was probed once");
+                "an above-range version refuses the launch");
+        var lowVerification = verifier(CLIENT + " " + below).verify(CLIENT, LaunchFixtures.block());
+        assertEquals(LaunchRefusal.HARNESS_VERSION_UNSUPPORTED, refusal(lowVerification),
+                "a below-range version refuses the launch");
+        assertEquals(2, probes.get(), "the changed executable was probed once per version");
     }
 
     @Test

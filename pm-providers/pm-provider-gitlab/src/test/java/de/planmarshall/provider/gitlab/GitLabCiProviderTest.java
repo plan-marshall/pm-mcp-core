@@ -554,8 +554,14 @@ class GitLabCiProviderTest {
     private static Fixture fixture() {
         return Fixture.builder().title(Generators.nonBlankStrings().next()).body(Generators.nonBlankStrings().next())
                 .baseBranch(branch()).headBranch(branch()).headSha(Generators.letterStrings(40, 40).next())
-                .paths(List.of(path(), path(), path())).targetProjectId(Generators.integers(1, 1_000_000).next())
+                .paths(unsortedPaths()).targetProjectId(Generators.integers(1, 1_000_000).next())
                 .build();
+    }
+
+    /** @return three distinct paths in descending order, so an implementation that sorts them is detected */
+    private static List<String> unsortedPaths() {
+        var base = path();
+        return List.of("z/" + base, "m/" + base, "a/" + base);
     }
 
     private static String branch() {
