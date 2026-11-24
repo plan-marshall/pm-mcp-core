@@ -586,8 +586,10 @@ Gaps of the package itself:
   because the pass enters the `START_FAILED` state on that path. The pass is the only reader of the settled record, so
   only the pass can count it; that count is owed to PLAN-V2-126.
 * `AgentStartedDetector` has no `forget` for a terminal generation, which the pass makes long-lived.
-* The pass's pump map and finished-attempt set, with the calls' detection, loss and digest maps, are removed only by
-  the pass's completion, so a generation retired from the registry another way leaves its entries behind.
+* The pass's pump map and finished-attempt set, with the calls' detection, loss and digest maps, are removed by the
+  pass's completion. The registry's only removal is `forgetStartFailures`, which takes terminal `START_FAILED`
+  generations — a state only the pass's end path produces, and that path has already cleaned its entries. No map entry
+  can therefore outlive a retirement at the head; a removal path added later must clean them itself.
 * The monitor order is a cycle: `SupervisorCalls.harnessEnrolled` holds the calls monitor, `StartFailureGuard.clear` is
   `synchronized` and calls `retireFailures` (the supervisor monitor) from inside it, while `WorkerSupervisor.start` is
   `synchronized` and calls `StartFailureGuard.holds` (the guard monitor). The cycle would close only by releasing the
