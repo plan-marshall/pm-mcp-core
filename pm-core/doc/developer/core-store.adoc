@@ -1313,8 +1313,12 @@ learned value scaled by `1.25`, else the role floor — never below the role's `
 minimum is `60`. The fixed probe budgets are unchanged (`runtime.job.ProbeBudget`).
 `ChangeLedgerRecord`, `ChangeLedgerCodec`, `ChangeLedger`:: One line of a `change-ledger.jsonl`: a
 `worktree_sha`-stamped build, change, commit, job, task-diff or baseline-red row. A `commit` row names the commit
-(`commit_sha`, required for that kind alone), the paths it carried and the tree it was made on, so the freshness gate
-can attribute a commit to a `worktree_sha` (ADR 088). The ledger takes the `JournalScope` of its
+(`commit_sha`, required for that kind alone), the paths it carried and the digest of the tree it was made on, taken
+before the commit: a commit moves `HEAD` and the status path set the digest has as inputs, so only the digest taken
+before it is the one that tree's build rows carry and the one the `freshness_reconcile` stamp names as
+`prior_build_worktree_sha` — which is what lets a reader attribute the commit to the build that licensed it. The
+freshness gate itself reads `build` and `baseline_red` rows and the stamp, never a `commit` row (ADR 088, State
+Catalogue § `git.verify-freshness`). The ledger takes the `JournalScope` of its
 scope and appends through `ScopeTransaction.append`, which repairs a torn tail and draws the digest entry of the scope,
 so a line is journaled with the other stores of the same decision and never rewritten; a digest of `unavailable`
 carries how the git invocation failed and never satisfies a freshness gate (ADR 044).
