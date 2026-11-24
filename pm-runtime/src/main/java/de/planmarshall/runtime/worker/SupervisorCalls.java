@@ -352,7 +352,8 @@ public final class SupervisorCalls implements WorkerCalls {
 
     /**
      * Hands the detection's signal to the one end path and keeps it for the supervision pass, which names the
-     * attempt's end on it. Runs on the timer thread, outside the detector's monitor.
+     * attempt's end on it. Runs on the timer thread, outside the detector's monitor. A terminal or unknown generation
+     * is skipped: its detection was already settled or cannot exist, so no loss is recorded for it.
      *
      * @param generationId the worker's generation
      * @param signal       the detection that settled the generation
