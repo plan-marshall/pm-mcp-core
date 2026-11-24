@@ -16,8 +16,8 @@ The staging set of a scope accepted a dirty name that the commit refuses with `P
 the embedded repository by its directory, `dir/`, and a modified submodule by its name alone, `sub`). The commit then
 failed closed as `failed` with the reason `commit_failed` and the git detail `PATH_REFUSED` before anything was staged,
 so one odd file name blocked the whole plan commit — an availability defect, not an integrity one. The textual rule of a
-commit path existed only in
-`JGitOperations`, so the staging set had no way to agree with it (landing of PLAN-V2-20, L3-2, L3-7, L3-8). The
+commit path existed only in `JGitOperations`, so the staging set had no way to agree with it (landing of PLAN-V2-20,
+L3-2, L3-7, L3-8). The
 file-system and tracked-tree refusals had the same gap: a modified submodule is listed by its name alone (git lists it as
 `sub`, not `sub/`), and the worktree holds it as a directory, so the commit refused it while the staging set staged it; a
 tracked directory that a file replaced is refused by the index and the head tree, and the staging set staged it too

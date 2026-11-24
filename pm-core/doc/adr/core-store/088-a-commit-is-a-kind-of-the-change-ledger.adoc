@@ -11,11 +11,13 @@ Accepted
 
 == Context
 
-`git.pre-commit-verify-freshness` reads `change-ledger.jsonl` for a `fresh` row, an `exempt` row and a
-`baseline_red` row of the same `worktree_sha` (State Catalogue § `git.stage-and-commit`; Workflow DSL § Six-Stage
-Execution Contract, stage 4). The ledger's `kind` carried `build`, `change`, `job`, `task_diff` and `baseline_red`, and
-none of them recorded the commit itself: a `change` row names a footprint change, not the commit that carried it, so a
-gate could not attribute a commit to the tree it was made on.
+The ledger's `kind` carried `build`, `change`, `job`, `task_diff` and `baseline_red`, and none of them recorded the
+commit itself: a `change` row names a footprint change, not the commit that carried it, so a reader could not attribute
+a commit to the tree it was made on. The freshness verb never needed such a row for its own decision:
+`git.pre-commit-verify-freshness` reads `build` and `baseline_red` rows of the same `worktree_sha` and the
+`freshness_reconcile` stamp, and answers the `fresh` and `exempt` verdicts without a commit row (State Catalogue §
+`git.verify-freshness`; Workflow DSL § Six-Stage Execution Contract, stage 5). The new kind is the attribution record
+those rows cannot be.
 
 The format is a stored contract: `change-ledger-record.schema.json` is read by a schema-parity test (R10), and a new
 kind is a stored-format change. The spec marked the format-version question ask-at-refine (R13); the operator confirmed
@@ -29,10 +31,11 @@ on 2026-11-23 (question 2 of the runbook-lane outline) that the version stays `1
 * `worktree_sha` — the working-tree digest of the tree the commit was made on, with its version, exactly as every other
   row. It is taken *before* the commit. The digest takes the `HEAD` commit id and every path the status reports as its
   input (Working-Tree Hash, rule 1), so the commit's own move of `HEAD` and of the status path set changes it: a digest
-  taken after the commit is the digest of another tree than the one the commit was made on. Taken before the commit it is
-  the state the commit was made on: when the tree is the one the latest successful build ran on it equals that build
-  row's digest, and otherwise a build row need not carry it — a later step may have left the tree other than it built —
-  and the `freshness_reconcile` stamp then holds the build's digest beside this commit, which is the pair that licensed
+  taken before the commit can never equal the live digest after it. Before the commit it is the state the commit was made
+  on: when the tree is the one the latest successful build ran on, it equals that build row's digest; otherwise a build
+  row need not carry it — a later step may have left the tree other than it built — and the `freshness_reconcile` stamp
+  then holds the build's digest beside this commit. Once the commit exists, old tree-keyed rows no longer match, and only a
+  new `build` or `baseline_red` row for the new tree, an `exempt` verdict (which needs no build), or that stamp licenses
   the push;
 * `commit_sha` — the commit that was made, required for this kind alone (`ChangeLedgerRecord` refuses a `commit` row
   without it);
@@ -50,10 +53,10 @@ The format version stays `1`; a `commit` row is written and read in place, with 
 
 1. *Record the commit in the existing `change` row.*
    _Rejected_: a `change` row is a footprint change and may be written for a path set no commit carried; one row cannot
-   mean both, and the freshness gate would have to guess which a line is.
+   mean both, and a reader could no longer tell which a line is.
 2. *A separate ledger file for commits.*
-   _Rejected_: the gate reads one file for the tree's history; a second file would have to be read with it and kept in
-   step, and the append-only discipline of `change-ledger.jsonl` already covers it.
+   _Rejected_: the attribution record belongs beside the tree history it annotates; a second file would have to be read
+   with the ledger and kept in step, and the append-only discipline of `change-ledger.jsonl` already covers it.
 3. *Bump the format version to 2.*
    _Rejected_: R13 keeps every version at `1` before the release and replaces the shape in place; a bump would add a
    reader and a migration for nothing.

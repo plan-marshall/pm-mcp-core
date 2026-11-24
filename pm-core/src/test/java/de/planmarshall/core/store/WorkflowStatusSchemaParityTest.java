@@ -108,11 +108,13 @@ class WorkflowStatusSchemaParityTest {
     }
 
     /**
-     * The frames pattern is {@code \S} with {@code minLength: 1} and the record refuses a blank id. Java's {@code \S} is
-     * the complement of the ASCII {@code \s}, so the two differ beyond ASCII in one direction — a frame id of only
-     * U+2000 is admitted by the pattern and refused by {@code isBlank()} — and neither refuses U+00A0, U+2007, U+202F or
-     * U+FEFF, which an ECMA-262 engine's {@code \S} refuses. The record being the stricter of the two where they differ
-     * is safe: no run-time validation of a stored record runs here ({@code PM-WATCH-STORE-62}).
+     * The frames pattern is {@code \S} with {@code minLength: 1} and the record refuses a blank id. Two divergences are
+     * named rather than sampled around. Java's {@code \S} is the complement of the ASCII {@code \s}, so the two differ
+     * beyond ASCII in one direction — a frame id of only U+2000 is admitted by the pattern and refused by
+     * {@code isBlank()}, which this class asserts — and the schema pattern and {@code isBlank()} alike admit U+00A0,
+     * U+2007, U+202F and U+FEFF, which an ECMA-262 engine's {@code \S} refuses; that second half is described only,
+     * because this JVM cannot express the ECMA-262 engine it differs from. The record being the stricter of the two
+     * where they differ is safe: no run-time validation of a stored record runs here ({@code PM-WATCH-STORE-62}).
      */
     @Test
     @DisplayName("the commit attempt caps are the schema's two closed counters, grammar and maximum")
@@ -160,8 +162,19 @@ class WorkflowStatusSchemaParityTest {
                         "the record refuses an attempt count above the maximum"),
                 () -> assertFalse(pattern(frame.get("frame_id")).matcher(" ").find(),
                         "the schema's frame id pattern refuses white space"),
+                () -> assertEquals(1, minimumLength(frame.get("frame_id")),
+                        "the schema's frame id minLength is one"),
+                () -> assertFalse(pattern(frame.get("frame_id")).matcher("").find(),
+                        "the schema's frame id pattern refuses the empty id"),
+                // the divergence the Javadoc names: U+2000 is admitted by Java's \S and refused by isBlank()
+                () -> assertTrue(pattern(frame.get("frame_id")).matcher("\u2000").find(),
+                        "the schema's pattern admits a frame id of U+2000"),
                 () -> assertThrows(IllegalArgumentException.class, () -> new CommitAttemptCaps.Frame(" ", 1),
-                        "the record refuses a frame id the schema refuses"));
+                        "the record refuses a frame id the schema refuses"),
+                () -> assertThrows(IllegalArgumentException.class, () -> new CommitAttemptCaps.Frame("", 1),
+                        "the record refuses the empty frame id"),
+                () -> assertThrows(IllegalArgumentException.class, () -> new CommitAttemptCaps.Frame("\u2000", 1),
+                        "the record refuses a blank id the pattern admits"));
     }
 
     @Test
@@ -477,6 +490,10 @@ class WorkflowStatusSchemaParityTest {
         return ((Number) SchemaResource.object(declaration).get("maximum")).intValue();
     }
 
+    private static int minimumLength(Object declaration) {
+        return ((Number) SchemaResource.object(declaration).get("minLength")).intValue();
+    }
+
     private static int constant(Map<?, ?> declared, String member) {
         return ((Number) SchemaResource.object(declared.get(member)).get("const")).intValue();
     }
@@ -490,7 +507,7 @@ class WorkflowStatusSchemaParityTest {
 
     private static FreshnessReconcile stamp(String commitSha, String priorBuildWorktreeSha) {
         return stamp(commitSha, priorBuildWorktreeSha,
-                "default:" + Generators.letterStrings(1, 8).next().toLowerCase());
+                "default:" + Generators.letterStrings(1, 8).next().toLowerCase(Locale.ROOT));
     }
 
     private static FreshnessReconcile stamp(String commitSha, String priorBuildWorktreeSha, String stepId) {

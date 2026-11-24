@@ -41,11 +41,14 @@ alone) and the assembly may count through it. A
 counted attempt of another change set, or of another frame, replaces the entry and starts at one, which is the
 specification's own reset rule. The value never exceeds the cap.
 
-The counter answers one predicate per cap — `changeSetCapSpent()` and `frameCapSpent()` — and the state catalogue's guard
-reads both at the one event it names, the `hook_failed` outcome of `git.stage-and-commit`, where either spent cap answers
-`attempts_exhausted`. It holds no combined predicate, so both caps are read together only after the hook failure; the
-frame cap being spent after the third `git.commit-fix` task therefore does not end the loop before the commit attempt
-that follows it runs. Neither the counting nor that routing is wired in this checkout: the engine counts no attempt of
+The counter answers one predicate per cap — `changeSetCapSpent()` and `frameCapSpent()` — and holds no combined
+predicate. The caller's rule is therefore explicit rather than enforced by the value: after a `hook_failed` outcome of
+`git.stage-and-commit` it reads both predicates and writes their disjunction,
+`changeSetCapSpent() || frameCapSpent()`, as the `attempts_exhausted` outcome; each counting event reads its own cap —
+the change-set cap at a failed commit attempt, the frame cap at a `git.commit-fix` task. So the frame cap being spent
+after the third `git.commit-fix` task does not end the loop before the commit attempt that follows it runs. The state
+catalogue's `git.stage-and-commit` row pins that guard and `CommitAttemptCounterTest.Hazard` pins both arms of the
+disjunction. Neither the counting nor that routing is wired in this checkout: the engine counts no attempt of
 the primitive (ADR `provider-git-primitive/005`, the external hand-off, which names these counters), so the ordering above
 is the intended contract of that hand-off, not behaviour the code performs yet.
 

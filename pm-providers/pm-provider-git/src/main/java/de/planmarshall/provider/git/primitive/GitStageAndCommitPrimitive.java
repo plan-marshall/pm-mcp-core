@@ -69,8 +69,9 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
  * {@code nothing_to_commit}, every other, {@code CAPABILITY_MISSING} of the native variant among them, to
  * {@code failed} with the reason {@code commit_failed}. The {@value #DETAIL_FACT} of that failure is the contract's
  * detail with the checkout's absolute root made repository-relative, or the code of the git outcome where the contract
- * states no detail or a detail that still names an absolute path, so no absolute path of the server that follows an
- * introducer reaches a fact.
+ * states no detail or a detail that still names an absolute path: no absolute path of the server behind an introducer
+ * reaches a fact, while a path glued behind a path-name character stays as the text states it, the residual
+ * {@link #modelDetail} names.
  * Hooks run only in the CLI variant, so only its hook refusal returns {@code hook_failed}; the native variant never does.
  * A {@code committed} result also carries the provenance of the resolved trailer as the fact
  * {@value #TRAILER_SOURCE_FACT}, for the commit's audit record; no other outcome carries it.
@@ -330,9 +331,13 @@ public final class GitStageAndCommitPrimitive
      * character reaches a fact. A closing bracket that follows an introducer and is followed by at least one further
      * separator is such an introducer too ({@code refused ]/a/b.txt} becomes the code), while
      * {@code app/[slug]/page.tsx} and {@code (group)/x} stay names; a single-segment fragment after a stray closing
-     * bracket ({@code ]/srv}) and a path glued to a preceding path-name character stay as the text states them, and a
-     * name whose segment ends in {@code +}, {@code @} or {@code ~} ({@code c++/src/main.cpp}) becomes the code because
-     * that punctuation is no path-name character here: these are the pattern's stated residual cost.
+     * bracket ({@code ]/srv}) and a path glued to a preceding path-name character stay as the text states them
+     * ({@code refused -/srv/git/worktrees/plan}, {@code refused 1/srv/git/worktrees/plan} and
+     * {@code refused (x)/srv/git/worktrees/plan} carry a multi-segment host path through), and a name whose segment ends
+     * in {@code +}, {@code @} or {@code ~} ({@code c++/src/main.cpp}) becomes the code because that punctuation is no
+     * path-name character here: these are the pattern's stated residual cost. The same reading refuses a relative name
+     * whose segment ends in a character that is no path-name character — an opening brace, a backslash, a combining
+     * mark, a symbol such as {@code +} or {@code $}, or an emoji — because its separator is then read as absolute.
      */
     static String modelDetail(GitOutcome outcome, @Nullable String detail, Path worktree) {
         if (detail == null || detail.isBlank()) {
