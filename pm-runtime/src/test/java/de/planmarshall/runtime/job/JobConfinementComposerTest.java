@@ -283,8 +283,8 @@ class JobConfinementComposerTest {
         }
 
         @Test
-        @DisplayName("a linked worktree outside the root and the write set is not named as a read-only path")
-        void outsideWorktreeIsNotReadOnly() throws Exception {
+        @DisplayName("a link file under a non-normalized write-set entry is read-only")
+        void outsideWorktreeInsideANonNormalizedEntryIsReadOnly() throws Exception {
             var job = new JobId(jobIds(JobId.Kind.LLM).next());
             var admin = Files.createDirectories(project.resolve(".git/worktrees/outside"));
             Files.writeString(admin.resolve("commondir"), "../..\n");
@@ -303,6 +303,27 @@ class JobConfinementComposerTest {
                             "the git directory of the root is read-only"),
                     () -> assertTrue(confinement.readOnlyPaths().contains(outsideLink),
                             "a link file under a non-normalized entry is read-only"));
+        }
+
+        @Test
+        @DisplayName("a linked worktree outside every write-set entry is not read-only")
+        void outsideWorktreeOutsideEveryWriteSetEntryIsNotReadOnly() throws Exception {
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
+            var admin = Files.createDirectories(project.resolve(".git/worktrees/far"));
+            Files.writeString(admin.resolve("commondir"), "../..\n");
+            var outside = Files.createDirectories(base.resolve("far-worktree"));
+            var outsideLink = outside.resolve(".git");
+            Files.writeString(outsideLink, "gitdir: " + admin + "\n");
+            Files.writeString(admin.resolve("gitdir"), outsideLink + "\n");
+            var localComposer = new JobConfinementComposer(base, base.resolve("tmp"), base.resolve("dev"), bus);
+
+            var confinement = localComposer.forJob(enrolment(null, Map.of()), job, List.of(), false);
+
+            assertAll("A worktree outside the write set needs no read-only entry",
+                    () -> assertTrue(confinement.readOnlyPaths().contains(project.resolve(".git")),
+                            "the git directory of the root is read-only"),
+                    () -> assertFalse(confinement.readOnlyPaths().contains(outsideLink),
+                            "the far worktree's link file is not read-only"));
         }
 
         /** @return the {@code .git} link file of a linked worktree of the project */
