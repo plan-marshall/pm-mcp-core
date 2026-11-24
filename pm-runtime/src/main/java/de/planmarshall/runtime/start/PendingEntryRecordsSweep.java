@@ -156,6 +156,9 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      *
      * @return the directories that are gone, the entries the run kept, and the fault that stopped it
      */
+    // SonarCloud's symbolic execution does not model the try-with-resources close as a path out of the body, so it
+    // reads the removal the attempt returned as unreachable in the catch; the release fault is that path (S2583).
+    @SuppressWarnings("java:S2583")
     private Removal remove(JournalScope workspace, PendingEntryStore store, List<EntryId> candidates, Instant at) {
         var state = new RemovalState();
         Removal attempted = null;
