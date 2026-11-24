@@ -100,8 +100,7 @@ class PendingEntryRecordsSweepTest {
     /** Fixture: the refusal of the audit sink that stops a run after its removal transaction. */
     private static final String AUDIT_FAULT = "the audit record cannot be appended";
 
-    /** Fixture: the fault of the lock's own release, raised after the removal's own fault. */
-    private static final String RELEASE_FAULT = "the workspace lock cannot be released";
+    private final String releaseFault = Generators.letterStrings(10, 40).next();
 
     @TempDir
     Path base;
@@ -662,8 +661,8 @@ class PendingEntryRecordsSweepTest {
             assertAll(
                     () -> assertTrue(reason.startsWith("pending entry directories not swept: "),
                             "the report must say that nothing was swept"),
-                    () -> assertTrue(reason.contains("cannot be written"),
-                            "the refused journal write is the cause"),
+                    () -> assertTrue(reason.contains("Store cannot be written: " + workspace.journalFile()),
+                            "the refused journal write names its path"),
                     () -> assertTrue(reason.contains("the removals of [" + residue.value() + "]"),
                             "the report must name the removal it staged"),
                     () -> assertTrue(reason.contains("may have been committed"),
@@ -694,45 +693,50 @@ class PendingEntryRecordsSweepTest {
         create(entry(residue, now));
         cutOffRemoval(residue);
         var journalDirectory = workspace.journalFile().getParent();
-        var delegate = lockManager.openTransaction();
-        LockTransaction guarded = createMock(LockTransaction.class);
-        guarded.acquire(anyObject(LockKey.class));
-        expectLastCall().andAnswer(() -> {
-            delegate.acquire((LockKey) getCurrentArguments()[0]);
-            return null;
-        }).anyTimes();
-        expect(guarded.holds(anyObject(LockKey.class)))
-                .andAnswer(() -> delegate.holds((LockKey) getCurrentArguments()[0])).anyTimes();
-        guarded.close();
-        expectLastCall().andAnswer(() -> {
-            anotherWriterLeavesAJournal(delegate, journalDirectory);
-            throw new IllegalStateException(RELEASE_FAULT);
-        });
-        replay(guarded);
-        LockManager guardedManager = createMock(LockManager.class);
-        expect(guardedManager.openTransaction()).andReturn(guarded);
-        replay(guardedManager);
         try {
             Files.setPosixFilePermissions(journalDirectory,
                     Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
             assumeFalse(Files.isWritable(journalDirectory), "a journal directory without write permission");
 
-            var outcome = new PendingEntryRecordsSweep(base, guardedManager, auditSink, clock).run(projectId, now);
+            var delegate = lockManager.openTransaction();
+            try {
+                LockTransaction guarded = createMock(LockTransaction.class);
+                guarded.acquire(anyObject(LockKey.class));
+                expectLastCall().andAnswer(() -> {
+                    delegate.acquire((LockKey) getCurrentArguments()[0]);
+                    return null;
+                }).anyTimes();
+                expect(guarded.holds(anyObject(LockKey.class)))
+                        .andAnswer(() -> delegate.holds((LockKey) getCurrentArguments()[0])).anyTimes();
+                guarded.close();
+                expectLastCall().andAnswer(() -> {
+                    anotherWriterLeavesAJournal(delegate, journalDirectory);
+                    throw new IllegalStateException(releaseFault);
+                });
+                replay(guarded);
+                LockManager guardedManager = createMock(LockManager.class);
+                expect(guardedManager.openTransaction()).andReturn(guarded);
+                replay(guardedManager);
 
-            var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a release fault fails the step").reason();
-            assertAll(
-                    () -> assertTrue(reason.startsWith(
-                                    "pending entry directories not swept: Store cannot be written: "),
-                            "the first fault's message must survive the release"),
-                    () -> assertTrue(reason.contains(workspace.journalFile() + "; the lock's release failed: "
-                                    + RELEASE_FAULT),
-                            "the release fault is reported beside it"),
-                    () -> assertTrue(reason.contains("may have been committed"),
-                            "the undecided reach must survive the release"),
-                    () -> assertFalse(reason.contains("completed by the recovery"),
-                            "another writer's journal must not turn it owed"));
-            verify(guarded);
-            verify(guardedManager);
+                var outcome = new PendingEntryRecordsSweep(base, guardedManager, auditSink, clock).run(projectId, now);
+
+                var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a release fault fails the step").reason();
+                assertAll(
+                        () -> assertTrue(reason.startsWith(
+                                        "pending entry directories not swept: Store cannot be written: "),
+                                "the first fault's message must survive the release"),
+                        () -> assertTrue(reason.contains(workspace.journalFile() + "; the lock's release failed: "
+                                        + releaseFault),
+                                "the release fault is reported beside it"),
+                        () -> assertTrue(reason.contains("may have been committed"),
+                                "the undecided reach must survive the release"),
+                        () -> assertFalse(reason.contains("completed by the recovery"),
+                                "another writer's journal must not turn it owed"));
+                verify(guarded);
+                verify(guardedManager);
+            } finally {
+                delegate.close();
+            }
         } finally {
             Files.setPosixFilePermissions(journalDirectory, Set.of(PosixFilePermission.OWNER_READ,
                     PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
