@@ -582,7 +582,7 @@ class BuildLogTextTest {
                         diagnostic.severity() == Severity.ERROR
                                 && diagnostic.category() == Category.TEST_FAILURE
                                 && ("the cut log's tail reports " + Long.MAX_VALUE + " failing tests")
-                                        .equals(diagnostic.message())),
+                                .equals(diagnostic.message())),
                 "an overflowing sum saturates and files the failure");
     }
 
@@ -753,7 +753,7 @@ class BuildLogTextTest {
                         diagnostic.severity() == Severity.ERROR
                                 && diagnostic.category() == Category.TEST_FAILURE
                                 && ("the cut log's tail reports " + Long.MAX_VALUE + " failing tests")
-                                        .equals(diagnostic.message())),
+                                .equals(diagnostic.message())),
                 "an overflowing count saturates and files the failure");
     }
 
