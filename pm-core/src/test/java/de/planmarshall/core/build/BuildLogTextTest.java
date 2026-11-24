@@ -580,8 +580,10 @@ class BuildLogTextTest {
 
         assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
                         diagnostic.severity() == Severity.ERROR
-                                && diagnostic.category() == Category.TEST_FAILURE),
-                "an overflowing sum still files the failure");
+                                && diagnostic.category() == Category.TEST_FAILURE
+                                && ("the cut log's tail reports " + Long.MAX_VALUE + " failing tests")
+                                        .equals(diagnostic.message())),
+                "an overflowing sum saturates and files the failure");
     }
 
     @Test
@@ -749,8 +751,10 @@ class BuildLogTextTest {
 
         assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
                         diagnostic.severity() == Severity.ERROR
-                                && diagnostic.category() == Category.TEST_FAILURE),
-                "an overflowing count still files the failure");
+                                && diagnostic.category() == Category.TEST_FAILURE
+                                && ("the cut log's tail reports " + Long.MAX_VALUE + " failing tests")
+                                        .equals(diagnostic.message())),
+                "an overflowing count saturates and files the failure");
     }
 
     private static long errorTestFailures(ParsedBuild build) {
