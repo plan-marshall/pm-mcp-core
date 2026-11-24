@@ -4,8 +4,8 @@ sender_id=rb-v2-162-runtime-worker-and-job-residue
 epic=pm-mcp-core-m2-m4-v2
 kind=landing
 created=2026-11-22T20:23:56Z
-revision=7
-amended=2026-11-23T22:01:35Z
+revision=13
+amended=2026-11-24T11:31:19Z
 
 ```landing-facts
 schema=landing-facts/1
@@ -48,23 +48,23 @@ Deliverable 1 is met. Deliverables 2 to 5 are not met as written; their remainin
 
 **D2 — the hold and the worker (items 55, 19, 30).** Not met.
 - Met: 19 (the `ProbeBudget` seam, with the reason it is an override and not the clock seam item 19 named, recorded in its Javadoc), 55(a) (ADR runtime-worker/016 § Clarification and the guide), 55(b) in part (an answer leaves HOLDING; `holdOpened` re-decides the budget), 55(c), 30(a) (the worker-vector statements corrected in the guide, the ADR, the Model Work part and the Failure Modes rows), 58(a)(b) (the start-failure rows settled with the wiring; the skill sentence narrowed to `PromptComposer`'s checks), 58(c) in part (the offer half of the writing-skill rule, the `pm_wait` answer after a spent re-offer budget and the server as the actor of the consultation-list check are restored; "which may differ from the asker's" is not, because no statement at the head verifies what it compared).
-- Open: 55(b)'s task-naming half (a `WorkerCalls` port change owed to the assembly), 55(d)(e)(f), 30(b)(c), 58(d).
+- Open: 55(b)'s task-naming half (a `WorkerCalls` port change owed to the assembly), 55(d)(e)(f), 30(c), 58(d). Item 30(b) is settled at the head by `ShippedProfilesTest` ("every shipped profile loads and validates", the JAR read): the carried claim that the profiles were not readable no longer holds.
 
 **D3 — the supervisor residue and the git-metadata guard (items 42, 41).** Not met.
-- Met: 42(e), 41(c), 41(e), 42(c) (the recorder's closed-task refusal is the named `TaskNotOpenException` and the pass catches only it), 42(f) in part (the hold-entry test now advances past both deadlines and would fence on a created detection), and 41(b)'s logging half (a refused or skipped git-metadata path logs `PM_RUNTIME_WARN_153` and the launch continues with the paths it read, proven by a mutation that removes the record).
-- Open: 42(a) the supervisor-to-guard lock order, 42(d) the map cleanup, 42(f)'s remaining repairs, 42(h); 41(a) the baseline persistence, 41(b)'s `enforced` half (the runtime never compares the set it sent with the launcher's enforcement claim), 41(d), 41(f), 41(g).
+- Met: 42(e), 41(c), 41(e), 42(a) (the monitor cycle is analysed and its non-closure recorded in the guide, with the change that closing it would need), 42(c) (the recorder's closed-task refusal is the named `TaskNotOpenException` and the pass catches only it), 42(f) in part (the hold-entry test now advances past both deadlines and would fence on a created detection), and 41(b)'s logging half (a refused or skipped git-metadata path logs `PM_RUNTIME_WARN_153` and the launch continues with the paths it read, proven by a mutation that removes the record).
+- Open: 42(d) the map cleanup on a retirement outside the pass, 42(f)'s remaining repairs, 42(h); 41(a) the baseline persistence, 41(b)'s `enforced` half (the runtime never compares the set it sent with the launcher's enforcement claim), 41(d), 41(f), 41(g).
 
 **D4 — the grading adapter (item 48).** Not met.
 - Met: 48(a) the supervisor's own end path, 48(c) the zero-tool worktree.
 - Open: 48(b), 48(c)'s `release`, 48(d), 48(e) and the nine minor points.
 
 **D5 — the job-log read-out and the egress bound (items 44, 50, 81, 85).** Not met.
-- Met: 81, 85, 50(a), 50(c), 44(b), and 44(a)'s flood half.
+- Met: 81, 85, 50(a), 50(c), 44(a) in full (flood and key-block bound), 44(b), 44(c)'s line-structure half, 44(d) recorded, and 44(e) (the surrogate-safe stored bound with a mutation proof; the `readLines` offset pin; the capped read's lone-END mask; the URL match's `Optional` return).
 - 44(a) flood: `DiagnosticCollectorRedactionTest.hostileUrlFloodThroughTheStoredSeam` and `.hostileUrlFloodThroughTheDiagnosticConstructor`, order `mutation-after`, failing run `89a87bb8811c4d9196f1d7a120b1fc3b` (the pre-fix backtracking URL pattern restored: both timed out at 120 s), commits `1e1cf212` and `61942366`.
 - 50(a): `JobRecordSchemaParityTest.kindRulesEqualSchema`, order `none` (a parity pin; it fails when the schema rule or a member changes), commit `8b196917`.
-- Open: 44(a)'s PEM `REDACTION_BOUND` re-measure, 44(c), 44(d), 44(e).
+- Open: 44(c)'s escaped-JSON residue (a doubly escaped value matches nothing and leaks; the single-escaped form masks the rest of its line by design).
 
-Per-head test runs: `pm-core` 5 667 green at `8b196917` (65 s, log `4043075966684382b1cec196c4e0d484`), `pm-runtime` 8 427 green at `8b196917` (839 s, log `59ea2b6c0b7449d5981fa5eb8dd2cd9b`), `pm-core` 5 667 green (71 s, log `8cc2625a3f4346238fa84944245434e9`); after the self-review fixes, `pm-core` 5 667 green (57 s, log `2093d6b1f4f741199d63c4c5c337079e`) and `pm-runtime` 8 427 green (830 s, log `4ffb767e262a4127a96a6b5343bb3a71`) at `61942366`; after the item 30/58 corrections, `pm-runtime` 8 427 green (838 s, log `0b20b385f29d445f944bd4c4d5e6fc7e`) at `77d08aea`; after item 42(c)/(f), `pm-runtime` 8 427 green (845 s, log `a7e449c88ca94082be2ff9d1ff2f9d4b`) at `cb1ed22b`; after item 41(b), `pm-runtime` 8 428 green (829 s, log `ee12407a57ad4ec6817a9ca5e74f7e43`) at `47b1cf31`. Targeted runs: the listing regeneration (41 tests, log `62c084bde6144021a5293c5994234fc1`) and the mutation run against it (`45f9e15c6d3f4855a9a07a64ede317b7`). `13bcab60` changes three specification parts only, so no test run applies to it.
+Per-head test runs: `pm-core` 5 667 green at `8b196917` (65 s, log `4043075966684382b1cec196c4e0d484`), `pm-runtime` 8 427 green at `8b196917` (839 s, log `59ea2b6c0b7449d5981fa5eb8dd2cd9b`), `pm-core` 5 667 green (71 s, log `8cc2625a3f4346238fa84944245434e9`); after the self-review fixes, `pm-core` 5 667 green (57 s, log `2093d6b1f4f741199d63c4c5c337079e`) and `pm-runtime` 8 427 green (830 s, log `4ffb767e262a4127a96a6b5343bb3a71`) at `61942366`; after the item 30/58 corrections, `pm-runtime` 8 427 green (838 s, log `0b20b385f29d445f944bd4c4d5e6fc7e`) at `77d08aea`; after item 42(c)/(f), `pm-runtime` 8 427 green (845 s, log `a7e449c88ca94082be2ff9d1ff2f9d4b`) at `cb1ed22b`; after item 41(b), `pm-runtime` 8 428 green (829 s, log `ee12407a57ad4ec6817a9ca5e74f7e43`) at `47b1cf31`. Targeted runs: the listing regeneration (41 tests, log `62c084bde6144021a5293c5994234fc1`) and the mutation run against it (`45f9e15c6d3f4855a9a07a64ede317b7`). `13bcab60` changes three specification parts only, so no test run applies to it. After item 44(a)'s bound change, `pm-core` 5 667 green (76 s, log `b6872ee195a0425bbb43e05a54a457d9`) at `d9dd66b3`'s tree; the lazy-pattern measurement and its bound check are logs `725d4d1ba7354b74998a09332cfd9050` (18 s, content failure) and `efe5525c955d4851be38455e087da944` (5 s timeout). After item 44(e), `pm-core` 5 668 green (81 s, log `d1c7cc865c8540eabbf7a7dff55c054a`) and `pm-runtime` 8 430 green (833 s, log `3c1b36a5de914a87a0326a25c277a7ff`) at `f0c2d5fb`; the surrogate mutation run is `461eedd1ce5d48bb9fb788f0dd82c471` and the targeted scan/`JobLogTest` run `73b536b4801a486987255a0f39c396bc`. After item 44(c), `pm-core` 5 669 green (69 s, log `d1cb5e2a264a4e2198b1a859c796a66b`) and the line-end mutation run `7ece958c970f4e3fbfa2c9f7b6474200`; `6b88812e` changes documentation only. After item 44(e)'s remaining points, `pm-runtime` 8 432 green (841 s, log `cd00c992d28f4f74aaae3149823bfd99`) at `337dfac9` and `pm-core` 5 669 green (68 s, log `9f2cba4f85164dcf83d0c159a20ba475`) at `5e5da413`; `pm-runtime` 8 432 green again (831 s, log `53c93ceb77394741b516465e838b6ace`) at the final head `5e5da413`.
 
 ## 2. Personas and skills
 
@@ -123,7 +123,7 @@ Guard: none on this harness (unenforced). The run's own actions are counted belo
 
 ## 9. Residue
 
-- The second pull request of this plan carries items 30(b)(c); 41(a)(b)'s `enforced` half, (d)(f)(g); 42(a)(d)(f)'s remainder and (h); 44(a)'s PEM re-measure and (c)(d)(e); 48(b)(c-release)(d)(e) and its nine minor points; 55(b)'s task naming (owed to the assembly port), 55(d)(e)(f); 58(d); 75(b)-(f).
+- The second pull request of this plan carries items 30(c); 41(a)(b)'s `enforced` half, (d)(f)(g); 42(d), 42(f)'s remainder and (h); 44(c)'s escaped-JSON residue; 48(b)(c-release)(d)(e) and its nine minor points; 55(b)'s task naming (owed to the assembly port), 55(d)(e)(f); 58(d); 75(b)-(f).
 - Item 30(a)'s state-catalogue part reads as a miscitation at the head: the cited line 232 is the operator-side `precondition_unmet` list, which holds no launch refusals; the refusal list that does (Model Work § Launch Refusals) now names `argument_rejected`. No edit was made there.
 - Sonar on the final head `61942366` is **undecidable**: the analysis is stale (`e0e80dc1`), and `sonar-stale-delta` answers `carry_forward: false` (`delta_buildable`). The 12 open issues measured at `e0e80dc1` (S1192, S3776, S5785) are neither dismissed nor re-measured; the quality gate at `e0e80dc1` was OK. The PR is not reported ready.
 - CodeRabbit holds no qualifying review; the next trigger is not before 2026-11-22T23:44Z.

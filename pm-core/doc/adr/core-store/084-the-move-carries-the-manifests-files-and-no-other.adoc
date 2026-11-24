@@ -32,9 +32,11 @@ Five rules, each enforced where its input is defined:
    — the path stored twice, the two names in one case, the two names in one Unicode normalisation form, the file and
    its directory — so a refusal names the rule it enforces, and the case rule states the fold's width, naming the
    pairs the fold unifies beyond case (`ß` with `ss`, `ı` with `i`, a ligature with its letters). A pair whose names
-   differ in case although the fold compares them in one normalisation form is the case rule, because the case fold is
-   what unifies it. The stored manifest's read (`SourceManifestCodec.read`) refuses through the record's own canonical
-   constructor, so it carries the same text. The case is folded and the path normalised to NFC
+   differ in case and become equal only through the fold's second NFC step is the case rule, because the case fold is
+   what unifies it: the precomposed U+0390 and the decomposed U+0399 U+0308 U+0301 have different NFC forms, and their
+   upper-case forms — U+0399 U+0308 U+0301 and U+03AA U+0301 — are equal only after the fold's normalisation that
+   follows the case mapping. The stored manifest's read (`SourceManifestCodec.read`) refuses through the record's own
+   canonical constructor, so it carries the same text. The case is folded and the path normalised to NFC
    before and after that fold — the case mapping can itself produce a non-NFC string — because the paths are the
    operator's file names and a case-insensitive or normalisation-insensitive filesystem
    addresses one file in either form; a file and its directory

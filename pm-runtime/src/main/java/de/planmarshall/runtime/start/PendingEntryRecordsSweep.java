@@ -59,12 +59,16 @@ import de.planmarshall.core.store.StoreRefusal;
  * completes reports how many directories it left gone, names every one of them, and names every entry it kept or could
  * not remove — the held and tampered ones and a directory whose discard was refused — in one report: an entry whose
  * record cannot be read, whose store path is refused, or whose directory the discard could not remove is named there,
- * and the step's outcome is a failure then, after the readable residue was removed. A fault of the removal itself is
- * reported with what the run had staged for removal, what it had removed and every entry it kept as they stood, so
- * that fault drops none of them, and it says how far the removal got: *staged* before the commit was called, so nothing
- * is committed and the next run re-judges every entry; *owed* with the commit entered and the workspace's journal
- * durable, so the recovery completes the removals; *undecided* with the commit entered and its journal gone, which
- * decides nothing because the commit deletes the journal as it closes; or *committed* once the commit returned, so the
+ * and the step's outcome is a failure then, after the readable residue was removed. A fault of the removal itself is a
+ * fault of one of the five types the step catches — {@link UncheckedIOException}, {@link IllegalArgumentException},
+ * {@link IllegalStateException}, {@link InternalFaultException} and {@link StoreRefusal} — and is reported with what the
+ * run had staged for removal, what it had removed and every entry it kept as they stood, so that fault drops none of
+ * them. A fault of another type is no part of that answer: it leaves {@link #run} uncaught, because only these five
+ * types are the faults a removal carries as its state. The report says how far the faulted removal got: staged before
+ * the commit was called, so nothing is committed and the next run re-judges every entry; owed with the commit entered
+ * and the workspace's journal durable, so the recovery completes the removals; undecided with the commit entered and no
+ * journal present — the commit deletes it as it closes, and a commit that fails before writing it leaves none, so its
+ * absence decides nothing — and the next run re-judges the directories; or committed once the commit returned, so the
  * removals are applied and only the directories remain. The discard's two refusals are caught per entry, so no refusal
  * of the discard is a fault of the run, and only a fault outside them reaches the committed arm (ADR runtime-start/016).
  *
@@ -143,7 +147,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      * A fault of the removal is no exception of this method but part of its answer: what the run had staged, removed
      * and kept travels into the report as it stood when the fault struck, with the entries whose directory it had not
      * deleted, and the answer says how far the removal got — staged before the commit was called, or entered with the
-     * workspace's journal durable (the recovery completes the removals) or gone (nothing here decides whether the
+     * workspace's journal durable (the recovery completes the removals) or absent (nothing here decides whether the
      * commit applied), or committed once its commit returned. The state lives outside the lock transaction, so a fault
      * of the lock's own release carries it too.
      *
@@ -276,8 +280,9 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                         .append(switch (removal.fault().reach()) {
                             case STAGED -> " were staged and not committed";
                             case OWED -> " are completed by the recovery of the workspace";
-                            case UNDECIDED -> " may have been committed: the commit was entered and its journal is"
-                                    + " gone, so the next run re-judges their directories";
+                            case UNDECIDED -> " may have been committed: the commit was entered and no journal of it is"
+                                    + " present, so nothing here decides whether its targets were written and the next"
+                                    + " run re-judges their directories";
                             case COMMITTED -> " are committed, and their directories remain";
                         });
             }
@@ -375,7 +380,8 @@ public final class PendingEntryRecordsSweep implements SweepStep {
         STAGED,
         /** The commit was entered and its journal is durable: the recovery of the workspace completes the removals. */
         OWED,
-        /** The commit was entered and its journal is gone: nothing here decides whether its targets were applied. */
+        /** The commit was entered and no journal of it is present: nothing here decides whether its targets were
+         * applied. */
         UNDECIDED,
         /** The transaction's commit returned: the staged removals are committed. */
         COMMITTED
