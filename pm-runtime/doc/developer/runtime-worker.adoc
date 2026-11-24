@@ -588,6 +588,12 @@ Gaps of the package itself:
 * `AgentStartedDetector` has no `forget` for a terminal generation, which the pass makes long-lived.
 * The pass's pump map and finished-attempt set, with the calls' detection, loss and digest maps, are removed only by
   the pass's completion, so a generation retired from the registry another way leaves its entries behind.
+* The monitor order is a cycle: `SupervisorCalls.harnessEnrolled` holds the calls monitor, `StartFailureGuard.clear` is
+  `synchronized` and calls `retireFailures` (the supervisor monitor) from inside it, while `WorkerSupervisor.start` is
+  `synchronized` and calls `StartFailureGuard.holds` (the guard monitor). The cycle would close only by releasing the
+  guard's monitor before its callback, which changes the clear-versus-failure race — `clear` would no longer remove the
+  state and retire the failed generations as one critical section. This residue plan records the analysis rather than
+  taking that concurrency decision; the guard's own design owns it.
 
 The four follow-ups the end path's lane named, each with its outcome; none is built:
 
@@ -598,9 +604,10 @@ The four follow-ups the end path's lane named, each with its outcome; none is bu
   also when the job settles first). The window that stays: an offer the transport makes is not visible to the pass, so a
   line the worker writes for the next task before the pass closes the previous attempt is read as that attempt's tail.
   It is reported to the orchestrator in the landing message, which places it in a staged plan.
-. *Per-line source offsets from `JobLog` for an idempotent tail replay* — owned by PLAN-V2-162 Deliverable 3 (carried
-  item 42 (c): a mid-batch failure of the pump can re-append lines; the narrowed catch or the log it names decides
-  whether offsets per line are needed).
+. *Per-line source offsets from `JobLog` for an idempotent tail replay* — owned by PLAN-V2-162 Deliverable 3. Carried
+  item 42(c)'s swallow is closed: the recorder's closed-task refusal is the named `TaskNotOpenException` and the pass
+  catches only that one, so any other failure reaches the caller. The per-line offsets stay open with the mid-batch
+  re-append they would fix; the second pull request of this plan carries them.
 . *A pump that outlives its generation for a retryable tail of a settled worker* — dropped: the operator's answer at
   refine of PLAN-V2-165 was to build none of the four follow-ups. The pump of a generation whose end fails before the
   attempt's end is appended already stays, because `finishAttempt` removes it only after that append and the pass keeps
