@@ -80,8 +80,9 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
  * the commit is called, and {@link #auditSinkFaultInsideTheCommitLeavesTheRemovalOwed} reaches the owed arm, because the
  * sink throws inside the commit while its journal is durable. The committed and undecided arms stay untested here: the
  * committed arm has no seam, because the discard's two refusals are caught per entry, so nothing in this test base
- * faults after the commit returned, and the undecided arm would need the commit to fail between the phase change and
- * the journal write — an unwritable journal directory, which no test of this class induces.
+ * faults after the commit returned, and the undecided arm would need the commit to fail before it writes the journal, or
+ * after the journal is deleted and before it returns — an unwritable journal directory, or a directory force that fails
+ * at the close; no test of this class induces either.
  */
 @EnableGeneratorController
 @DisplayName("Pending entry records sweep")

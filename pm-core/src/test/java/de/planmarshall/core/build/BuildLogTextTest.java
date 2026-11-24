@@ -567,9 +567,10 @@ class BuildLogTextTest {
         var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
         // the Maven log-format lines are the parser's contract fixture
         // two executions whose in-range failing counts sum past the long range; a wrapped sum would report no failure.
-        // This test pins that addition of the executions' figures; the digit-count branch of one line has its own test
-        // (cutMavenLogSaturatesANineteenDigitFailingCountPastTheLongRange), and the sum of one line's two counts has
-        // another (cutMavenLogSaturatesALineWhoseFailuresPlusErrorsOverflow)
+        // This test pins the addition of the two executions' figures; the digit-count branch of one line has its own
+        // test (cutMavenLogSaturatesANineteenDigitFailingCountPastTheLongRange), and
+        // cutMavenLogSaturatesALineWhoseFailuresPlusErrorsOverflow pins the observed figure of one line's overflowing
+        // two counts, not that line's addition, which is unobservable because every consumer saturates again
         var failingTail = """
                 --- surefire:3.5.0:test @ module-a ---
                 [WARNING] Tests run: 1, Failures: 9223372036854775807, Errors: 0, Skipped: 0
@@ -624,8 +625,8 @@ class BuildLogTextTest {
         // 9223372036854775808 is one past the long range and still nineteen digits, so the parse refuses it: a count
         // the parse read as zero would leave the failure unfiled. The neighbouring twenty-digit test
         // (cutMavenLogSaturatesATwentyDigitFailingCount) already reaches this branch with a count far outside the
-        // range; this one pins the boundary just past it, and the erroneous-sum test pins the addition of two
-        // in-range counts
+        // range; this one pins the boundary just past it, and cutMavenLogSaturatesAnOverflowingFailingCount pins the
+        // addition of the two executions' figures
         var failingTail = """
                 [WARNING] Tests run: 1, Failures: 9223372036854775808, Errors: 0, Skipped: 0
                 """;
