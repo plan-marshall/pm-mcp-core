@@ -82,6 +82,9 @@ class PendingEntryRecordsSweepTest {
     /** Contract literal: the name of the audit record of a removal. */
     private static final String PENDING_ENTRY_REMOVED = "pending_entry_removed";
 
+    /** Fixture: the refusal of the audit sink that stops a run after its removal transaction. */
+    private static final String AUDIT_FAULT = "the audit record cannot be appended";
+
     @TempDir
     Path base;
 
@@ -577,6 +580,74 @@ class PendingEntryRecordsSweepTest {
                 () -> assertTrue(reason.contains(broken.value()), "the report must name the unreadable record"),
                 () -> assertTrue(Files.exists(store.entryDirectory(residue)),
                         "the residue directory must stay in the store"));
+    }
+
+    @Test
+    @DisplayName("a fault after the commit reports the removal it staged, and the next run completes it")
+    void refusedAuditHandOverReportsTheCommittedRemoval() {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        AuditSink refusing = createMock(AuditSink.class);
+        refusing.append(anyObject(AuditEvent.class));
+        expectLastCall().andThrow(new IllegalStateException(AUDIT_FAULT));
+        replay(refusing);
+
+        var outcome = new PendingEntryRecordsSweep(base, lockManager, refusing, clock).run(projectId, now);
+
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a refused hand-over fails the step").reason();
+        assertAll(
+                () -> assertTrue(reason.startsWith("pending entry directories not swept: " + AUDIT_FAULT),
+                        "the report must name the fault"),
+                () -> assertTrue(reason.contains("the removals of [" + residue.value() + "]"),
+                        "the report must name the removal it staged"),
+                () -> assertTrue(reason.contains("completed by the recovery"),
+                        "the report must say the journal completes it"),
+                () -> assertFalse(store.read(residue).isPresent(), "the commit must delete the record"),
+                () -> assertTrue(Files.isDirectory(store.entryDirectory(residue)),
+                        "the directory must stay for the next run"),
+                () -> assertTrue(Files.exists(workspace.journalFile()), "the journal must keep the owed record"));
+
+        var next = sweep.run(projectId, now);
+
+        var removals = auditEvents.getValues().stream()
+                .filter(event -> PENDING_ENTRY_REMOVED.equals(event.event())).toList();
+        assertAll(
+                () -> assertEquals(new Outcome.Done("removed 1 pending entry directories: [" + residue.value() + "]"),
+                        next, "the next run must remove the directory"),
+                () -> assertFalse(Files.exists(store.entryDirectory(residue)), "the directory must be gone"),
+                () -> assertFalse(Files.exists(workspace.journalFile()), "the journal must be closed"),
+                () -> assertEquals(2, removals.size(),
+                        "the replayed record and the next run's must both be owed"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a fault in the verification rolls back the removals the run staged, and reports them")
+    void faultBeforeTheCommitRollsBackTheStagedRemovals() throws Exception {
+        var one = entryId();
+        var other = entryId();
+        var swept = one.value().compareTo(other.value()) < 0 ? one : other;
+        var unreadable = one.value().compareTo(other.value()) < 0 ? other : one;
+        create(entry(swept, now), entry(unreadable, now));
+        cutOffRemoval(swept);
+        inWorkspace(transaction -> transaction.delete(PendingEntryStore.storePath(unreadable)));
+        var manifest = store.sourcesStore(unreadable);
+        Files.setPosixFilePermissions(manifest, Set.of());
+        assumeFalse(Files.isReadable(manifest), "a file without permissions is unreadable for this user");
+        var before = auditEvents.getValues().size();
+
+        var outcome = sweep.run(projectId, now);
+
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "an unreadable store fails the step").reason();
+        assertAll(
+                () -> assertTrue(reason.startsWith("pending entry directories not swept: "),
+                        "the report must say that nothing was swept"),
+                () -> assertTrue(reason.contains("the removals of [" + swept.value() + "] were staged and not committed"),
+                        "the report must name the rolled-back removal"),
+                () -> assertFalse(Files.exists(workspace.journalFile()), "no transaction may be committed"),
+                () -> assertTrue(Files.isDirectory(store.entryDirectory(swept)),
+                        "the staged removal must be rolled back"),
+                () -> assertEquals(before, auditEvents.getValues().size(), "no audit record may be owed"));
     }
 
     private static Map<String, Object> withoutTransaction(Map<String, ?> details) {
