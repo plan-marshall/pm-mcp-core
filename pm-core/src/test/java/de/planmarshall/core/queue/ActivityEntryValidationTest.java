@@ -53,6 +53,8 @@ class ActivityEntryValidationTest {
         var questionId = "Q-" + Generators.integers(100, 999).next();
         var unmappedLines = Generators.integers(0, 100).next();
         var destination = Generators.letterStrings(3, 32).next() + ":443";
+        var launchModel = "launch-" + Generators.letterStrings(1, 16).next();
+        var servedModel = "served-" + Generators.letterStrings(1, 16).next();
         var entries = List.of(
                 base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TEXT).text(text).truncated(true).build(),
                 base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TOOL_CALL)
@@ -71,6 +73,8 @@ class ActivityEntryValidationTest {
                         .signal(new ActivityEntry.Signal(SignalName.AGENT_STARTED, SignalAction.RESTART)).build(),
                 base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.EGRESS)
                         .egress(new ActivityEntry.Egress(destination)).build(),
+                base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.MODEL_DIFFERS)
+                        .launchModel(launchModel).servedModel(servedModel).build(),
                 base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.ATTEMPT_END).end("off_track")
                         .unmappedLines(unmappedLines).build());
 
@@ -130,7 +134,19 @@ class ActivityEntryValidationTest {
                         "an egress entry needs its destination"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.ATTEMPT_END).build(),
-                        "an attempt_end entry needs its end reason"));
+                        "an attempt_end entry needs its end reason"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.MODEL_DIFFERS)
+                                .launchModel(Generators.letterStrings(1, 32).next()).build(),
+                        "a model_differs entry needs both models"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TEXT).text("x")
+                                .launchModel(Generators.letterStrings(1, 32).next()).build(),
+                        "a text entry cannot carry a launch model"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.MODEL_DIFFERS)
+                                .launchModel("acme").servedModel("acme").build(),
+                        "a model_differs entry names two different models"));
     }
 
     @Test
@@ -182,6 +198,15 @@ class ActivityEntryValidationTest {
                         () -> base(ActivityEntry.Source.HARNESS, ActivityEntry.Kind.TURN)
                                 .usage("{\n\"input_tokens\":1}").build(),
                         "a usage member on two lines is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.MODEL_DIFFERS)
+                                .launchModel("a".repeat(ActivityEntry.MODEL_BOUND + 1))
+                                .servedModel("acme").build(),
+                        "a launch model beyond the bound is refused"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.MODEL_DIFFERS)
+                                .launchModel("").servedModel("acme").build(),
+                        "an empty model identifier is refused"),
                 () -> assertThrows(IllegalArgumentException.class, () -> ActivityEntry.builder().seq(0)
                         .attempt(1).source(ActivityEntry.Source.SERVER).kind(ActivityEntry.Kind.ATTEMPT_END)
                         .end("closed").at(QueueFixtures.AT).build(), "a sequence of zero is refused"),

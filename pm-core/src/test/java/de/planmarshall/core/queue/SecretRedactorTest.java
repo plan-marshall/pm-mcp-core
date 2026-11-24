@@ -862,6 +862,34 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("a model_differs entry's identifiers are masked and the entry stays valid")
+    void entryModelDiffersIdentifiers() {
+        var secret = Generators.letterStrings(8, 16).next();
+        var published = Generators.letterStrings(8, 16).next();
+        var entry = ActivityEntry.builder()
+                .seq(Generators.integers(1, 100).next())
+                .attempt(Generators.integers(1, 10).next())
+                .source(ActivityEntry.Source.SERVER)
+                .kind(ActivityEntry.Kind.MODEL_DIFFERS)
+                .launchModel("api_key=" + secret)
+                .servedModel("vendor-" + published)
+                .at(Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next()))
+                .build();
+
+        var redacted = SecretRedactor.redact(entry);
+
+        assertAll("model identifiers of a model_differs entry",
+                () -> assertTrue(redacted.launchModel().contains(SecretRedactor.REDACTED),
+                        "the secret-shaped identifier is masked"),
+                () -> assertFalse(redacted.launchModel().contains(secret),
+                        "the secret is gone from the launch identifier"),
+                () -> assertEquals("vendor-" + published, redacted.servedModel(),
+                        "an ordinary identifier stays readable"),
+                () -> assertEquals(ActivityEntry.Kind.MODEL_DIFFERS, redacted.kind(),
+                        "the masked entry keeps its kind"));
+    }
+
+    @Test
     @DisplayName("an escape sequence between a label and its value does not hide the value (SGR codes)")
     void entryTextEscapeSplitLabel() {
         // ESC[1m and ESC[0m are the SGR bold and reset sequences of a colour-coded terminal line

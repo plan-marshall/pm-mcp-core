@@ -663,6 +663,12 @@ public class SecretRedactor {
         if (entry.egress() != null) {
             masked = masked.withEgress(new ActivityEntry.Egress(destination(entry.egress())));
         }
+        if (entry.launchModel() != null) {
+            masked = masked.withLaunchModel(modelIdentifier(entry.launchModel()));
+        }
+        if (entry.servedModel() != null) {
+            masked = masked.withServedModel(modelIdentifier(entry.servedModel()));
+        }
         return masked;
     }
 
@@ -680,6 +686,16 @@ public class SecretRedactor {
     private static String destination(ActivityEntry.Egress egress) {
         var masked = cutUtf16(stripAndRedact(egress.destination()), ActivityEntry.Egress.MAX_DESTINATION).value();
         return masked.length() < ActivityEntry.Egress.MIN_DESTINATION ? REDACTED : masked;
+    }
+
+    /**
+     * The masked identifier of a {@code model_differs} entry. Masking can empty a value (invisible characters removed),
+     * so an identifier that drops to nothing is masked whole instead of being rebuilt as an invalid one: the journal
+     * never refuses an entry it was handed.
+     */
+    private static String modelIdentifier(String identifier) {
+        var masked = cutUtf16(stripAndRedact(identifier), ActivityEntry.MODEL_BOUND).value();
+        return masked.isEmpty() ? REDACTED : masked;
     }
 
     /**

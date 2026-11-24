@@ -95,6 +95,30 @@ class ActivityJournalMaskingTest {
     }
 
     @Test
+    @DisplayName("a model_differs entry is masked before it is written")
+    void masksTheModelIdentifiers(@TempDir Path base) {
+        var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
+        journal.append(TASK, ActivityEntry.builder()
+                .seq(1)
+                .attempt(1)
+                .source(ActivityEntry.Source.SERVER)
+                .kind(ActivityEntry.Kind.MODEL_DIFFERS)
+                .launchModel("api_key=abcd1234")
+                .servedModel("acme-standard")
+                .at(QueueFixtures.AT)
+                .build());
+
+        var written = journal.entries(TASK).getFirst();
+        assertAll(
+                () -> assertTrue(written.launchModel().contains(SecretRedactor.REDACTED),
+                        "the launch identifier carries the redaction marker"),
+                () -> assertFalse(written.launchModel().contains("abcd1234"),
+                        "the secret in the launch identifier is masked"),
+                () -> assertEquals("acme-standard", written.servedModel(),
+                        "the served identifier stays readable"));
+    }
+
+    @Test
     @DisplayName("a destination that masking shrinks below the floor is masked whole, not refused")
     void masksADestinationShrunkBelowTheFloor(@TempDir Path base) {
         var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());

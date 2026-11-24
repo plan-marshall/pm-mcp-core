@@ -29,9 +29,9 @@ import de.planmarshall.core.store.StrictJson;
  * Journal): what a worker did while it served the task, or what the server recorded about it.
  * <p>
  * The harness kinds are {@code text}, {@code tool_call}, {@code tool_result}, {@code file_changed} and {@code turn};
- * the server kinds are {@code link}, {@code question}, {@code answer_ack}, {@code signal}, {@code egress} and
- * {@code attempt_end}. Each member belongs to the kinds that name it. A {@code usage} object belongs to another
- * package; it is kept as the raw JSON text it was read with and written back unchanged.
+ * the server kinds are {@code link}, {@code question}, {@code answer_ack}, {@code signal}, {@code egress},
+ * {@code model_differs} and {@code attempt_end}. Each member belongs to the kinds that name it. A {@code usage} object
+ * belongs to another package; it is kept as the raw JSON text it was read with and written back unchanged.
  * <p>
  * An {@code agent_started} signal always carries the action {@code restart}: the schema's {@code if}/{@code then}
  * refuses any other action, and so does this record.
@@ -53,6 +53,8 @@ import de.planmarshall.core.store.StrictJson;
  * @param questionId    the question; question and answer_ack only
  * @param signal        the off-track signal and its action; signal only
  * @param egress        the destination a worker's egress proxy refused; egress only
+ * @param launchModel   the model the task was launched with; model_differs only, masked
+ * @param servedModel   the model that answered the turn, different from {@code launchModel}; model_differs only, masked
  * @param end           the attempt's end; attempt_end only
  * @param unmappedLines the output lines of the attempt that matched no mapping; attempt_end only
  * @param at            when the entry was written
@@ -63,7 +65,8 @@ import de.planmarshall.core.store.StrictJson;
 public record ActivityEntry(int seq, int attempt, Source source, Kind kind, @Nullable String text,
 boolean truncated, @Nullable Tool tool, @Nullable Result result, @Nullable String path,
 @Nullable StopReason stopReason, @Nullable String usage, @Nullable Link link,
-@Nullable String questionId, @Nullable Signal signal, @Nullable Egress egress, @Nullable String end,
+@Nullable String questionId, @Nullable Signal signal, @Nullable Egress egress, @Nullable String launchModel,
+@Nullable String servedModel, @Nullable String end,
 @Nullable Integer unmappedLines, Instant at) {
 
     /** The format version of an activity entry that is read and written. */
@@ -71,6 +74,9 @@ boolean truncated, @Nullable Tool tool, @Nullable Result result, @Nullable Strin
 
     /** The compiled bound of a {@code text} entry. */
     public static final int TEXT_BOUND = 2000;
+
+    /** The bound of a model identifier on a {@code model_differs} entry. */
+    public static final int MODEL_BOUND = 128;
 
     private static final Pattern QUESTION_ID = Pattern.compile("Q-\\d{3,6}");
 
@@ -134,6 +140,8 @@ boolean truncated, @Nullable Tool tool, @Nullable Result result, @Nullable Strin
         SIGNAL(SIGNAL_LABEL, Source.SERVER),
         /** A destination a worker's egress proxy refused. */
         EGRESS("egress", Source.SERVER),
+        /** The model that answered a turn, where it differs from the one the task was launched with. */
+        MODEL_DIFFERS("model_differs", Source.SERVER),
         /** How the attempt ended. */
         ATTEMPT_END("attempt_end", Source.SERVER);
 
@@ -400,6 +408,8 @@ boolean truncated, @Nullable Tool tool, @Nullable Result result, @Nullable Strin
         }
         onlyOn(kind, Kind.SIGNAL, signal, SIGNAL_LABEL);
         onlyOn(kind, Kind.EGRESS, egress, "egress");
+        onlyOn(kind, Kind.MODEL_DIFFERS, launchModel, "launch_model");
+        onlyOn(kind, Kind.MODEL_DIFFERS, servedModel, "served_model");
         onlyOn(kind, Kind.ATTEMPT_END, end, "end");
         onlyOn(kind, Kind.ATTEMPT_END, unmappedLines, "unmapped_lines");
         if (kind == Kind.TOOL_CALL && tool == null) {
@@ -416,6 +426,19 @@ boolean truncated, @Nullable Tool tool, @Nullable Result result, @Nullable Strin
         }
         if (kind == Kind.EGRESS && egress == null) {
             throw new IllegalArgumentException("An egress entry has its destination");
+        }
+        if (kind == Kind.MODEL_DIFFERS && (launchModel == null || servedModel == null)) {
+            throw new IllegalArgumentException("A model_differs entry has both its models");
+        }
+        if (launchModel != null) {
+            requireModelIdentifier(launchModel, "launch_model");
+            if (launchModel.equals(servedModel)) {
+                throw new IllegalArgumentException(
+                        "A model_differs entry names two different models, not '%s' twice".formatted(launchModel));
+            }
+        }
+        if (servedModel != null) {
+            requireModelIdentifier(servedModel, "served_model");
         }
         if (kind == Kind.ATTEMPT_END && end == null) {
             throw new IllegalArgumentException("An attempt_end entry has its end");
@@ -451,6 +474,12 @@ boolean truncated, @Nullable Tool tool, @Nullable Result result, @Nullable Strin
         if (member != null && kind != owner) {
             throw new IllegalArgumentException("'%s' belongs to a %s entry, not a %s entry"
                     .formatted(name, owner.wireName(), kind.wireName()));
+        }
+    }
+
+    private static void requireModelIdentifier(String identifier, String name) {
+        if (identifier.isEmpty() || identifier.length() > MODEL_BOUND) {
+            throw new IllegalArgumentException("'%s' has 1 to %d characters".formatted(name, MODEL_BOUND));
         }
     }
 
