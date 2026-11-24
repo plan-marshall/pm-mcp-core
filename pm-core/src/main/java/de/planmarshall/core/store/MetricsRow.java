@@ -85,7 +85,9 @@ SpendClass spendClass, Population population, HarnessUsage usage,
     private static final Pattern JOB_ID_PATTERN = Pattern.compile("l-[0-9a-f]{16}");
     private static final Pattern ENVELOPE_ID_PATTERN = Pattern.compile("envelope-\\d+");
     private static final int MAX_HARNESS_VERSION = 64;
-    private static final int MAX_MODEL = 128;
+
+    /** The longest model identifier a row, a pointer reading and the activity entry admit. */
+    static final int MAX_MODEL = 128;
 
     /** The form of the worker that produced the row. */
     public enum Form {

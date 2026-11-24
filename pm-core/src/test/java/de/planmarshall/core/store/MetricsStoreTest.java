@@ -221,7 +221,7 @@ class MetricsStoreTest {
         @Test
         @DisplayName("keeps an unmeasured figure and the reason of the row; the usage pointers and turn are wire data")
         void unmeasured() {
-            var pointers = new UsagePointers("/input", "/output", null, null, null, null, null);
+            var pointers = new UsagePointers("/input", "/output", null, null, null, null, null, null);
             var usage = pointers.read(JsonDocument.parse(
                     "{\"input\":%d,\"output\":%d}".formatted(input, output).getBytes(UTF_8), "turn"));
 

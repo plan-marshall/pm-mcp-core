@@ -43,12 +43,13 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
  * @param reasoning        the pointer of the reasoning tokens, {@value #NOT_APPLICABLE}, or {@code null}
  * @param costUsd          the pointer of the harness-reported cost, or {@code null}
  * @param toolUses         the pointer of the tool calls, or {@code null}
+ * @param model            the pointer of the model the harness reports for the turn, or {@code null}
  * @since 0.1
  */
 @Builder
 public record UsagePointers(@Nullable String inputTokens, @Nullable String outputTokens, @Nullable String cacheRead,
 @Nullable String cacheCreation, @Nullable String reasoning, @Nullable String costUsd,
-@Nullable String toolUses) {
+@Nullable String toolUses, @Nullable String model) {
 
     /** The declaration of a figure that does not exist for a harness by design. */
     public static final String NOT_APPLICABLE = "not_applicable";
@@ -78,7 +79,44 @@ public record UsagePointers(@Nullable String inputTokens, @Nullable String outpu
         return new UsagePointers(member(usage, "input_tokens").orElse(null), member(usage, "output_tokens").orElse(null),
                 member(usage, "cache_read").orElse(null), member(usage, "cache_creation").orElse(null),
                 member(usage, "reasoning").orElse(null), member(usage, "cost_usd").orElse(null),
-                member(usage, "tool_uses").orElse(null));
+                member(usage, "tool_uses").orElse(null), member(usage, "model").orElse(null));
+    }
+
+    /**
+     * Reads the identifier of the model a line of the harness output was answered by.
+     * <p>
+     * The reading is independent of the events mapping: any line that carries the value at the pointer answers it,
+     * whatever kind the line maps to or whether it maps at all (the shipped {@code claude} declares the model of its
+     * {@code assistant} lines, while its turn is the {@code result} line). A pointer {@code null}, a value that does not
+     * resolve, and a value that is not a non-empty string of at most 128 characters without a control character all read
+     * as not reported. The reading never defaults to the launch model.
+     *
+     * @param line one parsed line of the harness output
+     * @return the identifier of the model, or empty when the line does not report one
+     */
+    public Optional<String> readModel(JsonNode line) {
+        Objects.requireNonNull(line, "line");
+        if (model == null) {
+            return Optional.empty();
+        }
+        final JsonNode value;
+        try {
+            value = JsonPointer.resolve(line, model, "harness output");
+        } catch (ProfileRefusal _) {
+            return Optional.empty();
+        }
+        if (!value.isString()) {
+            return Optional.empty();
+        }
+        var identifier = value.text().orElse("");
+        if (identifier.isEmpty() || identifier.length() > MetricsRow.MAX_MODEL || hasControlCharacter(identifier)) {
+            return Optional.empty();
+        }
+        return Optional.of(identifier);
+    }
+
+    private static boolean hasControlCharacter(String identifier) {
+        return identifier.chars().anyMatch(character -> Character.isISOControl((char) character));
     }
 
     /**
