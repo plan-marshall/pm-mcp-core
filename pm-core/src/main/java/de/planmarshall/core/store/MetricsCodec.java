@@ -77,6 +77,7 @@ public class MetricsCodec {
     private static final String FIELD_HARNESS_VERSION = "harness_version";
     private static final String FIELD_MODEL = "model";
     private static final String FIELD_EFFORT = "effort";
+    private static final String FIELD_SERVED_MODELS = "served_models";
     private static final String FIELD_FORM = "form";
     private static final String FIELD_PHASE = "phase";
     private static final String FIELD_STEP_ID = "step_id";
@@ -184,6 +185,7 @@ public class MetricsCodec {
         writeNullableString(generator, FIELD_HARNESS_VERSION, row.harnessVersion());
         writeNullableString(generator, FIELD_MODEL, row.model());
         writeNullableString(generator, FIELD_EFFORT, row.effort());
+        writeServedModels(generator, row.servedModels());
         writeEnum(generator, FIELD_FORM, row.form() == null ? null : row.form().wireName());
         writeEnum(generator, FIELD_PHASE, row.phase() == null ? null : row.phase().wireName());
         writeNullableString(generator, FIELD_STEP_ID, row.stepId());
@@ -219,6 +221,19 @@ public class MetricsCodec {
         generator.writeNumberField(FIELD_IDLE_WAKEUPS, row.idleWakeups());
         writeInstant(generator, FIELD_RECORDED_AT, row.recordedAt());
         generator.writeEndObject();
+    }
+
+    private static void writeServedModels(JsonGenerator generator, ServedModels servedModels) throws IOException {
+        var models = servedModels.measured();
+        if (models.isEmpty()) {
+            generator.writeStringField(FIELD_SERVED_MODELS, UNMEASURED);
+            return;
+        }
+        generator.writeArrayFieldStart(FIELD_SERVED_MODELS);
+        for (var model : models.get()) {
+            generator.writeString(model);
+        }
+        generator.writeEndArray();
     }
 
     private static void writeUsage(JsonGenerator generator, HarnessUsage usage) throws IOException {
@@ -384,6 +399,7 @@ public class MetricsCodec {
         @Nullable String harnessVersion = null;
         @Nullable String model = null;
         @Nullable String effort = null;
+        @Nullable ServedModels servedModels = null;
         MetricsRow.@Nullable Form form = null;
         MetricsRow.@Nullable Phase phase = null;
         @Nullable String stepId = null;
@@ -415,6 +431,7 @@ public class MetricsCodec {
                 case FIELD_HARNESS_VERSION -> harnessVersion = nullableString(parser, field).orElse(null);
                 case FIELD_MODEL -> model = nullableString(parser, field).orElse(null);
                 case FIELD_EFFORT -> effort = nullableString(parser, field).orElse(null);
+                case FIELD_SERVED_MODELS -> servedModels = servedModels(parser, field);
                 case FIELD_FORM -> form = enumValue(parser, field, MetricsRow.Form::fromWireName).orElse(null);
                 case FIELD_PHASE -> phase = enumValue(parser, field, MetricsRow.Phase::fromWireName).orElse(null);
                 case FIELD_STEP_ID -> stepId = nullableString(parser, field).orElse(null);
@@ -445,7 +462,8 @@ public class MetricsCodec {
             }
         }
         requireFields(seen, "task row", FIELD_KIND, FIELD_QUEUE_TASK_ID, FIELD_ATTEMPT, FIELD_ROLE, FIELD_JOB_ID,
-                FIELD_GENERATION_ID, FIELD_HARNESS, FIELD_HARNESS_VERSION, FIELD_MODEL, FIELD_EFFORT, FIELD_FORM,
+                FIELD_GENERATION_ID, FIELD_HARNESS, FIELD_HARNESS_VERSION, FIELD_MODEL, FIELD_EFFORT,
+                FIELD_SERVED_MODELS, FIELD_FORM,
                 FIELD_PHASE, FIELD_STEP_ID, FIELD_ENVELOPE_ID, FIELD_PREDICTED_COST, FIELD_OUTCOME,
                 FIELD_CONTINUATION, FIELD_CAUSE_CLASS, FIELD_SPEND_CLASS, FIELD_POPULATION, FIELD_TOTAL_TOKENS,
                 FIELD_INPUT_TOKENS, FIELD_OUTPUT_TOKENS, FIELD_CACHE_READ, FIELD_CACHE_CREATION, FIELD_REASONING,
@@ -462,7 +480,7 @@ public class MetricsCodec {
         try {
             return MetricsRow.builder().queueTaskId(queueTaskId).attempt(attempt).role(role).jobId(jobId)
                     .generationId(generationId).harness(harness).harnessVersion(harnessVersion).model(model)
-                    .effort(effort).form(form).phase(phase).stepId(stepId).envelopeId(envelopeId)
+                    .effort(effort).servedModels(servedModels).form(form).phase(phase).stepId(stepId).envelopeId(envelopeId)
                     .predictedCost(predictedCost).yieldReason(yieldReason).outcome(outcome)
                     .continuation(continuation).causeClass(causeClass).spendClass(spendClass)
                     .population(population).usage(usage)
@@ -656,6 +674,30 @@ public class MetricsCodec {
     private static void requireCompleteUsage(@Nullable HarnessUsage usage) {
         if (usage == null) {
             throw unreadable("the usage columns of a row are incomplete");
+        }
+    }
+
+    private static ServedModels servedModels(JsonParser parser, String field) throws IOException {
+        if (parser.currentToken() == JsonToken.VALUE_STRING) {
+            if (!UNMEASURED.equals(parser.getText())) {
+                throw unreadable("'%s' is 'unmeasured' or an array of identifiers".formatted(field));
+            }
+            return ServedModels.unmeasured();
+        }
+        if (parser.currentToken() != JsonToken.START_ARRAY) {
+            throw unreadable("'%s' is 'unmeasured' or an array of identifiers".formatted(field));
+        }
+        var models = new ArrayList<String>();
+        while (parser.nextToken() != JsonToken.END_ARRAY) {
+            if (parser.currentToken() != JsonToken.VALUE_STRING) {
+                throw unreadable("'%s' names its identifiers as strings".formatted(field));
+            }
+            models.add(parser.getText());
+        }
+        try {
+            return ServedModels.of(models);
+        } catch (IllegalArgumentException e) {
+            throw unreadable(e.getMessage(), e);
         }
     }
 

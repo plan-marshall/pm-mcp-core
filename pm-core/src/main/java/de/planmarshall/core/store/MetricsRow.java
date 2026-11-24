@@ -46,6 +46,7 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
  * @param harnessVersion    the harness version probed at the worker's spawn; {@code null} only for a refused task
  * @param model             the model passed to the harness; {@code null} only for a refused task
  * @param effort            the effort passed after narrowing; {@code null} when none was passed
+ * @param servedModels      the distinct models the row's turns were answered by, or {@code unmeasured}
  * @param form              the worker's form; {@code null} only for a refused task
  * @param phase             the phase of the creating state; {@code null} for the epic and workspace scopes
  * @param stepId            the step of the creating state, or {@code null}
@@ -70,7 +71,8 @@ import de.planmarshall.core.store.HarnessUsage.UnmeasuredReason;
 @Builder(toBuilder = true)
 public record MetricsRow(@Nullable String queueTaskId, @Nullable Integer attempt, @Nullable String role,
 @Nullable String jobId, @Nullable String generationId, @Nullable String harness,
-@Nullable String harnessVersion, @Nullable String model, @Nullable String effort, @Nullable Form form,
+@Nullable String harnessVersion, @Nullable String model, @Nullable String effort, ServedModels servedModels,
+@Nullable Form form,
 @Nullable Phase phase, @Nullable String stepId, @Nullable String envelopeId,
 @Nullable PredictedCost predictedCost, @Nullable YieldReason yieldReason, Outcome outcome,
 @Nullable ContinuationMark continuation, CauseClass causeClass,
@@ -429,6 +431,10 @@ SpendClass spendClass, Population population, HarnessUsage usage,
         Objects.requireNonNull(recordedAt, "recorded_at");
         requireAttempt(attempt, causeClass);
         requireRefusedColumns(causeClass, jobId, generationId, harness, harnessVersion, model, form, durationBasis);
+        Objects.requireNonNull(servedModels, "served_models");
+        if (causeClass == CauseClass.REFUSED && !servedModels.isUnmeasured()) {
+            throw new IllegalArgumentException("A task closed without an attempt records no served models");
+        }
         requireOptionalPattern(jobId, JOB_ID_PATTERN, "job_id");
         requireOptionalPattern(generationId, JOB_ID_PATTERN, "generation_id");
         requireOptionalPattern(harness, HarnessId.PATTERN, "harness");
@@ -465,6 +471,7 @@ SpendClass spendClass, Population population, HarnessUsage usage,
             SpendClass spendClass, Population population, Instant recordedAt) {
         return MetricsRow.builder().queueTaskId(queueTaskId).role(role).phase(phase).outcome(outcome)
                 .causeClass(CauseClass.REFUSED).spendClass(spendClass).population(population).usage(HarnessUsage.none())
+                .servedModels(ServedModels.unmeasured())
                 .recordedAt(recordedAt).build();
     }
 
