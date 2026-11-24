@@ -102,7 +102,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      * @param at        the instant of the sweep's run, which the removal records carry
      * @return the directories that are gone, named one by one; a failure naming every entry kept or failed and every
      *         unreadable entry the listing collected, and, when the removal itself faults, what it had staged for
-     *         removal and removed as it stood and how far the removal got — staged, journalled or committed
+     *         removal and removed as it stood and how far the removal got — staged, owed, undecided or committed
      */
     @Override
     public RecoveryStep.Outcome run(String projectId, Instant at) {

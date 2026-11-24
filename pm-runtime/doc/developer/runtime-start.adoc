@@ -125,16 +125,14 @@ sweeps both.
 * A fault of the removal itself — a rethrown non-link refusal of the verification, a refused store, an I/O failure or a
   failed commit — fails the step with its message, the entries whose removal the run had staged and not yet deleted,
   the directories it had removed and every entry it kept as they stood, plus the unreadable entries the listing
-  collected before it, so that fault drops none of them. The report names how far the faulted removal got: *staged*
-  before the workspace's journal, so nothing is committed and the next run re-judges every entry; *journalled* after
-  it, so the recovery of the workspace completes the removals; *committed* once the transaction's commit returned, so
-  the removals are applied and only the directories remain. The reach is read from the phase the removal had reached
-  and, while the commit was entered, from the workspace's journal: a fault before the commit is *staged*, a fault with
-  the commit entered and the journal durable is *owed*, a fault with the commit entered and its journal gone is
-  *undecided* — the commit deletes the journal as it closes, so its absence decides nothing — and a fault after the
-  returned commit is *committed*. The discard's two refusals are caught per entry, so only a fault outside them reaches
-  the *committed* arm, and a fault of the lock's own release carries the same state, because the state is kept outside
-  the lock transaction.
+  collected before it, so that fault drops none of them. The report names how far the faulted removal got, read from the
+  phase the removal had reached and, while the commit was entered, from the workspace's journal: *staged* before the
+  commit is called, so nothing is committed and the next run re-judges every entry; *owed* with the commit entered and
+  the journal durable, so the recovery of the workspace completes the removals; *undecided* with the commit entered and
+  its journal gone — the commit deletes the journal as it closes, so its absence decides nothing — and *committed* once
+  the transaction's commit returned, so the removals are applied and only the directories remain. The discard's two
+  refusals are caught per entry, so only a fault outside them reaches the *committed* arm, and a fault of the lock's own
+  release carries the same state, because the state is kept outside the lock transaction.
 * All removals of a run are one transaction, committed only if a directory is removed. A stopped removal is completed
   by the recovery of the workspace, which hands the owed records over again.
 * A workspace whose journal still waits for its recovery cannot be written: the step fails and removes nothing.
