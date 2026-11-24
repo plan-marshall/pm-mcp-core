@@ -333,7 +333,7 @@ The persisted value is data only, `CommitAttemptCaps` in this package; the trans
 `CommitAttemptCounter` of this package, beside the value, so the engine may reach them without depending on the
 provider that runs the commit:
 `failedCommitAttempt(stagedTree, messageDigest)` and `fixTask(frameId)` each answer a new counter, and
-`changeSetCapSpent()` and `frameCapSpent()` read the cap each is counted on. The value holds no combined predicate, so
+`changeSetCapSpent()` and `frameCapSpent()` answer whether that cap is spent. The value holds no combined predicate, so
 the caller's rule is explicit: after the `hook_failed` outcome of `git.stage-and-commit` it reads both caps and writes
 their disjunction, `changeSetCapSpent() || frameCapSpent()`, as the `attempts_exhausted` outcome; each counting event
 reads its own cap. The frame cap is spent after the third `git.commit-fix` task, but the loop ends at the next failed

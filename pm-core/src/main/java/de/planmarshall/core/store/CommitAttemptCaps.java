@@ -29,10 +29,9 @@ import org.jspecify.annotations.Nullable;
  * {@link #changeSetSpent()} and {@link #frameSpent()}, and writes their disjunction
  * {@code changeSetSpent() || frameSpent()} as the {@code attempts_exhausted} outcome of the state; each counting event
  * reads its own cap — the change-set cap at a failed commit attempt, the frame cap at a {@code git.commit-fix} task. So
- * the frame
- * cap may be spent after the third task and the loop still ends only at the next failed commit attempt, never between a
- * task and the attempt that follows it. The state catalogue's {@code git.stage-and-commit} row pins that guard, and
- * {@code CommitAttemptCounterTest.Hazard} pins both arms of the disjunction.
+ * the frame cap may be spent after the third task and the loop still ends only at the next failed commit attempt, never
+ * between a task and the attempt that follows it. The state catalogue's {@code git.stage-and-commit} row pins that
+ * guard, and {@code CommitAttemptCounterTest.Hazard} pins both arms of the disjunction.
  * <p>
  * The value is immutable and holds data only; the transitions live in the pure class {@code CommitAttemptCounter} of
  * this package, so both the engine and the assembly may count through it.
