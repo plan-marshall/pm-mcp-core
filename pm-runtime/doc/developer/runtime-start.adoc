@@ -124,9 +124,10 @@ sweeps both.
   (link:../adr/runtime-start/016-the-sweep-removes-pending-entry-residue-by-evidence.adoc[ADR 016]).
 * A fault of the removal itself — a rethrown non-link refusal of the verification, a refused store, an I/O failure or a
   failed commit, one of the five types the step catches (`UncheckedIOException`, `IllegalArgumentException`,
-  `IllegalStateException`, `InternalFaultException`, `StoreRefusal`) — fails the step with its message, the entries
-  whose removal the run had staged and not yet deleted, the directories it had removed and every entry it kept as they
-  stood, plus the unreadable entries the listing collected before it, so that fault drops none of them. A fault of
+  `IllegalStateException`, `InternalFaultException`, `StoreRefusal`) — fails the step with its message, or with its
+  exception type when it carries none, the entries whose removal the run had staged and not yet deleted, the
+  directories it had removed and every entry it kept as they stood, plus the unreadable entries the listing collected
+  before it, so that fault drops none of them. A fault of
   another type leaves `run` uncaught: only these five types are the faults a removal carries as its state. The report
   names how far the faulted removal got, read from the phase the removal had reached and, while the commit was entered,
   from the workspace's journal: staged before the commit is called, so nothing is committed and the next run re-judges
@@ -140,7 +141,8 @@ sweeps both.
   fault is reported beside them — by its message, or by its exception type when it carries none — because the release
   comes after another writer may have left the workspace's journal, so
   re-reading the journal after it would call an undecided removal owed. A test reaches the staged arm
-  (`PendingEntryRecordsSweepTest.faultBeforeTheCommitRollsBackTheStagedRemovals`), the owed arm
+  (`PendingEntryRecordsSweepTest.faultBeforeTheCommitRollsBackTheStagedRemovals`, and
+  `PendingEntryRecordsSweepTest.aFirstFaultWithoutAMessageIsNamedByItsType` for a fault with no message), the owed arm
   (`PendingEntryRecordsSweepTest.auditSinkFaultInsideTheCommitLeavesTheRemovalOwed`) and the undecided arm
   (`PendingEntryRecordsSweepTest.aCommitThatCannotWriteItsJournalLeavesTheReachUndecided`, and
   `PendingEntryRecordsSweepTest.aFaultedLockReleaseKeepsTheFirstFaultsReach` for the release fault beside it, and

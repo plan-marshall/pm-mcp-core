@@ -52,11 +52,15 @@ Periodic Sweep]).
   refusals are caught per entry, so only a fault outside them reaches the committed arm, and a fault of the lock's own
   release carries the same state, because it is kept outside the lock transaction. A fault of that release beside a
   fault the attempt had already built keeps that fault's message, entries and reach and reports the release fault
-  beside it (amended 2026-11-24 by `PLAN-V2-181`; amended 2026-11-24 by `PLAN-V2-183`: a release fault with no message
-  is named by its exception type, never printed as `null`): the release comes after another writer may have left the
+  beside it (amended 2026-11-24 by `PLAN-V2-181`; amended 2026-11-24 by `PLAN-V2-183`: a fault with no message is
+  named by its exception type, never printed as `null`; amended 2026-11-24 by `PLAN-V2-184`: the naming covers a first
+  fault as well as the release fault, and only `UncheckedIOException`, `IllegalArgumentException` and
+  `IllegalStateException` can carry no message — `InternalFaultException` and `StoreRefusal` compose a non-null one in
+  their constructors): the release comes after another writer may have left the
   workspace's journal, so re-reading the journal after it would turn an undecided removal into one the report calls
   owed. A test reaches the staged arm
-  (`PendingEntryRecordsSweepTest.faultBeforeTheCommitRollsBackTheStagedRemovals`), the owed arm
+  (`PendingEntryRecordsSweepTest.faultBeforeTheCommitRollsBackTheStagedRemovals`, and
+  `PendingEntryRecordsSweepTest.aFirstFaultWithoutAMessageIsNamedByItsType` for a fault with no message), the owed arm
   (`PendingEntryRecordsSweepTest.auditSinkFaultInsideTheCommitLeavesTheRemovalOwed`, an audit sink that throws inside
   the commit) and the undecided arm (`PendingEntryRecordsSweepTest.aCommitThatCannotWriteItsJournalLeavesTheReachUndecided`,
   a workspace journal directory that refuses the write, and `PendingEntryRecordsSweepTest.aFaultedLockReleaseKeepsTheFirstFaultsReach`,
