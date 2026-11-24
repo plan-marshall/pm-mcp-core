@@ -25,11 +25,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * {@code rebaseline} is the operator's act that ends a hold. The guard never changes a file and never repairs the git
  * metadata.
  * <p>
- * The baseline is kept in memory per project. A runtime restart loses it, and the recovery ends a running worker at
- * restart, so the next worker's spawn records a fresh one; the operator's {@code rebaseline} is the act that clears a
- * false difference after a legitimate build job changed the metadata.
+ * The baseline is kept in memory per project. A runtime restart loses it, and ending the running worker does not revert
+ * what that worker wrote, so the next worker's spawn records whatever the tree holds then: a tree tampered with before
+ * the restart is baselined as it is. Until that first record a comparison finds no baseline and answers
+ * {@code Unchanged}. The operator's {@code rebaseline} is the act that clears a false difference after a legitimate
+ * build job changed the metadata.
  * <p>
- * A project without git has no baseline and never compares.
+ * A project without git has the empty baseline ({@code record} stores the empty digest), so a {@code .git} created
+ * later is a difference and answers {@code Changed}.
  *
  * @since 0.1
  */

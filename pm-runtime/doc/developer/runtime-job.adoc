@@ -358,7 +358,7 @@ with its reason and a symbolic link as the refusal `path_traversal_rejected`; it
 The composer names those paths as the worker's read-only set, which the launcher renders as `--read-only` and applies as
 a read-only mount (Linux) or a sandbox deny (macOS). A launcher that applies nothing answers a launch report without
 `git_metadata`, and the worker's record then states `unenforced` — the honest value, which no code path raises to
-`enforced` except the copy of a report's value.
+`enforced` except the copy of a report's value. A record of any other kind carries no `git_metadata` member.
 
 `GitMetadataDigest.of(root)` digests the parts, never their contents: the bytes of `<git directory>/config` and of every
 file it includes (`include.path` and `includeIf.*.path`, relative to the including file, followed to a fixed bound), every
@@ -368,7 +368,7 @@ the tracked source stay out, because a server `git` job changes them legitimatel
 dependency is added; an existing input that cannot be read, an include cycle and a bound exceeded are the fail-closed part
 `unreadable`, so an unreadable tree is a difference and never a pass.
 
-`GitMetadataGuard` keeps one baseline per project: `record` takes it at the first worker spawn of a project in the runtime and keeps it, `verify` compares it after a worker's fate is recorded and in `start` before a `git` job's write-ahead record, and `rebaseline` is the operator's act that clears a false difference (for example after a legitimate build job changed the metadata). A later worker's spawn does not move the baseline, so a change made between two spawns is not baselined away. A tree that is unreadable when the baseline would be taken takes none: every comparison answers `Changed` with the fail-closed part `unreadable` until the operator's `rebaseline` accepts it, so such a project is never silently compared. A difference at a worker's end writes a `security` audit record `git_metadata_changed` (the project, the point
+`GitMetadataGuard` keeps one baseline per project: `record` takes it at the first worker spawn of a project in the runtime and keeps it, `verify` compares it after a worker's fate is recorded and in `start` before a `git` job's write-ahead record — a `git` job by its kind or by a host-tool target of `git`, so a kind and a target that disagree cannot skip the check —, and `rebaseline` is the operator's act that clears a false difference (for example after a legitimate build job changed the metadata). A later worker's spawn does not move the baseline, so a change made between two spawns is not baselined away. A tree that is unreadable when the baseline would be taken takes none: every comparison answers `Changed` with the fail-closed part `unreadable` until the operator's `rebaseline` accepts it, so such a project is never silently compared. A difference at a worker's end writes a `security` audit record `git_metadata_changed` (the project, the point
 `worker_end` or `git_job`, the job id and the parts, never their contents), a WARN record and one call of
 `GitMetadataChangeSink`, whose default records nothing. A difference before a `git` job refuses the job with
 `git_metadata_changed` and records it `refused`, so every `git` job of the project is refused while the baseline differs.
