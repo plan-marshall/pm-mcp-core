@@ -350,6 +350,22 @@ class JobLogTest {
         }
 
         @Test
+        @DisplayName("a lone END in readLines from an offset above 0 masks the window it starts")
+        void aLoneEndInLinesFromAnOffsetMasksTheWindow() throws Exception {
+            var first = "first " + line();
+            var second = "second " + line();
+            var last = "last " + line();
+            var offset = (first + "\n" + second + "\n").getBytes(StandardCharsets.UTF_8).length;
+            Files.writeString(path, first + "\n" + second + "\n-----END PRIVATE KEY-----\n" + last + "\n",
+                    StandardCharsets.UTF_8);
+
+            var lines = assertInstanceOf(JobLog.Lines.class, log.readLines(offset), "the lines are answered");
+
+            assertEquals(List.of(SecretRedactor.REDACTED, last), lines.lines(),
+                    "the window in the key body is masked, the tail stays");
+        }
+
+        @Test
         @DisplayName("over the cap with a first line past the head bound: the long first line is not kept")
         void firstLinePastTheHeadBoundIsNotKept() throws Exception {
             var head = "z".repeat(JobLog.FIRST_LINE_MAX_BYTES + 1);

@@ -118,6 +118,11 @@ class DiagnosticCollector {
     }
 
     private static String truncate(String text, int maxLength) {
-        return text.length() <= maxLength ? text : text.substring(0, maxLength);
+        if (text.length() <= maxLength) {
+            return text;
+        }
+        // never split a surrogate pair: the store would hold a lone high surrogate, which no reader can render
+        var end = Character.isHighSurrogate(text.charAt(maxLength - 1)) ? maxLength - 1 : maxLength;
+        return text.substring(0, end);
     }
 }

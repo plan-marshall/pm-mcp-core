@@ -222,6 +222,24 @@ class DiagnosticCollectorRedactionTest {
                         "the flood reaches the constructor whole"));
     }
 
+    @Test
+    @DisplayName("a stored message and its stack trace never end in half of a surrogate pair")
+    void theStoredBoundNeverSplitsASurrogatePair() {
+        // the stored bound is 500 characters; the pair starts at index 499, its high half the 500th character
+        var prefix = "a".repeat(499);
+        var pair = "\uD83D\uDE00";
+        var message = prefix + pair + "tail";
+
+        var stored = DiagnosticCollector.stored(message);
+        var trace = DiagnosticCollector.storedTrace(message);
+
+        assertAll("the bound respects a surrogate pair",
+                () -> assertEquals(499, stored.length(), "the stored message is cut before the pair"),
+                () -> assertEquals(499, trace.length(), "the stored trace is cut before the pair"),
+                () -> assertFalse(Character.isHighSurrogate(stored.charAt(stored.length() - 1)),
+                        "the stored message ends before a lone high surrogate"));
+    }
+
     private static String stackTraceOf(Diagnostic diagnostic) {
         assertNotNull(diagnostic.stackTrace(), "the constructor keeps the stack trace");
         return diagnostic.stackTrace();
