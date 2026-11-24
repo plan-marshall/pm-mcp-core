@@ -125,7 +125,7 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
     }
 
     // the message shapes are the contract: the detail of JGitOperations.failure(e) and a refusal detail, each beside a
-    // host path the fact must never carry
+    // host path the fact must never carry; the last three name an introducer a positive list of characters missed
     @ParameterizedTest(name = "detail \"{0}\"")
     @ValueSource(strings = {
             "java.io.IOException: /srv/git/worktrees/plan",
@@ -134,6 +134,9 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
             "refused }/srv/git/worktrees/plan",
             "refused >/srv/git/worktrees/plan",
             "refused `/srv/private/key`",
+            "refused {/srv/git/worktrees/plan",
+            "refused \u201c/srv/private/key\u201d",
+            "refused \u00a0/srv/git/worktrees/plan",
             "refused \\\\server\\share\\private",
             "refused C:\\Users\\plan\\checkout"})
     @DisplayName("a message that still names an absolute host path is carried as the outcome's code")
