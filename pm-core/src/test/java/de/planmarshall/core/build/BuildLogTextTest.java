@@ -565,7 +565,11 @@ class BuildLogTextTest {
     @DisplayName("a cut log's failing count saturates instead of wrapping to a passing run")
     void cutMavenLogSaturatesAnOverflowingFailingCount(@TempDir Path directory) throws Exception {
         var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
-        // two executions whose failing counts sum past the long range; a wrapped sum would report no failure
+        // the Maven log-format lines are the parser's contract fixture
+        // two executions whose in-range failing counts sum past the long range; a wrapped sum would report no failure.
+        // This test pins that addition of the executions' figures; the digit-count branch of one line has its own test
+        // (cutMavenLogSaturatesANineteenDigitFailingCountPastTheLongRange), and the sum of one line's two counts has
+        // another (cutMavenLogSaturatesALineWhoseFailuresPlusErrorsOverflow)
         var failingTail = """
                 --- surefire:3.5.0:test @ module-a ---
                 [WARNING] Tests run: 1, Failures: 9223372036854775807, Errors: 0, Skipped: 0
@@ -584,6 +588,55 @@ class BuildLogTextTest {
                                 && ("the cut log's tail reports " + Long.MAX_VALUE + " failing tests")
                                 .equals(diagnostic.message())),
                 "an overflowing sum saturates and files the failure");
+    }
+
+    @Test
+    @DisplayName("a cut log's failing count saturates when one line's Failures plus Errors pass the long range")
+    void cutMavenLogSaturatesALineWhoseFailuresPlusErrorsOverflow(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
+        // both counts of one line are in the long range and their sum is not: a wrapping addition would report the
+        // line as a passing run
+        var failingTail = """
+                [WARNING] Tests run: 2, Failures: 9223372036854775807, Errors: 1, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-overflowing-line-sum.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.severity() == Severity.ERROR
+                                && diagnostic.category() == Category.TEST_FAILURE
+                                && ("the cut log's tail reports " + Long.MAX_VALUE + " failing tests")
+                                .equals(diagnostic.message())),
+                "the sum of the line's two counts saturates at the long bound");
+    }
+
+    @Test
+    @DisplayName("a nineteen-digit failing count past the long range saturates and still files a failure")
+    void cutMavenLogSaturatesANineteenDigitFailingCountPastTheLongRange(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
+        // 9223372036854775808 is one past the long range and still nineteen digits, so the parse refuses it: a count
+        // the parse read as zero would leave the failure unfiled. This test pins that digit-count branch, where the
+        // neighbouring overflowing-sum test pins the addition of two in-range counts
+        var failingTail = """
+                [WARNING] Tests run: 1, Failures: 9223372036854775808, Errors: 0, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-nineteen-digit-count-past-the-range.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.severity() == Severity.ERROR
+                                && diagnostic.category() == Category.TEST_FAILURE
+                                && ("the cut log's tail reports " + Long.MAX_VALUE + " failing tests")
+                                .equals(diagnostic.message())),
+                "a nineteen-digit count past the range saturates");
     }
 
     @Test
@@ -618,10 +671,10 @@ class BuildLogTextTest {
     void cutMavenLogKeepsAnotherExecutionsFailureWhenTheSummarySideWins(@TempDir Path directory) throws Exception {
         var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
         // the Maven log-format lines are the parser's contract fixture
-        // execution A's summary side wins while its per-class line is counted twice in the filed figure
+        // execution A's summary side exceeds its per-class side, while the filed figure counts the per-class line too
         var failingTail = """
                 --- surefire:3.5.0:test @ module-a ---
-                [ERROR] Tests run: 2, Failures: 2, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %s
+                [ERROR] Tests run: 2, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %s
                 [ERROR] Results:
                 [ERROR] Tests run: 2, Failures: 2, Errors: 0, Skipped: 0
                 --- surefire:3.5.0:test @ module-b ---

@@ -291,6 +291,14 @@ class ProcessTreeTrackerTest {
                             "no declared type of the tracker signals numerically"));
         }
 
+        /**
+         * The three fixtures cover the primitive predicate's two clauses structurally, one shape each:
+         * {@code SignalNestedDependentControl} depends on {@code ProcessGroupSignals.Signal}, a nested type that is no
+         * subtype of the interface, so only the name-prefix clause catches it; {@code GroupSignalDependentControl}
+         * depends on the interface itself and {@code KillBindingDependentControl} on an implementation of it, so the
+         * {@code isAssignableTo} clause catches both. No fixture reaches one clause through the other, and the positive
+         * control below fails when the predicate is forced false.
+         */
         @Test
         @DisplayName("the guard catches a fixture for each shape of the group-signal primitive it names")
         void catchesAFixtureThatDependsOnGroupSignal() {
