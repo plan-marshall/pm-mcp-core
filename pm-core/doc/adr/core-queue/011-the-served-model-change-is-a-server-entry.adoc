@@ -1,0 +1,58 @@
+= ADR 011: The Served Model Change Is a Server Entry with Two Flat Identifiers
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-24
+
+== Context
+
+The specification requires the task's activity to show that a line was answered by another model than the one the task
+was launched with, once per change, naming both
+(link:../../../../doc/specification/store-schemas/16-task-queue.adoc#activity-journal[The Activity Journal],
+link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#served-model[The Model That Answered]). The
+activity kinds are a closed list, the entry members are bound to their kinds, and the journal masks every text and
+target at its write boundary because a harness's output is untrusted.
+
+The client contract of `pm-api` already carries the kind `ActivityEntryKind.MODEL_DIFFERS` with the flat members
+`launchModel` and `servedModel`, which the clients read; a nested object under `model_differs` would not parse there.
+
+== Decision
+
+`ActivityEntry.Kind.MODEL_DIFFERS("model_differs", Source.SERVER)` is a server kind. The entry carries two flat members,
+`@Nullable String launchModel` and `@Nullable String servedModel`, written as `launch_model` and `served_model` directly
+after `egress` in the schema and in `ActivityEntryCodec.FIELDS`. Both belong to that kind only, both are required on
+it, each carries 1 to `ActivityEntry.MODEL_BOUND` (128) characters, and the two must name different models — an entry
+that names one model twice is refused, because there was no change.
+
+`SecretRedactor.redact(ActivityEntry)` treats both identifiers as untrusted: it strips their escape sequences, masks
+them like a link target, and refits them to the bound; an identifier that masking empties is masked whole, so the journal
+never refuses an entry it was handed. The journal drops only `text` entries at its bound, so the entry survives it.
+
+== Alternatives Considered
+
+A nested object `model_differs: {launch, served}` was rejected: the shipped client contract declares the flat member
+names, and a nested shape would need a coordinated client change for no gain.
+
+Reusing the `signal` or the `turn` entry was rejected: neither carries two free identifiers, and a member added to a
+harness kind would break the per-kind rule the whole record rests on.
+
+Storing the identifiers unmasked was rejected: they are harness output at a trust boundary, and the journal's contract
+is that every text and target is masked before it is written.
+
+== Consequences
+
+`format_version` stays 1. The kind is server-recorded, so a profile that declares an event kind of the same name maps
+nothing for it, exactly as for `egress`. The entry is written ahead of the line's own entry, so a reader sees the change
+before the line it belongs to. No rule reads the entry: no fate, outcome, re-offer, signal or qualification is derived
+from a model.
+
+== Source
+
+PLAN-V2-135; `doc/specification/store-schemas/16-task-queue.adoc#activity-journal`;
+`doc/specification/harness-profiles/01-profile-schema.adoc#served-model`;
+`pm-core/src/main/resources/de/planmarshall/core/queue/activity-entry.schema.json`.

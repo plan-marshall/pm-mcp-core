@@ -3055,3 +3055,29 @@ request and its non-normalized directory, the refused epic target, the refused d
 refused link and link below a parent, the composed request below such a link, the refused FIFO under a deadline that
 fails if the read opens it, the refused transcript link and the refused repeated move).
 
+== The Metrics Row's Served Models
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14], link:../specification/harness-profiles/01-profile-schema.adoc#served-model[Harness Profiles § The Model That Answered]_
+
+`ServedModels` is the three-valued value of a task row's `served_models` column: `ServedModels.unmeasured()`, the value
+of a row no turn reported a model for, or `ServedModels.of(List<String>)`, the distinct identifiers in order of first
+appearance. `of` refuses an empty list, because an empty list is not a value of the column, and copies its input;
+`measured()` returns the identifiers and `isUnmeasured()` answers the other state. The rule is the row's own rule for
+every figure: a harness that reports no model is `unmeasured`, never the launch model.
+
+`UsagePointers` carries the profile's `model` pointer beside the seven figures and reads it with `readModel(JsonNode)`:
+a pointer `null`, a value that does not resolve, and a value that is not a non-empty string of at most 128 characters
+without a control character all read as not reported.
+
+`MetricsRow` carries `servedModels` directly after `effort` and requires it; a task closed without an attempt records
+`unmeasured`, and the compact constructor refuses a refused task that names a model. `MetricsCodec` writes the member
+after `effort` and before `form`, as the non-empty array or the string `unmeasured`, reads both forms and requires it in
+`requireFields`. `format_version` stays 1: a row that lacks the member is refused, and no reader of an older row exists.
+
+`MetricsSchemaParityTest` pins the member, its place and its shape against `metrics.schema.json`; `MetricsStoreTest`
+covers a two-model round trip, the `unmeasured` round trip and the refused row; `ServedModelsTest` covers the
+distinct-first-appearance rule, `unmeasured` versus an empty list and the copied list; `UsagePointersTest` covers the
+reading and its bounds.
+
+link:../adr/core-store/090-served-models-is-the-distinct-models-or-unmeasured.adoc[ADR core-store/090]:
+`served_models` is the distinct models in order, or `unmeasured` — never an empty array and never a default.
+

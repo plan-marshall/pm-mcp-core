@@ -1,0 +1,62 @@
+= ADR 090: Served Models Are the Distinct Models in Order, or Unmeasured
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-24
+
+== Context
+
+A task row of `metrics.json` must record the models its turns were answered by
+(link:../../../../doc/specification/store-schemas/05-metrics-and-quality-report.adoc#metrics-store[The Metrics Store],
+link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#served-model[The Model That Answered]). The
+column has three possible states that must stay apart: a row whose turns reported one model, a row whose turns reported
+several (a router, a fallback, a preview the account cannot use), and a row whose harness reports no model at all.
+
+Every figure of the row follows one rule: "unmeasured is never `0`". A harness that reports no model is consequently not
+the launch model and not "no models"; it is unmeasured. And a `worker_idle` row is no task row: the specification names
+task rows only, so the idle row carries no member.
+
+== Decision
+
+`ServedModels`, in `de.planmarshall.core.store`, is the three-valued value of the column. `ServedModels.unmeasured()` is
+the one value of a row no turn reported a model for; `ServedModels.of(List<String>)` is the value of a row whose turns
+did, holding the distinct identifiers in order of first appearance. An empty list is not a value: `of` refuses it, so
+`[]` cannot be written and `unmeasured` cannot be spelled as an empty array. The record copies the list it is handed, so
+a caller's list cannot change a row.
+
+`MetricsRow` carries `ServedModels servedModels` directly after `effort`, non-nullable and without a default: a caller
+names it, `ServedModels.unmeasured()` where nothing was reported. The compact constructor requires it and refuses a
+task closed without an attempt that names a model, because such a task had no turn. `MetricsCodec` writes the member
+between `effort` and `form` as the non-empty array or the string `unmeasured`, reads both forms, refuses an empty array
+and requires the member. `format_version` stays 1, and no reader of an older row exists.
+
+The value carries no model of its own: `UsagePointers.readModel` produces the identifiers, and the row only records them.
+
+== Alternatives Considered
+
+An empty array for "no model reported" was rejected: it is indistinguishable from a programming error and violates the
+"unmeasured is never zero" rule the whole store follows.
+
+Defaulting the member to `unmeasured` in the builder was rejected: a row would then record a measurement that no caller
+took, silently, and a missing model would look like a measured absence.
+
+An optional `List<String>` component was rejected: absence in a record component is `@Nullable`, and the two states a
+list cannot express (`unmeasured` and "not yet decided") would collapse.
+
+== Consequences
+
+Every builder of a `MetricsRow` names the component: the store's own refused-row factory records `unmeasured`, the tests
+of `pm-core` and `pm-workflow` name it explicitly, and a row written without it is refused by the codec. A harness whose
+profile declares `model: null` changes no other column. The specification's row statement and
+`metrics.schema.json` now agree, and `MetricsSchemaParityTest` pins both the member and its shape.
+
+== Source
+
+PLAN-V2-135; `doc/specification/store-schemas/05-metrics-and-quality-report.adoc#metrics-store`;
+`doc/specification/harness-profiles/01-profile-schema.adoc#served-model`;
+`pm-core/src/main/resources/de/planmarshall/core/store/metrics.schema.json`.

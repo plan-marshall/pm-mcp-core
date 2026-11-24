@@ -272,6 +272,29 @@ refusal; `VerificationRecordTest` covers the record's start-context parse and it
 link:../adr/core-profile/007-usage-stage-start-context-and-coverage.adoc[ADR 007]: the usage stage records the start
 context and derives the usage coverage.
 
+== The Usage Model Pointer
+_Requirements: link:{docs}/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2], link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14]_
+
+`headless.usage` has eight members: the seven numeric figures of `ProfileStages.USAGE_FIGURES` and, beside them,
+`ProfileStages.MODEL` — the JSON Pointer to the model a line reports, or `null` where the harness reports none. The two
+constants are kept apart on purpose: `USAGE_FIGURES` stays the closed numeric list the stage `usage`, the turn's usage
+object (`ActivityEventMapper`) and the parsing fixtures read, so none of them can read a non-numeric value.
+
+`ProfileStages.USAGE_MEMBERS` is the whole block in schema order, and `ProfileValidator.usage` passes it as both the
+required and the allowed member set: a profile without `model` is refused with `the member 'model' of 'usage' is
+missing`, an unknown member is still refused, and the value is `null` or a JSON Pointer that starts with `/` and is at
+most 256 characters long — the same check as `output.result_pointer`. `not_applicable` is not a value of the member: a
+harness that does not report a model declares `null`. The stage `usage` keeps its closed result set of token figures and
+does not check `model`.
+
+`HarnessProfileSchemaParityTest` pins the remaining deviation, `headless.usage.accumulation` (PLAN-V2-147), and the
+profile fixture declares `model: null`. `ShippedUsageFixturesTest` asserts that every shipped profile declares the
+member; that assertion holds once the pm-mcp-clients profile change is deployed, because the profiles of the current
+`SNAPSHOT` predate it.
+
+link:../adr/core-profile/017-the-usage-model-pointer-sits-beside-the-figures.adoc[ADR 017]: the model pointer is a
+member beside the closed numeric figures, with its own stricter shape.
+
 == The Harness Scan, the Harness List and the Verification Gate
 _Requirements: link:{docs}/Requirements.adoc#PM-CLIENT-5[PM-CLIENT-5], link:{docs}/Requirements.adoc#PM-SEC-8[PM-SEC-8]_
 
