@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -75,14 +76,13 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
  * the audit record name and its detail keys are the specified contract; the project, the instants and the entry ids are
  * generated.
  * <p>
- * Two of the four reaches a faulted removal reports are reached here, one test each:
+ * Three of the four reaches a faulted removal reports are reached here, one test each:
  * {@link #faultBeforeTheCommitRollsBackTheStagedRemovals} reaches the staged arm, because the verification fails before
- * the commit is called, and {@link #auditSinkFaultInsideTheCommitLeavesTheRemovalOwed} reaches the owed arm, because the
- * sink throws inside the commit while its journal is durable. The committed and undecided arms stay untested here: the
- * committed arm has no seam, because the discard's two refusals are caught per entry, so nothing in this test base
- * faults after the commit returned, and the undecided arm would need the commit to fail before it writes the journal, or
- * after the journal is deleted and before it returns — an unwritable journal directory, or a directory force that fails
- * at the close; no test of this class induces either.
+ * the commit is called; {@link #auditSinkFaultInsideTheCommitLeavesTheRemovalOwed} reaches the owed arm, because the
+ * sink throws inside the commit while its journal is durable; and
+ * {@link #aCommitThatCannotWriteItsJournalLeavesTheReachUndecided} reaches the undecided arm, because a workspace journal
+ * directory without write permission refuses the journal before it exists. The committed arm stays untested: the
+ * discard's two refusals are caught per entry, so nothing in this test base faults after the commit returned.
  */
 @EnableGeneratorController
 @DisplayName("Pending entry records sweep")
@@ -627,6 +627,39 @@ class PendingEntryRecordsSweepTest {
                 () -> assertFalse(Files.exists(workspace.journalFile()), "the journal must be closed"),
                 () -> assertEquals(2, removals.size(),
                         "the replayed record and the next run's must both be owed"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a commit whose journal cannot be written may have been committed, and the next run re-judges the directory")
+    void aCommitThatCannotWriteItsJournalLeavesTheReachUndecided() throws Exception {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        var journalDirectory = workspace.journalFile().getParent();
+        Files.setPosixFilePermissions(journalDirectory,
+                Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
+        assumeFalse(Files.isWritable(journalDirectory), "a journal directory without write permission");
+
+        var outcome = sweep.run(projectId, now);
+        Files.setPosixFilePermissions(journalDirectory,
+                Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE,
+                        PosixFilePermission.OWNER_EXECUTE));
+
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "an unwritable journal fails the step").reason();
+        assertAll(
+                () -> assertTrue(reason.startsWith("pending entry directories not swept: "),
+                        "the report must say that nothing was swept"),
+                () -> assertTrue(reason.contains("the removals of [" + residue.value() + "]"),
+                        "the report must name the removal it staged"),
+                () -> assertTrue(reason.contains("may have been committed"),
+                        "the report must say the commit may have applied"),
+                () -> assertTrue(reason.contains("no journal of it is present"),
+                        "the report must name the absent journal"),
+                () -> assertTrue(reason.contains("re-judges their directories"),
+                        "the report must say the next run re-judges the directory"),
+                () -> assertFalse(Files.exists(workspace.journalFile()), "no journal may be written"),
+                () -> assertTrue(Files.isDirectory(store.entryDirectory(residue)),
+                        "the directory must stay for the next run"));
     }
 
     @Test
