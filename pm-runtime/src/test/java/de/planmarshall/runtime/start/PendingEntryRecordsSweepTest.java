@@ -47,6 +47,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.easymock.Capture;
 import org.easymock.CaptureType;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -81,8 +82,10 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
  * generated.
  * <p>
  * Three of the four reaches a faulted removal reports are reached here:
- * {@link #faultBeforeTheCommitRollsBackTheStagedRemovals} reaches the staged arm, because the verification fails before
- * the commit is called; {@link #auditSinkFaultInsideTheCommitLeavesTheRemovalOwed} reaches the owed arm, because the
+ * {@link #faultBeforeTheCommitRollsBackTheStagedRemovals} and {@link #aFirstFaultWithoutAMessageIsNamedByItsType} reach
+ * the staged arm, because the fault strikes before the commit is called — once from the verification, once from the
+ * lock's acquisition with an exception that carries no message;
+ * {@link #auditSinkFaultInsideTheCommitLeavesTheRemovalOwed} reaches the owed arm, because the
  * sink throws inside the commit while its journal is durable; and
  * {@link #aCommitThatCannotWriteItsJournalLeavesTheReachUndecided} and
  * {@link #aFaultedLockReleaseKeepsTheFirstFaultsReach} reach the undecided arm, because a workspace journal directory
@@ -701,25 +704,12 @@ class PendingEntryRecordsSweepTest {
 
             var delegate = lockManager.openTransaction();
             try {
-                LockTransaction guarded = createMock(LockTransaction.class);
-                guarded.acquire(anyObject(LockKey.class));
-                expectLastCall().andAnswer(() -> {
-                    delegate.acquire((LockKey) getCurrentArguments()[0]);
-                    return null;
-                }).anyTimes();
-                expect(guarded.holds(anyObject(LockKey.class)))
-                        .andAnswer(() -> delegate.holds((LockKey) getCurrentArguments()[0])).anyTimes();
-                guarded.close();
-                expectLastCall().andAnswer(() -> {
-                    anotherWriterLeavesAJournal(delegate, journalDirectory);
+                var guarded = guardedLock(delegate, null, d -> {
+                    anotherWriterLeavesAJournal(d, journalDirectory);
                     throw new IllegalStateException(releaseFault);
                 });
-                replay(guarded);
-                LockManager guardedManager = createMock(LockManager.class);
-                expect(guardedManager.openTransaction()).andReturn(guarded);
-                replay(guardedManager);
 
-                var outcome = new PendingEntryRecordsSweep(base, guardedManager, auditSink, clock).run(projectId, now);
+                var outcome = new PendingEntryRecordsSweep(base, guarded.manager(), auditSink, clock).run(projectId, now);
 
                 var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a release fault fails the step").reason();
                 assertAll(
@@ -733,8 +723,8 @@ class PendingEntryRecordsSweepTest {
                                 "the undecided reach must survive the release"),
                         () -> assertFalse(reason.contains("completed by the recovery"),
                                 "another writer's journal must not turn it owed"));
-                verify(guarded);
-                verify(guardedManager);
+                verify(guarded.transaction());
+                verify(guarded.manager());
             } finally {
                 delegate.close();
             }
@@ -763,33 +753,21 @@ class PendingEntryRecordsSweepTest {
 
             var delegate = lockManager.openTransaction();
             try {
-                LockTransaction guarded = createMock(LockTransaction.class);
-                guarded.acquire(anyObject(LockKey.class));
-                expectLastCall().andAnswer(() -> {
-                    delegate.acquire((LockKey) getCurrentArguments()[0]);
-                    return null;
-                }).anyTimes();
-                expect(guarded.holds(anyObject(LockKey.class)))
-                        .andAnswer(() -> delegate.holds((LockKey) getCurrentArguments()[0])).anyTimes();
-                guarded.close();
-                expectLastCall().andThrow(new IllegalStateException());
-                replay(guarded);
-                LockManager guardedManager = createMock(LockManager.class);
-                expect(guardedManager.openTransaction()).andReturn(guarded);
-                replay(guardedManager);
+                var guarded = guardedLock(delegate, null, d -> {
+                    throw new IllegalStateException();
+                });
 
-                var outcome = new PendingEntryRecordsSweep(base, guardedManager, auditSink, clock).run(projectId, now);
+                var outcome = new PendingEntryRecordsSweep(base, guarded.manager(), auditSink, clock).run(projectId, now);
 
                 var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a release fault fails the step").reason();
                 assertAll(
-                        () -> assertTrue(reason.contains("the lock's release failed: IllegalStateException"),
+                        () -> assertTrue(
+                                reason.contains("; the lock's release failed: IllegalStateException with no message"),
                                 "the release fault is named by its type"),
-                        () -> assertFalse(reason.contains("null"),
-                                "no null message is printed in the report"),
                         () -> assertTrue(reason.contains("may have been committed"),
                                 "the undecided reach must survive the release"));
-                verify(guarded);
-                verify(guardedManager);
+                verify(guarded.transaction());
+                verify(guarded.manager());
             } finally {
                 delegate.close();
             }
@@ -805,6 +783,83 @@ class PendingEntryRecordsSweepTest {
                 PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
         Files.writeString(workspace.journalFile(), "{}", StandardCharsets.UTF_8);
         delegate.close();
+    }
+
+    /**
+     * A lock stand-in over the real manager: its transaction is a mock that reaches {@code delegate} for every
+     * acquisition and probe, so the real file lock is held, and runs the given release instead of the delegate's own
+     * close. A test injects the fault of the acquisition where it needs a first fault that strikes before the commit.
+     *
+     * @param delegate     the transaction of the real manager, which every acquisition and probe reaches
+     * @param acquireFault the fault the guarded acquisition throws; {@code null} to reach the delegate
+     * @param release      what the guarded close runs instead of the delegate's close; {@code null} to end the mock
+     * @return the transaction mock a test verifies and the manager the sweep is built on
+     */
+    private GuardedLock guardedLock(LockTransaction delegate, @Nullable RuntimeException acquireFault,
+            @Nullable Release release) {
+        LockTransaction guarded = createMock(LockTransaction.class);
+        guarded.acquire(anyObject(LockKey.class));
+        expectLastCall().andAnswer(() -> {
+            if (acquireFault != null) {
+                throw acquireFault;
+            }
+            delegate.acquire((LockKey) getCurrentArguments()[0]);
+            return null;
+        }).anyTimes();
+        expect(guarded.holds(anyObject(LockKey.class)))
+                .andAnswer(() -> delegate.holds((LockKey) getCurrentArguments()[0])).anyTimes();
+        guarded.close();
+        expectLastCall().andAnswer(() -> {
+            if (release != null) {
+                release.run(delegate);
+            }
+            return null;
+        });
+        replay(guarded);
+        LockManager manager = createMock(LockManager.class);
+        expect(manager.openTransaction()).andReturn(guarded);
+        replay(manager);
+        return new GuardedLock(guarded, manager);
+    }
+
+    /** The guarded lock of {@link #guardedLock}: the transaction mock a test verifies and the manager that hands it out. */
+    private record GuardedLock(LockTransaction transaction, LockManager manager) {
+    }
+
+    /** What a guarded close runs instead of the delegate's close; it may raise the release fault. */
+    @FunctionalInterface
+    private interface Release {
+
+        /**
+         * @param delegate the transaction of the real manager the release runs on
+         * @throws IOException if the journal another writer leaves cannot be written
+         */
+        void run(LockTransaction delegate) throws IOException;
+    }
+
+    @Test
+    @DisplayName("a first fault that throws without a message is named by its type, never printed as null")
+    void aFirstFaultWithoutAMessageIsNamedByItsType() {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        var delegate = lockManager.openTransaction();
+        try {
+            var guarded = guardedLock(delegate, new IllegalStateException(), null);
+
+            var outcome = new PendingEntryRecordsSweep(base, guarded.manager(), auditSink, clock).run(projectId, now);
+
+            var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a fault without message fails the step")
+                    .reason();
+            assertAll(
+                    () -> assertEquals("pending entry directories not swept: IllegalStateException with no message",
+                            reason, "the first fault is named by its type"),
+                    () -> assertTrue(Files.isDirectory(store.entryDirectory(residue)),
+                            "the residue directory must stay for the next run"));
+            verify(guarded.transaction());
+            verify(guarded.manager());
+        } finally {
+            delegate.close();
+        }
     }
 
     @Test
