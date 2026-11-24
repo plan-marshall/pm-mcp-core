@@ -50,12 +50,17 @@ Periodic Sweep]).
   the phase the removal had reached and, while the commit was entered, from the workspace's journal — never from the
   fault's type (amended 2026-11-23 by `PLAN-V2-178`, which made the report carry this state). The discard's two
   refusals are caught per entry, so only a fault outside them reaches the committed arm, and a fault of the lock's own
-  release carries the same state, because it is kept outside the lock transaction. A test reaches the staged arm
+  release carries the same state, because it is kept outside the lock transaction. A fault of that release beside a
+  fault the attempt had already built keeps that fault's message, entries and reach and reports the release fault
+  beside it (amended 2026-11-24 by `PLAN-V2-181`): the release comes after another writer may have left the workspace's
+  journal, so re-reading the journal after it would turn an undecided removal into one the report calls owed. A test
+  reaches the staged arm
   (`PendingEntryRecordsSweepTest.faultBeforeTheCommitRollsBackTheStagedRemovals`), the owed arm
   (`PendingEntryRecordsSweepTest.auditSinkFaultInsideTheCommitLeavesTheRemovalOwed`, an audit sink that throws inside
   the commit) and the undecided arm (`PendingEntryRecordsSweepTest.aCommitThatCannotWriteItsJournalLeavesTheReachUndecided`,
-  a workspace journal directory that refuses the write); the committed arm has no seam — the discard's two refusals are
-  caught per entry — so it stays untested, as the test class's Javadoc states.
+  a workspace journal directory that refuses the write, and `PendingEntryRecordsSweepTest.aFaultedLockReleaseKeepsTheFirstFaultsReach`,
+  the same refusal beside a lock whose release faults after another writer left a journal); the committed arm has no
+  seam — the discard's two refusals are caught per entry — so it stays untested, as the test class's Javadoc states.
 * An entry whose record cannot be read is kept and reported as a failure of the step, so a tampered entry is held for
   its operator instead of being swept.
 * The log record `PM_RUNTIME-23` (`PENDING_ENTRY_RECORDS_SWEPT`) is retired, and the sweep owes the audit record

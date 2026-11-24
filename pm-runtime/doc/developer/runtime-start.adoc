@@ -136,11 +136,15 @@ sweeps both.
   directories; or committed once the transaction's commit returned, so the removals are applied and only the
   directories remain. The discard's two refusals are caught per entry, so only a fault outside them reaches the
   committed arm, and a fault of the lock's own release carries the same state, because the state is kept outside the
-  lock transaction. A test reaches the staged arm
+  lock transaction. The reach and the message of a fault the attempt had already built are then kept, and the release
+  fault is reported beside them: the release comes after another writer may have left the workspace's journal, so
+  re-reading the journal after it would call an undecided removal owed. A test reaches the staged arm
   (`PendingEntryRecordsSweepTest.faultBeforeTheCommitRollsBackTheStagedRemovals`), the owed arm
   (`PendingEntryRecordsSweepTest.auditSinkFaultInsideTheCommitLeavesTheRemovalOwed`) and the undecided arm
-  (`PendingEntryRecordsSweepTest.aCommitThatCannotWriteItsJournalLeavesTheReachUndecided`); the committed arm has no
-  seam — the discard's two refusals are caught per entry — so it stays untested, as the test class's Javadoc states.
+  (`PendingEntryRecordsSweepTest.aCommitThatCannotWriteItsJournalLeavesTheReachUndecided`, and
+  `PendingEntryRecordsSweepTest.aFaultedLockReleaseKeepsTheFirstFaultsReach` for the release fault beside it); the
+  committed arm has no seam — the discard's two refusals are caught per entry — so it stays untested, as the test
+  class's Javadoc states.
 * All removals of a run are one transaction, committed only if a directory is removed. A stopped removal is completed
   by the recovery of the workspace, which hands the owed records over again.
 * A workspace whose journal still waits for its recovery cannot be written: the step fails and removes nothing.
@@ -628,7 +632,8 @@ the other residue is still removed, only the symbolic-link refusal holding an en
 refused after the commit named as kept and not counted as removed, a workspace journal still to recover reported as a
 failure with the unreadable entries the listing collected and nothing removed, a fault after the commit reported with
 the removal it had staged and completed by the next run, a fault before the commit reported with the removals it rolled
-back, and two directories removed in one run owing two records with two distinct `transaction_id` values.
+back, a fault of the lock's own release that keeps the first fault's message and undecided reach beside it, and two
+directories removed in one run owing two records with two distinct `transaction_id` values.
 link:{test}/PeriodicSweepKilledRuntimeIT.java[`PeriodicSweepKilledRuntimeIT`]:: A runtime child killed with `SIGKILL`
 inside the real `PendingEntryRecordsSweep`, after its removal transaction applied and recorded its stores and while its
 owed audit record is handed over; the next instance completes the workspace journal and removes the directory the killed

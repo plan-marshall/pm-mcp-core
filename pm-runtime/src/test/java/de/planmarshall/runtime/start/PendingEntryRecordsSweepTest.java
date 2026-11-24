@@ -11,6 +11,7 @@ package de.planmarshall.runtime.start;
 
 import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
 import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.getCurrentArguments;
 import static org.easymock.EasyMock.newCapture;
@@ -55,8 +56,11 @@ import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
+import de.planmarshall.core.service.LockManager;
+import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScope;
+import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.PendingEntryCodec;
 import de.planmarshall.core.store.PendingEntryCreation;
 import de.planmarshall.core.store.PendingEntryRecord;
@@ -76,12 +80,14 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
  * the audit record name and its detail keys are the specified contract; the project, the instants and the entry ids are
  * generated.
  * <p>
- * Three of the four reaches a faulted removal reports are reached here, one test each:
+ * Three of the four reaches a faulted removal reports are reached here:
  * {@link #faultBeforeTheCommitRollsBackTheStagedRemovals} reaches the staged arm, because the verification fails before
  * the commit is called; {@link #auditSinkFaultInsideTheCommitLeavesTheRemovalOwed} reaches the owed arm, because the
  * sink throws inside the commit while its journal is durable; and
- * {@link #aCommitThatCannotWriteItsJournalLeavesTheReachUndecided} reaches the undecided arm, because a workspace journal
- * directory without write permission refuses the journal before it exists. The committed arm stays untested: the
+ * {@link #aCommitThatCannotWriteItsJournalLeavesTheReachUndecided} and
+ * {@link #aFaultedLockReleaseKeepsTheFirstFaultsReach} reach the undecided arm, because a workspace journal directory
+ * without write permission refuses the journal before it exists — once with the attempt's own fault and once with a
+ * fault of the lock's release beside a journal another writer left. The committed arm stays untested: the
  * discard's two refusals are caught per entry, so nothing in this test base faults after the commit returned.
  */
 @EnableGeneratorController
@@ -93,6 +99,9 @@ class PendingEntryRecordsSweepTest {
 
     /** Fixture: the refusal of the audit sink that stops a run after its removal transaction. */
     private static final String AUDIT_FAULT = "the audit record cannot be appended";
+
+    /** Fixture: the fault of the lock's own release, raised after the removal's own fault. */
+    private static final String RELEASE_FAULT = "the workspace lock cannot be released";
 
     @TempDir
     Path base;
@@ -629,6 +638,12 @@ class PendingEntryRecordsSweepTest {
                         "the replayed record and the next run's must both be owed"));
     }
 
+    /**
+     * The undecided arm: the commit is entered and the journal directory refuses its write, so no journal of it is
+     * present. A root runner is not refused by the permission and the test skips there; no test can provoke the
+     * undecided report text as root then, so a non-root runner is what covers it. The directory's permission is
+     * restored in a {@code finally}, so an abort or an uncaught throw after the change cannot leave it unwritable.
+     */
     @Test
     @EnabledOnOs({OS.LINUX, OS.MAC})
     @DisplayName("a commit whose journal cannot be written may have been committed, and the next run re-judges the directory")
@@ -636,30 +651,100 @@ class PendingEntryRecordsSweepTest {
         create(entry(residue, now));
         cutOffRemoval(residue);
         var journalDirectory = workspace.journalFile().getParent();
-        Files.setPosixFilePermissions(journalDirectory,
-                Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
-        assumeFalse(Files.isWritable(journalDirectory), "a journal directory without write permission");
+        try {
+            Files.setPosixFilePermissions(journalDirectory,
+                    Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
+            assumeFalse(Files.isWritable(journalDirectory), "a journal directory without write permission");
 
-        var outcome = sweep.run(projectId, now);
-        Files.setPosixFilePermissions(journalDirectory,
-                Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE,
-                        PosixFilePermission.OWNER_EXECUTE));
+            var outcome = sweep.run(projectId, now);
 
-        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "an unwritable journal fails the step").reason();
-        assertAll(
-                () -> assertTrue(reason.startsWith("pending entry directories not swept: "),
-                        "the report must say that nothing was swept"),
-                () -> assertTrue(reason.contains("the removals of [" + residue.value() + "]"),
-                        "the report must name the removal it staged"),
-                () -> assertTrue(reason.contains("may have been committed"),
-                        "the report must say the commit may have applied"),
-                () -> assertTrue(reason.contains("no journal of it is present"),
-                        "the report must name the absent journal"),
-                () -> assertTrue(reason.contains("re-judges their directories"),
-                        "the report must say the next run re-judges the directory"),
-                () -> assertFalse(Files.exists(workspace.journalFile()), "no journal may be written"),
-                () -> assertTrue(Files.isDirectory(store.entryDirectory(residue)),
-                        "the directory must stay for the next run"));
+            var reason = assertInstanceOf(Outcome.Failed.class, outcome, "an unwritable journal fails the step").reason();
+            assertAll(
+                    () -> assertTrue(reason.startsWith("pending entry directories not swept: "),
+                            "the report must say that nothing was swept"),
+                    () -> assertTrue(reason.contains("cannot be written"),
+                            "the refused journal write is the cause"),
+                    () -> assertTrue(reason.contains("the removals of [" + residue.value() + "]"),
+                            "the report must name the removal it staged"),
+                    () -> assertTrue(reason.contains("may have been committed"),
+                            "the report must say the commit may have applied"),
+                    () -> assertTrue(reason.contains("no journal of it is present"),
+                            "the report must name the absent journal"),
+                    () -> assertTrue(reason.contains("re-judges their directories"),
+                            "the report must say the next run re-judges the directory"),
+                    () -> assertFalse(Files.exists(workspace.journalFile()), "no journal may be written"),
+                    () -> assertTrue(Files.isDirectory(store.entryDirectory(residue)),
+                            "the directory must stay for the next run"));
+        } finally {
+            Files.setPosixFilePermissions(journalDirectory, Set.of(PosixFilePermission.OWNER_READ,
+                    PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
+        }
+    }
+
+    /**
+     * A fault of the lock's own release beside a fault the attempt had already built: the attempt's reach and message
+     * stay, and the release fault is reported beside them — the release comes after another writer may have left a
+     * journal of its own, so reading the reach again there would turn an undecided removal into an owed one. A root
+     * runner is not refused by the permission and the test skips there.
+     */
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a faulted lock release keeps the first fault's undecided reach and reports itself beside it")
+    void aFaultedLockReleaseKeepsTheFirstFaultsReach() throws Exception {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        var journalDirectory = workspace.journalFile().getParent();
+        var delegate = lockManager.openTransaction();
+        LockTransaction guarded = createMock(LockTransaction.class);
+        guarded.acquire(anyObject(LockKey.class));
+        expectLastCall().andAnswer(() -> {
+            delegate.acquire((LockKey) getCurrentArguments()[0]);
+            return null;
+        }).anyTimes();
+        expect(guarded.holds(anyObject(LockKey.class)))
+                .andAnswer(() -> delegate.holds((LockKey) getCurrentArguments()[0])).anyTimes();
+        guarded.close();
+        expectLastCall().andAnswer(() -> {
+            anotherWriterLeavesAJournal(delegate, journalDirectory);
+            throw new IllegalStateException(RELEASE_FAULT);
+        });
+        replay(guarded);
+        LockManager guardedManager = createMock(LockManager.class);
+        expect(guardedManager.openTransaction()).andReturn(guarded);
+        replay(guardedManager);
+        try {
+            Files.setPosixFilePermissions(journalDirectory,
+                    Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
+            assumeFalse(Files.isWritable(journalDirectory), "a journal directory without write permission");
+
+            var outcome = new PendingEntryRecordsSweep(base, guardedManager, auditSink, clock).run(projectId, now);
+
+            var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a release fault fails the step").reason();
+            assertAll(
+                    () -> assertTrue(reason.startsWith(
+                                    "pending entry directories not swept: Store cannot be written: "),
+                            "the first fault's message must survive the release"),
+                    () -> assertTrue(reason.contains(workspace.journalFile() + "; the lock's release failed: "
+                                    + RELEASE_FAULT),
+                            "the release fault is reported beside it"),
+                    () -> assertTrue(reason.contains("may have been committed"),
+                            "the undecided reach must survive the release"),
+                    () -> assertFalse(reason.contains("completed by the recovery"),
+                            "another writer's journal must not turn it owed"));
+            verify(guarded);
+            verify(guardedManager);
+        } finally {
+            Files.setPosixFilePermissions(journalDirectory, Set.of(PosixFilePermission.OWNER_READ,
+                    PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
+        }
+    }
+
+    /** A writer outside the run leaves its journal between the attempt and the release of the lock. */
+    private void anotherWriterLeavesAJournal(LockTransaction delegate, Path journalDirectory) throws IOException {
+        Files.setPosixFilePermissions(journalDirectory, Set.of(PosixFilePermission.OWNER_READ,
+                PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
+        Files.writeString(workspace.journalFile(), "{}", StandardCharsets.UTF_8);
+        delegate.close();
     }
 
     @Test
