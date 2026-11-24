@@ -12,8 +12,11 @@ package de.planmarshall.core.store;
 import static de.planmarshall.core.store.QuestionRecordCodecTest.text;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParser;
@@ -22,6 +25,7 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.reflect.RecordComponent;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,10 +33,12 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -50,7 +56,9 @@ import de.planmarshall.core.store.RetryCounters.RetryRule;
  * {@link WorkflowStatus#PHASES} are the values of the schema's {@code phase} enum, and the scope types of
  * {@link JournalScopeType} the status can carry are the values of its {@code scope_type} enum, and the members, the
  * required members and the closed values of a {@link WaiverRequest} are those of the schema of the waiver request
- * record (PM-SEC-3). A member, key or value
+ * record (PM-SEC-3), the grammar of the two commit caps — the pattern of both digests, the maximum of both counters and
+ * the frame id rule — and the grammar of the freshness stamp with its {@code const} hash version are the schema's, so a
+ * record that refuses less than its pattern declares fails here as well. A member, key or value
  * added to or removed from the schema without the code fails here instead of being refused or accepted unseen at run
  * time. The schemas are the files {@code de/planmarshall/core/store/status.schema.json} and
  * {@code de/planmarshall/core/store/waiver-request.schema.json} beside the codec, read from the class path.
@@ -99,33 +107,74 @@ class WorkflowStatusSchemaParityTest {
     }
 
     @Test
-    @DisplayName("the commit attempt caps are the schema's two closed counters")
+    @DisplayName("the commit attempt caps are the schema's two closed counters, grammar and maximum")
     void commitAttemptCapsEqualSchema() {
         var caps = SchemaResource.object(properties.get("commit_attempt_caps"));
         var counters = SchemaResource.object(caps.get("properties"));
-        var changeSet = SchemaResource.object(counters.get("change_set"));
-        var frame = SchemaResource.object(counters.get("frame"));
+        var changeSet = SchemaResource.object(SchemaResource.object(counters.get("change_set")).get("properties"));
+        var frame = SchemaResource.object(SchemaResource.object(counters.get("frame")).get("properties"));
+        var tree = hex(40);
+        var digest = hex(64);
 
         assertAll(
                 () -> assertEquals(Set.of("change_set", "frame"), counters.keySet(),
                         "the caps should hold the two counters"),
-                () -> assertEquals(Set.of("staged_tree", "message_digest", "attempts"),
-                        SchemaResource.object(changeSet.get("properties")).keySet(),
+                () -> assertEquals(Set.of("staged_tree", "message_digest", "attempts"), changeSet.keySet(),
                         "the change set should name its three members"),
-                () -> assertEquals(Set.of("frame_id", "tasks"),
-                        SchemaResource.object(frame.get("properties")).keySet(),
-                        "the frame should name its two members"));
+                () -> assertEquals(Set.of("frame_id", "tasks"), frame.keySet(),
+                        "the frame should name its two members"),
+                () -> assertEquals(CommitAttemptCaps.CAP, maximum(changeSet.get("attempts")),
+                        "the schema maximum is the compiled change-set cap"),
+                () -> assertEquals(CommitAttemptCaps.CAP, maximum(frame.get("tasks")),
+                        "the schema maximum is the compiled frame cap"),
+                () -> assertDoesNotThrow(() -> new CommitAttemptCaps.ChangeSet(tree, digest, 1),
+                        "the record admits a change set the schema admits"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new CommitAttemptCaps.ChangeSet(tree + "0", digest, 1),
+                        "the record refuses a tree outside the schema's pattern"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new CommitAttemptCaps.ChangeSet(tree, digest.substring(1), 1),
+                        "the record refuses a message digest outside the pattern"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> new CommitAttemptCaps.ChangeSet(tree, digest, CommitAttemptCaps.CAP + 1),
+                        "the record refuses an attempt count above the maximum"),
+                () -> assertFalse(pattern(frame.get("frame_id")).matcher(" ").find(),
+                        "the schema's frame id pattern refuses white space"),
+                () -> assertThrows(IllegalArgumentException.class, () -> new CommitAttemptCaps.Frame(" ", 1),
+                        "the record refuses a frame id the schema refuses"));
     }
 
     @Test
-    @DisplayName("the freshness reconcile members are the schema's required members")
+    @DisplayName("the freshness reconcile members, patterns and const are the record's")
     void freshnessReconcileMembersEqualSchema() {
         var member = SchemaResource.object(properties.get(FRESHNESS_RECONCILE));
+        var declared = SchemaResource.object(member.get("properties"));
         var required = SchemaResource.array(member.get("required")).stream().map(String::valueOf)
                 .collect(Collectors.toUnmodifiableSet());
+        var stamp = stamp(hex(40), hex(64));
 
-        assertEquals(Set.of("commit_sha", "step_id", "prior_build_worktree_sha", "worktree_sha_version",
-                "recorded_at"), required, "the freshness stamp should name the schema's members");
+        assertAll(
+                () -> assertFalse(required.isEmpty(), "the schema names the required members"),
+                () -> assertEquals(members(), required, "the stamp's members should be the schema's required ones"),
+                () -> assertEquals(FreshnessReconcile.WORKTREE_SHA_VERSION, constant(declared, "worktree_sha_version"),
+                        "the schema const is the record's hash version"),
+                () -> assertTrue(pattern(declared.get("commit_sha")).matcher(stamp.commitSha()).find(),
+                        "the record's commit sha is the schema's pattern"),
+                () -> assertTrue(pattern(declared.get("step_id")).matcher(stamp.stepId()).find(),
+                        "the record's step id is the schema's pattern"),
+                () -> assertTrue(pattern(declared.get("prior_build_worktree_sha"))
+                        .matcher(stamp.priorBuildWorktreeSha()).find(),
+                        "the record's prior digest is the schema's pattern"),
+                () -> assertThrows(IllegalArgumentException.class, () -> stamp(hex(39), hex(64)),
+                        "the record refuses a commit sha outside the pattern"),
+                () -> assertThrows(IllegalArgumentException.class, () -> stamp(hex(40), hex(63)),
+                        "the record refuses a prior digest outside the pattern"),
+                () -> assertThrows(IllegalArgumentException.class, () -> FreshnessReconcile.builder()
+                        .commitSha(stamp.commitSha()).stepId("default:UPPER")
+                        .priorBuildWorktreeSha(stamp.priorBuildWorktreeSha())
+                        .worktreeShaVersion(FreshnessReconcile.WORKTREE_SHA_VERSION)
+                        .recordedAt(stamp.recordedAt()).build(),
+                        "the record refuses a step id the schema refuses"));
     }
 
     @Test
@@ -387,5 +436,41 @@ class WorkflowStatusSchemaParityTest {
 
     private static Set<String> wireNames() {
         return Arrays.stream(RetryRule.values()).map(RetryRule::wireName).collect(Collectors.toUnmodifiableSet());
+    }
+
+    /** A digest of the wire contract's length: the grammar the schema's pattern admits. */
+    private static String hex(int length) {
+        var text = new StringBuilder(length);
+        for (var index = 0; index < length; index++) {
+            text.append(Character.forDigit(Generators.integers(0, 15).next(), 16));
+        }
+        return text.toString();
+    }
+
+    private static Pattern pattern(Object declaration) {
+        return Pattern.compile(String.valueOf(SchemaResource.object(declaration).get("pattern")));
+    }
+
+    private static int maximum(Object declaration) {
+        return ((Number) SchemaResource.object(declaration).get("maximum")).intValue();
+    }
+
+    private static int constant(Map<?, ?> declared, String member) {
+        return ((Number) SchemaResource.object(declared.get(member)).get("const")).intValue();
+    }
+
+    /** The members of the stamp record in their wire spelling, so the schema's required list is compared with it. */
+    private static Set<String> members() {
+        return Arrays.stream(FreshnessReconcile.class.getRecordComponents())
+                .map(component -> component.getName().replaceAll("([A-Z])", "_$1").toLowerCase(Locale.ROOT))
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private static FreshnessReconcile stamp(String commitSha, String priorBuildWorktreeSha) {
+        return FreshnessReconcile.builder().commitSha(commitSha)
+                .stepId("default:" + Generators.letterStrings(1, 8).next().toLowerCase())
+                .priorBuildWorktreeSha(priorBuildWorktreeSha)
+                .worktreeShaVersion(FreshnessReconcile.WORKTREE_SHA_VERSION)
+                .recordedAt(Instant.ofEpochSecond(Generators.longs(0, 4_000_000_000L).next())).build();
     }
 }

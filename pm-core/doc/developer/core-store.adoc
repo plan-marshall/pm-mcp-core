@@ -333,11 +333,17 @@ The persisted value is data only, `CommitAttemptCaps` in this package; the trans
 `CommitAttemptCounter` of this package, beside the value, so the engine may reach them without depending on the
 provider that runs the commit:
 `failedCommitAttempt(stagedTree, messageDigest)` and `fixTask(frameId)` each answer a new counter, and
-`changeSetCapSpent()`, `frameCapSpent()` and `exhausted()` read the caps. Counting above a spent cap keeps it spent.
+`changeSetCapSpent()` and `frameCapSpent()` read the cap each is counted on. Both are read at the one event the state
+catalogue's guard names — the `hook_failed` outcome of `git.stage-and-commit` — where either spent cap answers
+`attempts_exhausted`, and at no other point: the frame cap is spent after the third `git.commit-fix` task, but the loop
+ends at the next failed commit attempt, never between a task and the attempt that follows it, and no combined predicate
+answers "the loop is over" for a caller that has not just observed a hook failure. Counting above a spent cap keeps it
+spent.
 
 Tested by `CommitAttemptCapsTest` (the empty value, the cap, the grammar of both counters) and
-`CommitAttemptCounterTest` (three attempts spend the change set, a changed tree or message resets it, three tasks
-spend the frame, and the PM-WATCH-DSL-28 hazard: a changed tree still ends the loop through the frame cap).
+`CommitAttemptCounterTest` (three attempts spend the change set, a changed tree — alone or beside a changed message — or
+a changed message resets it, three tasks spend the frame, and the PM-WATCH-DSL-28 hazard: a changed tree still ends the
+loop through the frame cap).
 
 [#_freshness_reconcile]
 == The Freshness Reconcile Stamp
@@ -357,11 +363,12 @@ Finalize Commit Instrumentation, item 3; ADR 089). It is `null` when no such sta
 |`recorded_at` |the instant the stamp was recorded
 |===
 
-`FreshnessReconcile` is the typed value; the record requires all five members, so a stamp is never written when no
-successful build exists. `WorkflowStatusCodec` reads and writes it like the other typed members: a malformed digest or
-step id is a `StoreRefusal` naming the member. The reader side, the `git.pre-commit-verify-freshness` verb, consumes the
-stamp when the engine wires it. Tested by `FreshnessReconcileTest` (the grammar of every member and its hash version)
-and `WorkflowStatusCodecTest` (the round trip, and the byte-for-byte write of a document that carries the stamp).
+`FreshnessReconcile` is the typed value. The record enforces the grammar of the five members and only that a digest is
+present: a constructor cannot see a build, so the writer `git.commit_and_push` must confirm a successful build exists
+before it writes the stamp (ADR 089). `WorkflowStatusCodec` reads and writes it like the other typed members: a malformed
+digest or step id is a `StoreRefusal` naming the member. The reader side, the `git.pre-commit-verify-freshness` verb,
+consumes the stamp when the engine wires it. Tested by `FreshnessReconcileTest` (the grammar of every member and its hash
+version) and `WorkflowStatusCodecTest` (the round trip, and the byte-for-byte write of a document that carries the stamp).
 
 [#_delete_mode]
 == The Delete Mode of the Transaction Journal

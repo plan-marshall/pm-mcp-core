@@ -24,6 +24,12 @@ import org.jspecify.annotations.Nullable;
  * new call. Whichever is spent first ends the loop, so a fix that changes the staged tree resets the change-set
  * counter without keeping the loop alive (PM-WATCH-DSL-28).
  * <p>
+ * The two predicates are read together at the one event the guard of the state catalogue names — the {@code hook_failed}
+ * outcome of {@code git.stage-and-commit} ({@link #changeSetSpent()}, {@link #frameSpent()}) — and at no other point.
+ * The frame cap is spent after the third {@code git.commit-fix} task, but the loop ends at the next failed commit
+ * attempt, never between a task and the attempt that follows it: no combined predicate answers "the loop is over" for a
+ * caller that has not just observed a hook failure.
+ * <p>
  * The value is immutable and holds data only; the transitions live in the pure class {@code CommitAttemptCounter} of
  * this package, so both the engine and the assembly may count through it.
  *
@@ -96,13 +102,6 @@ public record CommitAttemptCaps(@Nullable ChangeSet changeSet, @Nullable Frame f
     /** @return the caps of a state that has neither failed a commit nor run a fix task */
     public static CommitAttemptCaps empty() {
         return new CommitAttemptCaps(null, null);
-    }
-
-    /**
-     * @return whether either cap is spent, which ends the {@code git.commit-fix} loop
-     */
-    public boolean exhausted() {
-        return changeSetSpent() || frameSpent();
     }
 
     /**

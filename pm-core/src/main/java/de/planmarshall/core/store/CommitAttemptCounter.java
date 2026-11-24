@@ -24,6 +24,14 @@ import de.planmarshall.core.store.CommitAttemptCaps.Frame;
  * which is the spec's own reset rule and why a fix that changes the staged tree never keeps the loop alive on its own
  * (PM-WATCH-DSL-28) — the frame counter does, and a new call frame resets that one.
  * <p>
+ * Both caps are read at the one event the state catalogue's guard names, the {@code hook_failed} outcome of
+ * {@code git.stage-and-commit}: {@link #changeSetCapSpent()} says the identical staged change set has spent its three
+ * failed attempts and {@link #frameCapSpent()} says the call frame has spent its three {@code git.commit-fix} tasks, and
+ * either being spent answers {@code attempts_exhausted}. No predicate is read between a {@code git.commit-fix} task and
+ * the commit attempt that follows it, so the frame cap being spent after the third task never ends the loop before the
+ * fourth attempt runs; a caller never asks "is the loop over" at another point, and the counter carries no combined
+ * predicate that would answer it.
+ * <p>
  * The class lives beside the value in this package, not in the provider that runs the commit: both the engine and the
  * assembly may count through it, and the engine may depend on this package alone.
  *
@@ -95,13 +103,6 @@ public final class CommitAttemptCounter {
     /** @return whether the frame cap is spent at the counted call frame */
     public boolean frameCapSpent() {
         return caps.frameSpent();
-    }
-
-    /**
-     * @return whether either cap is spent, so no further commit attempt or fix task is admitted in this frame
-     */
-    public boolean exhausted() {
-        return caps.exhausted();
     }
 
     /** @return the persisted caps this counter was read from */
