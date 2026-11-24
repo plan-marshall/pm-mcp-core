@@ -106,10 +106,9 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
     /**
      * Parses the log of an ended job whose read may have cut it.
      * <p>
-     * The cut fact reaches the Maven parser alone: ADR {@code core-build/011} gives the flag to a parser whose figure a
-     * cut can falsify, when a plan touches that parser, and the flag was added for the Maven count scan — the one parser
-     * that answers it with an absence here: a cut Maven log reports {@link TestCounts.Unmeasured} instead of a
-     * tail-only count.
+     * The cut fact reaches the Maven count scan alone: ADR {@code core-build/011} passes the flag to that scan and to no
+     * other parser, and a parser whose figure a cut can falsify takes it in the same way when a plan touches it. A cut
+     * Maven log therefore reports {@link TestCounts.Unmeasured} instead of a tail-only count.
      * The other parsers read their count lines from the tail too — Gradle, pyproject, Jest and TAP each build a
      * {@link TestCounts} — but none of them takes a cut fact, so the population they derive from the tail is the one
      * carried: measured, or unmeasured by their own rules (a TAP run that did not finish its plan, a summary whose parts
