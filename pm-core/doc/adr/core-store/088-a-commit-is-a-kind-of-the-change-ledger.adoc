@@ -34,7 +34,8 @@ on 2026-11-23 (question 2 of the runbook-lane outline) that the version stays `1
   taken before the commit can never equal the live digest after it. Before the commit it is the state the commit was made
   on: when the tree is the one the latest successful build ran on, it equals that build row's digest; otherwise a build
   row need not carry it — a later step may have left the tree other than it built — and the `freshness_reconcile` stamp
-  then holds the build's digest beside this commit. Once the commit exists, only a new `build` row or that stamp licenses
+  then holds the build's digest beside this commit. Once the commit exists, old tree-keyed rows no longer match, and only a
+  new `build` or `baseline_red` row for the new tree, an `exempt` verdict (which needs no build), or that stamp licenses
   the push;
 * `commit_sha` — the commit that was made, required for this kind alone (`ChangeLedgerRecord` refuses a `commit` row
   without it);

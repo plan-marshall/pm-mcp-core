@@ -215,6 +215,10 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
             "refused dir\\/x",
             "refused dir\u0301/x",
             "refused dir$/x",
+            "refused dir+/x",
+            "refused dir@/x",
+            "refused dir~/x",
+            "refused c++/src/main.cpp",
             "refused dir\uD83D\uDE00/x"})
     @DisplayName("a relative name whose segment ends in no path-name character is carried as the code")
     void relativeNameEndingInANonPathCharacterIsACode(String message) {
