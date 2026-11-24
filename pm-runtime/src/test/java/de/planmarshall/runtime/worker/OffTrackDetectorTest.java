@@ -116,11 +116,13 @@ class OffTrackDetectorTest {
                 RoleArtifact.OffTrackSignal.REPEATING,
                 new RoleArtifact.OffTrackSetting(3.0, RoleArtifact.OffTrackAction.SHOW)));
         var plain = List.of(toolCall(1, tool, target), toolCall(2, tool, target), toolCall(3, tool, target));
+        var launch = "launch-" + RuntimeGenerators.words().next();
+        var served = "served-" + RuntimeGenerators.words().next();
         var withModel = new ArrayList<>(plain);
         withModel.add(ActivityEntry.builder().seq(4).attempt(1).source(ActivityEntry.Source.SERVER)
                 .kind(ActivityEntry.Kind.MODEL_DIFFERS)
-                .launchModel(RuntimeGenerators.words().next())
-                .servedModel(RuntimeGenerators.words().next())
+                .launchModel(launch)
+                .servedModel(served)
                 .at(AT).build());
 
         assertEquals(detect(plain, role), detect(withModel, role),

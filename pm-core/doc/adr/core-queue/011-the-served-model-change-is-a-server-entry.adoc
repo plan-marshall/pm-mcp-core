@@ -32,9 +32,12 @@ that names one model twice is refused, because there was no change.
 `SecretRedactor.redact(ActivityEntry)` treats both identifiers as untrusted: it strips their escape sequences, masks
 them like a link target, and refits them to the bound. An identifier that masking empties is masked whole, and a pair
 whose two masked values are equal is rewritten as the one pair the journal can state — both `[redacted]` — so the
-journal never refuses an entry it was handed and no unmasked identifier is written. `ActivityEntry` admits equal
-identifiers only for exactly that marker pair (`SecretRedactor.isRedactionOf`), so the distinctness rule still catches a
-producer that hands in one model twice. The journal drops only `text` entries at its bound, so the entry survives it.
+journal never refuses an entry it was handed and no unmasked identifier is written. That costs the readable text of the
+pair when the collision came from invisible characters rather than a secret: masking too much costs evidence, never a
+leak. `ActivityEntry` admits equal identifiers only for exactly that marker pair (`SecretRedactor.isRedactionOf`), so
+the distinctness rule still catches a producer that hands in one real model twice; a caller that passes the marker
+itself records the pair the redactor would write, with no unmasked identifier. The journal drops only `text` entries at
+its bound, so the entry survives it.
 
 == Alternatives Considered
 
