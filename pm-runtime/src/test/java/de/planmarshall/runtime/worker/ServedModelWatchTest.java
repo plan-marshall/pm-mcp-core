@@ -148,6 +148,17 @@ class ServedModelWatchTest {
     }
 
     @Test
+    @DisplayName("a model longer than the column admits is not reported")
+    void overLongModel() {
+        var watch = new ServedModelWatch(identifier());
+        var tooLong = Generators.letterStrings(129, 129).next();
+
+        assertAll(
+                () -> assertTrue(watch.see(tooLong).isEmpty(), "an over-long model writes no entry"),
+                () -> assertTrue(watch.served().isUnmeasured(), "an over-long model enters no list"));
+    }
+
+    @Test
     @DisplayName("restarting the watch forgets the previous model and the models seen")
     void restart() {
         var launch = identifier();

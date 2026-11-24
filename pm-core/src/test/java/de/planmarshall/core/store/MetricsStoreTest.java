@@ -207,8 +207,8 @@ class MetricsStoreTest {
         @Test
         @DisplayName("round-trips the distinct served models in first-appearance order")
         void servedModelsRoundTrip() {
-            var first = lowerName();
-            var second = lowerName();
+            var first = "first-" + lowerName();
+            var second = "second-" + lowerName();
             var row = row(taskId, usage()).withServedModels(ServedModels.of(List.of(second, first, second)));
 
             append(row);

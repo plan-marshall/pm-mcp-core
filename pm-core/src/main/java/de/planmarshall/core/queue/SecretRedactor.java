@@ -663,11 +663,21 @@ public class SecretRedactor {
         if (entry.egress() != null) {
             masked = masked.withEgress(new ActivityEntry.Egress(destination(entry.egress())));
         }
-        if (entry.launchModel() != null) {
-            masked = masked.withLaunchModel(modelIdentifier(entry.launchModel()));
-        }
-        if (entry.servedModel() != null) {
-            masked = masked.withServedModel(modelIdentifier(entry.servedModel()));
+        if (entry.launchModel() != null || entry.servedModel() != null) {
+            var launch = entry.launchModel() == null ? null : modelIdentifier(entry.launchModel());
+            var served = entry.servedModel() == null ? null : modelIdentifier(entry.servedModel());
+            if (launch != null && launch.equals(served)) {
+                // Masking is not injective: two identifiers can collapse onto one text. The journal states the one pair
+                // it can state and keeps the fact of the change.
+                launch = REDACTED;
+                served = REDACTED;
+            }
+            if (launch != null) {
+                masked = masked.withLaunchModel(launch);
+            }
+            if (served != null) {
+                masked = masked.withServedModel(served);
+            }
         }
         return masked;
     }
@@ -699,16 +709,16 @@ public class SecretRedactor {
     }
 
     /**
-     * Answers whether a value is one the redactor has masked. Two model identifiers that masked to the same text no
-     * longer name two models, so {@code ActivityEntry} admits their equality only where this answers {@code true}: the
-     * journal keeps the fact of the change and states that both names are unreadable, instead of refusing an entry it
-     * was handed.
+     * Answers whether a value is the redaction marker itself. Two model identifiers that masking collapsed onto one
+     * text are written as that one pair, so {@code ActivityEntry} admits their equality only here: the journal keeps
+     * the fact of the change and states that both names are unreadable, instead of refusing an entry it was handed.
+     * A value that merely contains the marker is no such pair.
      *
      * @param value a value of a journal entry
-     * @return whether the value carries the redaction marker
+     * @return whether the value is exactly the redaction marker
      */
     public static boolean isRedactionOf(@Nullable String value) {
-        return value != null && value.contains(REDACTED);
+        return REDACTED.equals(value);
     }
 
     /**

@@ -30,11 +30,11 @@ it, each carries 1 to `ActivityEntry.MODEL_BOUND` (128) characters, and the two 
 that names one model twice is refused, because there was no change.
 
 `SecretRedactor.redact(ActivityEntry)` treats both identifiers as untrusted: it strips their escape sequences, masks
-them like a link target, and refits them to the bound; an identifier that masking empties is masked whole, and two
-identifiers that both mask to the same text are admitted as one masked pair (`SecretRedactor.isRedactionOf`) rather than
-refused, so the journal never refuses an entry it was handed and no unmasked identifier is written. The distinctness rule
-applies to the identifiers a producer hands in, which is where a change that is no change would be a defect. The journal
-drops only `text` entries at its bound, so the entry survives it.
+them like a link target, and refits them to the bound. An identifier that masking empties is masked whole, and a pair
+whose two masked values are equal is rewritten as the one pair the journal can state — both `[redacted]` — so the
+journal never refuses an entry it was handed and no unmasked identifier is written. `ActivityEntry` admits equal
+identifiers only for exactly that marker pair (`SecretRedactor.isRedactionOf`), so the distinctness rule still catches a
+producer that hands in one model twice. The journal drops only `text` entries at its bound, so the entry survives it.
 
 == Alternatives Considered
 
@@ -53,6 +53,11 @@ is that every text and target is masked before it is written.
 nothing for it, exactly as for `egress`. The entry is written ahead of the line's own entry, so a reader sees the change
 before the line it belongs to. No rule reads the entry: no fate, outcome, re-offer, signal or qualification is derived
 from a model.
+
+The record's distinctness rule depends on the redactor's marker, so the value type and the redactor name each other.
+That is deliberate: the write boundary is the one place that can make two different identifiers unreadable, and the
+entry states the one pair it can then state. A later change to the marker or to the masking must keep
+`SecretRedactor.isRedactionOf` the single answer to "is this the masked pair".
 
 == Source
 

@@ -142,6 +142,29 @@ class ActivityJournalMaskingTest {
     }
 
     @Test
+    @DisplayName("a pair that masking collapses onto one text is written, not refused")
+    void writesACollapsedModelPair(@TempDir Path base) {
+        var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
+        var model = Generators.letterStrings(4, 12).next();
+        journal.append(TASK, ActivityEntry.builder()
+                .seq(1)
+                .attempt(1)
+                .source(ActivityEntry.Source.SERVER)
+                .kind(ActivityEntry.Kind.MODEL_DIFFERS)
+                .launchModel(model)
+                .servedModel(model + "\u200B")
+                .at(QueueFixtures.AT)
+                .build());
+
+        var written = journal.entries(TASK).getFirst();
+        assertAll(
+                () -> assertEquals(SecretRedactor.REDACTED, written.launchModel(),
+                        "the launch identifier is masked whole"),
+                () -> assertEquals(SecretRedactor.REDACTED, written.servedModel(),
+                        "the served identifier is masked whole"));
+    }
+
+    @Test
     @DisplayName("a destination that masking shrinks below the floor is masked whole, not refused")
     void masksADestinationShrunkBelowTheFloor(@TempDir Path base) {
         var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());

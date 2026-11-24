@@ -54,7 +54,8 @@ import de.planmarshall.core.store.StrictJson;
  * @param signal        the off-track signal and its action; signal only
  * @param egress        the destination a worker's egress proxy refused; egress only
  * @param launchModel   the model the task was launched with; model_differs only, masked
- * @param servedModel   the model that answered the turn, different from {@code launchModel}; model_differs only, masked
+ * @param servedModel   the model that answered the turn; model_differs only, masked; it names a different model than
+ *                      {@code launchModel}, except where masking collapsed both onto {@value SecretRedactor#REDACTED}
  * @param end           the attempt's end; attempt_end only
  * @param unmappedLines the output lines of the attempt that matched no mapping; attempt_end only
  * @param at            when the entry was written

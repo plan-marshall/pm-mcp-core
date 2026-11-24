@@ -31,6 +31,9 @@ public record ServedModels(@Nullable List<String> identifiers) {
     /** The one value of a row no turn reported a model for. */
     private static final ServedModels UNMEASURED = new ServedModels(null);
 
+    /** The longest identifier a value of the column admits. */
+    public static final int MAX_MODEL = MetricsRow.MAX_MODEL;
+
     /**
      * @throws IllegalArgumentException if the list is empty, because an empty list is not a value of the column
      * @throws NullPointerException     if the list holds {@code null}

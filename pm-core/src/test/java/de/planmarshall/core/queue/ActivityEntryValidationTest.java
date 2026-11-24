@@ -148,7 +148,14 @@ class ActivityEntryValidationTest {
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.MODEL_DIFFERS)
                                 .launchModel(sameModel).servedModel(sameModel).build(),
-                        "a model_differs entry names two different models"));
+                        "a model_differs entry names two different models"),
+                () -> {
+                    var marked = "model-" + SecretRedactor.REDACTED + "-x";
+                    assertThrows(IllegalArgumentException.class,
+                            () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.MODEL_DIFFERS)
+                                    .launchModel(marked).servedModel(marked).build(),
+                            "a pair that merely carries the marker is refused");
+                });
     }
 
     @Test

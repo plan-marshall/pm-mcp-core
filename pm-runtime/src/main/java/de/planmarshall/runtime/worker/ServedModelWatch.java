@@ -95,11 +95,11 @@ public final class ServedModelWatch {
      * Feeds one reported model.
      *
      * @param model the model the line reported, or {@code null} when it reported none
-     * @return the change to record, or empty when the model is the launch model, the previous model, or nothing was
-     *         reported
+     * @return the change to record, or empty when the model is the launch model, the previous model, nothing was
+     *         reported, or the value is not an identifier of the column's length
      */
     public Optional<Difference> see(@Nullable String model) {
-        if (launchModel == null || model == null || model.isEmpty()) {
+        if (launchModel == null || model == null || model.isEmpty() || model.length() > ServedModels.MAX_MODEL) {
             return Optional.empty();
         }
         served.add(model);
