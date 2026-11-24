@@ -367,9 +367,9 @@ public class SecretRedactor {
         var separator = indexOfSeparator(value, schemeSeparator, 0);
         while (separator >= 0) {
             var match = urlUserInformationMatch(value, separator, schemeSeparator.length(), token);
-            var next = match == null ? separator + 1 : match.lastAt() + 1;
-            if (match != null) {
-                out.append(value, copied, match.secretStart()).append(REDACTED).append('@');
+            var next = match.map(shape -> shape.lastAt() + 1).orElse(separator + 1);
+            if (match.isPresent()) {
+                out.append(value, copied, match.get().secretStart()).append(REDACTED).append('@');
                 copied = next;
             }
             separator = indexOfSeparator(value, schemeSeparator, next);
@@ -384,20 +384,20 @@ public class SecretRedactor {
      * @param separator       where the scheme separator starts
      * @param separatorLength the length of the separator
      * @param token           the token cache in use for this pass
-     * @return the shape's secret start and its token's last {@code @}, or {@code null}
+     * @return the shape's secret start and its token's last {@code @}, or empty when the separator starts no shape
      */
-    private static @Nullable UrlMatch urlUserInformationMatch(String value, int separator, int separatorLength,
+    private static Optional<UrlMatch> urlUserInformationMatch(String value, int separator, int separatorLength,
             UrlToken token) {
         if (schemeStart(value, separator) < 0) {
-            return null;
+            return Optional.empty();
         }
         var userEnd = tokenUserStop(value, separator + separatorLength, token);
         if (userEnd >= value.length() || value.charAt(userEnd) != ':') {
-            return null;
+            return Optional.empty();
         }
         var secretStart = userEnd + 1;
         var lastAt = tokenLastAt(value, secretStart, token);
-        return lastAt <= secretStart ? null : new UrlMatch(secretStart, lastAt);
+        return lastAt <= secretStart ? Optional.empty() : Optional.of(new UrlMatch(secretStart, lastAt));
     }
 
     /** The start of the scheme before a separator, or {@code -1} when no letter starts one there. */
