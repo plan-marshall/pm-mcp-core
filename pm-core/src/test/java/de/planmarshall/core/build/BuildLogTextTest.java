@@ -569,8 +569,8 @@ class BuildLogTextTest {
         // two executions whose in-range failing counts sum past the long range; a wrapped sum would report no failure.
         // This test pins the addition of the two executions' figures; the digit-count branch of one line has its own
         // test (cutMavenLogSaturatesANineteenDigitFailingCountPastTheLongRange), and
-        // cutMavenLogSaturatesALineWhoseFailuresPlusErrorsOverflow pins the observed figure of one line's overflowing
-        // two counts, not that line's addition, which is unobservable because every consumer saturates again
+        // cutMavenLogSaturatesALineWhoseFailuresPlusErrorsOverflow pins the observed figure of one line's two counts
+        // whose sum overflows, not that line's addition, which is unobservable because every consumer saturates again
         var failingTail = """
                 --- surefire:3.5.0:test @ module-a ---
                 [WARNING] Tests run: 1, Failures: 9223372036854775807, Errors: 0, Skipped: 0
