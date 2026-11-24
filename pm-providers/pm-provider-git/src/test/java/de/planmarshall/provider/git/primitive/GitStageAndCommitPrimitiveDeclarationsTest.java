@@ -130,7 +130,12 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
     @ValueSource(strings = {
             "java.io.IOException: /srv/git/worktrees/plan",
             "IOException: path=/srv/git/worktrees/plan",
-            "refused ]/srv/git/worktrees/plan"})
+            "refused ]/srv/git/worktrees/plan",
+            "refused }/srv/git/worktrees/plan",
+            "refused >/srv/git/worktrees/plan",
+            "refused `/srv/private/key`",
+            "refused \\\\server\\share\\private",
+            "refused C:\\Users\\plan\\checkout"})
     @DisplayName("a message that still names an absolute host path is carried as the outcome's code")
     void messageNamingAHostPathIsACode(String message) {
         var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
@@ -173,6 +178,32 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
         assertEquals(message,
                 result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
                 "A relative path inside a message is kept");
+    }
+
+    // the bracket shapes are the contract ADR workflow-input/006 admits: a closing bracket before a one-segment
+    // separator is no absolute-path introducer
+    @ParameterizedTest(name = "relative name \"{0}\"")
+    @ValueSource(strings = {"app/[slug]/page.tsx", "(group)/x", "app/{slug}/page.tsx"})
+    @DisplayName("a relative name with a bracket stays as the message states it")
+    void relativeBracketNameIsKept(String name) {
+        var message = "file " + name + " is refused";
+
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
+
+        assertEquals(message,
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "A relative name with a bracket is kept");
+    }
+
+    @Test
+    @DisplayName("a drive-qualified path inside a message is carried as the outcome's code")
+    void drivePathIsACode() {
+        var result = GitStageAndCommitPrimitive.map(
+                GitResult.of(GitOutcome.NOT_A_REPOSITORY, "refused C:\\Users\\plan\\checkout"), repo);
+
+        assertEquals("NOT_A_REPOSITORY",
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "A drive-qualified path becomes a code");
     }
 
     @Test

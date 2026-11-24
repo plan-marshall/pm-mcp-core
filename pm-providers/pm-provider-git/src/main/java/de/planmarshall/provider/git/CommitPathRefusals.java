@@ -94,13 +94,14 @@ public final class CommitPathRefusals {
     /**
      * The tracked-tree rule over the checkout's own repository: the names that are a directory of the index or of the
      * head tree although the worktree no longer holds them as one. The worktree root is opened through
-     * {@link RefusingFS}, so no operation starts a process. A checkout whose repository or index cannot be read yields no
-     * name: the staging set then decides by the textual and file-system rules alone, and the commit reports the
-     * condition, so no rule is invented for a state the rule cannot read.
+     * {@link RefusingFS}, so no operation starts a process. The rule stays silent when it cannot read the repository:
+     * a checkout whose repository or index cannot be read yields no name, so the staging set decides by the textual and
+     * file-system rules alone and the commit reports the condition — the tracked-tree answer is not invented for a
+     * state it cannot read (see {@link de.planmarshall.provider.git.primitive.CommitSite#dirtyPaths}).
      *
      * @param worktree the worktree root
      * @param names    the repository-relative candidates
-     * @return the names the tracked-tree rule refuses, sorted
+     * @return the names the tracked-tree rule refuses, sorted; none when the repository cannot be read
      */
     public static SortedSet<String> refusedTrackedTrees(Path worktree, Collection<String> names) {
         if (names.isEmpty()) {
@@ -114,9 +115,9 @@ public final class CommitPathRefusals {
     }
 
     /**
-     * The tracked-tree rule over an opened repository: a name is refused when a symbolic link in the worktree replaces a
-     * tracked directory (the link is committed as that link and the entries below the replaced directory leave the
-     * tree), and otherwise when the index holds an entry below it or the head tree holds a subtree there. The index is
+     * The tracked-tree rule over an opened repository: a name is refused when the index holds an entry below it or the
+     * head tree holds a subtree there. A name that is itself a symbolic link in the worktree is not refused by this
+     * rule: it judges a name by the index and the head tree alone, and git commits a link as a link. The index is
      * checked whether or not {@code HEAD} resolves; only the head-tree check needs {@code HEAD}.
      *
      * @param repository the repository

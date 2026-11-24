@@ -16,7 +16,8 @@ is nothing to commit, and the state catalogue routes `ready` unconditionally to 
 required a message (`Params.message` was `requireNonNull`). The sub-workflow's fixture declares `message` as an optional
 input (`commit_message[1..2000]?`), so an absent `message` is an absent optional input of the call; the engine's
 `WorkflowEngine.resolve` resolves the inputs of a sub-workflow call, and the primitive's parameters are bound from them
-by the `ParameterBinder` of the assembly, which turns the absent input into a null `Params.message`. The premise is not
+by the `ParameterBinder` of the assembly, which the specification's unverified lead says turns the absent input into a
+null `Params.message` — a lead about the assembly, not a fact of this repository. The premise is not
 that the engine binds the parameters: it resolves the call's inputs, and the assembly's binder reaches the primitive. The
 primitive, not the binder, decided whether the absent value was legal, and the specification did not say where a clean
 tree goes after `ready` (landing of PLAN-V2-20, L3-1). That the assembly binds `message = null` only on the clean-tree
@@ -25,7 +26,8 @@ route is a claim about the assembly that nothing in this repository enforces
 
 == Decision
 
-* `GitStageAndCommitPrimitive.Params.message` is `@Nullable`: the clean-tree route of `none_assert_clean` binds none.
+* `GitStageAndCommitPrimitive.Params.message` is `@Nullable`: the clean-tree route of `none_assert_clean` may bind
+  none, as the specification's lead says.
 * The primitive derives and narrows its staging set after the footprint check, before the message is read. An empty set
   is `nothing_to_commit` before the message
   is read, which is exactly what a clean checkout means.
@@ -46,8 +48,9 @@ route is a claim about the assembly that nothing in this repository enforces
 
 * `GitStageAndCommitPrimitiveTest` pins both branches: a clean tree is `nothing_to_commit` without touching the
   message, and a non-empty set without a message is `failed` with the detail.
-* The assembly binds `message = null` only on the clean-tree route; the primitive never reads it otherwise. Nothing in
-  this repository enforces that binding (`PM-WATCH-DSL-47`).
+* The assembly is expected to bind `message = null` only on the clean-tree route, as the specification's unverified
+  lead says; on that route the primitive reads no message (an empty staging set is `nothing_to_commit` before the
+  message is read), and nothing in this repository enforces the binding (`PM-WATCH-DSL-47`).
 * A caller that forgets the message on a dirty tree gets a named refusal, not an empty or a failed commit.
 
 == Source

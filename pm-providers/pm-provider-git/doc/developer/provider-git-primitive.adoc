@@ -281,9 +281,10 @@ other, `CAPABILITY_MISSING` of the native variant among them, to `failed` with `
   `Violated` with an empty or oversized list).
 * *Nothing reaches a command line.* The message and the paths reach the repository through the API of the git contract.
 
-What is not in this package: the mapping of `footprint_violation` to the engine condition, the commit attempt counters,
-the `change-ledger.jsonl` row, the `head_at_completion` stamp, `freshness_reconcile`, and the CLI variant of the contract
-(`git commit -F -`), the only one that runs repository hooks.
+What is not in this package: the commit attempt caps (`CommitAttemptCaps` with the `CommitAttemptCounter`), the
+`change-ledger.jsonl` row, the `head_at_completion` stamp and the `freshness_reconcile` stamp, which live in `pm-core`,
+and the CLI variant of the contract (`git commit -F -`), the only one that runs repository hooks. The mapping of
+`footprint_violation` to the engine condition is declared here on the primitive's reason and raised by the engine.
 
 == Extending
 

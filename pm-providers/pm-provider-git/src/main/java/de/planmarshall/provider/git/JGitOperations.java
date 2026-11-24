@@ -632,7 +632,7 @@ public final class JGitOperations implements GitOperations {
      */
     private static Optional<String> refusedCommitPath(Path root, List<String> paths) {
         for (var path : paths) {
-            if (isRefusedPathText(path) || CommitPathRefusals.isRefusedLocation(root, path)) {
+            if (CommitPathRefusals.isRefusedText(path) || CommitPathRefusals.isRefusedLocation(root, path)) {
                 return Optional.of(path);
             }
         }
@@ -707,11 +707,6 @@ public final class JGitOperations implements GitOperations {
             paths.add(index.getEntry(position).getPathString());
         }
         restoreIndex(repository, List.copyOf(paths), entries);
-    }
-
-    /** The textual refusals, the rule the commit shares with the staging set of a scope ({@link CommitPathRefusals}). */
-    private static boolean isRefusedPathText(String path) {
-        return CommitPathRefusals.isRefusedText(path);
     }
 
     @Override
