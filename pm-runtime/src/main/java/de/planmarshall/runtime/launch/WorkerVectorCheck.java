@@ -164,7 +164,10 @@ class WorkerVectorCheck {
     private static Optional<Violation> metacharacter(Input input, List<SlotValue> parsed) {
         var vector = input.vector();
         var jsonSlots = jsonSlots(parsed);
-        for (var position = 0; position < vector.size(); position++) {
+        // element 0 is the enrolled executable, not a caller-supplied argument: a path with a metacharacter must not
+        // refuse every launch of that harness (the specification's standing constraint), and the launcher spawns it by
+        // absolute path without a shell
+        for (var position = 1; position < vector.size(); position++) {
             if (!jsonSlots.contains(position) && containsMetacharacter(vector.get(position))) {
                 return Optional.of(new Violation(Rule.METACHARACTER, position));
             }
@@ -332,9 +335,6 @@ class WorkerVectorCheck {
      */
     private static boolean toolSet(String value, List<String> tools) {
         var named = value.split(SEPARATOR, -1);
-        if (named.length == 0) {
-            return false;
-        }
         for (var tool : named) {
             if (tool.isEmpty() || !tools.contains(tool)) {
                 return false;

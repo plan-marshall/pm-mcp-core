@@ -135,6 +135,17 @@ class WorkerVectorCheckTest {
                 () -> assertNull(starter.refusal, "a conforming vector is not refused"));
     }
 
+    @Test
+    @DisplayName("an executable path carrying a shell metacharacter is not refused")
+    void anExecutableWithAMetacharacterConforms() {
+        var executable = Path.of("/opt/pm&tools/claude");
+        var vector = new ArrayList<>(freshVector());
+        vector.set(0, executable.toString());
+        var input = input(writerTemplate(), List.copyOf(vector), MODEL, Set.of(), executable);
+
+        assertTrue(WorkerVectorCheck.check(input).isEmpty(), "the enrolled path is no caller argument");
+    }
+
     static Stream<Arguments> conformingVectors() {
         return Stream.of(
                 Arguments.of("fresh writer", input(writerTemplate(), freshVector(), MODEL, Set.of())),
@@ -219,10 +230,15 @@ class WorkerVectorCheckTest {
 
     private static WorkerVectorCheck.Input input(List<String> template, List<String> vector, String model,
             Set<String> absentSlots) {
+        return input(template, vector, model, absentSlots, EXECUTABLE);
+    }
+
+    private static WorkerVectorCheck.Input input(List<String> template, List<String> vector, String model,
+            Set<String> absentSlots, Path executable) {
         return WorkerVectorCheck.Input.builder()
                 .template(template)
                 .vector(vector)
-                .executablePath(EXECUTABLE)
+                .executablePath(executable)
                 .model(model)
                 .acceptedEfforts(EFFORTS)
                 .jobPrivateDirectory(JOB_PRIVATE)
