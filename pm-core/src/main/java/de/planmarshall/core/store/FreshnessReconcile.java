@@ -33,7 +33,7 @@ import lombok.Builder;
  */
 @Builder
 public record FreshnessReconcile(String commitSha, String stepId, String priorBuildWorktreeSha,
-        int worktreeShaVersion, Instant recordedAt) {
+int worktreeShaVersion, Instant recordedAt) {
 
     /** The hash version of {@code prior_build_worktree_sha}. */
     public static final int WORKTREE_SHA_VERSION = 1;

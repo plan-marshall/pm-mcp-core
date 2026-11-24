@@ -102,7 +102,7 @@ and before the emptiness read
 conflict exactly as the merge left it and needs no second writer of the index.
 
 The commit path rule the decision above lists is the shared `CommitPathRefusals`, which the staging set of a scope
-applies as well (`PLAN-V2-172`, deliverable 1; link:../provider-git-primitive/008-the-staging-set-refuses-what-the-commit-refuses.adoc[ADR
+applies as well (`PLAN-V2-172`, deliverable 1; link:../provider-git-primitive/008-the-staging-set-and-the-commit-share-the-path-rule.adoc[ADR
 provider-git-primitive 008]).
 
 == Source

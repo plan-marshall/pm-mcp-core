@@ -66,8 +66,7 @@ class CommitAttemptCounterTest {
 
             assertAll(
                     () -> assertEquals(3, counter.caps().changeSet().attempts(), "the third attempt is counted"),
-                    () -> assertTrue(counter.changeSetCapSpent(), "three attempts spend the change set"),
-                    () -> assertTrue(counter.exhausted(), "the spent change set exhausts the loop"));
+                    () -> assertTrue(counter.changeSetCapSpent(), "three attempts spend the change set"));
         }
 
         @Test
@@ -110,8 +109,7 @@ class CommitAttemptCounterTest {
 
             assertAll(
                     () -> assertEquals(3, counter.caps().frame().tasks(), "the third task is counted"),
-                    () -> assertTrue(counter.frameCapSpent(), "three tasks spend the frame"),
-                    () -> assertTrue(counter.exhausted(), "the spent frame exhausts the loop"));
+                    () -> assertTrue(counter.frameCapSpent(), "three tasks spend the frame"));
         }
 
         @Test
@@ -142,8 +140,26 @@ class CommitAttemptCounterTest {
             final var ended = counter;
             assertAll(
                     () -> assertFalse(ended.changeSetCapSpent(), "each new tree resets the change set"),
-                    () -> assertTrue(ended.frameCapSpent(), "the third fix task spends the frame"),
-                    () -> assertTrue(ended.exhausted(), "the frame cap ends the loop alone"));
+                    () -> assertTrue(ended.frameCapSpent(), "the third fix task spends the frame"));
+        }
+
+        @Test
+        @DisplayName("a fix that changes only the staged tree resets the change set and the frame cap still ends it")
+        void frameCapBoundsATreeOnlyReset() {
+            var frame = frameId();
+            var digest = messageDigest();
+
+            var counter = CommitAttemptCounter.empty();
+            for (var task = 0; task < CommitAttemptCounter.FRAME_CAP; task++) {
+                counter = counter.failedCommitAttempt(tree(), digest).fixTask(frame);
+            }
+
+            final var ended = counter;
+            assertAll(
+                    () -> assertEquals(1, ended.caps().changeSet().attempts(),
+                            "the tree half alone resets the change set to one"),
+                    () -> assertFalse(ended.changeSetCapSpent(), "the tree-only reset leaves the change set open"),
+                    () -> assertTrue(ended.frameCapSpent(), "the third fix task spends the frame"));
         }
 
         @Test

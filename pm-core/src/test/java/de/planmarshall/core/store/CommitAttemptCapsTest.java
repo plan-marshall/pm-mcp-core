@@ -46,7 +46,7 @@ class CommitAttemptCapsTest {
     }
 
     @Test
-    @DisplayName("the empty caps hold neither counter and are not exhausted")
+    @DisplayName("the empty caps hold neither counter and spend neither cap")
     void emptyHoldsNeitherCounter() {
         var empty = CommitAttemptCaps.empty();
 
@@ -54,8 +54,7 @@ class CommitAttemptCapsTest {
                 () -> assertNull(empty.changeSet(), "the empty caps hold no change set"),
                 () -> assertNull(empty.frame(), "the empty caps hold no call frame"),
                 () -> assertFalse(empty.changeSetSpent(), "the empty change set cap is not spent"),
-                () -> assertFalse(empty.frameSpent(), "the empty frame cap is not spent"),
-                () -> assertFalse(empty.exhausted(), "the empty caps are not exhausted"));
+                () -> assertFalse(empty.frameSpent(), "the empty frame cap is not spent"));
     }
 
     @Test
@@ -69,10 +68,8 @@ class CommitAttemptCapsTest {
         assertAll(
                 () -> assertFalse(below.changeSetSpent(), "two attempts leave the change set open"),
                 () -> assertFalse(below.frameSpent(), "two tasks leave the frame open"),
-                () -> assertFalse(below.exhausted(), "two of each leave both caps open"),
                 () -> assertTrue(atCap.changeSetSpent(), "three attempts spend the change set"),
-                () -> assertTrue(atCap.frameSpent(), "three tasks spend the frame"),
-                () -> assertTrue(atCap.exhausted(), "a spent cap exhausts the loop"));
+                () -> assertTrue(atCap.frameSpent(), "three tasks spend the frame"));
     }
 
     @Test

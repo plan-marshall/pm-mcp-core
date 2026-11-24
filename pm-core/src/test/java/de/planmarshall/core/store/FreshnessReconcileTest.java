@@ -112,7 +112,7 @@ class FreshnessReconcileTest {
     @DisplayName("a step id of one letter after the prefix is admitted")
     void shortestStepId() {
         assertDoesNotThrow(() -> FreshnessReconcile.builder().commitSha(COMMIT).stepId("project:a")
-                .priorBuildWorktreeSha(DIGEST).worktreeShaVersion(1).recordedAt(RECORDED_AT).build(),
+                        .priorBuildWorktreeSha(DIGEST).worktreeShaVersion(1).recordedAt(RECORDED_AT).build(),
                 "a one-letter step slug should be admitted");
     }
 }
