@@ -601,8 +601,8 @@ class SecretRedactorTest {
     void unclosedPemPrivateKeyBlock() {
         var log = "key:\n-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA7v0x";
 
-        assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue(log),
-                "a block without its END line is masked to the end");
+        assertEquals("key:\n" + SecretRedactor.REDACTED + "\n", redactValue(log),
+                "a block without its END line masks the rest");
     }
 
     @Test
@@ -622,8 +622,8 @@ class SecretRedactorTest {
         // the armor header line is the OpenPGP wire format (RFC 4880 § 6.2)
         var log = "key:\n-----BEGIN PGP PRIVATE KEY BLOCK-----\n\n" + Generators.letterStrings(16, 64).next();
 
-        assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue(log),
-                "an unclosed PGP key block is masked to the end");
+        assertEquals("key:\n" + SecretRedactor.REDACTED + "\n\n", redactValue(log),
+                "an unclosed PGP key block masks the rest");
     }
 
     @Test
@@ -667,6 +667,15 @@ class SecretRedactorTest {
 
         assertEquals("the docs say " + SecretRedactor.REDACTED, redactValue(prose),
                 "an unclosed marker keeps its over-masking");
+    }
+
+    @Test
+    @DisplayName("an unclosed BEGIN keeps the line ends of the text its mask covers")
+    void unclosedBeginKeepsTheLineEndsItMasks() {
+        var log = "before\n-----BEGIN PRIVATE KEY-----\nsecret body\nmore body";
+
+        assertEquals("before\n" + SecretRedactor.REDACTED + "\n\n", redactValue(log),
+                "the masked text keeps its line ends");
     }
 
     /** A wall-clock bound a left-to-right scan meets easily and the former lazy pattern exceeds. */

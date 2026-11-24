@@ -615,7 +615,8 @@ public class SecretRedactor {
      * A block runs from its {@code BEGIN} marker to the next {@code END} marker after it; the scan resumes after that
      * {@code END}, so a marker already passed is never revisited and the cost stays linear in the length of the text. A
      * {@code BEGIN} without a later {@code END} masks the rest of the text: the over-masking is kept deliberately,
-     * because masking too much costs evidence while leaving a key body readable costs the credential.
+     * because masking too much costs evidence while leaving a key body readable costs the credential. The masked text's
+     * line ends are kept, so a line-based reader still sees the text's line structure.
      */
     private static String redactPrivateKeyBlocks(String value) {
         var out = new StringBuilder(value.length());
@@ -625,6 +626,13 @@ public class SecretRedactor {
         while (begin.find(position)) {
             out.append(value, position, begin.start()).append(REDACTED);
             if (!end.find(begin.end())) {
+                // an unclosed block masks the rest of the text; its line ends are kept, so a line-based reader — the
+                // OutputParser, the activity pump — still sees the text's line structure after the masked part
+                for (var index = begin.start(); index < value.length(); index++) {
+                    if (value.charAt(index) == '\n') {
+                        out.append('\n');
+                    }
+                }
                 return out.toString();
             }
             position = end.end();
