@@ -30,7 +30,7 @@ import de.planmarshall.core.SchemaResource;
 /**
  * {@link ProfileValidator} keeps parity with the schema of Harness Profiles § Normative Harness Profile JSON Schema
  * where the two are built: the document the validator accepts is the file's required member set, the schema version is
- * the validator's, and the validator's usage figures are the file's minus the two members it does not implement. The
+ * the validator's, and the validator's usage figures are the file's minus the one member it does not implement. The
  * file is {@code harness-profile-v1.schema.json} in {@code pm-core/src/main/resources/de/planmarshall/core/profile/},
  * read through {@link SchemaResource}. Two deviations are pinned, each with its owner:
  * {@code headless.inline_settings} and {@code headless.loaded} (owned by the {@code client-profile-measured-values}
@@ -120,7 +120,7 @@ class HarnessProfileSchemaParityTest {
     }
 
     @Test
-    @DisplayName("the usage figures the validator implements are the file's minus the pinned two")
+    @DisplayName("the usage figures the validator implements are the file's minus the pinned one")
     void usageDrift() {
         var headless = SchemaResource.object(SchemaResource.object(SchemaResource.load(SCHEMA).get("properties"))
                 .get("headless"));
@@ -133,7 +133,7 @@ class HarnessProfileSchemaParityTest {
                 () -> assertEquals(Set.copyOf(ProfileStages.USAGE_MEMBERS), Set.copyOf(names(fixtureUsage.keySet())),
                         "The fixture names the reader's figures"),
                 () -> assertEquals(UNIMPLEMENTED_USAGE, Set.copyOf(required),
-                        "The unimplemented usage members are the pinned two"));
+                        "The unimplemented usage members are the pinned one"));
     }
 
     @Test

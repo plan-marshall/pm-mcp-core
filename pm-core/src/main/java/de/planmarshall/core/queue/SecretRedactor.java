@@ -699,6 +699,19 @@ public class SecretRedactor {
     }
 
     /**
+     * Answers whether a value is one the redactor has masked. Two model identifiers that masked to the same text no
+     * longer name two models, so {@code ActivityEntry} admits their equality only where this answers {@code true}: the
+     * journal keeps the fact of the change and states that both names are unreadable, instead of refusing an entry it
+     * was handed.
+     *
+     * @param value a value of a journal entry
+     * @return whether the value carries the redaction marker
+     */
+    public static boolean isRedactionOf(@Nullable String value) {
+        return value != null && value.contains(REDACTED);
+    }
+
+    /**
      * Redaction can lengthen a value, so the bound of the entry is applied once more after it: a redacted value that
      * grew past its bound is cut, and the text says it was cut.
      */

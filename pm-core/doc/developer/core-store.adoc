@@ -3056,7 +3056,7 @@ refused link and link below a parent, the composed request below such a link, th
 fails if the read opens it, the refused transcript link and the refused repeated move).
 
 == The Metrics Row's Served Models
-_Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14], link:../specification/harness-profiles/01-profile-schema.adoc#served-model[Harness Profiles § The Model That Answered]_
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14], link:../../../doc/specification/harness-profiles/01-profile-schema.adoc#served-model[Harness Profiles § The Model That Answered]_
 
 `ServedModels` is the three-valued value of a task row's `served_models` column: `ServedModels.unmeasured()`, the value
 of a row no turn reported a model for, or `ServedModels.of(List<String>)`, the distinct identifiers in order of first

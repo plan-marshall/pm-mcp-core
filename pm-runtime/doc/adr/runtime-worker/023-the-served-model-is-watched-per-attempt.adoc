@@ -34,13 +34,13 @@ A pointer that resolves to no value, or to something that is not a non-empty str
 control character, reads as not reported; the reading never defaults to the launch model. The turn's usage object stays
 the seven numeric figures.
 
-`ServedModelWatch`, in `de.planmarshall.runtime.worker`, holds one attempt's launch model, a comparison of two
-identifiers and the models seen. `see(model)` adds every reported model to the list and returns a `Difference` when the
-model differs both from the launch model and from the previous one; a return to the launch model returns nothing while
-the model still enters the list, so a fallback that switches back is recorded rather than only the last line.
-`served()` returns the attempt's `ServedModels`. The watch starts with the previous model equal to the launch model, and
-`restart()` begins the next attempt, so a warm worker that stays on a fallback model shows the change in each task's
-journal.
+`ServedModelWatch`, in `de.planmarshall.runtime.worker`, holds a worker generation's launch model, a comparison of two
+identifiers and the models seen in the current attempt. `see(model)` adds every reported model to the list and returns a
+`Difference` when the model differs both from the launch model and from the previous one; a return to the launch model
+returns nothing while the model still enters the list, so a fallback that switches back is recorded rather than only the
+last line. `served()` returns the attempt's `ServedModels`. The watch starts with the previous model equal to the launch
+model, and `restart()` begins the next attempt, so a warm worker that stays on a fallback model shows the change in each
+task's journal; the launch model is the generation's and does not change while the generation serves task after task.
 
 The comparison is a seam: `ServedModelWatch(launchModel, BiPredicate)` takes the rule, and the default treats two equal
 identifiers as one model and a launch model plus a trailing snapshot suffix of eight digits or an ISO date after a

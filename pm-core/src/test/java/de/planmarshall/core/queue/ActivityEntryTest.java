@@ -53,8 +53,8 @@ class ActivityEntryTest {
     @Test
     @DisplayName("a model_differs entry round-trips")
     void modelDiffers() {
-        var launch = Generators.letterStrings(1, 32).next();
-        var served = Generators.letterStrings(1, 32).next();
+        var launch = "launch-" + Generators.letterStrings(1, 32).next();
+        var served = "served-" + Generators.letterStrings(1, 32).next();
         var entry = ActivityEntry.builder()
                 .seq(Generators.integers(1, 100).next())
                 .attempt(Generators.integers(1, 10).next())

@@ -31,8 +31,12 @@ import de.planmarshall.core.store.ServedModels;
 @DisplayName("Served model watch")
 class ServedModelWatchTest {
 
+    private static final java.util.concurrent.atomic.AtomicInteger SEQUENCE =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+    /** A fresh identifier per call: two draws never collide, so a comparison test cannot flake. */
     private static String identifier() {
-        return Generators.letterStrings(3, 12).next();
+        return Generators.letterStrings(3, 12).next() + "-" + SEQUENCE.incrementAndGet();
     }
 
     private static ServedModelWatch.Difference difference(String launch, String served) {

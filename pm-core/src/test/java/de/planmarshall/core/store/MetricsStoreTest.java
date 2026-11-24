@@ -592,6 +592,37 @@ class MetricsStoreTest {
         }
 
         @Test
+        @DisplayName("a repeated or empty served model is refused (wire document)")
+        void servedModelsRefusals() throws Exception {
+            var repeated = """
+                    {"format_version":1,"rows":[{"kind":"task","queue_task_id":"qt-0123456789abcdef","attempt":1,
+                     "role":"writer","job_id":"l-0123456789abcdef","generation_id":"l-0123456789abcdef",
+                     "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,
+                     "served_models":["m","m"],"form":"fresh",
+                     "phase":"phase-5-execute","step_id":null,"envelope_id":null,"predicted_cost":null,
+                     "yield_reason":null,"outcome":"submitted","continuation":null,"cause_class":"benign",
+                     "spend_class":"submitted","population":"model_job","total_tokens":2,
+                     "input_tokens":1,"output_tokens":1,"cache_read_input_tokens":"not_applicable",
+                     "cache_creation_input_tokens":"not_applicable","reasoning_tokens":"not_applicable",
+                     "tool_uses":"unmeasured","cost_usd":"unmeasured","unmeasured_reason":null,
+                     "duration_ms":null,"duration_basis":"process","queued_ms":null,"consultation_of":null,
+                     "recorded_at":"2026-10-22T10:00:00Z"}]}""";
+            var empty = repeated.replace("[\"m\",\"m\"]", "[\"\"]");
+
+            assertAll(
+                    () -> {
+                        Files.writeString(file, repeated, UTF_8);
+                        assertThrows(StoreRefusal.class, () -> store.snapshot(),
+                                "a repeated served model is refused");
+                    },
+                    () -> {
+                        Files.writeString(file, empty, UTF_8);
+                        assertThrows(StoreRefusal.class, () -> store.snapshot(),
+                                "an empty served model is refused");
+                    });
+        }
+
+        @Test
         @DisplayName("a task row whose outcome is JSON null is refused (wire document)")
         void nullOutcome() throws Exception {
             var nullOutcome = """

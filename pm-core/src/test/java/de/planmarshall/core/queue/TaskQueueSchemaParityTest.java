@@ -290,8 +290,8 @@ class TaskQueueSchemaParityTest {
         @DisplayName("a model_differs entry is valid against the schema and names the schema's bounds")
         void modelDiffers() {
             var validator = validator(SCHEMA);
-            var launch = Generators.letterStrings(1, 32).next();
-            var served = Generators.letterStrings(1, 32).next();
+            var launch = "launch-" + Generators.letterStrings(1, 32).next();
+            var served = "served-" + Generators.letterStrings(1, 32).next();
             var entry = ActivityEntry.builder()
                     .seq(1)
                     .attempt(1)

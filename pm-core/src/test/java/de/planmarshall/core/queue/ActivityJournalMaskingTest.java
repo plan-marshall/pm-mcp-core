@@ -98,13 +98,14 @@ class ActivityJournalMaskingTest {
     @DisplayName("a model_differs entry is masked before it is written")
     void masksTheModelIdentifiers(@TempDir Path base) {
         var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
+        var served = Generators.letterStrings(3, 16).next();
         journal.append(TASK, ActivityEntry.builder()
                 .seq(1)
                 .attempt(1)
                 .source(ActivityEntry.Source.SERVER)
                 .kind(ActivityEntry.Kind.MODEL_DIFFERS)
                 .launchModel("api_key=abcd1234")
-                .servedModel("acme-standard")
+                .servedModel(served)
                 .at(QueueFixtures.AT)
                 .build());
 
@@ -114,8 +115,30 @@ class ActivityJournalMaskingTest {
                         "the launch identifier carries the redaction marker"),
                 () -> assertFalse(written.launchModel().contains("abcd1234"),
                         "the secret in the launch identifier is masked"),
-                () -> assertEquals("acme-standard", written.servedModel(),
+                () -> assertEquals(served, written.servedModel(),
                         "the served identifier stays readable"));
+    }
+
+    @Test
+    @DisplayName("a model_differs pair whose identifiers both mask is written, not refused")
+    void writesACollidingModelPair(@TempDir Path base) {
+        var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
+        journal.append(TASK, ActivityEntry.builder()
+                .seq(1)
+                .attempt(1)
+                .source(ActivityEntry.Source.SERVER)
+                .kind(ActivityEntry.Kind.MODEL_DIFFERS)
+                .launchModel("api_key=a" + Generators.letterStrings(8, 16).next())
+                .servedModel("api_key=b" + Generators.letterStrings(8, 16).next())
+                .at(QueueFixtures.AT)
+                .build());
+
+        var written = journal.entries(TASK).getFirst();
+        assertAll(
+                () -> assertTrue(SecretRedactor.isRedactionOf(written.launchModel()),
+                        "the launch identifier is masked"),
+                () -> assertTrue(SecretRedactor.isRedactionOf(written.servedModel()),
+                        "the served identifier is masked"));
     }
 
     @Test

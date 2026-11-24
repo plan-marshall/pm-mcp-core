@@ -432,7 +432,7 @@ boolean truncated, @Nullable Tool tool, @Nullable Result result, @Nullable Strin
         }
         if (launchModel != null) {
             requireModelIdentifier(launchModel, "launch_model");
-            if (launchModel.equals(servedModel)) {
+            if (launchModel.equals(servedModel) && !SecretRedactor.isRedactionOf(launchModel)) {
                 throw new IllegalArgumentException(
                         "A model_differs entry names two different models, not '%s' twice".formatted(launchModel));
             }

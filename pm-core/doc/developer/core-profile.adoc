@@ -275,10 +275,11 @@ context and derives the usage coverage.
 == The Usage Model Pointer
 _Requirements: link:{docs}/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2], link:{docs}/Requirements.adoc#PM-WF-14[PM-WF-14]_
 
-`headless.usage` has eight members: the seven numeric figures of `ProfileStages.USAGE_FIGURES` and, beside them,
-`ProfileStages.MODEL` — the JSON Pointer to the model a line reports, or `null` where the harness reports none. The two
-constants are kept apart on purpose: `USAGE_FIGURES` stays the closed numeric list the stage `usage`, the turn's usage
-object (`ActivityEventMapper`) and the parsing fixtures read, so none of them can read a non-numeric value.
+`headless.usage` has nine members in the schema file: the seven numeric figures, `ProfileStages.MODEL` — the JSON Pointer
+to the model a line reports, or `null` where the harness reports none — and `accumulation`, which is still unimplemented
+(PLAN-V2-147). This package implements eight of them: the seven figures and `model`. The figures and the model are kept
+apart on purpose: `USAGE_FIGURES` stays the closed numeric list the stage `usage`, the turn's usage object
+(`ActivityEventMapper`) and the parsing fixtures read, so none of them can read a non-numeric value.
 
 `ProfileStages.USAGE_MEMBERS` is the whole block in schema order, and `ProfileValidator.usage` passes it as both the
 required and the allowed member set: a profile without `model` is refused with `the member 'model' of 'usage' is

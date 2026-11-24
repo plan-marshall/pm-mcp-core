@@ -40,6 +40,12 @@ public record ServedModels(@Nullable List<String> identifiers) {
             if (identifiers.isEmpty()) {
                 throw new IllegalArgumentException("A measured 'served_models' is a non-empty list");
             }
+            for (var model : identifiers) {
+                if (model.isEmpty() || model.length() > MetricsRow.MAX_MODEL) {
+                    throw new IllegalArgumentException(
+                            "A served model has 1 to %d characters".formatted(MetricsRow.MAX_MODEL));
+                }
+            }
             identifiers = List.copyOf(new LinkedHashSet<>(identifiers));
         }
     }

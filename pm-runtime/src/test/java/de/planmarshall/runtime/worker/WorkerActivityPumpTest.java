@@ -160,9 +160,9 @@ class WorkerActivityPumpTest {
     @Test
     @DisplayName("each model change writes its model_differs entry before the line's own entry")
     void servedModelChanges(@TempDir Path base) {
-        var launch = Generators.letterStrings(3, 12).next();
-        var first = Generators.letterStrings(3, 12).next();
-        var second = Generators.letterStrings(3, 12).next();
+        var launch = "launch-" + Generators.letterStrings(3, 12).next();
+        var first = "first-" + Generators.letterStrings(3, 12).next();
+        var second = "second-" + Generators.letterStrings(3, 12).next();
         var journal = ActivityJournal.ofScope(base, project,
                 new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, plan),
                 new FileLockManager(_ -> {

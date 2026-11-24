@@ -890,6 +890,30 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("two identifiers that mask to the same text keep the entry valid")
+    void entryModelDiffersCollision() {
+        var entry = ActivityEntry.builder()
+                .seq(Generators.integers(1, 100).next())
+                .attempt(Generators.integers(1, 10).next())
+                .source(ActivityEntry.Source.SERVER)
+                .kind(ActivityEntry.Kind.MODEL_DIFFERS)
+                .launchModel("api_key=a" + Generators.letterStrings(8, 16).next())
+                .servedModel("api_key=b" + Generators.letterStrings(8, 16).next())
+                .at(Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next()))
+                .build();
+
+        var redacted = SecretRedactor.redact(entry);
+
+        assertAll("a model_differs pair that masks alike",
+                () -> assertTrue(SecretRedactor.isRedactionOf(redacted.launchModel()),
+                        "the launch identifier is masked"),
+                () -> assertTrue(SecretRedactor.isRedactionOf(redacted.servedModel()),
+                        "the served identifier is masked"),
+                () -> assertEquals(ActivityEntry.Kind.MODEL_DIFFERS, redacted.kind(),
+                        "the entry survives the masking"));
+    }
+
+    @Test
     @DisplayName("an escape sequence between a label and its value does not hide the value (SGR codes)")
     void entryTextEscapeSplitLabel() {
         // ESC[1m and ESC[0m are the SGR bold and reset sequences of a colour-coded terminal line

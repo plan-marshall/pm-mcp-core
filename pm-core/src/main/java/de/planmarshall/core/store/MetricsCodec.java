@@ -694,6 +694,9 @@ public class MetricsCodec {
             }
             models.add(parser.getText());
         }
+        if (models.size() != new HashSet<>(models).size()) {
+            throw unreadable("'%s' names each model once".formatted(field));
+        }
         try {
             return ServedModels.of(models);
         } catch (IllegalArgumentException e) {

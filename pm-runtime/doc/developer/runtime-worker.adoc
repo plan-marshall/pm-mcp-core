@@ -880,7 +880,8 @@ is a seam: the default treats a launch alias and the fully qualified identifier 
 snapshot suffix of eight digits or an ISO date after a hyphen), so that an alias writes nothing and a release switch is
 seen, and the assembly may supply a rule that resolves an alias through the harness's `models_probe` listing.
 `WorkerActivityPump` takes the watch as a collaborator, asks the mapper for the model of every line before it maps the
-line, and writes the `model_differs` entry ahead of the line's own entry; the watch restarts with every attempt. The
+line, and writes the `model_differs` entry ahead of the line's own entry; the watch is restarted at every attempt, and
+its launch model is the worker generation's, which does not change while the generation serves task after task. The
 two-argument constructor delegates with `ServedModelWatch.recordingNothing()`, so no production class of this repository
 wires a watch yet — the assembly does. Nothing is derived from a model: no fate, outcome, re-offer, signal or
 qualification reads the entry.

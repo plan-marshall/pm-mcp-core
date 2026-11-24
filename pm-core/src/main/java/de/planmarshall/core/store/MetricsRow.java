@@ -88,7 +88,7 @@ SpendClass spendClass, Population population, HarnessUsage usage,
     private static final Pattern ENVELOPE_ID_PATTERN = Pattern.compile("envelope-\\d+");
     private static final int MAX_HARNESS_VERSION = 64;
 
-    /** The longest model identifier a row, a pointer reading and the activity entry admit. */
+    /** The longest model identifier a row and a pointer reading admit. */
     static final int MAX_MODEL = 128;
 
     /** The form of the worker that produced the row. */

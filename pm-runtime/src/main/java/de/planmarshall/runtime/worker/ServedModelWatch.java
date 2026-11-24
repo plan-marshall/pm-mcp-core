@@ -20,16 +20,17 @@ import org.jspecify.annotations.Nullable;
 import de.planmarshall.core.store.ServedModels;
 
 /**
- * One task attempt's watch of the model that answered its turns (harness-profiles/01, The Model That Answered).
+ * The watch of the model that answered a worker generation's lines (harness-profiles/01, The Model That Answered).
  * <p>
  * The watch holds the launch model, the comparison that decides whether two identifiers name one model, and the models
- * the attempt has seen. A model that differs from the launch model and from the previous turn's model is a change, and
- * the caller records it once; a return to the launch model records nothing, and the model still enters the list, so a
- * fallback that switches back is recorded rather than only the last line. The models seen are the attempt's
+ * the current attempt has seen. A model that differs from the launch model and from the previous turn's model is a
+ * change, and the caller records it once; a return to the launch model records nothing, and the model still enters the
+ * list, so a fallback that switches back is recorded rather than only the last line. The models seen are the attempt's
  * {@link ServedModels}, in first-appearance order.
  * <p>
- * A watch starts with the previous model equal to the launch model, so a warm worker that stays on a fallback model
- * shows the change in each task's journal. {@link #restart()} begins the next attempt of the same task.
+ * The launch model is the worker generation's and does not change, while one generation serves task after task. A watch
+ * therefore belongs to one generation and is restarted at every attempt, with the previous model equal to the launch
+ * model again, so a warm worker that stays on a fallback model shows the change in each task's journal.
  * <p>
  * The comparison is a seam: the default treats a launch alias and the full identifier it stands for as one model (the
  * release plus a trailing snapshot suffix of eight digits or an ISO date), so that an alias writes no entry and a
@@ -79,8 +80,9 @@ public final class ServedModelWatch {
     }
 
     /**
-     * Begins the next attempt of the same task: the previous model is the launch model again and the models seen start
-     * over. A watch that records nothing stays silent.
+     * Begins the next attempt: the previous model is the launch model again and the models seen start over. The launch
+     * model is the worker generation's and stays, so one watch serves the attempts of one generation. A watch that
+     * records nothing stays silent.
      */
     public void restart() {
         if (launchModel != null) {

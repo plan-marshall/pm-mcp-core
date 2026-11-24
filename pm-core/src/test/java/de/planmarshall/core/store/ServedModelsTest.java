@@ -29,8 +29,12 @@ import org.junit.jupiter.api.Test;
 @DisplayName("Served models")
 class ServedModelsTest {
 
+    private static final java.util.concurrent.atomic.AtomicInteger SEQUENCE =
+            new java.util.concurrent.atomic.AtomicInteger();
+
+    /** A fresh identifier per call: two draws never collide, so the distinctness test cannot flake. */
     private static String identifier() {
-        return Generators.letterStrings(3, 12).next();
+        return Generators.letterStrings(3, 12).next() + "-" + SEQUENCE.incrementAndGet();
     }
 
     @Test
@@ -65,9 +69,19 @@ class ServedModelsTest {
     }
 
     @Test
-    @DisplayName("refuses an empty list")
-    void emptyListRefused() {
-        assertThrows(IllegalArgumentException.class, () -> ServedModels.of(List.of()),
-                "an empty list is not a value of the column");
+    @DisplayName("refuses an empty list and an identifier outside 1 to 128 characters")
+    void bounds() {
+        var longest = Generators.letterStrings(128, 128).next();
+        var tooLong = longest + longest.substring(0, 1);
+
+        assertAll(
+                () -> assertThrows(IllegalArgumentException.class, () -> ServedModels.of(List.of()),
+                        "an empty list is not a value of the column"),
+                () -> assertThrows(IllegalArgumentException.class, () -> ServedModels.of(List.of("")),
+                        "an empty identifier is refused"),
+                () -> assertThrows(IllegalArgumentException.class, () -> ServedModels.of(List.of(tooLong)),
+                        "a 129-character identifier is refused"),
+                () -> assertEquals(List.of(longest), ServedModels.of(List.of(longest)).measured().orElseThrow(),
+                        "a 128-character identifier is accepted"));
     }
 }

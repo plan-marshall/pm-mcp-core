@@ -214,11 +214,12 @@ Guard:: Parsing fixtures per shipped harness version with a run whose turns repo
 `served_models` holds both in order, and `model_differs` is written once per change; a fixture launched with an alias
 whose turns report its full identifier writes no `model_differs`; a profile with `model: null` records
 `served_models: "unmeasured"`. Matched control: a run whose every turn reports the launch model writes no entry.
-Covered:: The matched control, the alias and the `model: null` guards by `ServedModelWatchTest` (the matched control,
+Covered:: The matched control, the alias and the `model: null` reading by `ServedModelWatchTest` (the matched control,
 the alias and the ISO-date suffix, the release switch, the unmeasured case), `WorkerActivityPumpTest` (two models in a
 journal, the order before the line's own entry, a mapper without the model pointer) and `MetricsStoreTest` (the
-`unmeasured` round trip). Kept because its per-version guard needs the recorded outputs of each shipped harness
-version, which are still owed: the synthetic turns of `ShippedUsageFixturesTest` stand in until they exist.
+`unmeasured` round trip). The chain from a profile with `model: null` through the mapper into a row is the owed
+assembly wiring and is not testable here. Kept because its per-version guard needs the recorded outputs of each shipped
+harness version, which are still owed: the synthetic turns of `ShippedUsageFixturesTest` stand in until they exist.
 Source:: Article analysis `promise-that-killed-atom-gemini-cli` of plan-marshall-documentation: Gemini CLI routes each turn
 of `auto` between models and falls back without a word in plan mode or for a preview the account cannot use.
 

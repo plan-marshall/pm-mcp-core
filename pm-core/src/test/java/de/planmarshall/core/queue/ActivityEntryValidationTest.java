@@ -99,6 +99,8 @@ class ActivityEntryValidationTest {
     @Test
     @DisplayName("a member belongs to its own kind")
     void members() {
+        var sameModel = Generators.letterStrings(3, 16).next();
+
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.SIGNAL).text("x")
@@ -145,7 +147,7 @@ class ActivityEntryValidationTest {
                         "a text entry cannot carry a launch model"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.MODEL_DIFFERS)
-                                .launchModel("acme").servedModel("acme").build(),
+                                .launchModel(sameModel).servedModel(sameModel).build(),
                         "a model_differs entry names two different models"));
     }
 
@@ -201,11 +203,11 @@ class ActivityEntryValidationTest {
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.MODEL_DIFFERS)
                                 .launchModel("a".repeat(ActivityEntry.MODEL_BOUND + 1))
-                                .servedModel("acme").build(),
+                                .servedModel(Generators.letterStrings(3, 16).next()).build(),
                         "a launch model beyond the bound is refused"),
                 () -> assertThrows(IllegalArgumentException.class,
                         () -> base(ActivityEntry.Source.SERVER, ActivityEntry.Kind.MODEL_DIFFERS)
-                                .launchModel("").servedModel("acme").build(),
+                                .launchModel("").servedModel(Generators.letterStrings(3, 16).next()).build(),
                         "an empty model identifier is refused"),
                 () -> assertThrows(IllegalArgumentException.class, () -> ActivityEntry.builder().seq(0)
                         .attempt(1).source(ActivityEntry.Source.SERVER).kind(ActivityEntry.Kind.ATTEMPT_END)
