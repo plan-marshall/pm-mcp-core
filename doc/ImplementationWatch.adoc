@@ -28,12 +28,12 @@ The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtim
 
 |link:implementation-watch/phase-workflows.adoc[Phase Workflows]
 |`PHASE`, `GEN`
-|123
+|121
 |link:specification/phase-workflows.adoc[Phase Workflows & Finalize Specification]
 
 |link:implementation-watch/model-work.adoc[Model Work]
 |`DISP`, `CLI`
-|70
+|68
 |link:specification/model-work.adoc[Model Work Specification]
 
 |link:implementation-watch/domain-extensions.adoc[Domain Extensions]

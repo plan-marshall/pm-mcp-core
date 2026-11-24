@@ -237,7 +237,7 @@ A source unit (`scope subworkflow`, compiled only) gathers, stores, and checks o
 |`composite_job`
 |`source-issue.resolve` (`resolved`), `source-issue.grant`; `source-issue.failed` (`retry`).
 |A bounded `ci.issue-view` through the forge's provider module: title, body, labels, milestone, assignees, state, URL.
-|`fetched` -> `source-issue.store`; `not_found`, `not_readable`, `no_credential` (the issue is not public and the forge has no credential, naming the credential to add), `rate_limited` (with `resets_at`), `provider_unavailable`, `cancelled` -> `source-issue.failed`.
+|`fetched` -> `source-issue.store`; `not_found`, `not_readable`, `no_credential` (the issue is not public and the forge has no credential, naming the credential to add), `rate_limited` (the `ci.issue-view` job ended `failed` with the transport cause `rate_limited`, which the composite maps to this outcome, with `resets_at`), `provider_unavailable`, `cancelled` -> `source-issue.failed`.
 |<<issues>>
 
 |[[state-source-issue.store]]`source-issue.store`
@@ -261,7 +261,7 @@ A source unit (`scope subworkflow`, compiled only) gathers, stores, and checks o
 |`composite_job`
 |`source-pr.name`; `call` with the reference passed; `source-pr.failed` (`retry`).
 |A bounded `ci.pr-view`: the pull request must be open and its head branch writable by the agent identity; its title, body, and changed files. The head is observed again by `start.create`.
-|`observed` -> `source-pr.store`; `pr_not_open`, `head_not_writable`, `not_found`, `rate_limited` (with `resets_at`), `provider_unavailable`, `cancelled` -> `source-pr.failed`.
+|`observed` -> `source-pr.store`; `pr_not_open`, `head_not_writable`, `not_found`, `rate_limited` (the `ci.pr-view` job ended `failed` with the transport cause `rate_limited`, which the composite maps to this outcome, with `resets_at`), `provider_unavailable`, `cancelled` -> `source-pr.failed`.
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows Specification, Plan Source Contracts (`pr`)]
 
 |[[state-source-pr.store]]`source-pr.store`
@@ -332,7 +332,7 @@ A source unit (`scope subworkflow`, compiled only) gathers, stores, and checks o
 |— (`entry`)
 |`auto`
 |`call` (entry state, `plan_id`, `from_epic`).
-|Reads the queue row under the epic lock: it must exist in that epic and be launchable (prerequisites shipped, re-grounded at the current `HEAD`, not `stale`, no `unreadable` claim section); its staged spec section (claim sections parsed) is stored as the source `epic-row.md` of kind `epic_row`, and the row's `plan_id` is the plan's (no slug). `origin.epic_id` is recorded for the creation, which sets the row `running`.
+|Reads the queue row under the epic lock: it must exist in that epic and be launchable (prerequisites shipped, no `unreadable` claim section); its staged spec section (claim sections parsed) is stored as the source `epic-row.md` of kind `epic_row`, and the row's `plan_id` is the plan's (no slug). `origin.epic_id` is recorded for the creation, which sets the row `running`.
 |`bound` -> `source-epic-row.done`; `row_unknown`, `row_not_launchable`, `spec_unreadable` -> `source-epic-row.refused`.
 |link:../model-work/08-epic-coordination.adoc#server-started-plans[Model Work Specification, Server-Started Plans]
 
@@ -364,7 +364,7 @@ A source unit (`scope subworkflow`, compiled only) gathers, stores, and checks o
 |— (`entry`)
 |`operator_wait`
 |The unit's gathering state (a failure outcome); `source-issue.grant` (`no`).
-|`facts.reason`: `not_found`, `not_readable`, `not_granted`, `no_credential`, `rate_limited` (with `resets_at`), `provider_unavailable`, `unknown_forge`, `pr_not_open`, `head_not_writable`, `no_local_changes`, or `cancelled`. `retry` (not offered for `no_local_changes`, and bounded by the condition budget: after its last retry only the `step_out` is offered, link:../timeouts/01-job-budgets-and-waits.adoc#condition-budget[Timeouts & Budgets Specification, Condition Budget]); implicit `step_out` (_remove_). The entry keeps the source in the list with its cause while the operator is away.
+|`facts.reason`: `not_found`, `not_readable`, `not_granted`, `no_credential`, `rate_limited` (the source's fetch job failed with the transport cause `rate_limited`; with `resets_at`), `provider_unavailable`, `unknown_forge`, `pr_not_open`, `head_not_writable`, `no_local_changes`, or `cancelled`. `retry` (not offered for `no_local_changes`, and bounded by the condition budget: after its last retry only the `step_out` is offered, link:../timeouts/01-job-budgets-and-waits.adoc#condition-budget[Timeouts & Budgets Specification, Condition Budget]); implicit `step_out` (_remove_). The entry keeps the source in the list with its cause while the operator is away.
 |`retry` -> the unit's gathering state (`source-issue.resolve` after `not_granted` or `unknown_forge`).
 |link:../../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-4[UC-STA-4]
 

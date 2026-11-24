@@ -76,6 +76,7 @@ Implemented in (link:../../../plan-marshall-documentation/doc/specification/modu
 * link:state-catalogue/16-decision.adoc[Decision] — the unit `decision` every question state calls
 * link:state-catalogue/17-epic-decomposition-and-review.adoc[Epic Decomposition & Review] — the epic's sub-workflows `decomposition` and `review`
 * link:state-catalogue/18-plan-unit-axes-short-landings.adoc[Plan Unit, Axis Variants & Short Landings] — the plan unit `phases`, the variants of the plan behaviour axes, and the short landings `git.land-removal`, `git.land-unit` and `git.land-setup`
+* link:state-catalogue/20-sanity-check.adoc[Sanity Check] — the phase `sanity-check` between execute and finalize and its sub-workflow `sanity-check`, which `finalize.sanity-recheck` calls again before the landing: the steps' run, the one operator question, the fix task, and the commit of a team-file update
 * <<chat>> — the unit `chat` (below)
 
 [#chat]

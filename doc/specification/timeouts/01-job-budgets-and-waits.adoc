@@ -392,9 +392,9 @@ The supervisor ends, recycles, and replaces workers by these values (link:../mod
 |link:../model-work/03-supervision-and-recycling.adoc#start-collisions[Model Work, Starts of One Harness]
 
 |[[off-track-thresholds]]Off-track signal thresholds
-|Compiled per signal, computed by the runtime from the task's activity and records: `repeating`: `5` identical tool calls (same tool, same target) in a row; `no_progress`: `40` turns without a link of the task followed; `over_size`: the tokens spent on the current plan task above `3 ×` its `predicted_cost_tokens`; `outside_footprint`: `3` unplanned changed files recorded for the task; `failing_again`: `3` failed builds in a row with one failure signature; `edit_churn`: `8` changes of one file without a build between them; `agent_started`: `1`, fixed (no role artifact changes it or its action).
+|Compiled per signal, computed by the runtime from the task's activity and records: `repeating`: `5` identical tool calls (same tool, same target) in a row; `no_progress`: `40` turns without a link of the task followed; `failing_again`: `3` failed builds in a row with one failure signature; `edit_churn`: `8` changes of one file without a build between them; `agent_started`: `1`, fixed (no role artifact changes it or its action).
 |role artifact, which may lower each threshold and never raise it
-|the compiled values are the caps; `repeating` and `outside_footprint` at least `1`, `no_progress` at least `5` turns, `over_size` at least `1.5 ×`, `failing_again` at least `2`, `edit_churn` at least `3`
+|the compiled values are the caps; `repeating` at least `1`, `no_progress` at least `5` turns, `failing_again` at least `2`, `edit_churn` at least `3`
 |every worker whose harness reports activity events (link:../harness-profiles/01-profile-schema.adoc#worker-activity[Harness Profiles, What a Worker Does])
 |Not an expiry and no limit: the signal is raised and the role's action for it taken (`show`, `nudge`, `yield`, `restart`); it never ends a plan.
 |link:../model-work/03-supervision-and-recycling.adoc#worker-off-track[Model Work, A Worker Off Track]
@@ -546,7 +546,7 @@ Every blocking condition of a plan has a bounded server retry and then a defined
 |fixed (compiled constant)
 |—
 |`project-setup` (`setup.verify-credentials`)
-|A further invalidation in the same run takes `reprobe_exhausted` and enters `setup.needs-repair`; the cap is the measure of that cycle under Rule 11a.
+|A further invalidation in the same run takes `reprobe_exhausted` and enters `setup.operator-values`, naming the integration; the cap is the measure of that cycle under Rule 11a.
 |link:../domain-extensions/04-setup-state-machine.adoc#setup-verify-credentials[Domain Extensions, Credential Verification]; link:../state-catalogue/06-setup-epic-other.adoc#state-setup.verify-credentials[State Catalogue, `setup.verify-credentials`]; link:../workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL Specification] (Rule 11a)
 |===
 

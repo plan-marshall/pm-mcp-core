@@ -132,11 +132,11 @@ public sealed interface BuildRoutingAxis permits DeclarativeBuildSystemAxisB {
  */
 public sealed interface EdgeDerivationAxis
         permits MavenEdgeResolver, GradleEdgeResolver, NpmEdgeResolver,
-                PyprojectEdgeResolver, PythonImportEdgeResolver,
+                PyprojectEdgeResolver,
                 MarkdownCrossRefResolver, DocumentationCrossRefResolver,
                 LspSymbolEdgeResolver, ProjectScriptEdgeResolver {
 
-    /** Stable, unique resolver ID ("maven", "gradle", "npm", "pyproject", "python", "markdown", "documentation", "lsp", "project-script"). */
+    /** Stable, unique resolver ID ("maven", "gradle", "npm", "pyproject", "markdown", "documentation", "lsp", "project-script"). */
     String resolverId();
 
     /**
@@ -167,7 +167,7 @@ public sealed interface PathOwnershipAxis permits DeclarativeDomainAxisD {
 }
 ----
 
-The Axis C resolver IDs mirror `plan-marshall` (`derivation_resolver_id()` of `build-maven`, `build-npm`, `build-pyproject`, `pm-dev-python`, `pm-plugin-development`, `pm-documents`, and `plan-marshall-plugin`). `pyproject` (declared-dependency join) and `python` (import join) stay distinct IDs so an edge's provenance tells the two derivations apart; `markdown` and `documentation` read overlapping file types over different module corpora, and an edge both find carries both IDs. *Deliberate additions vs. `plan-marshall`*: the `gradle` resolver (`GradleEdgeResolver`) has no `plan-marshall` counterpart (`build-gradle` ships no derivation resolver), and neither has `project-script` (`ProjectScriptEdgeResolver`). The resolver IDs are therefore `maven`, `gradle`, `npm`, `pyproject`, `python`, `markdown`, `documentation`, `lsp`, and `project-script`, the `edge_resolvers` enum of the descriptor schema below.
+The Axis C resolver IDs mirror `plan-marshall` (`derivation_resolver_id()` of `build-maven`, `build-npm`, `build-pyproject`, `pm-plugin-development`, `pm-documents`, and `plan-marshall-plugin`). `maven` and `gradle` take their inter-module edges from their build system's discovery job output, never from a parse of the build files; `npm` and `pyproject` join the dependencies the descriptors declare (xref:03-module-discovery.adoc#_server_owned_module_discovery_enrolled_discovery_jobs[Module Discovery]). `markdown` and `documentation` read overlapping file types over different module corpora, and an edge both find carries both IDs. *Deliberate additions vs. `plan-marshall`*: the `gradle` resolver (`GradleEdgeResolver`) has no `plan-marshall` counterpart (`build-gradle` ships no derivation resolver), and neither has `project-script` (`ProjectScriptEdgeResolver`). *Deliberate change vs. `plan-marshall`*: no resolver joins Python imports (`pm-dev-python`'s import join has no counterpart), so a module dependency the build files do not declare is no edge. The resolver IDs are therefore `maven`, `gradle`, `npm`, `pyproject`, `markdown`, `documentation`, `lsp`, and `project-script`, the `edge_resolvers` enum of the descriptor schema below.
 
 *Project-script resolver*: A descriptor that names `project-script` runs every enrolled project script of `worker_kind: edge_resolver` of the project, each as a `project_script` job confined like any other (xref:05-recipes-and-extension-points.adoc#_out_of_process_project_script_jobs_project_script_domain_workers[Out-of-Process Project Script Jobs & Domain Workers]); the resolver's result is the union of their edges under the one resolver ID `project-script`. A project without such an enrolled script reports the resolver `NOT_RUN` with the reason `ABSENT`.
 

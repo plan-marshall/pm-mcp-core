@@ -16,31 +16,31 @@ _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.a
 === Server-Owned Module Discovery & Enrolled Discovery Jobs
 _Implementation watch: link:../../implementation-watch/domain-extensions.adoc#PM-WATCH-EXT-6[PM-WATCH-EXT-6], link:../../implementation-watch/domain-extensions.adoc#PM-WATCH-EXT-7[PM-WATCH-EXT-7]_
 
-Module discovery combines compiled-in descriptor parsers with optional enrolled build-tool discovery jobs, caching the resulting structural snapshot in server state keyed by the repository's descriptor tree hash (the derived fact `module_discovery` of the project's `derived-facts.json`, link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-fact-kinds-discovery-calibration[Store Schemas Specification, Derived fact kinds]); the enrolled discovery job templates below are compiled defaults that the project's enrolment may override (`build.discovery_templates`):
+Module discovery combines compiled-in descriptor parsers, which read only what a file declares, with enrolled build-tool discovery jobs, which state what the build tool computes, caching the resulting structural snapshot in server state keyed by the repository's descriptor tree hash (the derived fact `module_discovery` of the project's `derived-facts.json`, link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-fact-kinds-discovery-calibration[Store Schemas Specification, Derived fact kinds]); the enrolled discovery job templates below are compiled defaults that the project's enrolment may override (`build.discovery_templates`):
 
 [cols="1,2,2,3"]
 |===
 |Build System |Compiled-In Descriptor Parser |Enrolled Discovery Job Template |Extracted Module Facts
 
 |Maven
-|`pom.xml` (StAX / DOM parser in `pm-core`)
+|`pom.xml`: the module list (`<modules>`) and the module's declared coordinates and packaging (StAX parser in `pm-core`)
 |`help:all-profiles dependency:tree -DoutputType=text`
-|Module coordinates (`groupId:artifactId`), packaging (`pom`, `jar`, `war`), parent/reactor hierarchy, active & optional profiles, test directory presence, Java package roots.
+|From the parse: the reactor hierarchy (module directories), coordinates (`groupId:artifactId`), packaging (`pom`, `jar`, `war`), test directory presence, Java package roots. From the job: active & optional profiles, applied plugins, inter-module and external dependencies.
 
 |Gradle
-|`settings.gradle(.kts)`, `build.gradle(.kts)`
+|`settings.gradle(.kts)`: the `include` list
 |`properties dependencies tasks --console=plain`
-|Subproject paths, applied plugins, source sets (`main`, `test`, `integrationTest`), inter-project and external dependencies.
+|From the parse: subproject paths. From the job: applied plugins, source sets (`main`, `test`, `integrationTest`), inter-project and external dependencies.
 
 |npm / Node
 |`package.json`, `workspaces` globs
 |*(Pure descriptor parse; no subprocess required)*
-|Workspace packages, scripts (`build`, `test`, `lint`), `dependencies` / `devDependencies`, TypeScript `tsconfig.json` presence.
+|Workspace packages, scripts (`build`, `test`, `lint`), `dependencies` / `devDependencies` as declared, TypeScript `tsconfig.json` presence.
 
 |Python (`pyproject`)
-|`pyproject.toml` (TOML parser in `pm-core`)
-|*(Pure descriptor parse + line-oriented import scan)*
-|Project metadata, `[project.dependencies]`, `[tool.pytest]`, `[tool.mypy]`, `[tool.ruff]`, top-level package directories and test roots.
+|`pyproject.toml` at the project root and at each workspace member (TOML parser in `pm-core`)
+|*(Pure descriptor parse; no subprocess required)*
+|Project metadata, `[project.dependencies]` as declared, `[tool.pytest]`, `[tool.mypy]`, `[tool.ruff]`, top-level package directories and test roots.
 
 |Documentation (`documentation`)
 |`doc/` or `docs/` directory holding `.adoc` or `.md` files at any depth, or a root `README.adoc` (mirrors `pm-documents` `discover_modules`)
@@ -53,12 +53,12 @@ Module discovery combines compiled-in descriptor parsers with optional enrolled 
 |One module per bundle (build system `marshall-plugin`): skills, agents, and commands as packages with their frontmatter descriptions, and outbound `component_refs` to other bundles.
 |===
 
-* **Python Import Scan (Deliberate Simplification)**: The Python import scan is a line-oriented scanner in Java: it reads only `import x[.y]` and `from x[.y] import ...` lines (leading whitespace allowed, continuation lines and parenthesized import lists joined), and builds no full Python AST. *Deliberate simplification vs. `plan-marshall`*, which parses with Python's `ast` module: imports produced dynamically (`importlib`, `__import__`) or hidden in string literals are not seen, and an `import` line inside a multi-line string may be read as an import; both errors are accepted because the scan only derives module edges, never a gate verdict.
+* **What a File Declares, What the Build Tool Computes**: The compiled-in parsers read only what a file states literally: the module list (Maven `<modules>`, Gradle `settings.gradle(.kts)` `include`, npm `workspaces`, the `pyproject` root and its members) and the declarative fields of npm and `pyproject`. What a build tool computes from its build files (Maven and Gradle plugins, source sets, profiles, inter-module and external dependencies) is never parsed from them: it is read from the build system's discovery job output. Python imports are no edges: a module dependency the build files do not declare is not derived from the source (*deliberate change vs. `plan-marshall`*, whose `pm-dev-python` resolver joins Python imports).
 
 * **Live Crawl, Snapshot as Cache**: Discovery always crawls the live worktree, including uncommitted descriptors. The descriptor tree hash covers the live descriptor content, not `HEAD`. The persisted snapshot is a denormalized cache, never the gatekeeper: a module directory present on disk but absent from the snapshot is still discovered.
-* **In-Process Crawl vs. Lazy Discovery Jobs**: The in-process crawl (compiled-in descriptor parsers and file-tree scans) issues no child process of its own: the one git fact it needs, the repository's common directory, it reads through the git contract operation `git.common-dir` of `pm-provider-git` (link:../../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-git[Module Structure, `pm-provider-git`]), which the native variant answers on JGit without a child process and the CLI variant with `git rev-parse --git-common-dir`. Enrolled discovery jobs (the job templates above) run lazily, only when a fact that only they provide is requested, and always as enrolled jobs of the job runtime, never as ad-hoc subprocesses of the crawl.
+* **In-Process Crawl vs. Lazy Discovery Jobs**: The in-process crawl (compiled-in descriptor parsers and file-tree scans) issues no child process of its own: the one git fact it needs, the repository's common directory, it reads through the git contract operation `git.common-dir` of `pm-provider-git` (link:../../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-provider-git[Module Structure, `pm-provider-git`]), which the native variant answers on JGit without a child process and the CLI variant with `git rev-parse --git-common-dir`. The discovery job of a build system (the job templates above) runs like a build job, an enrolled job of the job runtime with the confinement and egress of a `build` job (link:../job-runtime/02-confinement-and-environment.adoc#build-egress[Job Runtime Specification, Build Egress & Build Read Set]), never as an ad-hoc subprocess of the crawl; its output is cached under a key that covers every input the job reads: the descriptor tree hash, where each build system's descriptor set lists every file its job reads (Maven: every `pom.xml`, `.mvn/maven.config`, `.mvn/jvm.config`; Gradle: `settings.gradle(.kts)`, every `build.gradle(.kts)`, `gradle.properties`, `gradle/libs.versions.toml` and any version catalog the settings name, the build files under `buildSrc/`), the digest of the enrolled discovery job template, the digest of the captured build environment, and the digest of the build tool's user settings file the job reads (such as `~/.m2/settings.xml`); the job runs again whenever any of them changes. A build system whose discovery job cannot run (no enrolled wrapper, a refused, failed, or timed-out job) has its edges `unknown`: its resolver reports `NOT_RUN` with its reason (xref:02-merge-algorithms.adoc#_edge_derivation_merge_derivationmerge[Edge Derivation Merge], item 4), the graph resources answer `indeterminate` for its modules, and `derive-verification` widens to the whole tree for the paths that build system claims.
 * **Per-Descriptor Failure Isolation**: A malformed descriptor (the root descriptor or one workspace member) is reported for its module with the parse diagnostic and does not abort discovery of the remaining modules.
-* **Build-File Dependency Parser**: Each build domain (Maven, Gradle, npm, `pyproject`) provides, next to its descriptor parser, a build-file dependency parser: it claims its build files (`pom.xml`, `build.gradle(.kts)` and `settings.gradle(.kts)`, `package.json`, `pyproject.toml`) and returns the ecosystem-qualified third-party coordinates a file declares at a given revision (`maven:<groupId>:<artifactId>`, `npm:<name>`, `pypi:<name>`) with their scope, or a parse diagnostic. The pre-merge Dependency Delta Check consumes it (link:../phase-workflows/05-finalize-review-metrics-descriptor.adoc#dependency-delta[Phase Workflows Specification, Dependency Delta Check]); a changed build file that no parser claims, or that fails to parse, makes that check `indeterminate`.
+* **Resolved Dependencies for the Sanity Check**: Each build domain (Maven, Gradle, npm, `pyproject`) contributes to the step `dependencies` of the sanity check (extension point `ext-point-sanity-check-step`) the reader of its ecosystem: the dependencies and build plugins its build tool resolved for the build that ran, listed offline by the build tool itself (`mvn -o dependency:list` and `mvn -o dependency:resolve-plugins`, `gradle --offline dependencies` and `gradle --offline buildEnvironment`, `npm ls`, `pip list` of the project's virtual environment), never parsed from a build file (link:../phase-workflows/09-sanity-check.adoc#sanity-step-dependencies[Phase Workflows Specification, Sanity Check, `dependencies`]).
 * [[third-party-trees]]**Third-Party Trees**: Each build domain names the directories inside a checkout where its build tool installs or unpacks third-party content: npm every `node_modules/` directory at any depth, `pyproject` every directory that holds a `pyvenv.cfg` (a virtual environment); Maven and Gradle install into their toolchain caches outside the checkout (the enrolment's `write_paths`) and name none. A path below such a tree, resolved through symbolic links, is third-party content a worker reads (link:../model-work/07-untrusted-text-screening.adoc#third-party-content[Model Work Specification, Third-Party Content on This Machine]).
 
 [[build-map]]
@@ -103,7 +103,7 @@ Instead of invoking Python CLI scripts via Bash to inspect repository structure,
 |Owning module (`which-module`) resolved via module roots and Axis-D `PathAttributionMerge`, plus matching `build.map` route.
 
 |`pm://architecture/files/{+path}/neighbours`
-|File-level neighbours of one repository-relative file: the files it imports (resolved by the same scanners as the Axis-C resolvers, unresolvable imports listed as `unresolved[]`), its paired test or production file (by the owning build system's source-set convention, `none` when there is none), and its owning module. The light gate `init.light-gate` counts `|neighbours|` from this resource (link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#light-gate[Phase Workflows Specification, Light Gate]).
+|File-level neighbours of one repository-relative file, the same for every language: its paired test or production file (by the owning build system's source-set convention, `none` when there is none), the descriptor of its owning module, and the modules adjacent to its owning module in the module graph (its direct upstream dependencies and direct downstream consumers, every resolver's edges merged), each adjacent module one neighbour. Where the owning module's edges are `unknown` (its build system's discovery job could not run) or the graph is `indeterminate`, the neighbours are `indeterminate`, never an empty set. The light gate `outline.light-gate` counts `|neighbours|` from this resource (link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#light-gate[Phase Workflows Specification, Light Gate]).
 
 |`pm://architecture/graph`
 |Merged Axis-C dependency graph (`MergedDependencyEdge[]` with `resolverIds` provenance) and topological layers.

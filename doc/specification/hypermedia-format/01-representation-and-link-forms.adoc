@@ -85,7 +85,7 @@ _Implementation watch: link:../../implementation-watch/hypermedia-format.adoc#PM
 |`phase`
 |Required
 |Closed enum
-|Lifecycle phase (`init`, `refine`, `outline`, `plan`, `execute`, `finalize`, `completed`, `aborted`, `epic`, `workspace`, or `machine`, mapped 1:1 to the persisted values of `status.json`; link:../identifiers/01-general-rules-and-registry.adoc#id-phase[Identifier Registry, `phase`]). A plan's phase is the phase sub-workflow on its call stack, also within a sub-workflow called inside the phase (link:../store-schemas/03-findings-and-review-records.adoc#phase-sub-workflows[Store Schemas Specification, Phases as Sub-Workflows]). A task entity carries the phase of the state that created its task.
+|Lifecycle phase (`init`, `refine`, `outline`, `plan`, `execute`, `sanity-check`, `finalize`, `completed`, `aborted`, `epic`, `workspace`, or `machine`, mapped 1:1 to the persisted values of `status.json`; link:../identifiers/01-general-rules-and-registry.adoc#id-phase[Identifier Registry, `phase`]). A plan's phase is the phase sub-workflow on its call stack, also within a sub-workflow called inside the phase (link:../store-schemas/03-findings-and-review-records.adoc#phase-sub-workflows[Store Schemas Specification, Phases as Sub-Workflows]). A task entity carries the phase of the state that created its task.
 
 |`summary`
 |Required

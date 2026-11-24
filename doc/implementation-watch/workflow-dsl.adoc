@@ -252,11 +252,14 @@ Anchor:: link:../specification/workflow-dsl/09-plan-instance.adoc#_versions_comp
 Hazard:: A fallback or outline version that takes effect only from the next transition lets the chain that follows its
 composition still run steps the new version pruned (a post-run-only fallback still entering a finalize step below
 order `900`).
-Guard:: Scenario per server event (`outline`, `plan`, `fallback`, `empty_harvest`, `replan`): the
+Guard:: Scenario per server event (`outline`, `plan`, `realized`, `fallback`, `empty_harvest`, `replan`): the
 transition that enters the composing target state records the new `instance_version`, and every state that chains on
 reads it (`finalize.next-step` after `plan.return` and after `finalize.hand-back` selects only post-run steps, one
 fixture per route); an operator or configuration event composed mid-chain takes effect only from the next transition;
-the history keeps the version in force per firing.
+the history keeps the version in force per firing. The `realized` version evaluates `no_code_delta` and
+`no_production_delta` against the realized footprint (the diff against the plan's base), keeps the steps when the
+footprint cannot be read, and is composed again when a loop-back added tasks; a `replan` version prunes nothing that
+reads the plan's change.
 Guarded: `InstanceVersionEngineTest` (the version is recorded in the entering transaction, the chain selects from it,
 its `instance` history line is written, and an operator event takes force from the next transition). Open: the
 `finalize.next-step` half, which needs a fixture plan whose composed version prunes a finalize step below order `900`.

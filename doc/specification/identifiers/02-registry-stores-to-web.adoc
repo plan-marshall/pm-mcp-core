@@ -58,14 +58,14 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |`instance_version` of `mcp/status.json`, link:../store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas, Plan Instance]
 
 |[[id-composition-event]]`composition_event`
-|Closed enum: `start`, `outline`, `plan`, `config_adopted`, `waiver`, `override` (a plan's own value set while it runs, link:../workflow-dsl/09-plan-instance.adoc#plan-overrides[Workflow DSL, Plan Overrides]), `fallback`, `empty_harvest`, `replan`.
+|Closed enum: `start`, `outline`, `plan`, `realized` (the last plan task of the execute phase committed: the prunes on the realized change, link:../workflow-dsl/09-plan-instance.adoc#_versions_composition_events[Workflow DSL, Versions & Composition Events]), `config_adopted`, `waiver`, `override` (a plan's own value set while it runs, link:../workflow-dsl/09-plan-instance.adoc#plan-overrides[Workflow DSL, Plan Overrides]), `fallback`, `empty_harvest`, `replan`.
 |build
 |—
 |Closed; extended only with a schema version
 |Instance header and `composition.jsonl` link:../store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas, Plan Instance]
 
 |[[id-prune-reason]]Prune reason
-|Closed enum: `posture`, `provider_unconfigured`, `footprint_disjoint`, `change_type_exempt`, `local_only`, `land_lane`, `adopt`, `other_lane` (a state reachable only from the entry of the lane the plan did not choose, pruned from the `outline` event on, link:../workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL, Composition Rules]), `merge_by_operator`, `empty_harvest`, `returned`, `handed_back`, `plan_default` (a step the plan behaviour axes leave out, link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL, Plan Behaviour Axes]), `no_code_delta`, `no_production_delta` (a prunable step whose condition the plan's change does not meet, link:../phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows, Normative Step Catalogue]).
+|Closed enum: `posture`, `provider_unconfigured`, `local_only`, `land_lane`, `adopt`, `other_lane` (a state reachable only from the entry of the lane the plan did not choose, pruned from the `outline` event on, link:../workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL, Composition Rules]), `merge_by_operator`, `empty_harvest`, `returned`, `handed_back`, `plan_default` (a step the plan behaviour axes leave out, link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL, Plan Behaviour Axes]), `no_code_delta`, `no_production_delta` (a prunable step whose condition the plan's realized change does not meet, evaluated at the composition event `realized`, link:../phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows, Normative Step Catalogue]).
 |build (composition rules)
 |—
 |Closed; extended only with a schema version
@@ -305,7 +305,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |`pm_build.command` link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/02-service-and-skill-tools.adoc#_pm_build_enrolled_build_execution[MCP Tools]; canonical templates link:../domain-extensions.adoc[Domain Extensions]; budget keys link:../timeouts/01-job-budgets-and-waits.adoc#job-budgets[Timeouts & Budgets]
 
 |[[id-resolver-id]]Resolver and attributor identifier
-|`^[a-z][a-z0-9-]{0,31}$`, 1–32 (for example `maven`, `pyproject`, `python`, `lsp`).
+|`^[a-z][a-z0-9-]{0,31}$`, 1–32 (for example `maven`, `gradle`, `pyproject`, `lsp`).
 |build
 |Binary
 |Immutable; carried as edge and claim provenance
