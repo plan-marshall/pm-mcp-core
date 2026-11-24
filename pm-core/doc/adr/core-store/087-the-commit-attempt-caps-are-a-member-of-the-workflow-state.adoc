@@ -28,10 +28,12 @@ The two caps are a new typed member of `WorkflowStatus`, `commit_attempt_caps`, 
 and declared in `status.schema.json` with a codec parity test. The member is `null` before the first counted event and
 an object `{change_set, frame}` otherwise:
 
-* `change_set` is `{staged_tree, message_digest, attempts}`: the SHA-1 of the staged tree, the SHA-256 of the message
-  and the failed attempts of that change set, at most three.
+* `change_set` is `{staged_tree, message_digest, attempts}`: the staged tree id, the SHA-256 of the message and the
+  failed attempts of that change set, at most three. The tree id's grammar is SHA-1 only — `[0-9a-f]{40}` — so a SHA-256
+  tree id is refused rather than stored, and `message_digest` is `[0-9a-f]{64}`.
 * `frame` is `{frame_id, tasks}`: the identity of the call frame and the `git.commit-fix` tasks taken in it, at most
-  three.
+  three. A change of frame restarts the count at one: the tasks of another frame replace the entry instead of adding to
+  it.
 
 The persisted value is data only, `CommitAttemptCaps` in `de.planmarshall.core.store`; the transitions live in the pure
 class `CommitAttemptCounter` in the same package, beside the value, so both the engine (which may depend on `pm-core`
@@ -39,7 +41,16 @@ alone) and the assembly may count through it. A
 counted attempt of another change set, or of another frame, replaces the entry and starts at one, which is the
 specification's own reset rule. The value never exceeds the cap.
 
-The format version stays `1` (R13): the member is added in place, with no reader for an older shape.
+The counter answers one predicate per cap — `changeSetCapSpent()` and `frameCapSpent()` — and the state catalogue's guard
+reads both at the one event it names, the `hook_failed` outcome of `git.stage-and-commit`, where either spent cap answers
+`attempts_exhausted`. It holds no combined predicate: "the loop is over" is no question a caller asks at another point,
+and the frame cap being spent after the third `git.commit-fix` task never ends the loop before the commit attempt that
+follows it runs.
+
+The format version stays `1` (R13): the member is added in place, with no reader for an older shape. No version question
+was put for this member: the ask-at-refine question of the outline of `PLAN-V2-176` was the change ledger's format
+version, which the operator answered with `1` and the kind added in place (ADR `088`, answer 2 of that outline), so the
+two records agree on what was asked.
 
 == Alternatives Considered
 
@@ -55,10 +66,10 @@ The format version stays `1` (R13): the member is added in place, with no reader
 
 == Consequences
 
-* `WorkflowStatusCodecTest` round-trips the member and `WorkflowStatusSchemaParityTest` pins its two counters against
-  the schema; `CommitAttemptCapsTest` pins the value's grammar and `CommitAttemptCounterTest` the reset and cap rules,
-  including the PM-WATCH-DSL-28 hazard: a fix that changes the staged tree resets the change-set counter, and the frame
-  counter still ends the loop.
+* `WorkflowStatusCodecTest` round-trips the member and `WorkflowStatusSchemaParityTest` pins its two counters, both
+  digest patterns, the maximum `3` and the frame id rule against the schema; `CommitAttemptCapsTest` pins the value's
+  grammar and `CommitAttemptCounterTest` the reset and cap rules, including the PM-WATCH-DSL-28 hazard: a fix that
+  changes the staged tree resets the change-set counter, and the frame counter still ends the loop.
 * The engine or the assembly that wires the commit sub-process takes the counter from the status store instead of
   holding it in memory; the class lives in `pm-core`, so the engine may reach it without depending on the provider.
 

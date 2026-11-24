@@ -9,8 +9,10 @@
  */
 package de.planmarshall.provider.git.primitive;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -135,16 +137,23 @@ class CommitTrailerSchemaParityTest {
         }
 
         @Test
-        @DisplayName("the JVM accepts a trailing line terminator where an ECMA-262 engine does not")
-        void jvmAcceptsATrailingTerminator() {
+        @DisplayName("Java's $ admits a trailing terminator where an ECMA-262 engine refuses it")
+        void trailingTerminatorDivergesWithEcma262() {
             var pattern = pattern(TRAILER, "name");
+            var declared = pattern.pattern();
             var candidates = new ArrayList<String>();
             for (var codePoint : new int[]{'\n', '\r', 0x0085, 0x2028, 0x2029}) {
                 candidates.add("a" + Character.toString(codePoint));
             }
+            // the same pattern with the ECMA-262 end-of-input anchor: without multiline mode $ matches only there
+            var ecma262 = Pattern.compile(declared.substring(0, declared.length() - 1) + "\\z");
 
-            assertEquals(candidates, admitted(pattern, candidates),
-                    "Java's $ admits a trailing terminator, ECMA-262's does not");
+            assertAll(
+                    () -> assertTrue(declared.endsWith("$"), "the declared pattern is anchored with $"),
+                    () -> assertEquals(candidates, admitted(pattern, candidates),
+                            "Java's $ admits a value with a trailing terminator"),
+                    () -> assertEquals(candidates, rejected(ecma262, candidates),
+                            "an ECMA-262 engine refuses the trailing terminator"));
         }
     }
 

@@ -853,10 +853,14 @@ part of that class: the name rule refuses CR, LF, U+0085, U+2028 and U+2029, the
 and U+0085, so a NUL, an ESC or another control of the class reaches the trailer line; a `commit_identity` value the
 schema refuses reaches the commit's author
 line, where no rule of this module checks it at all.
-Guard:: The patterns are pinned code point by code point as test input
-(`CommitTrailerSchemaParityTest`, `commit_trailer` and `commit_identity`), the codec's own rule beside them
-(`CommitTrailerTest`, `CommitTrailerUnicodeTest`), and the decoder turns a half the trailer rule refuses into
-`invalid_ignored`. The gap is the class the schema refuses and the codec admits; a decision to validate at run time is the
-operator's and would make this item obsolete, and the plan that takes it names the enforcer.
+Guard:: The *refuse* side of the patterns is pinned code point by code point as test input
+(`CommitTrailerSchemaParityTest`, `commit_trailer` and `commit_identity`): every C0 and C1 control, every White_Space
+code point and the angle brackets; the *admit* side is the generated and enumerated population each case names, never a
+code-point sweep, because the item's guard is the refused class and an admitted sample never proves a class. The codec's
+own rule stands beside them (`CommitTrailerTest`, `CommitTrailerUnicodeTest`), the two ECMA-262 divergences (U+FEFF in
+`\s`, a trailing line terminator before `$`) are pinned as divergences rather than sampled around, and the decoder turns a
+half the trailer rule refuses into `invalid_ignored`. The gap is the class the schema refuses and the codec admits; a
+decision to validate at run time is the operator's and would make this item obsolete, and the plan that takes it names
+the enforcer.
 Source:: landing of `PLAN-V2-169` (`git-commit-primitives-closeout`), carried item 90d; `PLAN-V2-172` deliverable 4; epic
 `pm-mcp-core-m2-m4-v2` decisions of 2026-11-08 (`runtime-schema-validation`).

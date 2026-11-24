@@ -12,6 +12,7 @@ package de.planmarshall.provider.git;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -27,7 +28,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 /**
  * The one rule of a path a commit cannot stage (PM-WF-16, Stages 3 and 4): its textual part, its file-system part with
- * the parent confinement through a symbolic link, and its tracked-tree part, which fails closed on a repository it
+ * the parent confinement through a symbolic link, and its tracked-tree part, which stays silent on a repository it
  * cannot read.
  */
 @EnableGeneratorController
@@ -120,6 +121,25 @@ class CommitPathRefusalsTest {
         void emptyCandidatesRefuseNothing() {
             assertEquals(List.of(), List.copyOf(CommitPathRefusals.refusedTrackedTrees(worktree, List.of())),
                     "no candidate names nothing to refuse");
+        }
+
+        @Test
+        @DisplayName("a repository whose config cannot be read still leaves the rule silent")
+        void unreadableConfigStaysSilent() throws IOException {
+            var gitDir = worktree.resolve(".git");
+            Files.createDirectories(gitDir.resolve("objects"));
+            Files.createDirectories(gitDir.resolve("refs"));
+            Files.writeString(gitDir.resolve("HEAD"), "ref: refs/heads/main\n");
+            // an unterminated section: JGit answers the config as unreadable, the IOException half of the rule's catch
+            Files.writeString(gitDir.resolve("config"), "[invalid");
+            var names = List.of(name());
+
+            assertAll(
+                    () -> assertThrows(IOException.class,
+                            () -> CommitPathRefusals.open(worktree, new RefusingFS()),
+                            "the JGit contract answers an IOException for the config"),
+                    () -> assertEquals(List.of(), List.copyOf(CommitPathRefusals.refusedTrackedTrees(worktree, names)),
+                            "an unreadable repository refuses no name"));
         }
     }
 }

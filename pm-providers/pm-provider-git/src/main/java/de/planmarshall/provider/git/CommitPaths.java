@@ -22,6 +22,9 @@ import lombok.experimental.UtilityClass;
  * fail it through the empty segment and the control-character clause. {@code JGitOperations} refuses a path that fails
  * it with {@link GitOutcome#PATH_REFUSED}, and {@code StagingSets} puts such a dirty name in the {@code outside} set, so
  * the footprint check names it instead of a commit failing on it.
+ * <p>
+ * The rule is read through {@code CommitPathRefusals.isRefusedText}, the façade both readers name for all three parts
+ * of the commit's path rule; this class keeps the text grammar itself, which {@code CommitPathsTest} pins.
  *
  * @since 0.1
  */
