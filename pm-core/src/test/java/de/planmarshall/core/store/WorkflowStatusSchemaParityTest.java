@@ -108,10 +108,11 @@ class WorkflowStatusSchemaParityTest {
     }
 
     /**
-     * The frames pattern is {@code \S} with {@code minLength: 1} and the record refuses a blank id. The two agree on the
-     * JVM, and the JVM engine is what this class evaluates: {@code Character.isWhitespace} — and therefore {@code \S} —
-     * answers {@code false} for U+00A0 and U+FEFF, which an ECMA-262 engine's {@code \S} refuses. That is the second
-     * code point of the white-space divergence {@code CommitTrailerSchemaParityTest} names for {@code \s}.
+     * The frames pattern is {@code \S} with {@code minLength: 1} and the record refuses a blank id. Java's {@code \S} is
+     * the complement of the ASCII {@code \s}, so the two differ beyond ASCII in one direction — a frame id of only
+     * U+2000 is admitted by the pattern and refused by {@code isBlank()} — and neither refuses U+00A0, U+2007, U+202F or
+     * U+FEFF, which an ECMA-262 engine's {@code \S} refuses. The record being the stricter of the two where they differ
+     * is safe: no run-time validation of a stored record runs here ({@code PM-WATCH-STORE-62}).
      */
     @Test
     @DisplayName("the commit attempt caps are the schema's two closed counters, grammar and maximum")
