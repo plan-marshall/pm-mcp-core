@@ -19,16 +19,17 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClass;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.lang.ArchRule;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.InstantSource;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -275,32 +276,85 @@ class ProcessTreeTrackerTest {
     class Signals {
 
         @Test
-        @DisplayName("the tracker and every type declared in it depend on no group-signal primitive")
+        @DisplayName("the tracker and every type of its name prefix depend on no group-signal primitive")
         void dependsOnNoGroupSignal() {
-            var types = new ArrayList<Class<?>>();
-            types.add(ProcessTreeTracker.class);
-            types.addAll(List.of(ProcessTreeTracker.class.getDeclaredClasses()));
-            var imported = new ClassFileImporter().importClasses(types);
-
-            var sent = noClasses().that(areTheTrackerOrANestedType())
-                    .should().dependOnClassesThat().haveFullyQualifiedName(ProcessGroupSignals.class.getName())
-                    .evaluate(imported);
+            var imported = new ClassFileImporter().importPackages(ProcessTreeTracker.class.getPackageName());
             var selected = imported.stream().filter(areTheTrackerOrANestedType()::test).toList();
 
             assertAll(
-                    () -> assertEquals(types.size(), selected.size(),
-                            "the subject selects every imported type"),
-                    () -> assertFalse(sent.hasViolation(),
+                    () -> assertTrue(selected.stream().anyMatch(type ->
+                                    type.getName().equals(ProcessTreeTracker.class.getName())),
+                            "the tracker itself is selected"),
+                    () -> assertTrue(selected.size() > 1,
+                            "at least one declared type is selected"),
+                    () -> assertFalse(noGroupSignalRule(areTheTrackerOrANestedType()).evaluate(imported).hasViolation(),
                             "no declared type of the tracker signals numerically"));
         }
 
+        @Test
+        @DisplayName("the guard catches a fixture for each shape of the group-signal primitive it names")
+        void catchesAFixtureThatDependsOnGroupSignal() {
+            assertAll(
+                    () -> assertCaught(GroupSignalDependentControl.class),
+                    () -> assertCaught(SignalNestedDependentControl.class),
+                    () -> assertCaught(KillBindingDependentControl.class));
+        }
+
+        private static void assertCaught(Class<?> fixture) {
+            var imported = new ClassFileImporter().importClasses(fixture);
+
+            assertTrue(noGroupSignalRule(named(fixture.getName())).evaluate(imported).hasViolation(),
+                    "the rule catches the fixture dependency");
+        }
+
+        private static DescribedPredicate<JavaClass> named(String name) {
+            return new DescribedPredicate<>("the type " + name) {
+
+                @Override
+                public boolean test(JavaClass javaClass) {
+                    return javaClass.getName().equals(name);
+                }
+            };
+        }
+
         /**
-         * The subject of the rule: the tracker and every type declared in it, so a nested record, interface or helper
-         * that reached for the numeric primitive is a violation too. Both the enclosing name and the nested types come
-         * from the class literal, so a renamed class is a compile error here and a newly nested type is imported by the
-         * reflection over the declared classes, never by a name list that could go stale.
+         * The rule the guard applies: the selected subject depends on no group-signal primitive. The primitive is the
+         * interface, its nested types and every implementation of it — {@code KillBinding} included — so a dependency
+         * on a nested {@code Signal} or on the FFM binding is caught, not only the exact interface name. A dependency
+         * reached through a third helper class is outside a direct-dependency rule and is not seen; the tracker
+         * needing such a helper is the change that has to bring a test for it.
          *
-         * @return the predicate selecting the tracker and its declared types
+         * @param subject the classes the rule quantifies over
+         * @return the rule
+         */
+        private static ArchRule noGroupSignalRule(DescribedPredicate<JavaClass> subject) {
+            return noClasses().that(subject)
+                    .should().dependOnClassesThat(areAGroupSignalPrimitive())
+                    .because("the sweep signals through the process handle alone");
+        }
+
+        private static DescribedPredicate<JavaClass> areAGroupSignalPrimitive() {
+            var primitive = ProcessGroupSignals.class.getName();
+            return new DescribedPredicate<>("a group-signal primitive") {
+
+                @Override
+                public boolean test(JavaClass javaClass) {
+                    // isAssignableTo covers the interface itself and every implementation; the nested types need
+                    // their own clause because they are not the interface's subtypes
+                    return javaClass.getName().startsWith(primitive + "$")
+                            || javaClass.isAssignableTo(ProcessGroupSignals.class);
+                }
+            };
+        }
+
+        /**
+         * The subject of the rule: the tracker and every type of its package whose name carries the tracker's prefix,
+         * so a direct member, a nested-in-nested type, an anonymous or a local class that reached for the numeric
+         * primitive is a violation too. The package scan reaches the class files {@code getDeclaredClasses()} did not —
+         * it saw direct members alone — and the prefix comes from the class literal, so a renamed class is a compile
+         * error here and a newly nested type needs no name list that could go stale.
+         *
+         * @return the predicate selecting the tracker and its nested types
          */
         private static DescribedPredicate<JavaClass> areTheTrackerOrANestedType() {
             var enclosing = ProcessTreeTracker.class.getName();

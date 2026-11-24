@@ -47,14 +47,17 @@ answers to the operator (2026-11-22), who chose the explicit absence.
 * A cut tail can still show a failing count whose `Results:` marker lies in the lost head: the line carries `[WARNING]`
   or `[INFO]` (a `testFailureIgnore` build that ended `BUILD SUCCESS`), and the count scan files it as ambiguous. For a
   cut log the failing tests of those ambiguous summary lines count too, so the tail's visible failure is filed as a
-  `TEST_FAILURE` diagnostic at error severity instead of a passing run. The tail's visible count is taken per test-plugin
-  execution — the larger of that execution's summary side (its summary and ambiguous lines) and its per-class lines — and
+  `TEST_FAILURE` diagnostic at error severity instead of a passing run. The tail's visible count is taken per execution
+  — the one the nearest preceding plugin header opens — as the larger of that execution's summary side (its summary and
+  ambiguous lines) and its per-class lines — and
   is then reduced by the failing tests the error-level count lines already filed report, counted after the collector's
   deduplication. The remainder is filed once, so a failure is never filed twice, and an error-level `Tests run:` line of
   the tail stays its own diagnostic beside the synthetic one. A tail whose cut removed every execution header is one
   execution: its two sides cannot be told apart by the log, the larger side is that execution's figure, and the figure of
   a mix of the two sides is then too low, never a sum of two executions. ADR link:012-the-cut-tails-failing-count-is-taken-per-execution.adoc[`core-build/012`]
-  records the counting rule and its bounded error.
+  records the counting rule and its bounded error, amended by
+  link:013-the-cut-tails-failing-count-reduces-per-execution.adoc[ADR `core-build/013`] for the per-execution reduction,
+  the count key and the saturation of an overflowing digit count.
 * `TestCounts.Measured` carries the four counts and the per-runner map, and `TestCounts.from` takes them; the state that
   says "no measurement" is `TestCounts.Unmeasured`, which has no count accessor, so the cut cannot be read as a zero.
 
