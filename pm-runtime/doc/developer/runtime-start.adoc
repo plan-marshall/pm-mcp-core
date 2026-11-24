@@ -123,16 +123,23 @@ sweeps both.
   a completed removal drops no kept entry from the report
   (link:../adr/runtime-start/016-the-sweep-removes-pending-entry-residue-by-evidence.adoc[ADR 016]).
 * A fault of the removal itself — a rethrown non-link refusal of the verification, a refused store, an I/O failure or a
-  failed commit — fails the step with its message, the entries whose removal the run had staged and not yet deleted,
-  the directories it had removed and every entry it kept as they stood, plus the unreadable entries the listing
-  collected before it, so that fault drops none of them. The report names how far the faulted removal got, read from the
-  phase the removal had reached and, while the commit was entered, from the workspace's journal: *staged* before the
-  commit is called, so nothing is committed and the next run re-judges every entry; *owed* with the commit entered and
-  the journal durable, so the recovery of the workspace completes the removals; *undecided* with the commit entered and
-  its journal gone — the commit deletes the journal as it closes, so its absence decides nothing — and *committed* once
-  the transaction's commit returned, so the removals are applied and only the directories remain. The discard's two
-  refusals are caught per entry, so only a fault outside them reaches the *committed* arm, and a fault of the lock's own
-  release carries the same state, because the state is kept outside the lock transaction.
+  failed commit, one of the five types the step catches (`UncheckedIOException`, `IllegalArgumentException`,
+  `IllegalStateException`, `InternalFaultException`, `StoreRefusal`) — fails the step with its message, the entries
+  whose removal the run had staged and not yet deleted, the directories it had removed and every entry it kept as they
+  stood, plus the unreadable entries the listing collected before it, so that fault drops none of them. A fault of
+  another type leaves `run` uncaught: only these five types are the faults a removal carries as its state. The report
+  names how far the faulted removal got, read from the phase the removal had reached and, while the commit was entered,
+  from the workspace's journal: staged before the commit is called, so nothing is committed and the next run re-judges
+  every entry; owed with the commit entered and the journal durable, so the recovery of the workspace completes the
+  removals; undecided with the commit entered and no journal present — the commit deletes the journal as it closes, and
+  a commit that fails before writing it leaves none, so its absence decides nothing — and the next run re-judges the
+  directories; or committed once the transaction's commit returned, so the removals are applied and only the
+  directories remain. The discard's two refusals are caught per entry, so only a fault outside them reaches the
+  committed arm, and a fault of the lock's own release carries the same state, because the state is kept outside the
+  lock transaction. A test reaches the staged arm
+  (`PendingEntryRecordsSweepTest.faultBeforeTheCommitRollsBackTheStagedRemovals`) and the owed arm
+  (`PendingEntryRecordsSweepTest.auditSinkFaultInsideTheCommitLeavesTheRemovalOwed`); the undecided and committed arms
+  have no seam here and stay untested, as the test class's Javadoc states.
 * All removals of a run are one transaction, committed only if a directory is removed. A stopped removal is completed
   by the recovery of the workspace, which hands the owed records over again.
 * A workspace whose journal still waits for its recovery cannot be written: the step fails and removes nothing.

@@ -74,6 +74,14 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
  * record, a name that is no entry id is never touched, and what cannot be done is reported as a failure. The reports,
  * the audit record name and its detail keys are the specified contract; the project, the instants and the entry ids are
  * generated.
+ * <p>
+ * Two of the four reaches a faulted removal reports are reached here, one test each:
+ * {@link #faultBeforeTheCommitRollsBackTheStagedRemovals} reaches the staged arm, because the verification fails before
+ * the commit is called, and {@link #auditSinkFaultInsideTheCommitLeavesTheRemovalOwed} reaches the owed arm, because the
+ * sink throws inside the commit while its journal is durable. No test reaches the undecided or the committed arm: the
+ * removal's transaction carries the no-op step hook and deletes stores only, so its staging writes nothing that could
+ * fail, and the discard's two refusals are caught per entry, so nothing here can leave the commit's journal absent or
+ * fault after the commit returned.
  */
 @EnableGeneratorController
 @DisplayName("Pending entry records sweep")
@@ -583,8 +591,8 @@ class PendingEntryRecordsSweepTest {
     }
 
     @Test
-    @DisplayName("a fault after the commit reports the removal it staged, and the next run completes it")
-    void refusedAuditHandOverReportsTheCommittedRemoval() {
+    @DisplayName("an audit-sink fault inside the commit leaves the removal owed, and the next run completes it")
+    void auditSinkFaultInsideTheCommitLeavesTheRemovalOwed() {
         create(entry(residue, now));
         cutOffRemoval(residue);
         AuditSink refusing = createMock(AuditSink.class);
@@ -594,7 +602,7 @@ class PendingEntryRecordsSweepTest {
 
         var outcome = new PendingEntryRecordsSweep(base, lockManager, refusing, clock).run(projectId, now);
 
-        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a refused hand-over fails the step").reason();
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a sink fault fails the step").reason();
         assertAll(
                 () -> assertTrue(reason.startsWith("pending entry directories not swept: " + AUDIT_FAULT),
                         "the report must name the fault"),
