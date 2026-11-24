@@ -56,6 +56,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
+import de.planmarshall.core.service.LockManager;
 import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScope;
@@ -79,7 +80,7 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
  * the audit record name and its detail keys are the specified contract; the project, the instants and the entry ids are
  * generated.
  * <p>
- * Three of the four reaches a faulted removal reports are reached here, one test each:
+ * Three of the four reaches a faulted removal reports are reached here:
  * {@link #faultBeforeTheCommitRollsBackTheStagedRemovals} reaches the staged arm, because the verification fails before
  * the commit is called; {@link #auditSinkFaultInsideTheCommitLeavesTheRemovalOwed} reaches the owed arm, because the
  * sink throws inside the commit while its journal is durable; and
@@ -708,23 +709,28 @@ class PendingEntryRecordsSweepTest {
             throw new IllegalStateException(RELEASE_FAULT);
         });
         replay(guarded);
+        LockManager guardedManager = createMock(LockManager.class);
+        expect(guardedManager.openTransaction()).andReturn(guarded);
+        replay(guardedManager);
         try {
             Files.setPosixFilePermissions(journalDirectory,
                     Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
             assumeFalse(Files.isWritable(journalDirectory), "a journal directory without write permission");
 
-            var outcome = new PendingEntryRecordsSweep(base, () -> guarded, auditSink, clock).run(projectId, now);
+            var outcome = new PendingEntryRecordsSweep(base, guardedManager, auditSink, clock).run(projectId, now);
 
             var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a release fault fails the step").reason();
             assertAll(
-                    () -> assertFalse(reason.startsWith("pending entry directories not swept: " + RELEASE_FAULT),
+                    () -> assertTrue(reason.startsWith(
+                                    "pending entry directories not swept: Store cannot be written: "),
                             "the first fault's message must survive the release"),
+                    () -> assertTrue(reason.contains(workspace.journalFile() + "; the lock's release failed: "
+                                    + RELEASE_FAULT),
+                            "the release fault is reported beside it"),
                     () -> assertTrue(reason.contains("may have been committed"),
                             "the undecided reach must survive the release"),
                     () -> assertFalse(reason.contains("completed by the recovery"),
-                            "another writer's journal must not turn it owed"),
-                    () -> assertTrue(reason.contains(RELEASE_FAULT),
-                            "the release fault is reported beside it"));
+                            "another writer's journal must not turn it owed"));
             verify(guarded);
         } finally {
             Files.setPosixFilePermissions(journalDirectory, Set.of(PosixFilePermission.OWNER_READ,
