@@ -672,6 +672,14 @@ class SecretRedactorTest {
     /** A wall-clock bound a left-to-right scan meets easily and the former lazy pattern exceeds. */
     private static final Duration REDACTION_BOUND = Duration.ofSeconds(20);
 
+    /**
+     * The bound of the key-block cost tests. The former lazy {@code .*?} under {@code (?s)} needs about 18 seconds for the
+     * 400 000-character case on the development host (measured 2026-11-24 by restoring it), so the 20-second bound of
+     * the other cost tests would no longer catch it; five seconds is far above the linear scan's cost, which is well
+     * under one second.
+     */
+    private static final Duration PEM_BOUND = Duration.ofSeconds(5);
+
     private static final String PEM_BEGIN_MARKER = "-----BEGIN PRIVATE KEY-----";
 
     @Test
@@ -681,7 +689,7 @@ class SecretRedactorTest {
         // no END follows any marker, so every marker was scanned to the end of the text before the fix
         var markers = PEM_BEGIN_MARKER.repeat(400_000 / PEM_BEGIN_MARKER.length() + 1).substring(0, 400_000);
 
-        var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(markers),
+        var redacted = assertTimeoutPreemptively(PEM_BOUND, () -> redactValue(markers),
                 "the linear redaction finishes within the bound");
 
         assertEquals(400_000, markers.length(), "the cost input holds 400 000 characters");
@@ -693,7 +701,7 @@ class SecretRedactorTest {
     void pemManyBeginMarkersWithoutEndAreLinear() {
         var markers = PEM_BEGIN_MARKER.repeat(3_700);
 
-        var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(markers),
+        var redacted = assertTimeoutPreemptively(PEM_BOUND, () -> redactValue(markers),
                 "3 700 BEGIN markers must redact within the bound");
 
         assertEquals(3_700, markers.length() / PEM_BEGIN_MARKER.length(), "the input holds 3 700 markers");
