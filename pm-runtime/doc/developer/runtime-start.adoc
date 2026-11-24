@@ -138,8 +138,10 @@ sweeps both.
   committed arm, and a fault of the lock's own release carries the same state, because the state is kept outside the
   lock transaction. A test reaches the staged arm
   (`PendingEntryRecordsSweepTest.faultBeforeTheCommitRollsBackTheStagedRemovals`) and the owed arm
-  (`PendingEntryRecordsSweepTest.auditSinkFaultInsideTheCommitLeavesTheRemovalOwed`); the undecided and committed arms
-  have no seam here and stay untested, as the test class's Javadoc states.
+  (`PendingEntryRecordsSweepTest.auditSinkFaultInsideTheCommitLeavesTheRemovalOwed`); the committed arm has no seam —
+  the discard's two refusals are caught per entry — and the undecided arm would need the commit to fail between the
+  phase change and the journal write, which no test of the sweep induces, so both stay untested, as the test class's
+  Javadoc states.
 * All removals of a run are one transaction, committed only if a directory is removed. A stopped removal is completed
   by the recovery of the workspace, which hands the owed records over again.
 * A workspace whose journal still waits for its recovery cannot be written: the step fails and removes nothing.

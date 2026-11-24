@@ -595,8 +595,10 @@ class BuildLogTextTest {
     void cutMavenLogSaturatesALineWhoseFailuresPlusErrorsOverflow(@TempDir Path directory) throws Exception {
         var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
         // the Maven log-format lines are the parser's contract fixture
-        // both counts of one line are in the long range and their sum is not: a wrapping addition would report the
-        // line as a passing run
+        // one line whose two counts are each in the long range while their sum is not: the figure the report reads is
+        // the saturated bound. This test pins that figure, not the addition: a mutant back to `+` at the parser's
+        // saturatedAdd(parse(Failures), parse(Errors)) still leaves it green, because every consumer saturates again
+        // and saturatedAdd of a wrapped negative answer is Long.MAX_VALUE too
         var failingTail = """
                 [WARNING] Tests run: 2, Failures: 9223372036854775807, Errors: 1, Skipped: 0
                 """;
@@ -620,8 +622,10 @@ class BuildLogTextTest {
         var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
         // the Maven log-format lines are the parser's contract fixture
         // 9223372036854775808 is one past the long range and still nineteen digits, so the parse refuses it: a count
-        // the parse read as zero would leave the failure unfiled. This test pins that digit-count branch, where the
-        // neighbouring overflowing-sum test pins the addition of two in-range counts
+        // the parse read as zero would leave the failure unfiled. The neighbouring twenty-digit test
+        // (cutMavenLogSaturatesATwentyDigitFailingCount) already reaches this branch with a count far outside the
+        // range; this one pins the boundary just past it, and the erroneous-sum test pins the addition of two
+        // in-range counts
         var failingTail = """
                 [WARNING] Tests run: 1, Failures: 9223372036854775808, Errors: 0, Skipped: 0
                 """;

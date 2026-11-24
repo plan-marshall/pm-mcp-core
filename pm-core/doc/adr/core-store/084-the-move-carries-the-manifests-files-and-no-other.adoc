@@ -36,8 +36,7 @@ Five rules, each enforced where its input is defined:
    what unifies it: the precomposed U+0390 and the decomposed U+0399 U+0308 U+0301 have different NFC forms, and their
    upper-case forms — U+0399 U+0308 U+0301 and U+03AA U+0301 — are equal only after the fold's normalisation that
    follows the case mapping. The stored manifest's read (`SourceManifestCodec.read`) refuses through the record's own
-   canonical
-   constructor, so it carries the same text. The case is folded and the path normalised to NFC
+   canonical constructor, so it carries the same text. The case is folded and the path normalised to NFC
    before and after that fold — the case mapping can itself produce a non-NFC string — because the paths are the
    operator's file names and a case-insensitive or normalisation-insensitive filesystem
    addresses one file in either form; a file and its directory

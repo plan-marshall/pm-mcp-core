@@ -78,10 +78,10 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
  * Two of the four reaches a faulted removal reports are reached here, one test each:
  * {@link #faultBeforeTheCommitRollsBackTheStagedRemovals} reaches the staged arm, because the verification fails before
  * the commit is called, and {@link #auditSinkFaultInsideTheCommitLeavesTheRemovalOwed} reaches the owed arm, because the
- * sink throws inside the commit while its journal is durable. No test reaches the undecided or the committed arm: the
- * removal's transaction carries the no-op step hook and deletes stores only, so its staging writes nothing that could
- * fail, and the discard's two refusals are caught per entry, so nothing here can leave the commit's journal absent or
- * fault after the commit returned.
+ * sink throws inside the commit while its journal is durable. The committed and undecided arms stay untested here: the
+ * committed arm has no seam, because the discard's two refusals are caught per entry, so nothing in this test base
+ * faults after the commit returned, and the undecided arm would need the commit to fail between the phase change and
+ * the journal write — an unwritable journal directory, which no test of this class induces.
  */
 @EnableGeneratorController
 @DisplayName("Pending entry records sweep")
