@@ -82,16 +82,17 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
  * generated.
  * <p>
  * Three of the four reaches a faulted removal reports are reached here:
- * {@link #faultBeforeTheCommitRollsBackTheStagedRemovals} and {@link #aFirstFaultWithoutAMessageIsNamedByItsType} reach
- * the staged arm, because the fault strikes before the commit is called — once from the verification, once from the
- * lock's acquisition with an exception that carries no message;
- * {@link #auditSinkFaultInsideTheCommitLeavesTheRemovalOwed} reaches the owed arm, because the
+ * {@link #faultBeforeTheCommitRollsBackTheStagedRemovals} reaches the staged arm, because the verification fails before
+ * the commit is called; {@link #auditSinkFaultInsideTheCommitLeavesTheRemovalOwed} reaches the owed arm, because the
  * sink throws inside the commit while its journal is durable; and
  * {@link #aCommitThatCannotWriteItsJournalLeavesTheReachUndecided} and
  * {@link #aFaultedLockReleaseKeepsTheFirstFaultsReach} reach the undecided arm, because a workspace journal directory
  * without write permission refuses the journal before it exists — once with the attempt's own fault, once with a
  * fault of the lock's release beside a journal another writer left, and once with a release fault that carries no
- * message ({@link #aReleaseFaultWithoutAMessageIsNamedByItsType}). The committed arm stays untested: the
+ * message ({@link #aReleaseFaultWithoutAMessageIsNamedByItsType}).
+ * {@link #aFirstFaultWithoutAMessageIsNamedByItsType} reaches none of them: the acquisition faults before anything is
+ * staged, so its report prints no reach text, and what it proves is the naming of a first fault that carries no
+ * message. The committed arm stays untested: the
  * discard's two refusals are caught per entry, so nothing in this test base faults after the commit returned.
  */
 @EnableGeneratorController
@@ -851,8 +852,9 @@ class PendingEntryRecordsSweepTest {
             var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a fault without message fails the step")
                     .reason();
             assertAll(
-                    () -> assertEquals("pending entry directories not swept: IllegalStateException with no message",
-                            reason, "the first fault is named by its type"),
+                    () -> assertTrue(reason.startsWith(
+                                    "pending entry directories not swept: IllegalStateException with no message"),
+                            "the first fault is named by its type"),
                     () -> assertTrue(Files.isDirectory(store.entryDirectory(residue)),
                             "the residue directory must stay for the next run"));
             verify(guarded.transaction());

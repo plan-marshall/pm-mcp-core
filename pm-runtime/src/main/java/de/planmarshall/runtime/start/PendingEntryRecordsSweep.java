@@ -335,10 +335,10 @@ public final class PendingEntryRecordsSweep implements SweepStep {
     }
 
     /**
-     * Names a fault by its message, or by its exception type when it carries none, so that no report prints
-     * {@code null} in place of a message. Of the five types a removal catches, {@link InternalFaultException} and
-     * {@link StoreRefusal} compose a non-null message in their constructors, so a missing one can only come of the
-     * other three.
+     * Names a fault by its message, or by its exception type when it carries none, so that the fault text this method
+     * composes never prints {@code null} in place of a message. Of the five types a removal catches,
+     * {@link InternalFaultException} and {@link StoreRefusal} compose a non-null message in their constructors, so a
+     * missing one can only come of the other three.
      *
      * @param fault the fault to name
      * @return its message, or the simple name of its type when it carries none
