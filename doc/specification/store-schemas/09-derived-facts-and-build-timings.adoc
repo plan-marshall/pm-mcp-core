@@ -118,7 +118,7 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/store/derived-
 
 |`module_discovery`
 |local
-|descriptor tree hash
+|descriptor tree hash; per build system's discovery job also its enrolled job template, the captured build environment, and the build tool's user settings file the job reads
 |module discovery (link:../domain-extensions/03-module-discovery.adoc#_server_owned_module_discovery_enrolled_discovery_jobs[Domain Extensions Specification])
 |none
 
@@ -134,7 +134,7 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/store/derived-
 
 The value schemas of the two fact kinds `module_discovery` and `cost_calibration`. Both are local derivations, keyed by kind alone (no qualifier), and follow the entry rules above: deleting the store only forces a re-crawl and a recalibration.
 
-*`module_discovery`*: the structural snapshot of link:../domain-extensions/03-module-discovery.adoc#_server_owned_module_discovery_enrolled_discovery_jobs[Domain Extensions Specification, Server-Owned Module Discovery]. `input_digest` is the descriptor tree hash over the live descriptor content of the worktree the discovery ran in; the snapshot is a cache, never the gatekeeper (a module directory present on disk but absent from it is still discovered). Facts that only a build system's discovery job provides (its plugins, source sets, profiles, and inter-module and external dependencies) are added under the module when that job ran, are dropped with the snapshot when the digest changes, and are `unknown` while the job could not run.
+*`module_discovery`*: the structural snapshot of link:../domain-extensions/03-module-discovery.adoc#_server_owned_module_discovery_enrolled_discovery_jobs[Domain Extensions Specification, Server-Owned Module Discovery]. `input_digest` is the descriptor tree hash over the live descriptor content of the worktree the discovery ran in, the descriptor set of each build system listing every file its discovery job reads (link:../domain-extensions/03-module-discovery.adoc#_server_owned_module_discovery_enrolled_discovery_jobs[Domain Extensions Specification, In-Process Crawl vs. Lazy Discovery Jobs]); the snapshot is a cache, never the gatekeeper (a module directory present on disk but absent from it is still discovered). Facts that only a build system's discovery job provides (its plugins, source sets, profiles, and inter-module and external dependencies) are added under the module when that job ran, are keyed in addition by the digests of the job's enrolled template, of the captured build environment, and of the build tool's user settings file the job reads, are dropped when the descriptor tree hash or any of these digests changes, and are `unknown` while the job could not run.
 
 The schema of the `module_discovery` value is the file `fact-module-discovery.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/store/`, beside the codec of the derived facts store, `DerivedFactsCodec`:
 

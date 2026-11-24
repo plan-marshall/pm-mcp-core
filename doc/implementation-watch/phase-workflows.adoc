@@ -444,7 +444,8 @@ Hazard:: A skill adopted a technique that silently required a new third-party de
 check reads the build files instead of what the build resolved, so a dependency a plugin, a version catalog, or a
 transitive change brings in goes unseen; or a listing that could not run is read as no new dependency.
 Guard:: The `dependencies` step reads the resolved dependencies and plugins per module offline from the build that ran
-(`mvn -o dependency:list`, `gradle --offline dependencies`, `npm ls`, the virtual environment's `pip list`) and compares
+(`mvn -o dependency:list` and `dependency:resolve-plugins`, `gradle --offline dependencies` and `buildEnvironment`,
+`npm ls`, the virtual environment's `pip list`) and compares
 them with the baseline `.marshall/sanity/dependencies.json`: every new coordinate is an item of the one operator
 question of the phase, a transitive one grouped under its direct dependency, and an accepted item updates the baseline
 by the plan's own commit. Matched negative controls: a coordinate in the baseline is not asked; a coordinate decided in
@@ -1771,10 +1772,12 @@ Hazard:: A compile error of the new test counts as its red, so the proof holds f
 after the last green is taken for the proof; or a worker edits the test after its red run and the edit goes unseen; or
 the `FIX` of a missing proof leaves the reverted production change in the worktree.
 Guard:: Scenario over a plan with a `fix` criterion verified by `test`: a red run through a compile error, one
-`failed_unparsed`, and one that went green each leave `fix_red_missing` open; a red run with a failed test closes it;
-an edit of a `red_tests` file afterwards is the item `fix_test_changed`; after the remediation task of a `fix` answer the
-tree equals the tree before it and the verification is green. Matched controls: a record with only `new` criteria and a `fix`
-criterion verified by `inspection` owe nothing; an unreadable ledger is `indeterminate`, never clean.
+`failed_unparsed`, one that went green, and one whose only failed test lies outside its `red_tests` each leave
+`fix_red_missing` open; a red run with a failed test in a `red_tests` file closes it; an edit of a `red_tests` file
+afterwards is the item `fix_test_changed`; after the remediation task of a `fix` answer, whether it ends `submitted`,
+`infeasible`, or `lost`, the tree equals `HEAD` before it and the verification is green. Matched controls: a record with
+only `new` criteria and a `fix` criterion verified by `inspection` owe nothing; a rebase that changes a `red_tests` file
+only through the base raises no `fix_test_changed`; an unreadable ledger is `indeterminate`, never clean.
 Source:: Article analysis `ai-native-sdlc-playbook-anthropic` of plan-marshall-documentation (the failing test committed
 before the fix, which the agent may not rewrite).
 

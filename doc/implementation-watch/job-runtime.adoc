@@ -702,8 +702,8 @@ an ordinary error, and a sentinel file each program would write stays absent aft
 fixture launcher without a mount namespace records `git_metadata: unenforced`, and the same writes then refuse the next
 `git` job with `git_metadata_changed` and a `security` record before it starts, and hold every plan of the project at
 once as `integrity_hold` with the cause `git_metadata_changed`, which one confirmed `rebaseline` releases together; a plan whose worker changes
-`.husky/pre-commit` holds its next commit for the operator's decision on that diff before any commit job runs, and a
-refused change is reverted, declared or not. Matched control: a
+`.husky/pre-commit`, or a tracked file in the directory a `core.hooksPath` setting names, holds its next commit for the
+operator's decision on that diff before any commit job runs, and a refused change is reverted, declared or not. Matched control: a
 worker that changes only tracked source files leaves the digest unchanged, and the commit job runs.
 Source:: Article analysis `promise-that-killed-atom-zed` of plan-marshall-documentation: Zed's agent sandbox keeps the git
 metadata unwritable and names a submodule's `core.fsmonitor` as a way out.

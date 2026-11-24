@@ -46,7 +46,7 @@ Declared in `project-onboarding.pmwf` (compiled only, never designable), the one
 |— (`entry`)
 |`operator_wait`
 |`project.detect` (`scripts_needed`).
-|Consent kind `run_checkout_scripts`: run these scripts of the checkout, each named with its arguments, confined like a job. `yes`, `yes_remember` (for the project and the digest of each script, in `consents.json`, never in the enrolment), `no` (goes on without them, what needs them unknown; not asked again in this run).
+|Consent kind `run_checkout_scripts`: run these scripts of the checkout, each named with its arguments, confined like a job, and the build of the base branch that records the hosts (the wrapper's `verify`, tests included), named as such: it runs with every host reachable and reads the project root, never a credential file of the compiled credential locations nor a credential-pattern variable. `yes`, `yes_remember` (for the project and the digest of each script, in `consents.json`, never in the enrolment), `no` (goes on without them, what needs them unknown; not asked again in this run).
 |`yes`, `yes_remember` -> `project.probe`; `no` -> `project.identity`.
 |link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
 
