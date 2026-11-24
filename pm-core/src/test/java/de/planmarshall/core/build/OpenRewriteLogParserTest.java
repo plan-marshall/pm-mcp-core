@@ -90,14 +90,16 @@ class OpenRewriteLogParserTest {
     @DisplayName("the finding path and its message are redacted at the record")
     void findingPathAndMessageRedacted() {
         var log = String.join("\n", "--- rewrite:run (compile)",
-                "CUI_REWRITE-100: Finding detected at https://deploy:s3cret@host/A.java:3:4 by org.example.Recipe: "
-                        + "password=abcd1234");
+                "CUI_REWRITE-100: Finding detected at https://deploy:s3cret@host/A.java:3:4 by "
+                        + "org.example.password=abcd1234Recipe: password=abcd1234");
 
         var finding = OpenRewriteLogParser.parse(log, true).findings().getFirst();
 
         assertAll("the finding fields are redacted",
                 () -> assertEquals("https://deploy:" + SecretRedactor.REDACTED + "@host/A.java", finding.path(),
                         "a credential in the finding path is masked"),
+                () -> assertEquals("org.example.password=" + SecretRedactor.REDACTED, finding.recipe(),
+                        "a credential in the finding recipe is masked"),
                 () -> assertEquals("password=" + SecretRedactor.REDACTED, finding.message(),
                         "a credential in the finding message is masked"));
     }
