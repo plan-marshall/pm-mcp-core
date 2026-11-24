@@ -70,7 +70,9 @@ import de.planmarshall.core.store.StoreRefusal;
  * journal present — the commit deletes it as it closes, and a commit that fails before writing it leaves none, so its
  * absence decides nothing — and the next run re-judges the directories; or committed once the commit returned, so the
  * removals are applied and only the directories remain. The discard's two refusals are caught per entry, so no refusal
- * of the discard is a fault of the run, and only a fault outside them reaches the committed arm (ADR runtime-start/016).
+ * of the discard is a fault of the run, and only a fault outside them reaches the committed arm. A fault of the lock's
+ * own release keeps the reach and the message a fault of the attempt had already built and reports itself beside them,
+ * because the release comes after another writer may have left the workspace's journal (ADR runtime-start/016).
  *
  * @since 0.1
  */
@@ -149,20 +151,25 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      * deleted, and the answer says how far the removal got — staged before the commit was called, or entered with the
      * workspace's journal durable (the recovery completes the removals) or absent (nothing here decides whether the
      * commit applied), or committed once its commit returned. The state lives outside the lock transaction, so a fault
-     * of the lock's own release carries it too.
+     * of the lock's own release carries it too; the reach and the message of a fault the attempt had already built are
+     * then kept, never re-read after the release, and the release fault is reported beside them.
      *
      * @return the directories that are gone, the entries the run kept, and the fault that stopped it
      */
     private Removal remove(JournalScope workspace, PendingEntryStore store, List<EntryId> candidates, Instant at) {
         var state = new RemovalState();
+        Removal attempted = null;
         try (var lock = lockManager.openTransaction()) {
             lock.acquire(workspace.lockKey());
-            return attempt(lock, workspace, store, candidates, at, state);
+            attempted = attempt(lock, workspace, store, candidates, at, state);
+            return attempted;
         } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
                 | StoreRefusal e) {
             // A fault of opening, acquiring or releasing the lock: the state the removal reached travels with it, so
             // the directories already gone and the entries kept are never dropped by the lock's own release
-            return state.fault(e.getMessage(), workspace);
+            var first = attempted == null ? null : attempted.fault();
+            return first == null ? state.fault(e.getMessage(), workspace)
+                    : state.faultBeside(first, e.getMessage());
         }
     }
 
@@ -220,6 +227,18 @@ public final class PendingEntryRecordsSweep implements SweepStep {
         private Removal fault(String message, JournalScope workspace) {
             var pending = staged.stream().filter(entryId -> !removed.contains(entryId)).toList();
             return new Removal(removed, kept, new Fault(message, pending, reach(workspace)));
+        }
+
+        /**
+         * @param first          the fault the attempt had already built
+         * @param releaseMessage the message of the fault the lock's own release raised afterwards
+         * @return the answer of a faulted removal that keeps the first fault's message, its entries and its reach, with
+         *         the release fault reported beside it: the release comes after another writer may have left the
+         *         workspace's journal, so reading the reach again there would turn an undecided removal into an owed one
+         */
+        private Removal faultBeside(Fault first, String releaseMessage) {
+            var message = first.message() + "; the lock's release failed: " + releaseMessage;
+            return new Removal(removed, kept, new Fault(message, first.pending(), first.reach()));
         }
 
         /**
