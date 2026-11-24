@@ -57,7 +57,9 @@ import de.planmarshall.core.store.RetryCounters.RetryRule;
  * required members and the closed values of a {@link WaiverRequest} are those of the schema of the waiver request
  * record (PM-SEC-3), the grammar of the two commit caps — the pattern of both digests, the maximum of both counters and
  * the frame id rule — and the grammar of the freshness stamp with its {@code const} hash version are the schema's, so a
- * record that refuses less than its pattern declares fails here as well. A member, key or value
+ * record that refuses less than its pattern declares fails here as well, for every divergence the JVM engine can see; the
+ * frame id's {@code \S} differs from an ECMA-262 engine for U+00A0 and U+FEFF, which the caps test names. A member, key
+ * or value
  * added to or removed from the schema without the code fails here instead of being refused or accepted unseen at run
  * time. The schemas are the files {@code de/planmarshall/core/store/status.schema.json} and
  * {@code de/planmarshall/core/store/waiver-request.schema.json} beside the codec, read from the class path.
@@ -108,8 +110,8 @@ class WorkflowStatusSchemaParityTest {
     /**
      * The frames pattern is {@code \S} with {@code minLength: 1} and the record refuses a blank id. The two agree on the
      * JVM, and the JVM engine is what this class evaluates: {@code Character.isWhitespace} — and therefore {@code \S} —
-     * answers {@code false} for U+00A0 and U+FEFF, which an ECMA-262 engine's {@code \S} refuses, the third engine
-     * divergence of the two the class Javadoc names.
+     * answers {@code false} for U+00A0 and U+FEFF, which an ECMA-262 engine's {@code \S} refuses. That is the second
+     * code point of the white-space divergence {@code CommitTrailerSchemaParityTest} names for {@code \s}.
      */
     @Test
     @DisplayName("the commit attempt caps are the schema's two closed counters, grammar and maximum")

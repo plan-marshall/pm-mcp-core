@@ -330,9 +330,9 @@ public final class GitStageAndCommitPrimitive
      * character reaches a fact. A closing bracket that follows an introducer and is followed by at least one further
      * separator is such an introducer too ({@code refused ]/a/b.txt} becomes the code), while
      * {@code app/[slug]/page.tsx} and {@code (group)/x} stay names; a single-segment fragment after a stray closing
-     * bracket ({@code ]/srv}), a path glued to a preceding path-name character and a path glued to a {@code +},
-     * {@code @} or {@code ~} — a punctuation the fail-closed direction counts as a name character — are the pattern's
-     * stated residual cost.
+     * bracket ({@code ]/srv}) and a path glued to a preceding path-name character stay as the text states them, and a
+     * name whose segment ends in {@code +}, {@code @} or {@code ~} ({@code c++/src/main.cpp}) becomes the code because
+     * that punctuation is no path-name character here: these are the pattern's stated residual cost.
      */
     static String modelDetail(GitOutcome outcome, @Nullable String detail, Path worktree) {
         if (detail == null || detail.isBlank()) {

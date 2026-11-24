@@ -37,9 +37,9 @@ script, `.`, `_`, `-` and the closing brackets `]`, `}`, `)` — and `HOST_PREFI
   separator after it is read as absolute. That keeps `~/srv/private/key` a code, which the positive list's `~` caught and
   a name-character reading would not.
 * The fail-closed cost is stated as the pattern's own rule instead of being avoided: a single-segment fragment after a
-  stray closing bracket (`]/srv`), a path glued to a preceding path-name character and a name whose segment ends in one
-  of those three punctuation characters (`c++/src/main.cpp`) stay as the text states them or become the code, because
-  nothing distinguishes them from a host path.
+  stray closing bracket (`]/srv`) and a path glued to a preceding path-name character stay as the text states them, and a
+  name whose segment ends in `+`, `@` or `~` (`c++/src/main.cpp`) becomes the code, because that punctuation is no
+  path-name character here. Nothing distinguishes either shape from a host path.
 
 == Alternatives Considered
 
