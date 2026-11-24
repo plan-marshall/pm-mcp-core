@@ -3001,14 +3001,19 @@ that is a symbolic link or no directory, and a link or a file that is no regular
 instead of being dropped while `finish` deletes the directory with them. The file set is exactly the manifest: a
 file or link of `sources/` that no manifest entry names refuses the move instead of being deleted with the directory, a
 stored file that is a symbolic link or whose canonical path leaves the source directory is refused, and only a regular
-file is read — a FIFO or another special file the manifest names is refused instead of opened, because its open would
-block under the workspace lock; the file is read with `NOFOLLOW_LINKS`. The manifest itself refuses a path two sources
-name, a path that repeats another in case or in another Unicode normalisation form — a case-insensitive or
-normalisation-insensitive filesystem addresses one file in either form — a path that is the directory of another, and a
-path that is its own `sources.json` in any case. The operator kept the full width of that fold on 2026-11-23 after
-`PLAN-V2-171` deferred it: it also refuses `ß` against `ss`, `ı` against `i`, a ligature against its letters and a
-composed against a decomposed name, and a manifest stored before it whose paths collide reads as a `StoreRefusal` with
-`format_version` still 1 (link:../adr/core-store/084-the-move-carries-the-manifests-files-and-no-other.adoc[ADR 084]).
+file is read with `NOFOLLOW_LINKS` — a FIFO or another special file the manifest names is refused instead of opened,
+because its open would block under the workspace lock. That refusal is a check of the file's type and then an open, and
+the two are not atomic: a file replaced by a FIFO between them is opened, and the move blocks under the workspace lock.
+Plain Java has no open that does not wait for a FIFO's peer, so the check narrows the window and the platform's own open
+is the bound (link:../adr/core-store/084-the-move-carries-the-manifests-files-and-no-other.adoc[ADR 084]).
+The manifest itself refuses a path two sources name, a path that repeats another in case or in another Unicode
+normalisation form — a case-insensitive or normalisation-insensitive filesystem addresses one file in either form — a
+path that is the directory of another, and a path that is its own `sources.json` in any case; each of those rules names
+itself in its refusal, and the case rule's message states the fold's width, so the message says which rule the two paths
+break. The operator kept the full width of that fold on 2026-11-23 after `PLAN-V2-171` deferred it: it also refuses `ß`
+against `ss`, `ı` against `i`, a ligature against its letters and a composed against a decomposed name, and a manifest
+stored before it whose paths collide reads as a `StoreRefusal` with `format_version` still 1
+(link:../adr/core-store/084-the-move-carries-the-manifests-files-and-no-other.adoc[ADR 084]).
 
 The workspace transaction deletes the entry's record last; the caller commits the new scope first and the workspace
 second, so a stop before the workspace's commit leaves the record in place and a repeated move is refused by the create
@@ -3042,10 +3047,11 @@ through a symbolic link is a `JournalScope.SymbolicLinkRefusal`; removing an ent
 Tested by `PendingEntryStoreTest` (creation in one transaction and its roll-forward after a stop, replacement, the
 manifest, removal and discard, the abandon end, the per-entry integrity verdict per store and its re-baseline, the
 refused linked store path, the listing, the id grammar), `PendingEntryCodecTest` and `PendingEntrySchemaParityTest` (the
-record and its schema), `SourceManifestCodecTest` (the manifest, the shared path, the case variant, the normalisation
-variant, the stored manifest whose paths collide, the file and its directory, the reserved name and its refusals),
+record and its schema), `SourceManifestCodecTest` (the manifest, the shared path, the case variant, the Unicode case
+variant, the normalisation variant, the case fold's re-normalisation, the nesting, each with its own refusal and the
+stored manifest that carries it, the file and its directory, the reserved name and its refusals),
 `EntryQuestionMoveTest` (the moved log, the refused epic target) and `PendingEntryCreationTest` (the move, the composed
 request and its non-normalized directory, the refused epic target, the refused differing and unlisted source, the
-refused link and link below a parent, the composed request below such a link, the refused special file, the refused
-transcript link and the refused repeated move).
+refused link and link below a parent, the composed request below such a link, the refused FIFO under a deadline that
+fails if the read opens it, the refused transcript link and the refused repeated move).
 
