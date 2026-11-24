@@ -594,13 +594,14 @@ class BuildLogTextTest {
      * figures, where a wrapping sum would report no failure;</li>
      * <li>{@code line-sum} is one line whose two counts are each in the long range while their sum is not, so the figure
      * the report reads is the saturated bound. The line stands at warning level, so the collector files no error-level
-     * count and {@code hasFiledFailingCount} answers false whichever value the addition produced, and the unfiled figure
-     * is floored at zero after the subtraction, so this fixture pins the observed figure and not that addition;
+     * count and {@code hasFiledFailingCount} answers false whichever value the addition produced, and the wrapped
+     * negative is saturated a second time when it is added into its execution's visible side, so this fixture pins the
+     * observed figure and not that addition;
      * {@link #cutMavenLogSeparatesTheLineSumMutantByItsFiledCount} separates it instead: its error-level line is filed,
      * {@code filedFailures} stores an execution's first value raw — its {@code saturatedAdd} runs only on a second line
      * of the same execution — so a wrapped sum turns {@code hasFiledFailingCount} false while the saturated one answers
-     * true, and what hides the wrap in the unfiled figure is the overflow of {@code MAX_VALUE - Long.MIN_VALUE} to
-     * {@code -1} before the floor at zero;</li>
+     * true, and the subtraction of that raw value from the saturated visible figure overflows past the long range into
+     * {@code -1}, which the floor at zero turns into {@code 0};</li>
      * <li>{@code nineteen-digits} is 9223372036854775808, one past the long range and still nineteen digits, which the
      * parse refuses: a count the parse read as zero would leave the failure unfiled;</li>
      * <li>{@code twenty-digits} is 99999999999999999999, far outside the range, and reaches the same branch.</li>
