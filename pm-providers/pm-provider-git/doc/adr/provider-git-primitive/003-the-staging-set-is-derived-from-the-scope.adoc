@@ -26,7 +26,7 @@ type `ScopeKind`, which does not exist; `core.store.ScopeType` holds `PLAN`, `EP
   tracked-tree part); a name that fails it — a pathspec magic, a backslash, a control character, a newline, the `dir/`
   entry of an embedded repository, the name of a modified submodule, which the worktree holds as a directory, and a
   tracked directory a file replaced — is `outside`, so the footprint check names it instead of the commit failing on it
-  (link:008-the-staging-set-refuses-what-the-commit-refuses.adoc[ADR 008]).
+  (link:008-the-staging-set-and-the-commit-share-the-path-rule.adoc[ADR 008]).
 * It takes the existing `ScopeType`; no `ScopeKind` is added. `PROJECT` has no staging set: every dirty path is
   `outside`, a value, never an exception.
 * The directory that holds each path is confined with `PathConfinement.confine(new WorkspaceRoots(worktree, Set.of()),

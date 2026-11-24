@@ -55,6 +55,12 @@ public final class CommitPathRefusals {
 
     /**
      * The textual rule, the one the commit shares with the staging set.
+     * <p>
+     * It stays a delegation rather than a second copy: {@link CommitPaths} owns the grammar ({@code CommitPathsTest}
+     * pins it), and this class holds the shared implementations. Both readers compose the predicates themselves —
+     * {@code JGitOperations.commit} and {@code StagingSets.derive} each test the textual rule and
+     * {@link #isRefusedLocation(Path, String)} — so no combined answer is offered, and the two read the same
+     * implementations rather than copies of them.
      *
      * @param path a repository-relative path
      * @return whether the path is no literal commit path of one file by its text alone
@@ -97,7 +103,10 @@ public final class CommitPathRefusals {
      * {@link RefusingFS}, so no operation starts a process. The rule stays silent when it cannot read the repository:
      * a checkout whose repository or index cannot be read yields no name, so the staging set decides by the textual and
      * file-system rules alone and the commit reports the condition — the tracked-tree answer is not invented for a
-     * state it cannot read (see {@link de.planmarshall.provider.git.primitive.CommitSite#dirtyPaths}).
+     * state it cannot read (see {@link de.planmarshall.provider.git.primitive.CommitSite#dirtyPaths}). The
+     * {@link JGitInternalException} arm of the catch is the defensive twin of the {@link IOException} one and no test
+     * reaches it: the one internal exception this path could raise deliberately is
+     * {@link RefusingFS.CapabilityRefusedException}, and the path starts no process.
      *
      * @param worktree the worktree root
      * @param names    the repository-relative candidates

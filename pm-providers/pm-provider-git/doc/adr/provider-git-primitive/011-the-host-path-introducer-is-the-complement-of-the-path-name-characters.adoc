@@ -1,0 +1,70 @@
+= ADR provider-git-primitive 011: The Host-Path Introducer Is the Complement of the Path-Name Characters
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-24
+
+== Context
+
+`GitStageAndCommitPrimitive.modelDetail` replaces the detail of a failed commit with the code of the git outcome when the
+detail still names an absolute path of the server, so a host path of the server is kept out of the model-facing `detail`
+fact wherever the rule can tell it from a relative name.
+The rule names the *introducers* a host path may follow — the start of the text, white space, a quote, an opening
+bracket, an assignment or other punctuation — and a token that starts an absolute path after one of them is refused.
+
+A positive list is open at its end: an introducer it does not name lets the path through. The landing of `PLAN-V2-176`
+found the closed case: the list held neither `{`, nor a non-ASCII quote, nor a no-break space, so
+`refused {/srv/git/worktrees/plan}` reached the fact, and the sentence "No multi-segment absolute path therefore reaches
+a fact" was false for it. The list cannot be completed: every release of the Unicode character database adds punctuation,
+and each addition reopens the gap.
+
+== Decision
+
+The introducer is the *complement* of the characters a relative name legitimately precedes a separator with, not a list
+of the characters a host path may follow. `NAME_CHARACTER` names those characters — the letters and digits of every
+script, `.`, `_`, `-` and the closing brackets `]`, `}`, `)` — and `HOST_PREFIX` is the negative lookbehind
+`(?<!NAME_CHARACTER)`, which the four patterns of the detail rule share.
+
+* A closing bracket stays a path-name character because a relative name carries one before a separator
+  (`app/[slug]/page.tsx`, `(group)/x`); the host path that follows a *stray* closing bracket is the separate rule of
+  `BRACKET_PATH`, which needs a further separator after the first segment.
+* The punctuation a name may carry but a separator rarely follows — `+`, `@`, `~` — is no name character here, so a
+  separator after it is read as absolute. That keeps `~/srv/private/key` a code, which the positive list's `~` caught and
+  a name-character reading would not.
+* The fail-closed cost is stated as the pattern's own rule instead of being avoided: a single-segment fragment after a
+  stray closing bracket (`]/srv`) and a path glued to a preceding path-name character stay as the text states them, and a
+  name whose segment ends in `+`, `@` or `~` (`c++/src/main.cpp`) becomes the code, because that punctuation is no
+  path-name character here. Nothing distinguishes either shape from a host path.
+
+== Alternatives Considered
+
+* *Extend the positive list with `{`, the non-ASCII quotes and the no-break space.* Not taken: it closes the three cases
+  the landing found and leaves the next punctuation open, which is the defect again rather than its removal.
+* *Refuse every `/`-started token, whatever precedes it.* Not taken: a relative name is built from such tokens, and the
+  footprint of a plan is full of them (`app/[slug]/page.tsx`); the detail would become the code for an ordinary refusal.
+* *Refuse the whole detail whenever it names any separator.* Not taken: the same reason, and the detail is what tells an
+  operator why the commit failed.
+
+== Consequences
+
+* `GitStageAndCommitPrimitiveDeclarationsTest.messageNamingAHostPathIsACode` names an opening brace, a non-ASCII quote,
+  a no-break space and a tilde beside the host path each introduces, and `relativeBracketNameIsKept`,
+  `relativeHyphenatedNameIsKept` and `drivePathIsACode` stay green: a relative name with a bracket or a hyphen-ended
+  segment is still a name, and a drive-qualified path is still refused.
+* A new Unicode punctuation character needs no change here: it is an introducer because it is no path-name character.
+* The residual is documented in the Javadoc of `modelDetail` rather than left as an unstated boundary: a path glued to a
+  preceding path-name character, a single-segment fragment after a stray closing bracket, and a name whose segment ends
+  in `+`, `@` or `~`.
+
+== Source
+
+* Spec of `PLAN-V2-179` (`commit-unit-second-residue-closeout`), deliverable 2
+* Landing of `PLAN-V2-176` (carried item 99, M2)
+* link:../../../../../doc/specification/state-catalogue/05-git-commit-and-push.adoc#state-git.stage-and-commit[State Catalogue § `git.stage-and-commit`]
+* `pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitive.java`,
+  `pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitiveDeclarationsTest.java`

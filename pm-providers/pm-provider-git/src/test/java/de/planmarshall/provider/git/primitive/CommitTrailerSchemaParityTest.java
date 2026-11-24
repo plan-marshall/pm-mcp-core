@@ -9,8 +9,10 @@
  */
 package de.planmarshall.provider.git.primitive;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -37,9 +39,14 @@ import de.planmarshall.core.SchemaResource;
  * so the JVM pattern admits U+FEFF where an ECMA-262 engine would refuse it. And Java's {@code $} matches before a
  * final line terminator while ECMA-262's {@code $} (without multiline mode) requires the actual end of the input, so
  * this JVM validator admits a trailing LF, U+0085, U+2028 or U+2029 where an ECMA-262 engine refuses it; that divergence
- * is the JVM's, and the test pins it as such instead of claiming the schema admits the value. The
- * whole C0/C1 and White_Space classes are checked code point by code point on the refuse side, and the admit side is
- * the generated and enumerated population each case names. By the operator's decision of 2026-11-08 (epic
+ * is the JVM's, and the test pins it as such instead of claiming the schema admits the value. The whole C0/C1 class, the
+ * line separators and the angle brackets are checked code point by code point on the refuse side, and the White_Space
+ * class is swept from the engine's own property on both sides — the email halves refuse it, the name halves admit it
+ * outside the controls and the separators. The remaining admit populations are the generated and enumerated values each
+ * case names, never a code-point sweep: an admitted sample never proves a class, which is why the refuse side is the
+ * sweep. The literal {@code a..b@c.de} that the spec of PLAN-V2-176 named as an admit sample was never added — the LEAD
+ * of PLAN-V2-179 found no descendant of it in this tree — so the addresses below are the ones this class names. By the
+ * operator's decision of 2026-11-08 (epic
  * {@code pm-mcp-core-m2-m4-v2}, {@code runtime-schema-validation}) the schema files serve the tests: no run-time
  * validation of a stored record runs here, so a pattern here is the declared rule and the codec's own checks are what a
  * stored value meets ({@code PM-WATCH-STORE-62}).
@@ -135,16 +142,23 @@ class CommitTrailerSchemaParityTest {
         }
 
         @Test
-        @DisplayName("the JVM accepts a trailing line terminator where an ECMA-262 engine does not")
-        void jvmAcceptsATrailingTerminator() {
+        @DisplayName("Java's $ admits a trailing terminator where an ECMA-262 engine refuses it")
+        void trailingTerminatorDivergesWithEcma262() {
             var pattern = pattern(TRAILER, "name");
+            var declared = pattern.pattern();
             var candidates = new ArrayList<String>();
             for (var codePoint : new int[]{'\n', '\r', 0x0085, 0x2028, 0x2029}) {
                 candidates.add("a" + Character.toString(codePoint));
             }
+            // the same pattern with the ECMA-262 end-of-input anchor: without multiline mode $ matches only there
+            var ecma262 = Pattern.compile(declared.substring(0, declared.length() - 1) + "\\z");
 
-            assertEquals(candidates, admitted(pattern, candidates),
-                    "Java's $ admits a trailing terminator, ECMA-262's does not");
+            assertAll(
+                    () -> assertTrue(declared.endsWith("$"), "the declared pattern is anchored with $"),
+                    () -> assertEquals(candidates, admitted(pattern, candidates),
+                            "Java's $ admits a value with a trailing terminator"),
+                    () -> assertEquals(candidates, rejected(ecma262, candidates),
+                            "an ECMA-262 engine refuses the trailing terminator"));
         }
     }
 
