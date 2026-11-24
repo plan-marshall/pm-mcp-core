@@ -160,8 +160,9 @@ public final class PendingEntryRecordsSweep implements SweepStep {
     // SonarCloud's symbolic execution does not model the try-with-resources close as a path out of the body, so it
     // reads the removal the attempt returned as unreachable in the catch; the release fault is that path, the
     // `first == null` conditional's `state.faultBeside(first, e)` arm (S2583). The method is the smallest scope the
-    // annotation allows: the flagged code is a branch of a conditional inside the catch, and @SuppressWarnings cannot
-    // be placed on a catch clause, a block or a statement, so no narrower annotation covers it.
+    // annotation allows that covers the flagged branch: the branch is a conditional inside the catch, and
+    // @SuppressWarnings can annotate neither a catch clause, a block nor a statement, so no narrower annotation — a
+    // local variable or a parameter — covers it.
     @SuppressWarnings("java:S2583")
     private Removal remove(JournalScope workspace, PendingEntryStore store, List<EntryId> candidates, Instant at) {
         var state = new RemovalState();
