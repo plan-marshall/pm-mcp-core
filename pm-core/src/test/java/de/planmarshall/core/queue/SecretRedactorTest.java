@@ -127,6 +127,20 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("a doubly escaped JSON credential is masked")
+    void doublyEscapedJsonAssignment() {
+        // the object embedded as a JSON string, and that string embedded again: every quote carries three backslashes
+        var escapedQuote = "\\\\\\\"";
+        var json = "{" + escapedQuote + "password" + escapedQuote + ":" + escapedQuote + "hunter2" + escapedQuote + "}";
+
+        var redacted = redactValue(json);
+
+        assertAll("doubly escaped JSON assignment",
+                () -> assertFalse(redacted.contains("hunter2"), "the doubly escaped value is masked"),
+                () -> assertTrue(redacted.contains(SecretRedactor.REDACTED), "the shape keeps the marker"));
+    }
+
+    @Test
     @DisplayName("a backslash-escaped key that is no credential stays readable")
     void escapedJsonNegativeControl() {
         var text = "{\\\"tokenizer\\\":\\\"wordpiece\\\"}";

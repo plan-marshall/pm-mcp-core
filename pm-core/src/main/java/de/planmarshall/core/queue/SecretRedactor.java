@@ -91,7 +91,7 @@ public class SecretRedactor {
     private static final Pattern INVISIBLE = Pattern.compile("[\\u00AD\\u200B\\u2060\\uFEFF]");
 
     /** The separator head every assignment form shares: an optional quoted or backslash-quoted opening and the operator. */
-    private static final String SEPARATOR_HEAD = "(?:\\\\?[\"'])?\\s*[:=]\\s*";
+    private static final String SEPARATOR_HEAD = "(?:\\\\*[\"'])?\\s*[:=]\\s*";
 
     /** The shared separator head with its own capturing group and an optional closing quote. */
     private static final String SEPARATOR = "(" + SEPARATOR_HEAD + "(?:\\\\?[\"'])?)";
@@ -344,7 +344,7 @@ public class SecretRedactor {
 
     /** One escaped-JSON assignment: the label, the separator, the escaped opening quote and the rest of its line. */
     private static Pattern escapedJsonAssignment(String label) {
-        return Pattern.compile(ASSIGNMENT_PREFIX + label + QUOTED_ASSIGNMENT_HEAD + "(\\\\[\"'])" + REST_OF_LINE);
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + QUOTED_ASSIGNMENT_HEAD + "(\\\\+[\"'])" + REST_OF_LINE);
     }
 
     /**
