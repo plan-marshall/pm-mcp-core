@@ -24,11 +24,14 @@ import org.jspecify.annotations.Nullable;
  * new call. Whichever is spent first ends the loop, so a fix that changes the staged tree resets the change-set
  * counter without keeping the loop alive (PM-WATCH-DSL-28).
  * <p>
- * The two predicates are read together at the one event the guard of the state catalogue names — the {@code hook_failed}
- * outcome of {@code git.stage-and-commit} ({@link #changeSetSpent()}, {@link #frameSpent()}) — and at no other point.
- * The frame cap is spent after the third {@code git.commit-fix} task, but the loop ends at the next failed commit
- * attempt, never between a task and the attempt that follows it: a caller reads the caps only after a hook failure, and
- * the value carries no combined predicate that would answer "the loop is over" elsewhere.
+ * The value carries no combined predicate, so the caller's rule is stated here instead of being enforced: after a
+ * {@code hook_failed} outcome of {@code git.stage-and-commit} a caller reads both predicates,
+ * {@link #changeSetSpent()} and {@link #frameSpent()}, and writes their disjunction
+ * {@code changeSetSpent() || frameSpent()} as the {@code attempts_exhausted} condition; each counting event reads its
+ * own cap — the change-set cap at a failed commit attempt, the frame cap at a {@code git.commit-fix} task. So the frame
+ * cap may be spent after the third task and the loop still ends only at the next failed commit attempt, never between a
+ * task and the attempt that follows it. The state catalogue's {@code git.stage-and-commit} row pins that guard, and
+ * {@code CommitAttemptCounterTest.Hazard} pins both arms of the disjunction.
  * <p>
  * The value is immutable and holds data only; the transitions live in the pure class {@code CommitAttemptCounter} of
  * this package, so both the engine and the assembly may count through it.
