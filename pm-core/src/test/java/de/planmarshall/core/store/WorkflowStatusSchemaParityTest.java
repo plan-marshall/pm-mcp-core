@@ -105,6 +105,12 @@ class WorkflowStatusSchemaParityTest {
         assertEquals(expected, wireNames(), "the retry rules should equal the schema keys");
     }
 
+    /**
+     * The frames pattern is {@code \S} with {@code minLength: 1} and the record refuses a blank id. The two agree on the
+     * JVM, and the JVM engine is what this class evaluates: {@code Character.isWhitespace} — and therefore {@code \S} —
+     * answers {@code false} for U+00A0 and U+FEFF, which an ECMA-262 engine's {@code \S} refuses, the third engine
+     * divergence of the two the class Javadoc names.
+     */
     @Test
     @DisplayName("the commit attempt caps are the schema's two closed counters, grammar and maximum")
     void commitAttemptCapsEqualSchema() {
@@ -154,6 +160,8 @@ class WorkflowStatusSchemaParityTest {
 
         assertAll(
                 () -> assertFalse(required.isEmpty(), "the schema names the required members"),
+                () -> assertEquals(Set.of("commit_sha", "step_id", "prior_build_worktree_sha", "worktree_sha_version",
+                        "recorded_at"), required, "the wire names are the schema's required members"),
                 () -> assertEquals(members(), required, "the stamp's members should be the schema's required ones"),
                 () -> assertEquals(FreshnessReconcile.WORKTREE_SHA_VERSION, constant(declared, "worktree_sha_version"),
                         "the schema const is the record's hash version"),

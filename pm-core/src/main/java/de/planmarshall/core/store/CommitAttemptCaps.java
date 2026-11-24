@@ -27,8 +27,8 @@ import org.jspecify.annotations.Nullable;
  * The two predicates are read together at the one event the guard of the state catalogue names — the {@code hook_failed}
  * outcome of {@code git.stage-and-commit} ({@link #changeSetSpent()}, {@link #frameSpent()}) — and at no other point.
  * The frame cap is spent after the third {@code git.commit-fix} task, but the loop ends at the next failed commit
- * attempt, never between a task and the attempt that follows it: no combined predicate answers "the loop is over" for a
- * caller that has not just observed a hook failure.
+ * attempt, never between a task and the attempt that follows it: a caller reads the caps only after a hook failure, and
+ * the value carries no combined predicate that would answer "the loop is over" elsewhere.
  * <p>
  * The value is immutable and holds data only; the transitions live in the pure class {@code CommitAttemptCounter} of
  * this package, so both the engine and the assembly may count through it.

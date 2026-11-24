@@ -336,8 +336,8 @@ provider that runs the commit:
 `changeSetCapSpent()` and `frameCapSpent()` read the cap each is counted on. Both are read at the one event the state
 catalogue's guard names — the `hook_failed` outcome of `git.stage-and-commit` — where either spent cap answers
 `attempts_exhausted`, and at no other point: the frame cap is spent after the third `git.commit-fix` task, but the loop
-ends at the next failed commit attempt, never between a task and the attempt that follows it, and no combined predicate
-answers "the loop is over" for a caller that has not just observed a hook failure. Counting above a spent cap keeps it
+ends at the next failed commit attempt, never between a task and the attempt that follows it, and the counter carries no
+combined predicate, so both caps are read together only after the hook failure. Counting above a spent cap keeps it
 spent.
 
 Tested by `CommitAttemptCapsTest` (the empty value, the cap, the grammar of both counters) and
@@ -1321,10 +1321,11 @@ minimum is `60`. The fixed probe budgets are unchanged (`runtime.job.ProbeBudget
 `ChangeLedgerRecord`, `ChangeLedgerCodec`, `ChangeLedger`:: One line of a `change-ledger.jsonl`: a
 `worktree_sha`-stamped build, change, commit, job, task-diff or baseline-red row. A `commit` row names the commit
 (`commit_sha`, required for that kind alone), the paths it carried and the digest of the tree it was made on, taken
-before the commit: a commit moves `HEAD` and the status path set the digest has as inputs, so only the digest taken
-before it is the one that tree's build rows carry and the one the `freshness_reconcile` stamp names as
-`prior_build_worktree_sha` — which is what lets a reader attribute the commit to the build that licensed it. The
-freshness gate itself reads `build` and `baseline_red` rows and the stamp, never a `commit` row (ADR 088, State
+before the commit: a commit moves `HEAD` and the status path set the digest has as inputs, so only a digest taken before
+it names the tree the commit was made on. When no `mutates_source` step changed the tree after the latest successful
+build, that digest equals the build row's; when one did, no build row carries it and the `freshness_reconcile` stamp
+holds the build's digest beside this commit, which is the pair that licensed the push (ADR 088). The
+freshness gate itself reads `build` and `baseline_red` rows and the stamp, never a `commit` row (State
 Catalogue § `git.verify-freshness`). The ledger takes the `JournalScope` of its
 scope and appends through `ScopeTransaction.append`, which repairs a torn tail and draws the digest entry of the scope,
 so a line is journaled with the other stores of the same decision and never rewritten; a digest of `unavailable`

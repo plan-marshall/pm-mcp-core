@@ -29,9 +29,10 @@ import de.planmarshall.core.store.ChangeLedgerRecord.Kind;
 
 /**
  * The {@code commit} row of the change ledger (Store Schemas § Change Ledger Record): it carries the commit, the paths
- * it carried and the digest of the tree it was made on, taken before the commit so that it is the digest that tree's
- * build rows carry. The {@code git.pre-commit-verify-freshness} verb reads no {@code commit} row; the row attributes
- * the commit to the build that licensed it. The digest shapes are the wire contract; the paths are generated.
+ * it carried and the digest of the tree it was made on, taken before the commit — the build row's digest when no step
+ * changed the tree after the latest successful build, and otherwise the tree the freshness stamp names the build's
+ * digest beside. The {@code git.pre-commit-verify-freshness} verb reads no {@code commit} row; the row attributes the
+ * commit to the tree it was made on. The digest shapes are the wire contract; the paths are generated.
  */
 @EnableGeneratorController
 @DisplayName("Change ledger commit row")

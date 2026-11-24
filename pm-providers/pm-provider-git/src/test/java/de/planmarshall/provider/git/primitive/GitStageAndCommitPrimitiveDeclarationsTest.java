@@ -125,7 +125,8 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
     }
 
     // the message shapes are the contract: the detail of JGitOperations.failure(e) and a refusal detail, each beside a
-    // host path the fact must never carry; the last three name an introducer a positive list of characters missed
+    // host path the fact must never carry; three of them name an introducer a positive list of characters missed, and
+    // the tilde is the punctuation the fail-closed direction keeps as an introducer
     @ParameterizedTest(name = "detail \"{0}\"")
     @ValueSource(strings = {
             "java.io.IOException: /srv/git/worktrees/plan",
@@ -137,6 +138,7 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
             "refused {/srv/git/worktrees/plan",
             "refused \u201c/srv/private/key\u201d",
             "refused \u00a0/srv/git/worktrees/plan",
+            "refused ~/srv/private/key",
             "refused \\\\server\\share\\private",
             "refused C:\\Users\\plan\\checkout"})
     @DisplayName("a message that still names an absolute host path is carried as the outcome's code")
@@ -172,7 +174,7 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
     }
 
     @Test
-    @DisplayName("a relative path inside a message stays as the message states it")
+    @DisplayName("a relative name inside a message stays as the message states it")
     void relativePathInAMessageIsKept() {
         var message = "file src/Main.java is not a file";
 
@@ -181,6 +183,19 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
         assertEquals(message,
                 result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
                 "A relative path inside a message is kept");
+    }
+
+    // a segment that ends in a hyphen is a name character before the separator, as `.` and `_` are
+    @Test
+    @DisplayName("a relative name whose segment ends in a hyphen stays as the message states it")
+    void relativeHyphenatedNameIsKept() {
+        var message = "refused dir-/x.txt";
+
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
+
+        assertEquals(message,
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "A hyphen before the separator is no introducer");
     }
 
     // the bracket shapes are the contract ADR workflow-input/006 admits: a closing bracket before a one-segment

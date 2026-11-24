@@ -132,9 +132,11 @@ public final class GitStageAndCommitPrimitive
      * an introducer no list can enumerate — an opening brace, a non-ASCII quote, a no-break space, punctuation, a
      * control character — instead of naming the introducers it knows. A closing bracket is admitted here because a
      * relative name carries one before a separator ({@code app/[slug]/page.tsx}); {@link #BRACKET_PATH} covers the host
-     * path that follows a stray closing bracket.
+     * path that follows a stray closing bracket. The punctuation a name may carry but a separator rarely follows —
+     * {@code +}, {@code @}, {@code ~} — is no segment character here, so a separator after it is read as absolute: the
+     * fail-closed direction, chosen so that {@code ~/srv/private/key} stays a code.
      */
-    private static final String NAME_CHARACTER = "[\\p{L}\\p{N}._~+@\\]})]";
+    private static final String NAME_CHARACTER = "[\\p{L}\\p{N}._\\-\\]})]";
 
     /** The introducer-anchored prefix every host-path pattern starts with: anything but a path-name character. */
     private static final String HOST_PREFIX = "(?<!" + NAME_CHARACTER + ")";
@@ -328,8 +330,9 @@ public final class GitStageAndCommitPrimitive
      * character reaches a fact. A closing bracket that follows an introducer and is followed by at least one further
      * separator is such an introducer too ({@code refused ]/a/b.txt} becomes the code), while
      * {@code app/[slug]/page.tsx} and {@code (group)/x} stay names; a single-segment fragment after a stray closing
-     * bracket ({@code ]/srv}) and a path glued to a preceding path-name character are the fail-closed direction's
-     * residual cost and are stated as the pattern's own rule.
+     * bracket ({@code ]/srv}), a path glued to a preceding path-name character and a path glued to a {@code +},
+     * {@code @} or {@code ~} — a punctuation the fail-closed direction counts as a name character — are the pattern's
+     * stated residual cost.
      */
     static String modelDetail(GitOutcome outcome, @Nullable String detail, Path worktree) {
         if (detail == null || detail.isBlank()) {

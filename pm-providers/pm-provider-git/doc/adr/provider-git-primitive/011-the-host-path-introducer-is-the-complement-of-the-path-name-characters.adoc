@@ -12,7 +12,8 @@ Accepted
 == Context
 
 `GitStageAndCommitPrimitive.modelDetail` replaces the detail of a failed commit with the code of the git outcome when the
-detail still names an absolute path of the server, so no host path of the server reaches the model-facing `detail` fact.
+detail still names an absolute path of the server, so a host path of the server is kept out of the model-facing `detail`
+fact wherever the rule can tell it from a relative name.
 The rule names the *introducers* a host path may follow — the start of the text, white space, a quote, an opening
 bracket, an assignment or other punctuation — and a token that starts an absolute path after one of them is refused.
 
@@ -26,15 +27,19 @@ and each addition reopens the gap.
 
 The introducer is the *complement* of the characters a relative name legitimately precedes a separator with, not a list
 of the characters a host path may follow. `NAME_CHARACTER` names those characters — the letters and digits of every
-script, `.`, `_`, `-`, `~`, `+`, `@` and the closing brackets `]`, `}`, `)` — and `HOST_PREFIX` is the negative
-lookbehind `(?<!NAME_CHARACTER)`, which the four patterns of the detail rule share.
+script, `.`, `_`, `-` and the closing brackets `]`, `}`, `)` — and `HOST_PREFIX` is the negative lookbehind
+`(?<!NAME_CHARACTER)`, which the four patterns of the detail rule share.
 
 * A closing bracket stays a path-name character because a relative name carries one before a separator
   (`app/[slug]/page.tsx`, `(group)/x`); the host path that follows a *stray* closing bracket is the separate rule of
   `BRACKET_PATH`, which needs a further separator after the first segment.
+* The punctuation a name may carry but a separator rarely follows — `+`, `@`, `~` — is no name character here, so a
+  separator after it is read as absolute. That keeps `~/srv/private/key` a code, which the positive list's `~` caught and
+  a name-character reading would not.
 * The fail-closed cost is stated as the pattern's own rule instead of being avoided: a single-segment fragment after a
-  stray closing bracket (`]/srv`) and a path glued to a preceding path-name character stay as the text states them,
-  because nothing distinguishes them from a relative name.
+  stray closing bracket (`]/srv`), a path glued to a preceding path-name character and a name whose segment ends in one
+  of those three punctuation characters (`c++/src/main.cpp`) stay as the text states them or become the code, because
+  nothing distinguishes them from a host path.
 
 == Alternatives Considered
 
@@ -47,11 +52,14 @@ lookbehind `(?<!NAME_CHARACTER)`, which the four patterns of the detail rule sha
 
 == Consequences
 
-* `GitStageAndCommitPrimitiveDeclarationsTest.messageNamingAHostPathIsACode` names an opening brace, a non-ASCII quote
-  and a no-break space beside the host path each introduces, and `relativeBracketNameIsKept` and `drivePathIsACode`
-  stay green: a relative name with a bracket is still a name, and a drive-qualified path is still refused.
+* `GitStageAndCommitPrimitiveDeclarationsTest.messageNamingAHostPathIsACode` names an opening brace, a non-ASCII quote,
+  a no-break space and a tilde beside the host path each introduces, and `relativeBracketNameIsKept`,
+  `relativeHyphenatedNameIsKept` and `drivePathIsACode` stay green: a relative name with a bracket or a hyphen-ended
+  segment is still a name, and a drive-qualified path is still refused.
 * A new Unicode punctuation character needs no change here: it is an introducer because it is no path-name character.
-* The residual is documented in the Javadoc of `modelDetail` rather than left as an unstated boundary.
+* The residual is documented in the Javadoc of `modelDetail` rather than left as an unstated boundary: a path glued to a
+  preceding path-name character, a single-segment fragment after a stray closing bracket, and a name whose segment ends
+  in `+`, `@` or `~`.
 
 == Source
 
