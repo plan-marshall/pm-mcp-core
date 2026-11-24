@@ -366,6 +366,22 @@ class JobLogTest {
         }
 
         @Test
+        @DisplayName("an over-cap read masks the text before a lone END it starts inside")
+        void cappedReadMasksTheTextBeforeALoneEnd() throws Exception {
+            var tail = "tail " + line();
+            Files.writeString(path, "build output\n-----BEGIN PRIVATE KEY-----\n" + "x".repeat(JobLog.MAX_BYTES)
+                    + "\n-----END PRIVATE KEY-----\n" + tail + "\n", StandardCharsets.UTF_8);
+
+            var whole = assertInstanceOf(Complete.class, log.readWhole(0), "an over-cap log is complete");
+            var reading = assertInstanceOf(LaunchReport.Unreported.class, whole.reading(), "a lone END is no report");
+
+            assertAll("the capped read masks the text before the lone END",
+                    () -> assertTrue(reading.jobOutput().startsWith(SecretRedactor.REDACTED),
+                            "the masked text starts the output"),
+                    () -> assertTrue(reading.jobOutput().contains(tail), "the text after END stays"));
+        }
+
+        @Test
         @DisplayName("over the cap with a first line past the head bound: the long first line is not kept")
         void firstLinePastTheHeadBoundIsNotKept() throws Exception {
             var head = "z".repeat(JobLog.FIRST_LINE_MAX_BYTES + 1);
