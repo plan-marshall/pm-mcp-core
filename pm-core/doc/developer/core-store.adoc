@@ -333,12 +333,13 @@ The persisted value is data only, `CommitAttemptCaps` in this package; the trans
 `CommitAttemptCounter` of this package, beside the value, so the engine may reach them without depending on the
 provider that runs the commit:
 `failedCommitAttempt(stagedTree, messageDigest)` and `fixTask(frameId)` each answer a new counter, and
-`changeSetCapSpent()` and `frameCapSpent()` read the cap each is counted on. Both are read at the one event the state
-catalogue's guard names — the `hook_failed` outcome of `git.stage-and-commit` — where either spent cap answers
-`attempts_exhausted`, and at no other point: the frame cap is spent after the third `git.commit-fix` task, but the loop
-ends at the next failed commit attempt, never between a task and the attempt that follows it, and the counter carries no
-combined predicate, so both caps are read together only after the hook failure. Counting above a spent cap keeps it
-spent.
+`changeSetCapSpent()` and `frameCapSpent()` answer whether their cap is spent. The value holds no combined predicate, so
+the caller's rule is explicit: after the `hook_failed` outcome of `git.stage-and-commit` it reads both caps and writes
+their disjunction, `changeSetCapSpent() || frameCapSpent()`, as the `attempts_exhausted` outcome; each counting event
+reads its own cap. The frame cap is spent after the third `git.commit-fix` task, but the loop ends at the next failed
+commit attempt, never between a task and the attempt that follows it. Counting above a spent cap keeps it spent. The
+state catalogue's `git.stage-and-commit` row pins the guard, and `CommitAttemptCounterTest.Hazard` pins both arms of the
+disjunction.
 
 Tested by `CommitAttemptCapsTest` (the empty value, the cap, the grammar of both counters) and
 `CommitAttemptCounterTest` (three attempts spend the change set, a changed tree — alone or beside a changed message — or

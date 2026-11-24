@@ -374,4 +374,5 @@ link:{adr}/007-the-template-message-renders-from-facts.adoc[ADR 007],
 link:{adr}/008-the-staging-set-and-the-commit-share-the-path-rule.adoc[ADR 008],
 link:{adr}/009-an-absent-message-is-the-primitives-clean-tree-route.adoc[ADR 009],
 link:{adr}/010-the-specification-follows-the-closed-reason-of-the-missing-identity.adoc[ADR 010],
+link:{adr}/011-the-host-path-introducer-is-the-complement-of-the-path-name-characters.adoc[ADR 011],
 link:../../../../pm-workflow/doc/adr/workflow-verify/043-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify 043]
