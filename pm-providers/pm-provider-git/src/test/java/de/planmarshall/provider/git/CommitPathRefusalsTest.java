@@ -67,7 +67,7 @@ class CommitPathRefusalsTest {
 
         @Test
         @DisplayName("a real directory, an absolute path and a parent through a link to outside are refused")
-        void refusedLocations() throws IOException {
+        void refusedLocations() throws Exception {
             Files.createDirectories(root.resolve("dir"));
             Files.createDirectories(root.resolve("real"));
             Files.createSymbolicLink(root.resolve("out"), outside);
@@ -85,7 +85,7 @@ class CommitPathRefusalsTest {
 
         @Test
         @DisplayName("a final symbolic link is a legal commit entry, a real link to outside or dangling")
-        void finalLinkIsAdmitted() throws IOException {
+        void finalLinkIsAdmitted() throws Exception {
             Files.createSymbolicLink(root.resolve("link"), outside);
             Files.createSymbolicLink(root.resolve("dangling"), outside.resolve("gone"));
 
@@ -125,7 +125,7 @@ class CommitPathRefusalsTest {
 
         @Test
         @DisplayName("a repository whose config cannot be read still leaves the rule silent")
-        void unreadableConfigStaysSilent() throws IOException {
+        void unreadableConfigStaysSilent() throws Exception {
             var gitDir = worktree.resolve(".git");
             Files.createDirectories(gitDir.resolve("objects"));
             Files.createDirectories(gitDir.resolve("refs"));

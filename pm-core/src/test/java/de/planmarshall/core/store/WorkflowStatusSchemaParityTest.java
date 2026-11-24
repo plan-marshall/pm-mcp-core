@@ -25,7 +25,6 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.lang.reflect.RecordComponent;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -163,17 +162,17 @@ class WorkflowStatusSchemaParityTest {
                 () -> assertTrue(pattern(declared.get("step_id")).matcher(stamp.stepId()).find(),
                         "the record's step id is the schema's pattern"),
                 () -> assertTrue(pattern(declared.get("prior_build_worktree_sha"))
-                        .matcher(stamp.priorBuildWorktreeSha()).find(),
+                                .matcher(stamp.priorBuildWorktreeSha()).find(),
                         "the record's prior digest is the schema's pattern"),
                 () -> assertThrows(IllegalArgumentException.class, () -> stamp(hex(39), hex(64)),
                         "the record refuses a commit sha outside the pattern"),
                 () -> assertThrows(IllegalArgumentException.class, () -> stamp(hex(40), hex(63)),
                         "the record refuses a prior digest outside the pattern"),
                 () -> assertThrows(IllegalArgumentException.class, () -> FreshnessReconcile.builder()
-                        .commitSha(stamp.commitSha()).stepId("default:UPPER")
-                        .priorBuildWorktreeSha(stamp.priorBuildWorktreeSha())
-                        .worktreeShaVersion(FreshnessReconcile.WORKTREE_SHA_VERSION)
-                        .recordedAt(stamp.recordedAt()).build(),
+                                .commitSha(stamp.commitSha()).stepId("default:UPPER")
+                                .priorBuildWorktreeSha(stamp.priorBuildWorktreeSha())
+                                .worktreeShaVersion(FreshnessReconcile.WORKTREE_SHA_VERSION)
+                                .recordedAt(stamp.recordedAt()).build(),
                         "the record refuses a step id the schema refuses"));
     }
 
