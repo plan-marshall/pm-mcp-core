@@ -93,15 +93,20 @@ class WorkerActivityPumpTest {
     }
 
     private static WorkerActivityPump pump(ActivityJournal journal) {
+        return pump(journal, Map.of(), ServedModelWatch.recordingNothing());
+    }
+
+    private static WorkerActivityPump pump(ActivityJournal journal, Map<String, String> usagePointers,
+            ServedModelWatch watch) {
         var mapping = ActivityEventMapping.of(
                 JsonDocument.parse(EVENTS.getBytes(StandardCharsets.UTF_8), "events")).orElseThrow();
-        var mapper = new ActivityEventMapper(mapping, Map.of());
+        var mapper = new ActivityEventMapper(mapping, usagePointers);
         var role = OffTrackDetectorTest.role(Map.of());
         WorkerTaskActivity tasks = queueTaskId -> Optional.of(
                 new WorkerTaskActivity.TaskActivity(1, role, Set.of(), null, -1));
         var recorder = new ActivityRecorder(journal, tasks, noSignals(), new OffTrackDetector(),
                 InstantSource.fixed(AT));
-        return new WorkerActivityPump(mapper, recorder);
+        return new WorkerActivityPump(mapper, recorder, watch);
     }
 
     /** @return an EasyMock protocol with no expectation: the pump raises no signal in these fixtures */
@@ -150,6 +155,61 @@ class WorkerActivityPumpTest {
                         "the end entry carries the attempt end kind"),
                 () -> assertEquals("off_track", end.end(), "the end marker is the off-track reason"),
                 () -> assertEquals(0, pump.unmappedLines(), "finishing clears the unmapped line counter"));
+    }
+
+    @Test
+    @DisplayName("each model change writes its model_differs entry before the line's own entry")
+    void servedModelChanges(@TempDir Path base) {
+        var launch = Generators.letterStrings(3, 12).next();
+        var first = Generators.letterStrings(3, 12).next();
+        var second = Generators.letterStrings(3, 12).next();
+        var journal = ActivityJournal.ofScope(base, project,
+                new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, plan),
+                new FileLockManager(_ -> {
+                }));
+        var log = base.resolve("worker.log");
+        append(log, line(launch));
+        append(log, line(first));
+        append(log, line(first));
+        append(log, line(second));
+        var pump = pump(journal, Map.of("model", "/message/model"), new ServedModelWatch(launch));
+
+        pump.pump(task, generation, 1, new JobLog(log));
+
+        var entries = journal.entries(task);
+        var models = entries.stream().filter(entry -> entry.kind() == ActivityEntry.Kind.MODEL_DIFFERS).toList();
+        assertAll(
+                () -> assertEquals(2, models.size(), "the two changes write two entries"),
+                () -> assertEquals(launch, models.getFirst().launchModel(), "the first entry names the launch model"),
+                () -> assertEquals(first, models.getFirst().servedModel(), "the first entry names the first fallback"),
+                () -> assertEquals(second, models.get(1).servedModel(), "the second entry names the second fallback"),
+                () -> assertEquals(ActivityEntry.Kind.MODEL_DIFFERS, entries.get(1).kind(),
+                        "the change is written before the line's own entry"),
+                () -> assertEquals(ActivityEntry.Kind.MODEL_DIFFERS, entries.get(4).kind(),
+                        "the second change precedes its line too"),
+                () -> assertEquals(6, entries.size(), "the four lines and the two changes are appended"));
+    }
+
+    @Test
+    @DisplayName("a mapper without the model pointer writes no model_differs entry")
+    void noModelPointer(@TempDir Path base) {
+        var model = Generators.letterStrings(3, 12).next();
+        var journal = ActivityJournal.ofScope(base, project,
+                new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, plan),
+                new FileLockManager(_ -> {
+                }));
+        var log = base.resolve("worker.log");
+        append(log, line(model));
+        var pump = pump(journal, Map.of(), new ServedModelWatch(model));
+
+        pump.pump(task, generation, 1, new JobLog(log));
+
+        assertEquals(1, journal.entries(task).size(), "only the line's own entry is written");
+    }
+
+    private static String line(String model) {
+        return "{\"type\":\"assistant\",\"message\":{\"content\":\""
+                + Generators.letterStrings(1, 30).next() + "\",\"model\":\"" + model + "\"}}";
     }
 
     @Test

@@ -110,6 +110,24 @@ class OffTrackDetectorTest {
     }
 
     @Test
+    @DisplayName("a model_differs entry raises no signal and changes none of the others")
+    void modelDiffersRaisesNoSignal() {
+        var role = role(Map.of(
+                RoleArtifact.OffTrackSignal.REPEATING,
+                new RoleArtifact.OffTrackSetting(3.0, RoleArtifact.OffTrackAction.SHOW)));
+        var plain = List.of(toolCall(1, tool, target), toolCall(2, tool, target), toolCall(3, tool, target));
+        var withModel = new ArrayList<>(plain);
+        withModel.add(ActivityEntry.builder().seq(4).attempt(1).source(ActivityEntry.Source.SERVER)
+                .kind(ActivityEntry.Kind.MODEL_DIFFERS)
+                .launchModel(RuntimeGenerators.words().next())
+                .servedModel(RuntimeGenerators.words().next())
+                .at(AT).build());
+
+        assertEquals(detect(plain, role), detect(withModel, role),
+                "a model_differs entry raises no signal");
+    }
+
+    @Test
     @DisplayName("a write of the target or a failed result breaks a repeating run")
     void repeatingBreaks() {
         var role = role(Map.of(RoleArtifact.OffTrackSignal.REPEATING,

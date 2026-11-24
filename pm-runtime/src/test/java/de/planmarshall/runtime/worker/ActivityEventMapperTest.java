@@ -20,6 +20,7 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -82,6 +83,7 @@ class ActivityEventMapperTest {
         pointers.put("output_tokens", "/usage/output_tokens");
         pointers.put("cache_read", "/usage/cache_read_input_tokens");
         pointers.put("cache_creation", "not_applicable");
+        pointers.put("model", "/message/model");
         return pointers;
     }
 
@@ -89,6 +91,32 @@ class ActivityEventMapperTest {
         var mapping = ActivityEventMapping.of(
                 JsonDocument.parse(EVENTS.getBytes(StandardCharsets.UTF_8), "events")).orElseThrow();
         return new ActivityEventMapper(mapping, USAGE);
+    }
+
+    @Test
+    @DisplayName("the model a line reports is read whatever kind the line maps to")
+    void servedModel() {
+        var model = Generators.letterStrings(3, 24).next();
+        var assistant = "{\"type\":\"assistant\",\"message\":{\"content\":\"" + shortText
+                + "\",\"model\":\"" + model + "\"}}";
+        var result = "{\"type\":\"result\",\"stop_reason\":\"end_turn\"}";
+
+        assertAll(
+                () -> assertEquals(Optional.of(model), mapper().servedModel(assistant),
+                        "the model of an assistant line is read"),
+                () -> assertTrue(mapper().servedModel(result).isEmpty(),
+                        "a result line without a model reads empty"),
+                () -> assertTrue(new ActivityEventMapper(null, USAGE).servedModel(assistant).isPresent(),
+                        "the reading needs no events mapping"));
+    }
+
+    @Test
+    @DisplayName("a model the line reports as null is not reported")
+    void servedModelNull() {
+        var mapper = new ActivityEventMapper(null, Map.of("model", "/message/model"));
+
+        assertTrue(mapper.servedModel("{\"message\":{\"model\":null}}").isEmpty(),
+                "a null model reads as not reported");
     }
 
     @Test
