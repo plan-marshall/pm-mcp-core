@@ -65,6 +65,20 @@ public final class ProfileStages {
     public static final List<String> USAGE_FIGURES = List.of(INPUT_TOKENS, OUTPUT_TOKENS, CACHE_READ, CACHE_CREATION,
             REASONING, COST_USD, TOOL_USES);
 
+    /**
+     * The member of {@code headless.usage} that names the pointer to the model a turn answered with, spelled once. It is
+     * no figure: it is read as an identifier and recorded, never summed.
+     */
+    public static final String MODEL = "model";
+
+    /**
+     * The members of {@code headless.usage}, in schema order: the seven figures and the model pointer. The model stands
+     * beside the figures rather than inside them, so a harness that reports no model declares {@code null} and no
+     * consumer of {@link #USAGE_FIGURES} reads a non-numeric value.
+     */
+    public static final List<String> USAGE_MEMBERS = List.of(INPUT_TOKENS, OUTPUT_TOKENS, CACHE_READ, CACHE_CREATION,
+            REASONING, COST_USD, TOOL_USES, MODEL);
+
     /** The figures the enrolment's usage report carries, in schema order; the cost is recorded data and never shown. */
     public static final List<String> REPORT_FIGURES = List.of(INPUT_TOKENS, OUTPUT_TOKENS, CACHE_READ, CACHE_CREATION,
             REASONING, TOOL_USES);

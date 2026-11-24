@@ -951,15 +951,20 @@ public class ProfileValidator {
          * The usage block is the one the Harness Profiles specification describes under <em>Tokens, Not Money</em>: the
          * {@code headless.usage} pointers, including the rule that {@code input_tokens}, {@code output_tokens} and
          * {@code tool_uses} are never {@code not_applicable}; this validator checks only its shape and leaves the meaning
-         * of a figure to the stage {@code usage} of the profile verification.
+         * of a figure to the stage {@code usage} of the profile verification. The member {@code model} stands beside the
+         * seven figures: it is a JSON Pointer into the harness output, or {@code null} when the harness reports no model.
          */
         private void usage(JsonNode usage, String pointer) {
-            var members = Set.copyOf(ProfileStages.USAGE_FIGURES);
+            var members = Set.copyOf(ProfileStages.USAGE_MEMBERS);
             object(usage, pointer, NAME_USAGE, members, members);
             for (var member : members) {
                 var value = required(usage, pointer, member);
-                if (!value.isNull()) {
-                    text(value, pointer + "/" + member, member, 256);
+                if (value.isNull()) {
+                    continue;
+                }
+                var pointerValue = text(value, pointer + "/" + member, member, 256);
+                if (ProfileStages.MODEL.equals(member) && !pointerValue.startsWith("/")) {
+                    throw invalid(pointer + "/" + member, MSG_NOT_A_POINTER.formatted(pointerValue));
                 }
             }
         }

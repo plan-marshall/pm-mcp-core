@@ -175,6 +175,7 @@ final class ProfileFixtures {
         usage.put("reasoning", null);
         usage.put("cost_usd", null);
         usage.put("tool_uses", null);
+        usage.put("model", null);
         return usage;
     }
 

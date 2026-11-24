@@ -12,6 +12,7 @@ package de.planmarshall.core.profile;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -117,6 +118,29 @@ class ProfileValidatorTest {
 
         assertEquals("/headless/long_context_thresholds/a~1b", refusal.pointer(),
                 "the refusal names the escaped model id");
+    }
+
+    @Test
+    @DisplayName("a usage model that is null or a JSON Pointer loads")
+    void usageModelPointerAccepted() {
+        var absent = ProfileFixtures.valid().set("/headless/usage/model", null);
+        var pointer = ProfileFixtures.valid().set("/headless/usage/model", "/message/model");
+
+        assertAll(
+                () -> assertDoesNotThrow(() -> ProfileValidator.validate(absent.bytes(), DOCUMENT,
+                        ProfileRules.none()), "a null model pointer loads"),
+                () -> assertDoesNotThrow(() -> ProfileValidator.validate(pointer.bytes(), DOCUMENT,
+                        ProfileRules.none()), "a JSON Pointer model loads"));
+    }
+
+    @Test
+    @DisplayName("the usage figures stay the seven numeric names and the model is no figure")
+    void usageFiguresStayNumeric() {
+        // The seven names are the wire contract of the figures; the model is a pointer beside them.
+        assertEquals(List.of("input_tokens", "output_tokens", "cache_read", "cache_creation", "reasoning",
+                        "cost_usd", "tool_uses"), ProfileStages.USAGE_FIGURES,
+                "the usage figures are the seven numeric names");
+        assertFalse(ProfileStages.USAGE_FIGURES.contains("model"), "the model is no usage figure");
     }
 
     @Test
@@ -439,7 +463,19 @@ class ProfileValidatorTest {
                     Arguments.of(ProfileFixtures.valid()
                                     .set("/tools/idioms", map("lint", map("disposition", "rewrite", "replacement",
                                             "x;y"))),
-                            "/tools/idioms/lint/replacement", "an idiom replacement a model cannot read"));
+                            "/tools/idioms/lint/replacement", "an idiom replacement a model cannot read"),
+                    Arguments.of(ProfileFixtures.valid().remove("/headless/usage/model"),
+                            "/headless/usage/model", "a usage block without the model member"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/usage/model", 1),
+                            "/headless/usage/model", "a model that is no string"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/usage/model", "message/model"),
+                            "/headless/usage/model", "a model that is no JSON Pointer"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/usage/model", "/" + "a".repeat(256)),
+                            "/headless/usage/model", "a model pointer longer than 256 characters"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/usage/model", "not_applicable"),
+                            "/headless/usage/model", "a model declared not applicable"),
+                    Arguments.of(ProfileFixtures.valid().set("/headless/usage/bogus", "/message/model"),
+                            "/headless/usage/bogus", "an unknown member of the usage block"));
         }
 
         @Test

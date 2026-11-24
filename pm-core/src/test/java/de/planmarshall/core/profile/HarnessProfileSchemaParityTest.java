@@ -32,11 +32,12 @@ import de.planmarshall.core.SchemaResource;
  * where the two are built: the document the validator accepts is the file's required member set, the schema version is
  * the validator's, and the validator's usage figures are the file's minus the two members it does not implement. The
  * file is {@code harness-profile-v1.schema.json} in {@code pm-core/src/main/resources/de/planmarshall/core/profile/},
- * read through {@link SchemaResource}. Three deviations are pinned, each with its owner:
+ * read through {@link SchemaResource}. Two deviations are pinned, each with its owner:
  * {@code headless.inline_settings} and {@code headless.loaded} (owned by the {@code client-profile-measured-values}
  * package), {@code headless.readable_paths} (owned by the
- * {@code job-confinement-and-environment} package); {@code headless.usage.model} (owned by PLAN-V2-135); and
- * {@code headless.usage.accumulation} (owned by PLAN-V2-147). The id member is no longer a deviation: the validator's
+ * {@code job-confinement-and-environment} package); and
+ * {@code headless.usage.accumulation} (owned by PLAN-V2-147). The usage member {@code model} is implemented beside the
+ * seven figures. The id member is no longer a deviation: the validator's
  * canonical member is the file's {@code harness_id}, and the {@code client_id} of a document written before the rename
  * is read beside it, never instead of it. The comparison is structural: the file's relative
  * {@code $ref} to
@@ -52,7 +53,7 @@ class HarnessProfileSchemaParityTest {
     private static final String ID_MEMBER = "harness_id";
     private static final String READER_ID_MEMBER = "client_id";
     private static final Set<String> UNIMPLEMENTED_HEADLESS = Set.of("inline_settings", "loaded", "readable_paths");
-    private static final Set<String> UNIMPLEMENTED_USAGE = Set.of("model", "accumulation");
+    private static final Set<String> UNIMPLEMENTED_USAGE = Set.of("accumulation");
 
     @Test
     @DisplayName("the file's required members are the document the validator accepts")
@@ -125,11 +126,11 @@ class HarnessProfileSchemaParityTest {
                 .get("headless"));
         var usage = SchemaResource.object(SchemaResource.object(headless.get("properties")).get("usage"));
         var required = new TreeSet<>(names(SchemaResource.array(usage.get("required"))));
-        required.removeAll(ProfileStages.USAGE_FIGURES);
+        required.removeAll(ProfileStages.USAGE_MEMBERS);
         var fixtureUsage = SchemaResource.object(SchemaResource.object(document().get("headless")).get("usage"));
 
         assertAll(
-                () -> assertEquals(Set.copyOf(ProfileStages.USAGE_FIGURES), Set.copyOf(names(fixtureUsage.keySet())),
+                () -> assertEquals(Set.copyOf(ProfileStages.USAGE_MEMBERS), Set.copyOf(names(fixtureUsage.keySet())),
                         "The fixture names the reader's figures"),
                 () -> assertEquals(UNIMPLEMENTED_USAGE, Set.copyOf(required),
                         "The unimplemented usage members are the pinned two"));
