@@ -52,14 +52,17 @@ Periodic Sweep]).
   refusals are caught per entry, so only a fault outside them reaches the committed arm, and a fault of the lock's own
   release carries the same state, because it is kept outside the lock transaction. A fault of that release beside a
   fault the attempt had already built keeps that fault's message, entries and reach and reports the release fault
-  beside it (amended 2026-11-24 by `PLAN-V2-181`): the release comes after another writer may have left the workspace's
-  journal, so re-reading the journal after it would turn an undecided removal into one the report calls owed. A test
+  beside it (amended 2026-11-24 by `PLAN-V2-181`; amended 2026-11-24 by `PLAN-V2-183`: a release fault with no message
+  is named by its exception type, never printed as `null`): the release comes after another writer may have left the
+  workspace's journal, so re-reading the journal after it would turn an undecided removal into one the report calls owed. A test
   reaches the staged arm
   (`PendingEntryRecordsSweepTest.faultBeforeTheCommitRollsBackTheStagedRemovals`), the owed arm
   (`PendingEntryRecordsSweepTest.auditSinkFaultInsideTheCommitLeavesTheRemovalOwed`, an audit sink that throws inside
   the commit) and the undecided arm (`PendingEntryRecordsSweepTest.aCommitThatCannotWriteItsJournalLeavesTheReachUndecided`,
   a workspace journal directory that refuses the write, and `PendingEntryRecordsSweepTest.aFaultedLockReleaseKeepsTheFirstFaultsReach`,
-  the same refusal beside a lock whose release faults after another writer left a journal); the committed arm has no
+  the same refusal beside a lock whose release faults after another writer left a journal, and
+  `PendingEntryRecordsSweepTest.aReleaseFaultWithoutAMessageIsNamedByItsType`, the release fault that carries no
+  message); the committed arm has no
   seam — the discard's two refusals are caught per entry — so it stays untested, as the test class's Javadoc states.
 * An entry whose record cannot be read is kept and reported as a failure of the step, so a tampered entry is held for
   its operator instead of being swept.

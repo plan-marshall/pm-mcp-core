@@ -86,8 +86,9 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
  * sink throws inside the commit while its journal is durable; and
  * {@link #aCommitThatCannotWriteItsJournalLeavesTheReachUndecided} and
  * {@link #aFaultedLockReleaseKeepsTheFirstFaultsReach} reach the undecided arm, because a workspace journal directory
- * without write permission refuses the journal before it exists — once with the attempt's own fault and once with a
- * fault of the lock's release beside a journal another writer left. The committed arm stays untested: the
+ * without write permission refuses the journal before it exists — once with the attempt's own fault, once with a
+ * fault of the lock's release beside a journal another writer left, and once with a release fault that carries no
+ * message ({@link #aReleaseFaultWithoutAMessageIsNamedByItsType}). The committed arm stays untested: the
  * discard's two refusals are caught per entry, so nothing in this test base faults after the commit returned.
  */
 @EnableGeneratorController
@@ -732,6 +733,61 @@ class PendingEntryRecordsSweepTest {
                                 "the undecided reach must survive the release"),
                         () -> assertFalse(reason.contains("completed by the recovery"),
                                 "another writer's journal must not turn it owed"));
+                verify(guarded);
+                verify(guardedManager);
+            } finally {
+                delegate.close();
+            }
+        } finally {
+            Files.setPosixFilePermissions(journalDirectory, Set.of(PosixFilePermission.OWNER_READ,
+                    PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
+        }
+    }
+
+    /**
+     * A release fault with no message: the report names its exception type, so the release path never prints the word
+     * {@code null} in place of a message. The delegate is opened after the assumption and closed in a {@code finally},
+     * like the sibling release-fault test.
+     */
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a lock release that throws without a message is named by its type, never printed as null")
+    void aReleaseFaultWithoutAMessageIsNamedByItsType() throws Exception {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        var journalDirectory = workspace.journalFile().getParent();
+        try {
+            Files.setPosixFilePermissions(journalDirectory,
+                    Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
+            assumeFalse(Files.isWritable(journalDirectory), "a journal directory without write permission");
+
+            var delegate = lockManager.openTransaction();
+            try {
+                LockTransaction guarded = createMock(LockTransaction.class);
+                guarded.acquire(anyObject(LockKey.class));
+                expectLastCall().andAnswer(() -> {
+                    delegate.acquire((LockKey) getCurrentArguments()[0]);
+                    return null;
+                }).anyTimes();
+                expect(guarded.holds(anyObject(LockKey.class)))
+                        .andAnswer(() -> delegate.holds((LockKey) getCurrentArguments()[0])).anyTimes();
+                guarded.close();
+                expectLastCall().andThrow(new IllegalStateException());
+                replay(guarded);
+                LockManager guardedManager = createMock(LockManager.class);
+                expect(guardedManager.openTransaction()).andReturn(guarded);
+                replay(guardedManager);
+
+                var outcome = new PendingEntryRecordsSweep(base, guardedManager, auditSink, clock).run(projectId, now);
+
+                var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a release fault fails the step").reason();
+                assertAll(
+                        () -> assertTrue(reason.contains("the lock's release failed: IllegalStateException"),
+                                "the release fault is named by its type"),
+                        () -> assertFalse(reason.contains("null"),
+                                "no null message is printed in the report"),
+                        () -> assertTrue(reason.contains("may have been committed"),
+                                "the undecided reach must survive the release"));
                 verify(guarded);
                 verify(guardedManager);
             } finally {

@@ -71,8 +71,9 @@ import de.planmarshall.core.store.StoreRefusal;
  * absence decides nothing — and the next run re-judges the directories; or committed once the commit returned, so the
  * removals are applied and only the directories remain. The discard's two refusals are caught per entry, so no refusal
  * of the discard is a fault of the run, and only a fault outside them reaches the committed arm. A fault of the lock's
- * own release keeps the reach and the message a fault of the attempt had already built and reports itself beside them,
- * because the release comes after another writer may have left the workspace's journal (ADR runtime-start/016).
+ * own release keeps the reach and the message a fault of the attempt had already built and reports itself beside them —
+ * by its message, or by its exception type when it carries none — because the release comes after another writer may
+ * have left the workspace's journal (ADR runtime-start/016).
  *
  * @since 0.1
  */
@@ -157,7 +158,10 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      * @return the directories that are gone, the entries the run kept, and the fault that stopped it
      */
     // SonarCloud's symbolic execution does not model the try-with-resources close as a path out of the body, so it
-    // reads the removal the attempt returned as unreachable in the catch; the release fault is that path (S2583).
+    // reads the removal the attempt returned as unreachable in the catch; the release fault is that path, the
+    // `first == null` conditional's `state.faultBeside(first, e)` arm (S2583). The method is the smallest scope the
+    // annotation allows: the flagged code is a branch of a conditional inside the catch, and @SuppressWarnings cannot
+    // be placed on a catch clause, a block or a statement, so no narrower annotation covers it.
     @SuppressWarnings("java:S2583")
     private Removal remove(JournalScope workspace, PendingEntryStore store, List<EntryId> candidates, Instant at) {
         var state = new RemovalState();
@@ -172,7 +176,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
             // the directories already gone and the entries kept are never dropped by the lock's own release
             var first = attempted == null ? null : attempted.fault();
             return first == null ? state.fault(e.getMessage(), workspace)
-                    : state.faultBeside(first, e.getMessage());
+                    : state.faultBeside(first, e);
         }
     }
 
@@ -233,13 +237,18 @@ public final class PendingEntryRecordsSweep implements SweepStep {
         }
 
         /**
-         * @param first          the fault the attempt had already built
-         * @param releaseMessage the message of the fault the lock's own release raised afterwards
+         * @param first   the fault the attempt had already built
+         * @param release the fault the lock's own release raised afterwards
          * @return the answer of a faulted removal that keeps the first fault's message, its entries and its reach, with
-         *         the release fault reported beside it: the release comes after another writer may have left the
-         *         workspace's journal, so reading the reach again there would turn an undecided removal into an owed one
+         *         the release fault reported beside it — by its message, or by its exception type when it carries none,
+         *         so that the report never prints {@code null} — because the release comes after another writer may
+         *         have left the workspace's journal, so reading the reach again there would turn an undecided removal
+         *         into an owed one
          */
-        private Removal faultBeside(Fault first, String releaseMessage) {
+        private Removal faultBeside(Fault first, RuntimeException release) {
+            var releaseMessage = release.getMessage() == null
+                    ? release.getClass().getSimpleName() + " with no message"
+                    : release.getMessage();
             var message = first.message() + "; the lock's release failed: " + releaseMessage;
             return new Removal(removed, kept, new Fault(message, first.pending(), first.reach()));
         }
