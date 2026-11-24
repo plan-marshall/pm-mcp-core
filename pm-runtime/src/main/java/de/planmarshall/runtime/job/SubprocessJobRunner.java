@@ -1207,7 +1207,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             }
             // cui-rewrite:disable InvalidExceptionUsageRecipe
         } catch (RuntimeException | Error e) {
-            // a PID the protocol refuses, a signal call that failed (ProcessGroupSignals), or an error of the primitive
+            // a PID the protocol refuses, a signal call that failed (ProcessGroupSignals), or an error of the primitive;
+            // this last-resort catch and the one of the descendant audit below are listed under PLAN-V2-94 (its residue)
             LOGGER.warn(e, WARN.JOB_TERMINATION_FAILED, jobId, e.getMessage());
         } finally {
             if (!reached) {
@@ -1274,6 +1275,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                         .build());
                 // cui-rewrite:disable InvalidExceptionUsageRecipe
             } catch (RuntimeException | Error e) {
+                // an audit sink that fails must not stop the descendant sweep; the catch is listed under PLAN-V2-94
                 LOGGER.warn(e, WARN.JOB_DESCENDANT_AUDIT_FAILED, job.latest.jobId(), e.getMessage());
             }
         }
