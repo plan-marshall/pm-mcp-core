@@ -22,7 +22,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
- * The {@code freshness_reconcile} stamp (ADR `core-store/089`): its five members
+ * The {@code freshness_reconcile} stamp (ADR {@code core-store/089}): its five members
  * are the schema's required ones, the digests and the finalize step id are the wire contract, and the hash version is
  * the schema's constant.
  */
