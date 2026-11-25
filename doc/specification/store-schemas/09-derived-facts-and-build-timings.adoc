@@ -62,12 +62,6 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/store/derived-
 |`branch-cleanup` merge mechanism (an enforced queue is never bypassed); the merge-queue wait (link:../timeouts/01-job-budgets-and-waits.adoc#merge-queue-wait[Timeouts & Budgets Specification]); the eligibility of `setup-merge-queue` (link:../domain-extensions/04-setup-state-machine.adoc#setup-merge-queue[Domain Extensions Specification], `available` other than `no`; `indeterminate` or a stale fact counts as eligible)
 |none
 
-|`branch_up_to_date_required`
-|network
-|GitHub required status checks `strict` (ruleset `strict_required_status_checks_policy` or classic branch protection) of the base; GitLab `merge_method` `ff` or `rebase_merge`; Forgejo branch protection `block_on_outdated_branch`
-|whether the merge path rebases the plan branch before merging
-|none
-
 |`required_checks`
 |network
 |GitHub required status check contexts of the base; GitLab every pipeline job not `allow_failure`; Forgejo branch protection `status_check_contexts` while `enable_status_check`
