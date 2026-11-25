@@ -52,9 +52,13 @@ All references are read at `3aea14c2` and re-read at the head of `main` before e
 All lines read at `origin/main` `3aea14c2` (the merge of #609) by the analysis leaf; the orchestrator re-read `BuildOutputParser.java:106-120`, `TestCounts.java:98-102,136-148`, `PendingEntryRecordsSweep.java:128-134,336-354`, ADR `016:55-67`, `runtime-start.adoc:126-138` and the five callers of `TestCounts.from`.
 
 - OBSERVED: the Javadoc says "no rule is shared between the parsers" while the five parsers call `TestCounts.from` — read at the lines above
+  - verdict: corroborated | checked_at: 3ba79c4f96dab1f6954cbaf2b5a7a145f8d4556e | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: BuildOutputParser.java:113-116 holds both sentences; TestCounts.from :138-148 is the shared rule; five callers; no commit since #609; correction: TapOutputParser.SummarySum :426-432 has a Javadoc stating its rule, so 'only Jest' is wrong
 - OBSERVED: the decision about the `run` catch stands at `PendingEntryRecordsSweep.java:342-345`, a private method's Javadoc; `@return` says "the type label" (`:347`) — read
+  - verdict: corroborated | checked_at: 3ba79c4f96dab1f6954cbaf2b5a7a145f8d4556e | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: lines moved by one: the run catch :130-132, the decision paragraph :342-345, @return :348, code :352
 - OBSERVED: the ADR's new text at `:61-66` has no amended stamp; the guide has an orphan line at `:135-136` — read
+  - verdict: corroborated | checked_at: 3ba79c4f96dab1f6954cbaf2b5a7a145f8d4556e | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ADR runtime-start/016 :61-66 has no amended stamp (stamps at :51, :55, :56); runtime-start.adoc 'A fault of' :136, 'another type leaves run uncaught' :137
 - HYPOTHESIS: the display name of the test that uses the literal `IllegalStateException with no message` does not name the contract — confirm/refute at the test class (verify-at-outline)
+  - verdict: corroborated | checked_at: 3ba79c4f96dab1f6954cbaf2b5a7a145f8d4556e | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: PendingEntryRecordsSweepTest.java:766 and :801 use the literal; display names :745 and :787 and Javadocs never say it is the report contract
 
 ## Expected Surface
 
@@ -79,3 +83,11 @@ The plan implementing this spec touches only its own repository source and tests
 ## Carried Open Items
 
 107. **The residue of the landing of PLAN-V2-186** (`landings/PLAN-V2-186.md`, carried 2026-11-25; merged as #609 `3aea14c2`; read by the analysis leaf; no blocker, no major): deliverables 1 and 2 carry each point: (a) the parenthetical's "no rule is shared" and "beside its count scan" (186 L2-1, L3-1), (b) the `@return` wording (186 L2-2), (c) the decision away from its catch (186 L3-2), (d) the ADR stamp and the guide's orphan line (186 L3-3, L3-4), (e) the literal's display name (186 L3-5); recorded, not fixed: the null-message corner of the codec path (a `NullPointerException` through `StoreRefusal.unreadable`'s `requireNonNull`; no producer does it), the anonymous-class `getSimpleName()` corner (184 L2-4), the lane's counts (`stated_not_verified`), the `unknown` figures (an open record, owner E27), the `runtime-job.adoc:291` example owed to PLAN-V2-162.
+
+## Re-Ground Record of 2026-11-25 (cleanup, BINDING over any contradicting older text of this spec)
+
+Read by a read-only leaf at `origin/main` `3ba79c4f96dab1f6954cbaf2b5a7a145f8d4556e` after #594, #598, #599, #603 to #606, #609, #612 and #613; the orchestrator persisted every verdict through `corpus set-verdict` (producer `pm-mcp-core-m2-m4-v2/cleanup`; contradicted claims are re-scoped by this record). The outline re-reads every line it acts on. Where this record and an older statement differ, this record wins.
+
+- Verified at `3ba79c4f`: all four claims hold (lines moved by one: the `run` catch `:130-132`, the decision paragraph `:342-345`, `@return :348`, the code `:352`; the ADR `runtime-start/016` text at `:61-66` has no amended stamp, the stamps are at `:51`, `:55`, `:56`; the guide orphan "A fault of" is `runtime-start.adoc:136`, "another type leaves run uncaught" `:137`).
+- Correction to D1(a): "only Jest has a Javadoc statement" is WRONG: `TapOutputParser.SummarySum` has a class Javadoc (`:426-432`) stating its overflow and total-equals-parts rule; Jest's is `:186-195`; Gradle `extractTestCounts :130` and pyproject `pytestTestCounts :666` have none. D2(c) stands (display names `:745`, `:787` do not name the contract).
+- Sequencing: the build-state caveat ("pm-core's closed usage validator refuses `headless.usage.model` until PLAN-V2-135 (#594) merges") is SATISFIED by the merge; a red `verify` is now a defect of this plan, not the known precondition. 126 D1 (#612) did not touch `BuildOutputParser` or its test, so "runs after this plan or rebases" loses its conflict. Next free ADR `runtime-start` 018 (016 is the one amended; no new ADR).

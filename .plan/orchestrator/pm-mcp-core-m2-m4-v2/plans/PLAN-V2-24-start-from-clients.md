@@ -195,3 +195,7 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Re-Ground Record of 2026-11-25 (doc-review fold, OPTIONAL, BINDING if taken)
+
+From `doc-review-2026-11-25-001.md` § 2 and V9: the Done when MAY add one clause: the posture asked in `init.options` is offered with `standard` preselected, and no projection of the posture is made. Label it "fails at the sha of the re-ground" only where the code asking the posture is absent at that sha, otherwise "holds at". The package text `doc/plans/start-from-clients.adoc` task 8 and its Done When get the same words in PLAN-V2-195; no Expected Surface entry is added by this record.
