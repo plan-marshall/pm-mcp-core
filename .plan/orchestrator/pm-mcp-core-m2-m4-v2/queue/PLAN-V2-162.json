@@ -2,10 +2,10 @@
   "id": "PLAN-V2-162",
   "slug": "runtime-worker-and-job-residue",
   "workstream": "WS-06",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-162-runtime-worker-and-job-residue",
+  "pr": "567",
+  "landing": "landings/PLAN-V2-162.md",
   "seq": 150
 }

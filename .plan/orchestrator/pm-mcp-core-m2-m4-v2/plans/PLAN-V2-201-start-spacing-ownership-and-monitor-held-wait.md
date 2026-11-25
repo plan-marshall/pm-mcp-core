@@ -43,9 +43,13 @@ This plan states the invariants, writes the test that fails first (a determinist
    - Skills: pm-documents:ref-asciidoc, pm-dev-java:javadoc
    - Persona: documenter
 
+4. **The start path's counting and the releases (folded from the PLAN-V2-162 landing analysis, `landings/PLAN-V2-162.md` L2-1, L2-2, L3-2, L3-3).** The defect of T1 is confirmed on the merged code at `90505ad2` (`WorkerSupervisor.java:141, 309-317`, `SupervisorCalls.java:89, 390-391`). The same start path carries four more points: (a) `countStoreRefusal` (`WorkerSupervisor.java:386-391`) counts only `harness_store_unreadable` and `harness_tampered`, but the specification (`doc/specification/store-schemas/11-enrolment-store.adoc:58`) counts `harness_version_unsupported` and `harness_not_enrolled` too, and the Javadoc `StartFailureGuard.java:36-37` ("any other reason counts nothing") must follow the rule; the composition refusal (`:287-291`) and a runner `Refused` after spawn (`:292-297`) are decided against `StartFailureGuard.java:32` the same way; the lane's operator answer (R07) counted the launch refused on the store, so the outline decides the four reasons and the two paths with the specification, not by the Javadoc; (b) the count runs before `refuse()` and the slot release with no try/finally: a throwing `startFailed` leaks the model slot (`:271`) and loses the refusal record: order it so the refusal is recorded and the slot released first, and handle the returned `StartFailureReport`; (c) after the guard holds mid-loop (`:160-162`) the remaining requests still run `startOne` and count again: stop the loop at the hold; (d) `startWorker` (`:325-349`) releases the slot but not the spacing when the runner throws. Tests first: T5 a refused launch for each counted reason counts one failure and for an uncounted reason none (including `harness_store_unreadable`, which has no wiring test at the head; the existing `storeRefusalCountsOneStartFailure` asserts only the recorded reason and passes on the old code, so it is replaced by a test that asserts the count); T6 a `startFailed` that throws still records the refusal and releases the slot; T7 each of the three release sites (`WorkerEnding:94`, `SupervisorCalls:380`, `WorkerSupervisor:294`) is pinned: deleting one fails a test; T8 a runner that throws releases the spacing.
+   - Skills: pm-dev-java:java-core, pm-dev-java:java-null-safety, pm-dev-java:junit-core, pm-dev-java-cui:cui-testing
+   - Persona: implementer
+
 **Done when:**
-- Deliverables 1 to 3 and invariants I1 to I4.
-- T1 to T3 fail at the post-#567 head of main (sha recorded by the outline) with a failing run id, and pass after the redesign. At 3ba79c4f none of the wiring exists on main (`HarnessStartSpacing` has no caller), so no failing run there is claimed.
+- Deliverables 1 to 4 and invariants I1 to I4.
+- T1 to T3 and T5 to T8 fail at `90505ad2` (#567 merged; the wiring is on main: `WorkerSupervisor.java:141, 309-317`, `SupervisorCalls.java:380`, `WorkerEnding.java:93-94`) with a failing run id, and pass after the redesign.
 - The existing `HarnessStartSpacingTest` cases (second start waits, wait capped, start after exit at once, two harnesses not spaced, collision counts for the guard) stay green with the same counts.
 - Build: `verify -Ppre-commit`, `verify` of `pm-runtime`, `verify -Pcoverage`, `verify -Pintegration-tests -pl pm-runtime -am`. Use per-module runs with log ids if a full run exceeds the host's bound.
 - Sonar: the open-finding read at the head is `0` or each key is selected for dismissal by the operator (`unknown` for a failed read, never `0`).
@@ -77,10 +81,11 @@ This plan states the invariants, writes the test that fails first (a determinist
 - OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/HarnessStartSpacingTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerSupervisorStartTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorTestFixture.java`
 - OBSERVED: `pm-runtime/doc/adr/runtime-worker/001-one-supervisor-per-project-and-role.adoc`, `pm-runtime/doc/developer/runtime-worker.adoc`, `pm-runtime/doc/developer/runtime-launch.adoc`
 - HYPOTHESIS: a new ADR in `pm-runtime/doc/adr/runtime-worker/` and a new interleaving test class in `pm-runtime/src/test/java/de/planmarshall/runtime/worker/`.
+- OBSERVED (folded from the PLAN-V2-162 landing, `90505ad2`): `pm-runtime/src/main/java/de/planmarshall/runtime/worker/StartFailureGuard.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/launch/HarnessVerifier.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchRefusal.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerSupervisorStartFailureTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorCallsTest.java`, `doc/specification/store-schemas/11-enrolment-store.adoc`
 
 ## Dependencies and Sequencing
 
-- Depends on: PR #567 merged. This plan starts after it.
+- Depends on: PR #567 merged: done (`90505ad2`, 2026-11-25). This plan starts from that head; its defect is confirmed by the landing analysis (`landings/PLAN-V2-162.md` L3-1, re-read at the lines).
 - Overlaps with: this series' S1 and S3 (`SupervisorCalls`, `SupervisorTestFixture`), PLAN-V2-150 (worker tests) and PLAN-V2-193 (the runner side, not the supervisor). The gate decides.
 - Adjacent to: item 42(a), the calls-monitor and guard-monitor lock order, which the redesign records but does not own.
 
