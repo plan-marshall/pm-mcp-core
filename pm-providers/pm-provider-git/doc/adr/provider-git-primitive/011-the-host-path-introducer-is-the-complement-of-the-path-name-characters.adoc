@@ -43,7 +43,7 @@ script, `.`, `_`, `-` and the closing brackets `]`, `}`, `)` — and `HOST_PREFI
   (`c++/src/main.cpp`), or in any other character that is no path-name character (`{`, `\`, a combining mark, a symbol,
   an emoji), becomes the code. A name that starts with a supplementary-plane letter becomes the code too: the character
   class of the one-unit lookbehind cannot consume the surrogate pair, so the letter is no name character there. Nothing
-  distinguishes either shape from a host path, so the residual is pinned by cases rather than closed:
+  distinguishes these shapes from a host path, so the residual is pinned by cases rather than closed:
   `gluedHostPathStaysAsStated` states the shapes that pass and the refusal cases state the names that do not.
 
 == Alternatives Considered
