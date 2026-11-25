@@ -1224,8 +1224,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
             }
             // cui-rewrite:disable InvalidExceptionUsageRecipe
         } catch (RuntimeException | Error e) {
-            // a PID the protocol refuses, a signal call that failed (ProcessGroupSignals), or an error of the primitive;
-            // this last-resort catch and the one of the descendant audit below are listed under PLAN-V2-94 (its residue)
+            // The failure can be a PID the protocol refuses, a failed signal call (ProcessGroupSignals), or an error of
+            // the primitive; this last-resort catch and the one of the descendant audit below are listed under
+            // PLAN-V2-94 (its residue)
             LOGGER.warn(e, WARN.JOB_TERMINATION_FAILED, jobId, e.getMessage());
         } finally {
             if (!reached) {
