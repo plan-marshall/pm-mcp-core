@@ -70,15 +70,15 @@ Six deliverables, one commit each, in this order (the rationale for six: the sta
 All lines read at `origin/main` `77f2a83d` through the grounding of 2026-11-14; the outline re-reads each before it acts.
 
 - OBSERVED: no production caller of `SubprocessJobRunner.startProbe` (`:649`) or `startWorker` (`:549`); `WorkerSupervisor.java:315` passes `egressProxy(null)`; no `WorkerEgressProxy` caller (PLAN-V2-59 says so too); `ProbeWorkspace`, `DecoyServers`, `VerifyingBinaryCheck`, `ProbeBudget`, `ProbeCandidate`, `ProbeVerification` exist with tests.
-  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: SubprocessJobRunner.startProbe :697 and startWorker :581; WorkerSupervisor:318 egressProxy(null); WorkerEgressProxy used only by its tests and OutboundCallsArchTest
+  - verdict: contradicted | checked_at: 3ba79c4f96dab1f6954cbaf2b5a7a145f8d4556e | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: half true: startProbe :697 has no production caller, startWorker :581 has one (WorkerSupervisor:310 via SupervisorEnvironment:148); WorkerSupervisor.java:318 passes egressProxy(null)
 - OBSERVED: in `plan-marshall-mcp` (`e2707f6`) nothing carries `verify-profile`, `VerificationRecord` or `ProfileVerification`; in `pm-mcp-clients` only `ConsentKind.VERIFY_HARNESS_PROFILE` and the mock scenario `harness.verify-profile` (`pm-mock-runtime/.../onboarding.json:~1193`).
-  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: no verify-profile or VerificationRecord in plan-marshall-mcp 02639c1 or pm-mcp-clients fcf87728 code; ConsentKind.VERIFY_HARNESS_PROFILE at ConsentKind.java:33
+  - verdict: unverifiable | checked_at: 3ba79c4f96dab1f6954cbaf2b5a7a145f8d4556e | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: external repositories (local clones, may lag): plan-marshall-mcp has no verify-profile code; pm-mcp-clients has ConsentKind.VERIFY_HARNESS_PROFILE
 - OBSERVED: the stage table is `01-profile-schema.adoc:355-410`, "How it runs" at about `:351` (the runtime runs the stages as jobs of its own: the real job launcher, the real relay `pm-mcp serve --job` and the real supervisor).
-  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: 01-profile-schema.adoc How it runs :352, stage table :356-411
+  - verdict: corroborated | checked_at: 3ba79c4f96dab1f6954cbaf2b5a7a145f8d4556e | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: lines moved: How it runs :352, stage table :356-411
 - OBSERVED: the isolation stage's controls exist (`ProbeWorkspace`: canary, `0700`, outside path, `observe`; `DecoyServers`: loopback MCP and endpoint decoys with hit recording); its result `ProfileStages.IsolationResult(boolean, ...)` is hand-fed; the decoy placement in the home, the hook or plugin decoys and the fallback runs are absent.
-  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ProbeWorkspace and DecoyServers exist as described; ProfileStages.IsolationResult :93 hand-fed via isolation(...) :258; no decoy placement or fallback runs
+  - verdict: corroborated | checked_at: 3ba79c4f96dab1f6954cbaf2b5a7a145f8d4556e | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ProbeWorkspace CANARY_FILE :54, Observation :94, observe :165; DecoyServers loopback :117, hits() :61; IsolationResult :108 hand-fed via isolation() :273
 - HYPOTHESIS: the `DecoyServers` loopback servers are not blocked by the outbound-call guard (it covers client sockets); verify-first by running `OutboundCallsArchTest` on the new code and by reading its rule.
-  - verdict: corroborated | checked_at: 8c7eac6faa00b26d0e11f0307c768d85e4fd044b | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: OutboundCallsArchTest:84-86 excludes listening types; DecoyServers imports HttpServer only; a run on new code is still owed
+  - verdict: corroborated | checked_at: 3ba79c4f96dab1f6954cbaf2b5a7a145f8d4556e | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: OutboundCallsArchTest Javadoc :93-94 excludes listening types; tests :396 and :484; DecoyServers imports HttpServer :12; unchanged since 8c7eac6f; a run on the new code is owed
 
 ## Expected Surface
 
@@ -91,6 +91,8 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`. No `pom.xml`.
 
 - OBSERVED (cleanup 2026-11-19, understated surface; the files the Deliverables name and the surface did not): `pm-core/src/main/java/de/planmarshall/core/profile/HarnessProbe.java`, `pm-core/src/main/java/de/planmarshall/core/profile/HarnessScan.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/job/WorkerEgressProxy.java`.
 - OBSERVED (understated, added by the cleanup re-ground of 2026-11-23 at `origin/main` `8c7eac6f`): `pm-runtime/src/main/java/de/planmarshall/runtime/log/RuntimeLogMessages.java`, `doc/LogMessages.adoc`, `pm-runtime/src/main/java/de/planmarshall/runtime/worker/ProfileWorkerEligibility.java`, `pm-runtime/README.adoc`.
+
+- OBSERVED (understated, added by the cleanup re-ground of 2026-11-25 at `origin/main` `3ba79c4f`; each path checked to exist): `pm-runtime/src/test/java/de/planmarshall/runtime/guard/OutboundCallsArchTest.java`
 
 ## Dependencies and Sequencing
 
@@ -130,3 +132,11 @@ Read by a read-only leaf at `origin/main` `8c7eac6faa00b26d0e11f0307c768d85e4fd0
 - D2: `startProbe` takes `ProbeRequest<ProbeCandidate>(candidate, consented)` and refuses `CONSENT_REQUIRED` on a boolean only: the consent kind (`scan_harnesses`, `probe_harness_login`, `probe_harness_models`) is decided by the caller.
 - D6: `doc/plans/machine-onboarding-unit.adoc` was deleted by `1e9466ac` (PLAN-V2-153, #470): nothing is left to keep for it; `doc/plans/profile-verification-stages.adoc` has no "Remaining" list and its scope (README `:306-310`) is the stages `usage` and `settings` only, so D6 must add the runner and the other stages or rewrite the scope. The package `project-onboarding-unit.adoc` exists beside it (successor not shown).
 - Open on main: no `verify` package, `VerificationStages`, `StageRunner`, `StageWorkers` or `HarnessScanner`; PLAN-V2-146, 147 and 149 have not landed (the plan's own "do not emit before 146 and 147" holds). `ConsentKind` `SCAN_HARNESSES`, `PROBE_HARNESS_LOGIN`, `PROBE_HARNESS_MODELS` rememberable, `VERIFY_HARNESS_PROFILE` not. `OutboundCallsArchTest:84-86` excludes listening types; a run on new code is owed. Next free ADR in `runtime-worker`: 023.
+
+## Re-Ground Record of 2026-11-25 (cleanup, BINDING over any contradicting older text of this spec)
+
+Read by a read-only leaf at `origin/main` `3ba79c4f96dab1f6954cbaf2b5a7a145f8d4556e` after #594, #598, #599, #603 to #606, #609, #612 and #613; the orchestrator persisted every verdict through `corpus set-verdict` (producer `pm-mcp-core-m2-m4-v2/cleanup`; contradicted claims are re-scoped by this record). The outline re-reads every line it acts on. Where this record and an older statement differ, this record wins.
+
+- Contradicted and absorbed: (0) the claim is half true: `startProbe` (`:697`) has no production caller, `startWorker` (`:581`) has one (`WorkerSupervisor:310` through `SupervisorEnvironment:148`); `WorkerSupervisor.java:318` passes `egressProxy(null)`.
+- Surface: `pm-runtime/src/test/java/de/planmarshall/runtime/guard/OutboundCallsArchTest.java` (added): the Done-when requires it unchanged and green on the new loopback decoys; its rule excludes listening types (`:93-94`, tests `:396`, `:484`), so the decoys are met by reading and a run on the new code is owed.
+- Sequencing: do not emit before 146 and 147 have landed; neither has (no `CredentialLocations`, `WorkerReadSet`, `VerificationStages`, `VerificationRecordWriter`, verify package, `StageRunner`, `HarnessScanner` or resolver seam in `WorkerEgressProxy`). 145 (#490) and 59 (#487) are shipped. Next free ADR `runtime-worker` 024. D6: `doc/plans/profile-verification-stages.adoc` has Tasks, Trace and Done When only, scope "the stages usage and settings" (`README.adoc:306-310`): D6 rewrites that scope; `machine-onboarding-unit.adoc` is gone (`project-onboarding-unit.adoc`).

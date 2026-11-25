@@ -64,7 +64,8 @@ Three deliverables, an estimated 50 files; below the 100-file cap, so no split i
 - OBSERVED: `pm-core/src/main/java/de/planmarshall/core/store/ProtectedPaths.java`, `pm-core/src/test/java/de/planmarshall/core/store/ProtectedPathsTest.java`
 - OBSERVED: `pm-workflow/doc/developer/workflow-verify.adoc`, `pm-workflow/doc/developer/workflow-plan.adoc`, `pm-workflow/doc/developer/workflow-unit.adoc`, `pm-core/doc/developer/core-store.adoc`
 - OBSERVED (superseded or amended): `pm-workflow/doc/adr/workflow-verify/029-inv-init-2-per-lane-with-a-lane-input.adoc`, `pm-workflow/doc/adr/workflow-verify/030-lane-entry-ids-in-one-holder.adoc`, `pm-workflow/doc/adr/workflow-plan/008-rule-family-targets-derived.adoc`, `pm-workflow/doc/adr/workflow-plan/011-lane-route-pruning-deferred.adoc`, `pm-workflow/doc/adr/workflow-plan/012-per-lane-routes-and-other-lane-pruning.adoc`, `pm-workflow/doc/adr/workflow-plan/013-default-plan-unit-in-the-specification-and-test-fixtures.adoc`, `pm-workflow/doc/adr/workflow-plan/016-pruned-merge-gate-settles-in-the-engine.adoc`, `pm-workflow/doc/adr/workflow-plan/017-per-lane-rework-fixture.adoc`, `pm-core/doc/adr/core-store/071-the-protected-path-matcher-is-a-pure-core-class.adoc`
-- Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
+
+Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
 
 ## Dependencies and Sequencing
 

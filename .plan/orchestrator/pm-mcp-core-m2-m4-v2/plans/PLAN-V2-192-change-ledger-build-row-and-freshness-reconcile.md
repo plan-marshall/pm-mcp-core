@@ -56,7 +56,8 @@ Three deliverables, about 22 files, no split needed. Schema first.
 - OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/ChangeLedgerSchemaParityTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/ChangeLedgerRecordBuilderContractTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/ChangeLedgerTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/DeletedMemberRefusalTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/FreshnessReconcileTest.java` (deleted), `pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusSchemaParityTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusBuilderContractTest.java`
 - HYPOTHESIS: `pm-core/src/test/java/de/planmarshall/core/store/ChangeLedgerCommitRowTest.java`, `doc/specification/store-schemas/04-epic-and-change-ledger.adoc`
 - OBSERVED: `pm-core/doc/developer/core-store.adoc`, `pm-providers/pm-provider-git/doc/developer/provider-git-primitive.adoc`, `doc/Traceability.adoc`, `pm-core/doc/adr/core-store/088-a-commit-is-a-kind-of-the-change-ledger.adoc`, `pm-core/doc/adr/core-store/089-the-freshness-reconcile-stamp-is-typed-through-the-status-codec.adoc`
-- Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
+
+Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
 
 ## Dependencies and Sequencing
 

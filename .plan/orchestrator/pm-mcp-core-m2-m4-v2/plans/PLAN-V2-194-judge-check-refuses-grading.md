@@ -56,7 +56,8 @@ Three deliverables, about 14 files, no split needed. Schema first.
 - HYPOTHESIS: `pm-core/src/main/java/de/planmarshall/core/role/qualification/QualificationRecordCodec.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/worker/QualificationService.java`
 - OBSERVED: `pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationRecordCodecTest.java`, `pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationRecordSchemaParityTest.java`, `pm-core/src/test/java/de/planmarshall/core/role/qualification/QualificationValueTest.java`, `pm-core/src/test/java/de/planmarshall/core/role/qualification/JudgeCheckTest.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/model/RoleGraderTest.java`
 - OBSERVED: `pm-core/doc/developer/core-role.adoc`, `pm-workflow/doc/developer/workflow-model.adoc`, `doc/Traceability.adoc`
-- Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
+
+Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
 
 ## Dependencies and Sequencing
 

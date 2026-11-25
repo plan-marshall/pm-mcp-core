@@ -57,7 +57,8 @@ Three deliverables, about 14 files, no split needed. Schema file first.
 - OBSERVED: `pm-workflow/src/test/resources/unit-fixtures/defaults/replan.pmwf`, `pm-workflow/src/test/resources/unit-fixtures/defaults/adjudicate-decisions.pmwf`, `pm-workflow/src/test/resources/verify/refused/step-completion-firing-per-step.pmwf`
 - OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/verify/DeclarationBoundsTest.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java`
 - OBSERVED: `pm-workflow/doc/developer/workflow-verify.adoc`, `pm-workflow/doc/adr/workflow-verify/002-rule-9-firing-model.adoc`, `pm-workflow/doc/adr/workflow-verify/007-rule-9-derived-firing-openings.adoc`
-- Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
+
+Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
 
 ## Dependencies and Sequencing
 

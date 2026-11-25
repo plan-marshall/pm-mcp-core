@@ -61,7 +61,8 @@ Three deliverables, about 22 files, no split needed. Schema files come first.
 - OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/UnreadSchemaFilesTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/DerivedFactsCodecTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/DerivedFactsSchemaParityTest.java`
 - HYPOTHESIS: `pm-core/src/test/java/de/planmarshall/core/store/RemovedSchemaMembersTest.java` (new)
 - OBSERVED: `pm-core/doc/developer/core-store.adoc`, `pm-runtime/doc/developer/runtime-ingest.adoc`, `pm-core/doc/adr/core-store/053-the-fact-kinds-are-an-enumeration-bound-by-a-registry.adoc`, `doc/adr/018-placement-of-schema-files-without-a-codec-of-their-own.adoc`
-- Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
+
+Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
 
 ## Dependencies and Sequencing
 

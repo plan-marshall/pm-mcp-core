@@ -59,7 +59,8 @@ Three deliverables, about 20 files, no split needed. Schema files first.
 - OBSERVED: `pm-core/src/test/java/de/planmarshall/core/store/OutlineFixtures.java`, `pm-core/src/test/java/de/planmarshall/core/store/OutlineRecordTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/OutlineRecordBuilderContractTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/OutlineStoreBuilderContractTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/OutlineSchemaParityTest.java`, `pm-core/src/test/java/de/planmarshall/core/store/DeletedMemberRefusalTest.java`, `pm-core/src/test/java/de/planmarshall/core/spi/validation/ValidationFixtures.java`, `pm-core/src/test/java/de/planmarshall/core/spi/validation/OutlineValidatorTest.java`, `pm-core/src/test/java/de/planmarshall/core/findings/FindingSourceKeyTest.java`
 - HYPOTHESIS: `pm-core/src/test/java/de/planmarshall/core/spi/validation/OutlineCoverageTest.java`
 - OBSERVED: `pm-core/doc/developer/core-spi.adoc`, `pm-core/doc/developer/core-store.adoc`, `pm-core/doc/developer/core-findings.adoc`
-- Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
+
+Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
 
 ## Dependencies and Sequencing
 

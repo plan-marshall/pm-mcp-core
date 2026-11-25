@@ -58,7 +58,8 @@ Three deliverables, about 25 files, no split needed.
 - OBSERVED: `pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/FootprintBoundary.java`, `pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitSite.java`, `pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/FootprintBoundaryTest.java`, `pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitiveFixtures.java`
 - OBSERVED: `pm-core/src/main/resources/de/planmarshall/core/store/status.schema.json`
 - OBSERVED: `pm-runtime/doc/developer/runtime-job.adoc`, `pm-runtime/doc/adr/runtime-job/014-confinement-and-environment-composed-outside-the-launcher.adoc`, `pm-providers/pm-provider-git/doc/developer/provider-git-primitive.adoc`, `pm-providers/pm-provider-git/doc/adr/provider-git-primitive/006-the-primitive-checks-the-boundary-half.adoc`, `doc/Traceability.adoc`
-- Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
+
+Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
 
 ## Dependencies and Sequencing
 
