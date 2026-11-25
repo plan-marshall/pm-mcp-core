@@ -270,7 +270,13 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]
 |The finalize pipeline from re-entry to merge: verdict currency and the step records of a firing, the merge path's states, the Pre-Merge Review Barrier and its waivable gates, the composite wait, the pull-request author's title, the compiled-in review-bot records, and the phase `sanity-check`
 |`open`
-|`phase-sub-workflows` (the default units as phase sub-workflows, the simplify step); `domain-extensions-and-architecture`; `re-planning` (the `finalize.replan` call and the triggers it consumes)
+|`phase-sub-workflows` (the default units as phase sub-workflows, the simplify step); `domain-extensions-and-architecture`; `re-planning` (the `finalize.replan` call and the triggers it consumes); `ci-contract-finalize-operations` (the `behind` route and the realized-footprint sync read)
+|Milestone 10
+
+|link:ci-contract-finalize-operations.adoc[`ci-contract-finalize-operations`]
+|The CI contract of the finalize operations: `ci.pr-observe` with its `behind` mapping, `ci.merge`, `ci.enqueue`, and the refusal class of the merge dispatch
+|`open`
+|nothing
 |Milestone 10
 
 |link:security-audit-and-code-scanning.adoc[`security-audit-and-code-scanning`]
@@ -295,6 +301,12 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |The composition rules on the event `realized` (the prune reasons `no_code_delta` and `no_production_delta`), the hand-over `default:land-files` in the default roster, and rule 1 of the pipeline validator per composed instance; outside the window: starts when its milestone is planned
 |`open`
 |nothing
+|Milestone 10
+
+|link:commit-boundary.adoc[`commit-boundary`]
+|The commit boundary: the protected-path decision at the commit check, the main-checkout clause conditional on confinement, and the removal of the `declared_files` lift
+|`open`
+|`job-confinement-and-environment` (the confinement level in the job record)
 |Milestone 10
 
 |link:epic-surface-and-ended-acts.adoc[`epic-surface-and-ended-acts`]
