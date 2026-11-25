@@ -45,11 +45,10 @@ import de.planmarshall.core.SchemaResource;
  * outside the controls and the separators. The remaining admit populations are the generated and enumerated values each
  * case names, never a code-point sweep: an admitted sample never proves a class, which is why the refuse side is the
  * sweep. The literal {@code a..b@c.de} is never admitted as a sample: it was never added, and no descendant of it exists
- * in this tree, so the addresses below are the ones this class names. By the
- * operator's decision of 2026-11-08 (epic
- * {@code pm-mcp-core-m2-m4-v2}, {@code runtime-schema-validation}) the schema files serve the tests: no run-time
- * validation of a stored record runs here, so a pattern here is the declared rule and the codec's own checks are what a
- * stored value meets ({@code PM-WATCH-STORE-62}).
+ * in this tree, so the addresses below are the ones this class names. By the operator's decision of 2026-11-08
+ * ({@code runtime-schema-validation}) the schema files serve the tests: no run-time validation of a stored record runs
+ * here, so a pattern here is the declared rule and the codec's own checks are what a stored value meets
+ * ({@code PM-WATCH-STORE-62}).
  */
 @EnableGeneratorController
 @DisplayName("The stored identity schema patterns")

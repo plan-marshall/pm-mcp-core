@@ -370,7 +370,8 @@ Finalize Commit Instrumentation, item 3; ADR 089). It is `null` when no such sta
 present: a constructor cannot see a build, so the writer `git.commit_and_push` must confirm a successful build exists
 before it writes the stamp (ADR 089). `WorkflowStatusCodec` reads and writes it like the other typed members: a malformed
 digest or step id is a `StoreRefusal` naming the member. The reader side, the `git.pre-commit-verify-freshness` verb,
-consumes the stamp when the engine wires it. Tested by `FreshnessReconcileTest` (the grammar of every member and its hash
+now decides freshness from the ledger alone (State Catalogue § `git.verify-freshness`), so the stamp stays a typed
+carrier without a reader. Tested by `FreshnessReconcileTest` (the grammar of every member and its hash
 version) and `WorkflowStatusCodecTest` (the round trip, and the byte-for-byte write of a document that carries the stamp).
 
 [#_delete_mode]
@@ -1326,11 +1327,11 @@ minimum is `60`. The fixed probe budgets are unchanged (`runtime.job.ProbeBudget
 (`commit_sha`, required for that kind alone), the paths it carried and the digest of the tree it was made on, taken
 before the commit: a commit moves `HEAD` and the status path set the digest has as inputs, so only a digest taken before
 it names the tree the commit was made on. When the tree is the one the latest successful
-build ran on, that digest equals the build row's; otherwise a build row need not carry it — a later step may have left
-the tree other than it built — and the `freshness_reconcile` stamp holds the build's digest beside this commit, which is
-the pair that licensed the push (ADR 088). The
-freshness gate itself reads `build` and `baseline_red` rows and the stamp, never a `commit` row (State
-Catalogue § `git.verify-freshness`). The ledger takes the `JournalScope` of its
+build ran on, that digest equals the digest of the build row that ran on it; otherwise a build row need not carry it —
+a later step may have left the tree other than it built (ADR 088). The commit row is the attribution record, not an
+input of the gate: the freshness gate itself reads `build` and `baseline_red` rows and, without a row of the same tree,
+the latest succeeded build row whose changed paths since its recorded head are all build-neutral, never a `commit` row
+(State Catalogue § `git.verify-freshness`). The ledger takes the `JournalScope` of its
 scope and appends through `ScopeTransaction.append`, which repairs a torn tail and draws the digest entry of the scope,
 so a line is journaled with the other stores of the same decision and never rewritten; a digest of `unavailable`
 carries how the git invocation failed and never satisfies a freshness gate (ADR 044).

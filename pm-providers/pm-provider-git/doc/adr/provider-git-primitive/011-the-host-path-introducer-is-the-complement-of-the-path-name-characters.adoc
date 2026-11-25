@@ -57,9 +57,10 @@ script, `.`, `_`, `-` and the closing brackets `]`, `}`, `)` — and `HOST_PREFI
 == Consequences
 
 * `GitStageAndCommitPrimitiveDeclarationsTest.messageNamingAHostPathIsACode` names an opening brace, a non-ASCII quote,
-  a no-break space and a tilde beside the host path each introduces, and `relativeBracketNameIsKept`,
-  `relativeHyphenatedNameIsKept` and `drivePathIsACode` stay green: a relative name with a bracket or a hyphen-ended
-  segment is still a name, and a drive-qualified path is still refused.
+  a no-break space and a tilde beside the host path each introduces, and a drive path, a UNC path, a bracket path and a
+  control character behind such an introducer; `relativeBracketNameIsKept`, `relativeHyphenatedNameIsKept` and
+  `drivePathIsACode` stay green: a relative name with a bracket or a hyphen-ended segment is still a name, and a
+  drive-qualified path is still refused.
 * A new Unicode punctuation character needs no change here: it is an introducer because it is no path-name character.
 * The residual is documented in the Javadoc of `modelDetail` and pinned by `gluedHostPathStaysAsStated` rather than left
   as an unstated boundary: a path glued to a preceding path-name character (a multi-segment host path among them), a
