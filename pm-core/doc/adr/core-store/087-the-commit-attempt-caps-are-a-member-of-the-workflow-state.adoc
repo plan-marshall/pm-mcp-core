@@ -50,9 +50,8 @@ reads nothing, so the frame cap being spent after the third `git.commit-fix` tas
 attempt that follows it runs. The rule is stated, not enforced: the state catalogue's `git.stage-and-commit` row is the
 specification, and `CommitAttemptCounterTest.Hazard` pins each arm of the disjunction one at a time, not the disjunction
 or the read after `hook_failed`. Neither the counting nor that routing is wired in this checkout: the engine counts no
-attempt of
-the primitive (ADR `provider-git-primitive/005`, the external hand-off, which names these counters), so the ordering above
-is the intended contract of that hand-off, not behaviour the code performs yet.
+attempt of the primitive (ADR `provider-git-primitive/005`, the external hand-off, which names these counters), so the
+ordering above is the intended contract of that hand-off, not behaviour the code performs yet.
 
 The format version stays `1` (R13): the member is added in place, with no reader for an older shape. No version question
 was put for this member: the ask-at-refine question of the outline of `PLAN-V2-176` was the change ledger's format

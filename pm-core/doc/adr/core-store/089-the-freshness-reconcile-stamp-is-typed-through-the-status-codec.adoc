@@ -36,8 +36,10 @@ version, so this record changes no schema shape; a later correction reworded onl
 `WorkflowStatusCodecTest` round-trips the stamp.
 
 The reader side — the freshness verb the stamp was introduced for — is the `git.pre-commit-verify-freshness` verb of
-the commit sub-process; it now decides freshness from the ledger alone (State Catalogue § `git.verify-freshness`), so
-this record supplies a typed carrier the current rule does not read, and the engine wires no writer.
+the commit sub-process; it now decides freshness from the change ledger (`build` and `baseline_red` rows, or the
+build-neutral derivation) and the build decision's `exempt` verdict, never the stamp (State Catalogue §
+`git.verify-freshness`), so this record supplies a typed carrier the current rule does not read, and the engine wires no
+writer.
 
 == Alternatives Considered
 
@@ -52,7 +54,7 @@ this record supplies a typed carrier the current rule does not read, and the eng
 
 * A malformed stamp is a `StoreRefusal` on read, naming the member, rather than a raw object a gate would trust.
 * The writer must write the stamp in the same status transaction as the commit it describes. This revision does not
-  yet wire that writer; it supplies the typed carrier the writer reads.
+  yet wire that writer; it supplies the typed carrier a future writer will read.
 
 == Source
 

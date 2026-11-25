@@ -352,8 +352,10 @@ loop through the frame cap).
 == The Freshness Reconcile Stamp
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
 
-`freshness_reconcile` is the stamp of a Phase 6 commit made after the latest successful build (Phase Workflows §
-Finalize Commit Instrumentation, item 3; ADR 089). It is `null` when no such stamp is recorded and otherwise an object:
+`freshness_reconcile` is the retained stamp of a Phase 6 commit made after the latest successful build (ADR 089). Its
+rule is superseded: since the 2026-11-24 corpus review such a commit records nothing of its own and the freshness gate
+derives the build-neutral delta from the build row's `head` (Phase Workflows § Finalize Commit Instrumentation, item 3).
+It is `null` when no such stamp is recorded and otherwise an object:
 
 [cols="2,4"]
 |===
@@ -367,12 +369,13 @@ Finalize Commit Instrumentation, item 3; ADR 089). It is `null` when no such sta
 |===
 
 `FreshnessReconcile` is the typed value. The record enforces the grammar of the five members and only that a digest is
-present: a constructor cannot see a build, so the writer `git.commit_and_push` must confirm a successful build exists
-before it writes the stamp (ADR 089). `WorkflowStatusCodec` reads and writes it like the other typed members: a malformed
-digest or step id is a `StoreRefusal` naming the member. The reader side, the `git.pre-commit-verify-freshness` verb,
-now decides freshness from the ledger alone (State Catalogue § `git.verify-freshness`), so the stamp stays a typed
-carrier without a reader. Tested by `FreshnessReconcileTest` (the grammar of every member and its hash
-version) and `WorkflowStatusCodecTest` (the round trip, and the byte-for-byte write of a document that carries the stamp).
+present: a constructor cannot see a build, so a future writer `git.commit_and_push` would have to confirm a successful
+build exists before it writes the stamp (ADR 089); no writer is wired. `WorkflowStatusCodec` reads and writes it like the
+other typed members: a malformed digest or step id is a `StoreRefusal` naming the member. The reader side, the
+`git.pre-commit-verify-freshness` verb, now decides freshness from the change ledger and the build decision's `exempt`
+verdict, never the stamp (State Catalogue § `git.verify-freshness`), so the stamp stays a typed carrier without a
+reader. Tested by `FreshnessReconcileTest` (the grammar of every member and its hash version) and
+`WorkflowStatusCodecTest` (the round trip, and the byte-for-byte write of a document that carries the stamp).
 
 [#_delete_mode]
 == The Delete Mode of the Transaction Journal
@@ -1327,7 +1330,7 @@ minimum is `60`. The fixed probe budgets are unchanged (`runtime.job.ProbeBudget
 (`commit_sha`, required for that kind alone), the paths it carried and the digest of the tree it was made on, taken
 before the commit: a commit moves `HEAD` and the status path set the digest has as inputs, so only a digest taken before
 it names the tree the commit was made on. When the tree is the one the latest successful
-build ran on, that digest equals the digest of the build row that ran on it; otherwise a build row need not carry it —
+build ran on, that digest equals that build row's digest; otherwise a build row need not carry it —
 a later step may have left the tree other than it built (ADR 088). The commit row is the attribution record, not an
 input of the gate: the freshness gate itself reads `build` and `baseline_red` rows and, without a row of the same tree,
 the latest succeeded build row whose changed paths since its recorded head are all build-neutral, never a `commit` row

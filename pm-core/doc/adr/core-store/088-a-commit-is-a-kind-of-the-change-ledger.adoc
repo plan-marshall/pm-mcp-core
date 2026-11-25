@@ -63,8 +63,8 @@ The format version stays `1`; a `commit` row is written and read in place, with 
 
 == Consequences
 
-* A commit is attributable to the tree it was made on: the row's digest equals the digest of the build row that ran on
-  that tree when the tree is the built one. The freshness verb itself reads `kind = "build"` and `kind = "baseline_red"`
+* A commit is attributable to the tree it was made on: the row's digest equals the digest of the build row when the tree
+  is the one that build ran on. The freshness verb itself reads `kind = "build"` and `kind = "baseline_red"`
   rows, and without one the latest succeeded build row whose changed paths since its recorded head are all build-neutral,
   never a `commit` row (State Catalogue § `git.verify-freshness`); the `commit` row is the attribution record, not an
   input of the gate.

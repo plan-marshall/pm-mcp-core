@@ -211,7 +211,8 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
     // DRIVE_PATH and UNC_PATH share HOST_PREFIX, so a drive or UNC path glued behind a name character is the same
     // residual as the POSIX shapes above: the reason is asserted with the kept detail (ADR provider-git-primitive 011)
     @ParameterizedTest(name = "glued shape \"{0}\"")
-    @ValueSource(strings = {"refused xC:\\Users\\plan", "refused x\\\\server\\share\\private"})
+    @ValueSource(strings = {"refused xC:\\Users\\plan", "refused 1C:\\Users\\plan",
+            "refused x\\\\server\\share\\private"})
     @DisplayName("a drive or UNC path glued behind a name character stays as the stated residual")
     void gluedDriveAndUncStayAsStated(String message) {
         var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
@@ -227,7 +228,8 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
     // a supplementary-plane letter is not a name character to the one-unit lookbehind: the separator after it is read
     // as absolute, so the name becomes the code (the leak ADR provider-git-primitive 011 and modelDetail state)
     @ParameterizedTest(name = "supplementary name \"{0}\"")
-    @ValueSource(strings = {"refused \uD801\uDC00/x", "file \uD801\uDC01/spec.adoc is refused"})
+    @ValueSource(strings = {"refused \uD801\uDC00/x", "file \uD801\uDC01/spec.adoc is refused",
+            "refused \uD801\uDC02/y"})
     @DisplayName("a relative name that starts with a supplementary letter leaks as the outcome's code")
     void relativeNameWithASupplementaryLetterIsACode(String message) {
         var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
