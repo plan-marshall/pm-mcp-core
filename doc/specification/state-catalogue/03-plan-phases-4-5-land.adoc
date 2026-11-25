@@ -109,7 +109,7 @@ Envelopes run serially as tasks of the writer role `implement`: a plan runs at m
 |`phase-5-execute`
 |`job`
 |`execute.chain-tail-commit` (`done`); `execute.route-commit-cause` (`deliverable`).
-|The module-scoped build job running the configured per-deliverable verification verbs (default `compile` and `module-tests`).
+|The build job running the configured per-deliverable verification verbs (default `compile` and `module-tests`), scoped to the modules that claim the `changed_paths` of the deliverable's change-ledger entries (its chain-tail commit and the remediation commits made for it) by the sweep's scoping rules (`no_module` for a build-neutral path, the whole tree when a module-claimed path is deleted or renamed; link:../phase-workflows/03-q-gate-and-execute.adoc#footprint-driven-scope[Phase Workflows Specification, Footprint-Driven Scope]); entries that changed no path run no build and end `succeeded`.
 |`succeeded` -> `execute.replan-check` (xref:12-re-planning.adoc#state-execute.replan-check[re-planning checkpoint]); `failed`, `failed_unparsed`, `refused`, `cancelled`, `timed_out`, `killed`, `indeterminate` -> `execute.remediate-build` (writes `remediation_cause: deliverable`).
 |link:../phase-workflows/03-q-gate-and-execute.adoc#_per_deliverable_chain_tail_commit_module_build_git_commit_and_push[Phase Workflows Specification, Per-Deliverable Chain-Tail Commit]
 

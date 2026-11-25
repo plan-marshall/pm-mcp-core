@@ -198,7 +198,7 @@ Work history is the operator's and goes only on the operator's word, through one
 |link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas, Derived Facts Store]
 
 |[[network-derivation-validity]]Network derivation validity period
-|`86400` since `derived_at`; additionally refreshed by the project-setup reconcile and by the start of a plan in the project. The network kinds are `merge_methods_allowed`, `merge_queue_enforced`, `required_checks`, `signed_commits_required`, `checks_visible`, and `agent_identity`, plus `ci_provider` and `base_branch_default` in the entries a provider probe or confirmation contributed to (link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas, Derived Facts Store]).
+|`86400` since `derived_at`; additionally refreshed by the project-setup reconcile and by the start of a plan in the project. The network kinds are `merge_methods_allowed`, `merge_queue_enforced`, `signed_commits_required`, `base_branch_protected`, and `agent_identity`, plus `ci_provider` and `base_branch_default` in the entries a provider probe or confirmation contributed to (link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas, Derived Facts Store]).
 |fixed
 |—
 |`<PM_MCP_BASE>/projects/<project_id>/derived-facts.json` entries of network kinds
