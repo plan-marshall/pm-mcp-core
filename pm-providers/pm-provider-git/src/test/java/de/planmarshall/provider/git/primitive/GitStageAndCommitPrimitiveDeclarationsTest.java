@@ -224,19 +224,20 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
                         "The glued host path is the pattern's stated residual"));
     }
 
-    // a supplementary-plane letter is a path-name character, so the separator after it is no absolute introducer
+    // a supplementary-plane letter is not a name character to the one-unit lookbehind: the separator after it is read
+    // as absolute, so the name becomes the code (the leak ADR provider-git-primitive 011 and modelDetail state)
     @ParameterizedTest(name = "supplementary name \"{0}\"")
     @ValueSource(strings = {"refused \uD801\uDC00/x", "file \uD801\uDC01/spec.adoc is refused"})
-    @DisplayName("a relative name that starts with a supplementary letter stays as the message states it")
-    void relativeNameWithASupplementaryLetterIsKept(String message) {
+    @DisplayName("a relative name that starts with a supplementary letter leaks as the outcome's code")
+    void relativeNameWithASupplementaryLetterIsACode(String message) {
         var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
 
         assertAll("supplementary name " + message,
                 () -> assertEquals(Outcome.FAILED, result.outcome(), "The refused name fails the commit"),
                 () -> assertEquals(Reason.COMMIT_FAILED, result.reason(), "The refusal carries commit_failed"),
-                () -> assertEquals(message,
+                () -> assertEquals("FAILED",
                         result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
-                        "A supplementary letter before the separator stays a name"));
+                        "A supplementary letter before the separator leaks a code"));
     }
 
     // a segment that ends in a character that is no path-name character: its separator is read as absolute (ADR 011)

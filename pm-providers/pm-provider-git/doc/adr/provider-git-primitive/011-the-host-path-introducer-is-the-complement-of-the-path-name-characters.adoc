@@ -41,9 +41,10 @@ script, `.`, `_`, `-` and the closing brackets `]`, `}`, `)` — and `HOST_PREFI
   multi-segment host path glued behind one (`-/srv/git/worktrees/plan`, `1/srv/git/worktrees/plan`,
   `(x)/srv/git/worktrees/plan`) reaches the fact as well — and a name whose segment ends in `+`, `@` or `~`
   (`c++/src/main.cpp`), or in any other character that is no path-name character (`{`, `\`, a combining mark, a symbol,
-  an emoji), becomes the code. Nothing distinguishes either shape from a host path, so the residual is pinned by cases
-  rather than closed: `gluedHostPathStaysAsStated` states the shapes that pass and the refusal cases state the names that
-  do not.
+  an emoji), becomes the code. A name that starts with a supplementary-plane letter becomes the code too: the character
+  class of the one-unit lookbehind cannot consume the surrogate pair, so the letter is no name character there. Nothing
+  distinguishes either shape from a host path, so the residual is pinned by cases rather than closed:
+  `gluedHostPathStaysAsStated` states the shapes that pass and the refusal cases state the names that do not.
 
 == Alternatives Considered
 
@@ -65,8 +66,8 @@ script, `.`, `_`, `-` and the closing brackets `]`, `}`, `)` — and `HOST_PREFI
 * The residual is documented in the Javadoc of `modelDetail` and pinned by `gluedHostPathStaysAsStated` and
   `gluedDriveAndUncStayAsStated` rather than left as an unstated boundary: a path glued to a preceding path-name
   character (a multi-segment host path, a drive path or a UNC path among them), a single-segment fragment after a stray
-  closing bracket, and a name whose segment ends in `+`, `@` or `~`. `relativeNameWithASupplementaryLetterIsKept` pins
-  that a supplementary-plane letter is a path-name character.
+  closing bracket, and a name whose segment ends in `+`, `@` or `~`. `relativeNameWithASupplementaryLetterIsACode` pins
+  the leak the one-unit lookbehind leaves: a name that starts with a supplementary-plane letter becomes the code.
 
 == Source
 

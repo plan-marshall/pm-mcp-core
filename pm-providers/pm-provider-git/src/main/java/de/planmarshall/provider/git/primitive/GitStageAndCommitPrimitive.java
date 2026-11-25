@@ -337,7 +337,10 @@ public final class GitStageAndCommitPrimitive
      * in {@code +}, {@code @} or {@code ~} ({@code c++/src/main.cpp}) becomes the code because that punctuation is no
      * path-name character here: these are the pattern's stated residual cost. The same reading refuses a relative name
      * whose segment ends in a character that is no path-name character — an opening brace, a backslash, a combining
-     * mark, a symbol such as {@code +} or {@code $}, or an emoji — because its separator is then read as absolute.
+     * mark, a symbol such as {@code +} or {@code $}, or an emoji — because its separator is then read as absolute. A
+     * supplementary-plane letter is not seen by the lookbehind either: its one-unit character class cannot consume the
+     * surrogate pair, so a relative name that starts with such a letter has its separator read as absolute and becomes
+     * the code as well.
      */
     static String modelDetail(GitOutcome outcome, @Nullable String detail, Path worktree) {
         if (detail == null || detail.isBlank()) {
