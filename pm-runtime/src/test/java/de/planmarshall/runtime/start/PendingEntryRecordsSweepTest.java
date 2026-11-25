@@ -778,6 +778,37 @@ class PendingEntryRecordsSweepTest {
         }
     }
 
+    /**
+     * A first fault with no message: the report names its exception type, so the acquisition path never prints the
+     * word {@code null} in place of a message. The acquisition faults before anything is staged, so the report carries
+     * no reach text, and the delegate is closed in a {@code finally} like the sibling release-fault test.
+     */
+    @Test
+    @DisplayName("a first fault that throws without a message is named by its type, never printed as null")
+    void aFirstFaultWithoutAMessageIsNamedByItsType() {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        var delegate = lockManager.openTransaction();
+        try {
+            var guarded = guardedLock(delegate, new IllegalStateException(), null);
+
+            var outcome = new PendingEntryRecordsSweep(base, guarded.manager(), auditSink, clock).run(projectId, now);
+
+            var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a fault without message fails the step")
+                    .reason();
+            assertAll(
+                    () -> assertTrue(reason.startsWith(
+                                    "pending entry directories not swept: IllegalStateException with no message"),
+                            "the first fault is named by its type"),
+                    () -> assertTrue(Files.isDirectory(store.entryDirectory(residue)),
+                            "the residue directory must stay for the next run"));
+            verify(guarded.transaction());
+            verify(guarded.manager());
+        } finally {
+            delegate.close();
+        }
+    }
+
     /** A writer outside the run leaves its journal between the attempt and the release of the lock. */
     private void anotherWriterLeavesAJournal(LockTransaction delegate, Path journalDirectory) throws IOException {
         Files.setPosixFilePermissions(journalDirectory, Set.of(PosixFilePermission.OWNER_READ,
@@ -793,7 +824,7 @@ class PendingEntryRecordsSweepTest {
      *
      * @param delegate     the transaction of the real manager, which every acquisition and probe reaches
      * @param acquireFault the fault the guarded acquisition throws; {@code null} to reach the delegate
-     * @param release      what the guarded close runs instead of the delegate's close; {@code null} to end the mock
+     * @param release      what the guarded close runs instead of the delegate's close; {@code null} is a no-op
      * @return the transaction mock a test verifies and the manager the sweep is built on
      */
     private GuardedLock guardedLock(LockTransaction delegate, @Nullable RuntimeException acquireFault,
@@ -836,32 +867,6 @@ class PendingEntryRecordsSweepTest {
          * @throws IOException if the journal another writer leaves cannot be written
          */
         void run(LockTransaction delegate) throws IOException;
-    }
-
-    @Test
-    @DisplayName("a first fault that throws without a message is named by its type, never printed as null")
-    void aFirstFaultWithoutAMessageIsNamedByItsType() {
-        create(entry(residue, now));
-        cutOffRemoval(residue);
-        var delegate = lockManager.openTransaction();
-        try {
-            var guarded = guardedLock(delegate, new IllegalStateException(), null);
-
-            var outcome = new PendingEntryRecordsSweep(base, guarded.manager(), auditSink, clock).run(projectId, now);
-
-            var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a fault without message fails the step")
-                    .reason();
-            assertAll(
-                    () -> assertTrue(reason.startsWith(
-                                    "pending entry directories not swept: IllegalStateException with no message"),
-                            "the first fault is named by its type"),
-                    () -> assertTrue(Files.isDirectory(store.entryDirectory(residue)),
-                            "the residue directory must stay for the next run"));
-            verify(guarded.transaction());
-            verify(guarded.manager());
-        } finally {
-            delegate.close();
-        }
     }
 
     @Test
