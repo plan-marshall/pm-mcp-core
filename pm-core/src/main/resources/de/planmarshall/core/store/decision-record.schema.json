@@ -50,7 +50,7 @@
     "event": { "type": "string", "enum": ["decided", "corrected"] },
     "decision_id": { "$ref": "#/$defs/decision_id", "description": "decided: the new decision; corrected: the decision corrected." },
     "declaration_digest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "question.adjudicate only: the declaration digest (model-work/10, Quorum Calibration) of the quorum declaration applied; null where none applied (kind_ask)." },
-    "decision_point": { "type": "string", "pattern": "^[a-z][a-z-]*\\.[a-z][a-z-]*$", "description": "decided only: one of the closed decision points (model-work/11, Decision Points), for example outline.classify-change-type, remediation.choose, triage.group, decision.interpret, question.adjudicate, question.answer." },
+    "decision_point": { "type": "string", "pattern": "^[a-z][a-z-]*\\.[a-z][a-z-]*$", "description": "decided only: one of the closed decision points (model-work/11, Decision Points), for example remediation.choose, triage.group, decision.interpret, question.adjudicate, question.answer." },
     "state_id": { "type": "string", "description": "decided only: the state that took the decision." },
     "subject": {
       "type": "object",

@@ -55,7 +55,7 @@
       }
     },
     "review_retrospective": { "type": ["object", "null"], "description": "Null when the plan has no pull request (with the reason in instruments)." },
-    "footprint": { "type": "object", "description": "Three-way reconciliation results and the assessment comparison state." },
+    "footprint": { "type": "object", "description": "Three-way reconciliation results." },
     "spend": {
       "type": ["object", "null"],
       "description": "The tokens used, read from the metrics snapshot, by phase, spend class, and step; null in corpus mode for plans whose metrics are unreadable (counted as floor).",

@@ -99,7 +99,7 @@
       "default": "pending",
       "description": "Server-written outcome of the finding (see Server-Written Resolution); never a link parameter. Mirrors plan-marshall's resolution vocabulary."
     },
-    "scope_class": { "type": ["string", "null"], "enum": ["in_footprint", "out_of_footprint", "unlocated", null], "description": "Server-classified at triage: whether file_path lies in the plan's effective footprint; unlocated when the finding names no path." },
+    "scope_class": { "type": ["string", "null"], "enum": ["in_footprint", "out_of_footprint", "unlocated", null], "description": "Server-classified at triage: whether file_path lies in the plan's realized footprint (the recorded unplanned changes included); unlocated when the finding names no path." },
     "carried_to": {
       "type": ["object", "null"],
       "description": "Set when a finding still pending after the merge is carried out of the plan.",

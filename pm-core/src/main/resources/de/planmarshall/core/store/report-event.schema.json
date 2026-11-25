@@ -14,7 +14,7 @@
     "event": { "type": "string", "enum": ["report", "read", "deleted"] },
     "at": { "type": "string", "format": "date-time" },
     "report_id": { "$ref": "#/$defs/report_id", "description": "report only." },
-    "kind": { "type": "string", "enum": ["plan.started", "plan.ended", "plan.revised", "plan.hold_released", "epic.launchable", "epic.waits_overlap", "epic.overlap_found", "epic.recut_applied", "epic.through", "epic.ended", "project.onboarded", "project.released", "source.flagged", "decision.closed_elsewhere", "task.off_track", "system.cleanup_due"], "description": "report only; the catalogue of Reports to the Operator." },
+    "kind": { "type": "string", "enum": ["plan.started", "plan.ended", "plan.revised", "plan.hold_released", "epic.launchable", "epic.waits_overlap", "epic.recut_applied", "epic.through", "epic.ended", "project.onboarded", "project.released", "source.flagged", "decision.closed_elsewhere", "task.off_track", "system.cleanup_due"], "description": "report only; the catalogue of Reports to the Operator." },
     "from": {
       "type": "object",
       "required": ["project_id"],

@@ -63,7 +63,6 @@ class UnreadSchemaFilesTest {
 
     /** The codec-less files of this module, one case per file. */
     private static final List<String> CODECLESS = List.of(
-            FINDINGS + "/assessment-record.schema.json",
             FINDINGS + "/review-bot-registry.schema.json",
             FINDINGS + "/review-participation.schema.json",
             QUALIFICATION + "/decision-calibration-record.schema.json",
