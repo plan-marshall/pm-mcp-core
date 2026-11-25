@@ -287,6 +287,33 @@ class TaskQueueSchemaParityTest {
         }
 
         @Test
+        @DisplayName("a model_differs entry is valid against the schema and names the schema's bounds")
+        void modelDiffers() {
+            var validator = validator(SCHEMA);
+            var launch = "launch-" + Generators.letterStrings(1, 32).next();
+            var served = "served-" + Generators.letterStrings(1, 32).next();
+            var entry = ActivityEntry.builder()
+                    .seq(1)
+                    .attempt(1)
+                    .source(Source.SERVER)
+                    .kind(ActivityEntry.Kind.MODEL_DIFFERS)
+                    .launchModel(launch)
+                    .servedModel(served)
+                    .at(QueueFixtures.AT)
+                    .build();
+            var schema = schema(SCHEMA);
+
+            assertAll(
+                    () -> assertValid(validator, ActivityEntryCodec.write(entry)),
+                    () -> assertEquals(ActivityEntry.MODEL_BOUND, ((Number) SchemaResource.object(
+                                    member(schema, "launch_model")).get("maxLength")).intValue(),
+                            "the launch model ceiling is the record's"),
+                    () -> assertEquals(ActivityEntry.MODEL_BOUND, ((Number) SchemaResource.object(
+                                    member(schema, "served_model")).get("maxLength")).intValue(),
+                            "the served model ceiling is the record's"));
+        }
+
+        @Test
         @DisplayName("an egress entry is valid against the schema")
         void egress() {
             var validator = validator(SCHEMA);

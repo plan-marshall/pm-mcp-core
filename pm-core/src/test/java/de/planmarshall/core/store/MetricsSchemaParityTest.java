@@ -57,7 +57,7 @@ class MetricsSchemaParityTest {
                 Measurement.measured(4), Measurement.measured(5), Measurement.measured(6), null, null);
         return MetricsRow.builder().queueTaskId(QUEUE_TASK_ID).attempt(1).role("implementer").jobId(ID)
                 .generationId(ID).harness("opencode").harnessVersion("1").model("model").effort("high")
-                .form(Form.FRESH).phase(Phase.PHASE_5_EXECUTE).stepId("step").envelopeId(null).predictedCost(null)
+                .servedModels(ServedModels.of(List.of("model"))).form(Form.FRESH).phase(Phase.PHASE_5_EXECUTE).stepId("step").envelopeId(null).predictedCost(null)
                 .yieldReason(null).outcome(Outcome.SUBMITTED).continuation(null)
                 .causeClass(CauseClass.BENIGN).spendClass(SpendClass.SUBMITTED).population(Population.MODEL_JOB)
                 .usage(usage).durationMs(1L).durationBasis(DurationBasis.PROCESS).queuedMs(1L).consultationOf(null)
@@ -100,7 +100,32 @@ class MetricsSchemaParityTest {
                         "the task row members should equal the schema"),
                 () -> assertTrue(Set.copyOf(SchemaParity.members(taskRow()))
                                 .containsAll(SchemaParity.required(schema)),
-                        "the task row should carry every required member"));
+                        "the task row should carry every required member"),
+                () -> assertTrue(SchemaParity.required(schema).contains("served_models"),
+                        "the task row requires its served models"),
+                () -> assertTrue(SchemaParity.members(taskRow()).contains("served_models"),
+                        "the written row carries its served models"));
+    }
+
+    @Test
+    @DisplayName("the served models are an array of distinct identifiers or unmeasured")
+    void servedModelsShape() {
+        var schema = SchemaParity.object(SchemaParity.object(SchemaParity.load(RESOURCE).get("$defs"))
+                .get(TASK_ROW));
+        var servedModels = SchemaParity.object(SchemaParity.member(schema, "served_models"));
+        var alternatives = SchemaParity.array(servedModels.get("oneOf"));
+        var array = SchemaParity.object(alternatives.getFirst());
+        var items = SchemaParity.object(array.get("items"));
+        var unmeasured = SchemaParity.object(alternatives.get(1));
+
+        assertAll(
+                () -> assertEquals("array", array.get("type"), "the measured form is an array"),
+                () -> assertEquals(1, SchemaParity.bound(array, "minItems"), "an empty array is no value"),
+                () -> assertEquals(true, array.get("uniqueItems"), "the identifiers are distinct"),
+                () -> assertEquals(1, SchemaParity.bound(items, "minLength"), "an identifier is not empty"),
+                () -> assertEquals(128, SchemaParity.bound(items, "maxLength"),
+                        "an identifier has at most 128 characters"),
+                () -> assertEquals("unmeasured", unmeasured.get("const"), "the other form is unmeasured"));
     }
 
     @Test

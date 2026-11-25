@@ -109,6 +109,22 @@ class ShippedUsageFixturesTest {
         assertTrue(exercised.size() >= 3, "the three measured shipped harnesses are exercised");
     }
 
+    @Test
+    @DisplayName("every shipped profile declares the model pointer of its usage block")
+    void shippedProfilesDeclareTheModelPointer() {
+        var shipped = ShippedProfiles.read().shipped();
+        assertFalse(shipped.isEmpty(), "no shipped profile on the classpath");
+
+        for (var entry : shipped.entrySet()) {
+            var harnessId = entry.getKey();
+            var tree = ProfileValidator.validate(entry.getValue().document(),
+                    "profiles/" + harnessId + ".json", ProfileRules.none());
+            var usage = tree.member("headless").flatMap(headless -> headless.member("usage")).orElseThrow();
+            // The member name 'model' is the wire contract of the usage block.
+            assertTrue(usage.member("model").isPresent(), harnessId + " declares its usage model pointer");
+        }
+    }
+
     private static boolean declaresNoPointer(JsonNode usage) {
         return ProfileStages.USAGE_FIGURES.stream().map(figure -> usage.member(figure).orElse(null))
                 .allMatch(declaration -> declaration == null || declaration.isNull()

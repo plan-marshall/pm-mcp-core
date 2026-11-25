@@ -131,24 +131,6 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/analysis/analy
 * *Consistency*, checked on write: `status: passed` requires `count_status: measured`, `new_code_issue_count: 0`, and a `gate` that is `null` or `passed`; `gate_failed` requires `gate.result: failed`; `findings` requires `new_code_issue_count > 0` and no failed gate; `count_status: indeterminate` requires `status: undecidable` unless the status is `running` or `not_run`.
 * *Strings from the provider* (`metric`, `threshold`, `actual`, `analysis_ref`) are untrusted: they are length-bounded, stored as data, and never rendered to a model.
 
-[#component-assessments]
-== Component Assessment Record (`assessments.jsonl`)
-_Implementation watch: link:../../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc#PM-WATCH-GEN-40[PM-WATCH-GEN-40], link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-8[PM-WATCH-STORE-8]_
-
-Tasks of `read_only` roles persist component assessments through their entity `submit` (link:../model-work.adoc[Model Work Specification]). Assessments are a second schema beside findings: they are never written to `findings.jsonl`, and no finding histogram or count reads this store (`PM-WF-11`).
-
-The schema of a component assessment record is the file `assessment-record.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/findings/`, beside the findings ledger:
-
-[source,json]
-----
-include::../../../pm-core/src/main/resources/de/planmarshall/core/findings/assessment-record.schema.json[]
-----
-
-* *Assessments Are Inputs, Never Back-Filled*: The server stamps `recorded_at` when it appends the record. A gate or coverage check that consumes assessments reads only records whose `recorded_at` is earlier than its own evaluation start and refuses those written after it; an empty assessment population is reported as a gap, and no link writes placeholder assessments.
-* *Append-Only Supersession*: A line is never rewritten. A superseding record names the record it replaces in `supersedes`; the superseded record's validity window is `[effective_from, effective_from of the superseding record)`. Superseded assessments stay readable, never live.
-* *Footprint Changes Supersede*: An outline revision that changes a deliverable's footprint appends superseding assessments for the affected components; a recorded unplanned change (`unplanned_changes`, xref:13-leases-integrity-testing.adoc#three-way-footprint[Three-Way File Footprint Reconciliation (`references.json`)]) supersedes nothing.
-* *Grading Against the Judgement in Force*: A consumer that grades a recorded action against an assessment uses the assessment whose window contains the action's timestamp. A write to a path whose live assessment is `exclude` is `violated_live_exclusion`; it is recorded and graded, never blocking, since unplanned changes inside the worktree are accepted.
-
 [#review-participation]
 == Review Participation Record (`review-participation.jsonl`)
 _Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-29[PM-WATCH-PHASE-29], link:../../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-45[PM-WATCH-STORE-45]_

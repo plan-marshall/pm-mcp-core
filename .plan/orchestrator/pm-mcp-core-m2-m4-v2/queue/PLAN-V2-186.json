@@ -2,10 +2,10 @@
   "id": "PLAN-V2-186",
   "slug": "sweep-run-catch-test-and-statement-residue",
   "workstream": "WS-03",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-186-sweep-run-catch-test-and-statement-residue",
+  "pr": "#609",
+  "landing": "landings/PLAN-V2-186.md",
   "seq": 174
 }

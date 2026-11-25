@@ -365,7 +365,7 @@ Hazard:: Q-Gate judgments drifted to prose, used untested exclusions, and filed 
 touched.
 Guard:: The Q-Gate vocabulary skill carries the judgment rules: classification from `Affected files`, not prose; an
 exclusion rationale re-tested per coupled deliverable; partial delegation recorded; an invariant criterion
-attached to the editing deliverable. A Q-Gate submit with zero assessments is refused, so an empty pass is never clean.
+attached to the editing deliverable.
 Fixture:: finding class C-019; the outline reached Q-Gate with `findings_store_state: missing`, and 26 assessments
 were recorded afterwards.
 Source:: plan-marshall defect truthful-signals PLAN-TRUTH-151 (self-review lessons, C-019; item -001).
@@ -436,19 +436,21 @@ scope, 3 in production code outside scope.
 Source:: plan-marshall defects truthful-signals (quality-aspect) PLAN-208 D7, PLAN-209 D6 and D9.
 
 [#PM-WATCH-PHASE-60]
-=== PM-WATCH-PHASE-60: A new third-party dependency is seen by the operator before the merge
+=== PM-WATCH-PHASE-60: A new or removed third-party dependency is seen by the operator before the merge
 
 Anchor:: link:../specification/phase-workflows/09-sanity-check.adoc#sanity-check-steps[Phase Workflows § Sanity Check, Steps] (`dependencies`),
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10]
 Hazard:: A skill adopted a technique that silently required a new third-party dependency, which no one approved; or the
 check reads the build files instead of what the build resolved, so a dependency a plugin, a version catalog, or a
-transitive change brings in goes unseen; or a listing that could not run is read as no new dependency.
+transitive change brings in goes unseen; or a dependency the change removed goes unjudged; or a listing that could
+not run is read as no new dependency.
 Guard:: The `dependencies` step reads the resolved dependencies and plugins per module offline from the build that ran
 (`mvn -o dependency:list` and `dependency:resolve-plugins`, `gradle --offline dependencies` and `buildEnvironment`,
 `npm ls`, the virtual environment's `pip list`) and compares
 them with the baseline `.marshall/sanity/dependencies.json`: every new coordinate is an item of the one operator
-question of the phase, a transitive one grouped under its direct dependency, and an accepted item updates the baseline
-by the plan's own commit. Matched negative controls: a coordinate in the baseline is not asked; a coordinate decided in
+question of the phase, a transitive one grouped under its direct dependency, and so is every baseline coordinate the
+build no longer resolves; an accepted item updates the baseline by the plan's own commit, an added coordinate added and
+a removed one removed. Matched negative controls: a coordinate in the baseline is not asked; a coordinate decided in
 an earlier run of the phase is not asked again; a listing that fails is never read as an empty difference.
 Source:: plan-marshall defect instrumentation-substrate PLAN-07 § Claim Labels (hypothesis dependency needs user approval).
 
@@ -532,8 +534,8 @@ link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#merge-
 Hazard:: A branch that had absorbed the base through merge commits (behind 0) was rebased and linearized anyway and
 conflicted on content already upstream.
 Guard:: Regression scenario: branch ahead 9 and behind 0 via merges → sync-baseline is a no-op, and `finalize.merge-sync`
-returns `not_required` for the same branch (the merge path rebases only when `branch_up_to_date_required` holds or the
-base changed the plan's footprint).
+returns `not_required` for the same branch (the merge path rebases only when the base changed a path of the plan's
+realized footprint or the provider reports the branch behind).
 Fixture:: ahead 9 / behind 0; conflict on `a5ebeef6d`, already on main via #1605.
 Source:: plan-marshall lesson 2026-09-24-05-001.
 
@@ -1067,19 +1069,6 @@ Hazard:: A waiter re-requesting the lease could be enqueued twice; the tests onl
 Guard:: The idempotent-enqueue test drives the waiter path and fails if that path is not reached.
 Source:: plan-marshall defect truthful-signals PLAN-TRUTH-153 D1.
 
-[#PM-WATCH-PHASE-46]
-=== PM-WATCH-PHASE-46: Documentary commitments are re-checked with matched controls
-
-Anchor:: link:../specification/phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows § Normative Step Catalogue] (Unified Triage, commitments)
-Hazard:: A reply promised a change ("Agreed. Will be addressed by TASK-N") and the promise shipped differently: a
-suggestion to reject non-`None` bundles landed as a removed parameter. The re-check lacked a negative control and a
-fixture.
-Guard:: Positive test: a promise that did not land yields a divergence; negative test: a promise that landed yields
-none. A re-check over zero commitments renders `not_reached` with its population, never clear.
-Fixture:: CodeRabbit `166827` ("reject non-None bundles" shipped as a removed parameter); `review_commitments` over
-zero commitments (`5cbc17`, #1475).
-Source:: plan-marshall defects review-apparatus PLAN-PR-031 D6 / PLAN-PR-073 D4, PLAN-PR-030 (`5cbc17`).
-
 [#PM-WATCH-PHASE-47]
 === PM-WATCH-PHASE-47: Plans without an admission record form their own population
 
@@ -1136,13 +1125,14 @@ Fixture:: 24 auditor checks of `audit-archived-plan-retrospectives`.
 Source:: plan-marshall defect post-run-quality PLAN-PRQ-03 D0 / D1.
 
 [#PM-WATCH-PHASE-52]
-=== PM-WATCH-PHASE-52: The assessment comparison has three states
+=== PM-WATCH-PHASE-52: The footprint reconciliation reads the plan's own capture
 
-Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#post-run-quality-report[Phase Workflows § Post-Run Quality Report] (Footprint & Assessments)
-Hazard:: 4 of 16 aspects were ungradeable, and the footprint was resolved against the dead PR 1555 instead of #1557 and
-#1558.
-Guard:: `measured` requires a resolved footprint and more than zero assessments read; an empty store is
-`no_assessments`, never `inconclusive`; `touched_but_unassessed` is still reported; tests for all three states.
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#post-run-quality-report[Phase Workflows § Post-Run Quality Report] (Footprint Reconciliation)
+Hazard:: The footprint was resolved against the dead PR 1555 instead of #1557 and #1558.
+Guard:: The report reconciles against the persisted capture of the plan's own worktree, never a footprint resolved from
+a pull request number; a capture that is not `measured` is published as `indeterminate` with its state and cause,
+never as an empty reconciliation; tests for a plan that abandoned one pull request and landed through two others, and
+for an unmeasured capture.
 Fixture:: PLAN-TRUTH-174 (PR 1555 vs #1557/#1558).
 Source:: plan-marshall defect truthful-signals PLAN-TRUTH-174 D2.
 
@@ -1389,8 +1379,8 @@ Source:: design review.
 Anchor:: link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#merge-path[Phase Workflows § Merge Path] (item 6),
 link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#_cross_plan_merge_mutex_fifo_admission_queue[Phase Workflows § Cross-Plan Merge Mutex & FIFO Admission Queue] (item 5)
 Hazard:: A `not_mergeable` refusal is bypassed by an administrator merge (`plan-marshall`'s `--admin`), or a
-`behind`/`conflict` refusal is retried against the same cached `branch_up_to_date_required` and loops without a
-rebase.
+`behind`/`conflict` refusal re-enters the gate, the next sync sees no reason to rebase, and the dispatch is refused
+again until the retry budget is spent.
 Guard:: Scenario per `facts.reason` value: the `auto` state `finalize.merge-refused` offers no link; `behind`,
 `conflict`, `checks_pending`, and `checks_failed` re-enter `finalize.merge-gate` within the retry budget, and
 `review_required`, `blocked`, `draft`, `method_not_allowed`, `unknown`, and a spent budget enter `finalize.hand-back`
@@ -1398,8 +1388,10 @@ with gap `cause: provider_refused`; a separate hand-back fixture per remaining g
 `provider_refused`: `stepped_out` with `step_out_cause: push_state_unknown` (a `git.commit_and_push` parity state
 `remote_absent_unverified` or an unrecognised state) and `local_only` (no push remote: recorded, not a failure); no link,
 waiver, or verb sends a merge request with an administrative flag (request log of the recorded provider); for
-`behind` and `conflict` the fact `branch_up_to_date_required` is stale after entry and the next
-`finalize.merge-sync` rebases; matched control: `checks_pending` leaves the fact unchanged.
+`behind` the next `finalize.merge-sync` rebases because the last dispatch was refused `behind`, and for `conflict`
+because the base changed a path of the realized footprint; matched control: after `checks_pending` on a branch the
+provider does not report behind and whose footprint the base did not change, the next `finalize.merge-sync` ends
+`not_required`.
 Source:: design review.
 
 [#PM-WATCH-PHASE-85]
@@ -1588,7 +1580,7 @@ note.
 Guard:: Tests submit the self-review without `unclaimed[]` (refused), with an entry that changes a default or deletes
 existing data (filed as a finding at the severity of its effect), and with an empty list (accepted, recorded as "none
 found"); a `conflicts[]` item naming an identifier the records do not hold is refused, and a submission that omits
-`conflicts[]` is accepted as "none found" while the facts hold no unexplained coordinate.
+`conflicts[]` is accepted as "none found".
 Corpus fixtures: a change that meets its one criterion and adds an unrequested delete of duplicate rows on start-up;
 a change that adds two configuration properties whose default no longer honours a header, against a non-goal of no
 speculative configurability; the review role must list both, the first at the severity of data loss.
@@ -1627,10 +1619,10 @@ never judged is a picture nobody acts on.
 Guard:: Tests compute the map for fixture repositories whose base and head differ by an added module, a removed module
 edge, and a replaced coordinate, and compare it with the crawl of each tree checked out in a scratch directory (equal).
 A descriptor that fails to parse at `base_ref` yields `partial` with its diagnostic, never `modules_removed`. The
-worktree's status is unchanged after the map is computed. A replaced coordinate that no own call and no deliverable
-names is in the self-review's `unexplained_coordinates[]`, and a submission whose `conflicts[]` omits it is refused
-(link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#self-review-submission[Phase Workflows § Self-Review Submission]);
-matched control: a replaced coordinate an own call names is not in the list. A decision of reversibility `costly` is
+worktree's status is unchanged after the map is computed. The removed side of a replaced coordinate is an item of the
+sanity check's `dependencies` step
+(link:../specification/phase-workflows/09-sanity-check.adoc#sanity-step-dependencies[Phase Workflows § Sanity Check, `dependencies`]),
+and the map shows it as review context. A decision of reversibility `costly` is
 listed under the map's hard-to-undo decisions, and a plan with none renders no such list and no empty section.
 Source:: Article analysis `barely-read-the-code` of plan-marshall-documentation (the operator reads a diagram of the
 change before its code).
@@ -1772,12 +1764,15 @@ Hazard:: A compile error of the new test counts as its red, so the proof holds f
 after the last green is taken for the proof; or a worker edits the test after its red run and the edit goes unseen; or
 the `FIX` of a missing proof leaves the reverted production change in the worktree.
 Guard:: Scenario over a plan with a `fix` criterion verified by `test`: a red run through a compile error, one
-`failed_unparsed`, one that went green, and one whose only failed test lies outside its `red_tests` each leave
-`fix_red_missing` open; a red run with a failed test in a `red_tests` file closes it; an edit of a `red_tests` file
-afterwards is the item `fix_test_changed`; after the remediation task of a `fix` answer, whether it ends `submitted`,
-`infeasible`, or `lost`, the tree equals `HEAD` before it and the verification is green. Matched controls: a record with
-only `new` criteria and a `fix` criterion verified by `inspection` owe nothing; a rebase that changes a `red_tests` file
-only through the base raises no `fix_test_changed`; an unreadable ledger is `indeterminate`, never clean.
+`failed_unparsed`, one after the last green run, one whose only failed test lies in a file the plan did not change, and
+one run by a task of a deliverable whose `Satisfies` does not name the criterion each leave `fix_red_missing` open; a
+`failed` run before the last green run, by a task of a deliverable that satisfies the criterion, with a failed test in a
+test file the plan changed closes it; an edit of that file afterwards, which changes the plan's diff digest of it, is
+the item `fix_test_changed`; after the remediation task of a `fix` answer, whether it ends `submitted`, `infeasible`, or
+`lost`, the tree equals `HEAD` before it and the verification is green. Matched controls: a record with only `new`
+criteria and a `fix` criterion verified by `inspection` owe nothing; a run submitted with `expect: red` that went red
+outside these conditions closes nothing; a rebase that changes such a test file only through the base raises no
+`fix_test_changed`; an unreadable ledger is `indeterminate`, never clean.
 Source:: Article analysis `ai-native-sdlc-playbook-anthropic` of plan-marshall-documentation (the failing test committed
 before the fix, which the agent may not rewrite).
 

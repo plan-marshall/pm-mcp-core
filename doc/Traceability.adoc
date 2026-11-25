@@ -667,6 +667,19 @@ link:../pm-runtime/doc/developer/runtime-launch.adoc[Developer Guide § Worker L
 link:../pm-core/doc/developer/core-store.adoc#_slots_metrics_budgets_ledger[Developer Guide § The Model-Slot, Metrics,
 Learned-Budget and Ledger Stores]
 
+Implementation (the served models of a task row): link:../pm-core/src/main/java/de/planmarshall/core/store/ServedModels.java[ServedModels],
+link:../pm-core/src/main/java/de/planmarshall/core/store/UsagePointers.java[UsagePointers],
+link:../pm-core/src/main/java/de/planmarshall/core/store/MetricsRow.java[MetricsRow],
+link:../pm-core/src/main/java/de/planmarshall/core/store/MetricsCodec.java[MetricsCodec]
+
+Verified by (the served models): link:../pm-core/src/test/java/de/planmarshall/core/store/ServedModelsTest.java[ServedModelsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/UsagePointersTest.java[UsagePointersTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/MetricsStoreTest.java[MetricsStoreTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/MetricsSchemaParityTest.java[MetricsSchemaParityTest]
+
+Documentation (the served models): link:../pm-core/doc/developer/core-store.adoc[Store Developer Guide],
+link:../pm-core/doc/adr/core-store/090-served-models-is-the-distinct-models-or-unmeasured.adoc[ADR core-store/090]
+
 [#PM-WF-16]
 === PM-WF-16: Reusable Compound Sub-Workflows & Config-Driven Git Commit/Push
 
@@ -2343,6 +2356,18 @@ link:../pm-runtime/doc/developer/runtime-endpoint.adoc[Endpoint Harness Develope
 link:../pm-runtime/doc/developer/runtime-launch.adoc#_the_composed_vector_check[Worker Launch Developer Guide § The
 Composed-Vector Check]
 
+Implementation (the usage model pointer of `headless.usage`: a required member beside the seven numeric figures, `null`
+or a JSON Pointer of at most 256 characters, which the runtime reads per line of the output stream):
+link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileStages.java[ProfileStages],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java[ProfileValidator]
+
+Verified by (the usage model pointer):
+link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileValidatorTest.java[ProfileValidatorTest],
+link:../pm-core/src/test/java/de/planmarshall/core/profile/HarnessProfileSchemaParityTest.java[HarnessProfileSchemaParityTest]
+
+Documentation (the usage model pointer): link:../pm-core/doc/developer/core-profile.adoc[Profile Developer Guide],
+link:../pm-core/doc/adr/core-profile/017-the-usage-model-pointer-sits-beside-the-figures.adoc[ADR core-profile/017]
+
 [#PM-CLIENT-5]
 === PM-CLIENT-5: Versioned Harness Profile Schema & Override Hierarchy
 
@@ -3646,3 +3671,27 @@ link:../pm-runtime/doc/adr/runtime-worker/011-the-stream-reader-is-a-pump-over-t
 link:../pm-runtime/doc/adr/runtime-worker/014-the-inbound-calls-and-the-scheduled-pass.adoc[ADR runtime-worker/014],
 link:../pm-runtime/doc/adr/runtime-launch/006-the-events-stage-maps-a-recorded-output.adoc[ADR runtime-launch/006],
 link:../pm-runtime/doc/adr/runtime-web/001-activity-is-served-from-a-cursor-and-a-pull-stream.adoc[ADR runtime-web/001]
+
+Implementation (the `model_differs` entry and the per-attempt watch that writes it): the server kind names the launch
+model and the model that answered a line, once per change; the runtime reads the model of every line through the
+profile's usage pointer, watches it per attempt and appends the entry ahead of the line's own:
+link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityEntry.java[ActivityEntry],
+link:../pm-core/src/main/java/de/planmarshall/core/queue/ActivityEntryCodec.java[ActivityEntryCodec],
+link:../pm-core/src/main/java/de/planmarshall/core/queue/SecretRedactor.java[SecretRedactor],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ActivityEventMapper.java[ActivityEventMapper],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/ServedModelWatch.java[ServedModelWatch],
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerActivityPump.java[WorkerActivityPump]
+
+Verified by (the `model_differs` entry): link:../pm-core/src/test/java/de/planmarshall/core/queue/ActivityEntryValidationTest.java[ActivityEntryValidationTest],
+link:../pm-core/src/test/java/de/planmarshall/core/queue/ActivityEntryTest.java[ActivityEntryTest],
+link:../pm-core/src/test/java/de/planmarshall/core/queue/TaskQueueSchemaParityTest.java[TaskQueueSchemaParityTest],
+link:../pm-core/src/test/java/de/planmarshall/core/queue/SecretRedactorTest.java[SecretRedactorTest],
+link:../pm-core/src/test/java/de/planmarshall/core/queue/ActivityJournalMaskingTest.java[ActivityJournalMaskingTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/ServedModelWatchTest.java[ServedModelWatchTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerActivityPumpTest.java[WorkerActivityPumpTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/OffTrackDetectorTest.java[OffTrackDetectorTest]
+
+Documentation (the `model_differs` entry): link:../pm-core/doc/developer/core-queue.adoc[Task Queue Developer Guide],
+link:../pm-runtime/doc/developer/runtime-worker.adoc[Worker Developer Guide] (§ The Model That Answered),
+link:../pm-core/doc/adr/core-queue/011-the-served-model-change-is-a-server-entry.adoc[ADR core-queue/011],
+link:../pm-runtime/doc/adr/runtime-worker/023-the-served-model-is-watched-per-attempt.adoc[ADR runtime-worker/023]

@@ -34,6 +34,7 @@ public final class WorkerActivityPump {
 
     private final ActivityEventMapper mapper;
     private final ActivityRecorder recorder;
+    private final ServedModelWatch watch;
     private @Nullable String task;
     private int attempt;
     private long offset;
@@ -44,8 +45,18 @@ public final class WorkerActivityPump {
      * @param recorder where a mapped entry is written
      */
     public WorkerActivityPump(ActivityEventMapper mapper, ActivityRecorder recorder) {
+        this(mapper, recorder, ServedModelWatch.recordingNothing());
+    }
+
+    /**
+     * @param mapper   the harness's line mapper
+     * @param recorder where a mapped entry is written
+     * @param watch    the attempt's watch of the model that answered its turns
+     */
+    public WorkerActivityPump(ActivityEventMapper mapper, ActivityRecorder recorder, ServedModelWatch watch) {
         this.mapper = Objects.requireNonNull(mapper, "mapper");
         this.recorder = Objects.requireNonNull(recorder, "recorder");
+        this.watch = Objects.requireNonNull(watch, "watch");
     }
 
     /**
@@ -62,8 +73,8 @@ public final class WorkerActivityPump {
     public int pump(String queueTaskId, String generationId, int attempt, JobLog log) {
         Objects.requireNonNull(queueTaskId, "queueTaskId");
         Objects.requireNonNull(log, "log");
-        if (task != null && (!task.equals(queueTaskId) || this.attempt != attempt)
-                && !closeTracked(generationId, log).switched()) {
+        var switching = task != null && (!task.equals(queueTaskId) || this.attempt != attempt);
+        if (switching && !closeTracked(generationId, log).switched()) {
             // The previous attempt's tail cannot be read yet: switching now would append its lines to the next task.
             return 0;
         }
@@ -119,6 +130,7 @@ public final class WorkerActivityPump {
         unmapped = 0;
         task = null;
         recorder.forget(closed);
+        watch.restart();
         return new Closed(true, written);
     }
 
@@ -140,6 +152,7 @@ public final class WorkerActivityPump {
         unmapped = 0;
         task = null;
         recorder.forget(queueTaskId);
+        watch.restart();
         return written;
     }
 
@@ -151,6 +164,9 @@ public final class WorkerActivityPump {
     private int appendLines(String queueTaskId, String generationId, int attempt, JobLog.Lines lines, boolean closed) {
         var appended = 0;
         for (var line : lines.lines()) {
+            if (appendModelChange(queueTaskId, generationId, attempt, line, closed)) {
+                appended++;
+            }
             var mapped = mapper.map(line);
             if (mapped.isEmpty()) {
                 unmapped++;
@@ -165,6 +181,34 @@ public final class WorkerActivityPump {
         }
         offset = lines.nextOffset();
         return appended;
+    }
+
+    /**
+     * Asks the mapper for the model of one line and records a change through the watch, before the line's own entry.
+     *
+     * @return whether a {@code model_differs} entry was appended
+     */
+    private boolean appendModelChange(String queueTaskId, String generationId, int attempt, @Nullable String line,
+            boolean closed) {
+        var change = mapper.servedModel(line).flatMap(watch::see).orElse(null);
+        if (change == null) {
+            watch.recorded();
+            return false;
+        }
+        var entry = ActivityEntry.builder()
+                .source(ActivityEntry.Source.SERVER)
+                .kind(ActivityEntry.Kind.MODEL_DIFFERS)
+                .launchModel(change.launch())
+                .servedModel(change.served());
+        if (closed) {
+            recorder.appendClosed(queueTaskId, attempt, entry);
+        } else {
+            recorder.append(queueTaskId, generationId, entry);
+        }
+        // The watch advances only after the entry is written: a failed write leaves the change pending, and the retry of
+        // the same line offers it again instead of losing it.
+        watch.recorded();
+        return true;
     }
 
     private static ActivityEntry.ActivityEntryBuilder builder(ActivityEventMapper.Mapped mapped) {

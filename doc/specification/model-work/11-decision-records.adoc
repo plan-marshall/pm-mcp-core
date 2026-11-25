@@ -73,13 +73,13 @@ The decision points are closed; a state that takes a decision of the table write
 |`init.domain-detection` (`init.classify`)
 |`server_rule` domain detector
 |`placement`
-|The top domain's share of the detection scores; a unique top score
-|the domain set, or `ask`
+|The detection scores; on a tie at the top score the union of the tied candidates (link:../phase-workflows/01-planning-phases-1-2.adoc#_widen_only_domain_re_merge[Phase Workflows Specification, Widen-Only Domain Re-Merge]); no threshold
+|the domain set
 
 |`init.posture` (`init.classify`; asked in the operator wait `init.options`, link:../state-catalogue/02-plan-phases-1-3.adoc#state-init.options[State Catalogue, `init.options`])
-|`server_rule` posture projection, where the plan's own setting or `plan_defaults.posture` of the project or the machine sets the posture, else `operator` (`init.options`, with the projection's proposal preselected)
+|The setting in force, where the plan's own setting or `plan_defaults.posture` of the project or the machine sets the posture, else `operator` (`init.options`, with the shipped default `standard` preselected)
 |`assurance`
-|The values the projection read; the setting in force (the plan's own setting, or `local_config` of the project or the machine); no threshold
+|The setting in force (the plan's own setting, or `local_config` of the project or the machine), else the operator's answer; no threshold
 |`minimal`, `standard`, `full`
 
 |`lane.budget` (`outline.light-gate`, link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#light-gate[Light Gate])
@@ -243,7 +243,7 @@ A decision is never rewritten. When a later event departs from it, the server ap
 [#threshold-calibration]
 === Thresholds Are Calibrated Defaults
 
-Every threshold of a decision point is a compiled default, a declaration of the project-owned unit that takes the decision (within compiled bounds, link:../workflow-dsl/02-units-jobs-decisions.adoc#unit-declarations[Workflow DSL Specification, Unit Declarations]), or the configuration key it is; no threshold is read from decision-log records at run time, and no decision point adjusts its own threshold. The declared thresholds (the re-planning thresholds and budget, link:../phase-workflows/08-dynamic-re-planning.adoc#replan-constants[Declared Thresholds]; the listed roles and score of the adjudication's quorum declarations, link:10-decision-quorum.adoc#decision-declarations[Ask or Quorum, Decision Declarations]) and the compiled ones (the light gate's cap and band, the change-type heuristic's `0.70`, and the refine `confidence_threshold`) are defaults whose calibration rests on the decision-log records: every evaluation records the measured value against the threshold in force with its source, and later corrections show where the rule decided against what followed. The calibration export (<<corpus-export>>) gives the operator these rows; a team changes a declared threshold by a reviewed edit of its unit; a changed shipped value reaches every project that holds no unit of its own with the release, since a missing unit resolves to the next level, and a project that holds its own unit is offered the change (link:../workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL Specification, Project-Owned Workflow Units]).
+Every threshold of a decision point is a compiled default, a declaration of the project-owned unit that takes the decision (within compiled bounds, link:../workflow-dsl/02-units-jobs-decisions.adoc#unit-declarations[Workflow DSL Specification, Unit Declarations]), or the configuration key it is; no threshold is read from decision-log records at run time, and no decision point adjusts its own threshold. The declared thresholds (the re-planning thresholds and budget, link:../phase-workflows/08-dynamic-re-planning.adoc#replan-constants[Declared Thresholds]; the listed roles and score of the adjudication's quorum declarations, link:10-decision-quorum.adoc#decision-declarations[Ask or Quorum, Decision Declarations]) and the compiled ones (the light gate's cap and band and the refine `confidence_threshold`) are defaults whose calibration rests on the decision-log records: every evaluation records the measured value against the threshold in force with its source, and later corrections show where the rule decided against what followed. The calibration export (<<corpus-export>>) gives the operator these rows; a team changes a declared threshold by a reviewed edit of its unit; a changed shipped value reaches every project that holds no unit of its own with the release, since a missing unit resolves to the next level, and a project that holds its own unit is offered the change (link:../workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL Specification, Project-Owned Workflow Units]).
 
 [#corpus-export]
 == Corpus Export (`pm-operator decision-log export`)
