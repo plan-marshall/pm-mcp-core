@@ -294,7 +294,9 @@ class WorkerRecyclingTest {
         assertAll(
                 () -> assertEquals(Optional.of(RecycleCause.TOKEN_BUDGET), cause,
                         "the hold's generation is recycled without a notification"),
-                () -> assertTrue(fixture.holdEnds.isEmpty(), "a task without facts ends no hold"));
+                () -> assertTrue(fixture.holdEnds.isEmpty(), "a task without facts ends no hold"),
+                () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
+                        "cannot be read: the hold ends without the notification"));
     }
 
     @Test

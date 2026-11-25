@@ -23,7 +23,6 @@ import org.jspecify.annotations.Nullable;
 import de.planmarshall.core.profile.EndpointProfile;
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.JsonNode;
-import de.planmarshall.core.profile.JsonPointer;
 import de.planmarshall.core.profile.ProfileRefusal;
 import de.planmarshall.core.profile.ProfileStages;
 import de.planmarshall.runtime.launch.HarnessVerifier;
@@ -299,7 +298,7 @@ public final class EndpointVerification {
         }
         try {
             var document = JsonDocument.parse(response.body().getBytes(StandardCharsets.UTF_8), "models");
-            return JsonPointer.resolve(document, profile.endpoint().modelsPointer(), "models listing");
+            return EndpointHarness.atModelsPointer(document, profile);
         } catch (ProfileRefusal _) {
             return JsonNode.nullValue();
         }

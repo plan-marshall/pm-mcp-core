@@ -37,6 +37,7 @@ import de.planmarshall.runtime.launch.HarnessEnrolment;
 import de.planmarshall.runtime.launch.HarnessVerification;
 import de.planmarshall.runtime.launch.HeadlessBlock;
 import de.planmarshall.runtime.launch.LaunchComposer;
+import de.planmarshall.runtime.launch.LaunchRefusal;
 import de.planmarshall.runtime.launch.LaunchRequest;
 import de.planmarshall.runtime.launch.WorkerLaunch;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
@@ -274,6 +275,7 @@ public final class WorkerSupervisor {
         }
         var verification = environment.harnessVerifier().verify(role.harness(), block);
         if (verification instanceof HarnessVerification.Refused refused) {
+            countStoreRefusal(role, refused);
             refuse(role, generationId, refused);
             environment.slots().release(slot.get());
             return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
@@ -287,14 +289,31 @@ public final class WorkerSupervisor {
             environment.slots().release(slot.get());
             return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
         }
-        var started = startWorker(role, block, launch, slot.get());
+        var started = startAfterSpacing(role, block, launch, slot.get());
         if (started.isEmpty()) {
+            environment.spacing().ended(role.harness());
             environment.slots().release(slot.get());
             return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
         }
         var generation = register(role, request, launch, started.get(), slot.get());
         LOGGER.info(INFO.WORKER_GENERATION_STARTED, generation.generationId(), generation.role(), generation.harness());
         return new StartOutcome.Started(generation);
+    }
+
+    /**
+     * Waits for the harness's start spacing and then starts the composed worker: the workers of one harness start one
+     * after another on the machine, so a start waits until the previous worker of that harness made its first call or
+     * ended, at most the spacing's bound. The spacing only ever delays a start and never refuses one, so an interrupted
+     * wait proceeds at once with the thread's flag restored.
+     */
+    private Optional<JobId> startAfterSpacing(EffectiveRole role, HeadlessBlock block, WorkerLaunch launch,
+            ModelSlots.Lease lease) {
+        try {
+            environment.spacing().awaitTurn(role.harness());
+        } catch (InterruptedException _) {
+            Thread.currentThread().interrupt();
+        }
+        return startWorker(role, block, launch, lease);
     }
 
     /**
@@ -353,6 +372,22 @@ public final class WorkerSupervisor {
                 .build();
         generations.put(generation.generationId(), generation);
         return generation;
+    }
+
+    /**
+     * Counts a launch the runtime refused on the enrolment store into the role's start-failure guard: the store being
+     * unreadable or tampered means the launch of the role on that harness failed before its spawn, which the
+     * specification counts as a start failure. Every other refusal is a decision about this one start and is not
+     * counted.
+     *
+     * @param role    the role whose launch was refused
+     * @param refused the refusal of the launch
+     */
+    private void countStoreRefusal(EffectiveRole role, HarnessVerification.Refused refused) {
+        if (refused.reason() == LaunchRefusal.HARNESS_STORE_UNREADABLE
+                || refused.reason() == LaunchRefusal.HARNESS_TAMPERED) {
+            environment.startGuard().startFailed(role.artifact().name(), role.harness(), refused.detail());
+        }
     }
 
     private void refuse(EffectiveRole role, String generationId, HarnessVerification.Refused refused) {

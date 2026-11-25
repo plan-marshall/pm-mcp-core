@@ -113,9 +113,13 @@ public interface AuditChainVerification {
             public Broken {
                 Objects.requireNonNull(reason, "reason");
                 Objects.requireNonNull(diagnostic, "diagnostic");
-                if ((firstBrokenLine != null) != (reason == BreakReason.LINK_BROKEN)) {
+                if (reason == BreakReason.LINK_BROKEN && firstBrokenLine == null) {
                     throw new IllegalArgumentException(
-                            "A first broken line is given exactly for link_broken, not for " + reason.wireName());
+                            "The reason link_broken is refused without a first broken line");
+                }
+                if (reason != BreakReason.LINK_BROKEN && firstBrokenLine != null) {
+                    throw new IllegalArgumentException(
+                            "A first broken line is refused for the reason " + reason.wireName());
                 }
                 if (firstBrokenLine != null && firstBrokenLine < 1) {
                     throw new IllegalArgumentException("The first broken line is counted from 1: " + firstBrokenLine);

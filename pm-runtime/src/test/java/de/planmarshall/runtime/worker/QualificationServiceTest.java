@@ -84,8 +84,9 @@ class QualificationServiceTest {
         ItemTaskOffers offers = createMock(ItemTaskOffers.class);
         replay(offers);
 
-        var harness = QualificationService.harness(role, fixture.supervisor(), offers, ItemWorktrees.none(),
-                fixture.workdir);
+        var harness = QualificationService.harness(role, fixture.supervisor(),
+                new WorkerEnding(fixture.supervisor().environment(), () -> false, () -> {
+                }), offers, ItemWorktrees.none(), fixture.workdir);
         var scorer = QualificationService.scorer(judge, fixture.supervisor(), offers);
 
         assertAll(

@@ -24,6 +24,7 @@ import de.planmarshall.core.profile.WorkerParameters;
 import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 
 /**
  * The recycling decision of a supervisor's warm workers (PM-WORK-3, Recycling Warm Workers): the four triggers the
@@ -241,7 +242,9 @@ public final class WorkerRecycling {
      * Ends the hold of a generation that reached its budget, once per generation and before the recycle: the protocol
      * suspends the task where it may resume and falls back otherwise, while the generation still leases the task and
      * before the end path fences it (Model Work § Continuing after a Question, Budget). A task whose facts cannot be
-     * read names no attempt, so it is not reported; the end path still recycles the generation.
+     * read names no attempt, so the hold-ended notification is not sent and the case is logged as
+     * {@code HOLD_ENDED_TASK_UNREADABLE}; the end path still recycles the generation, because it must not wait for a
+     * task record the protocol may never supply.
      *
      * @param generation the holding generation
      */
@@ -250,7 +253,7 @@ public final class WorkerRecycling {
         if (queueTaskId == null || holdEnded.contains(generation.generationId())) {
             return;
         }
-        tasks.facts(queueTaskId).ifPresent(facts -> {
+        tasks.facts(queueTaskId).ifPresentOrElse(facts -> {
             environment.protocol().holdEnded(WorkerProtocol.HoldEndedReport.builder()
                     .generationId(generation.generationId())
                     .queueTaskId(queueTaskId)
@@ -259,7 +262,7 @@ public final class WorkerRecycling {
                     .at(environment.clock().instant())
                     .build());
             holdEnded.add(generation.generationId());
-        });
+        }, () -> LOGGER.warn(WARN.HOLD_ENDED_TASK_UNREADABLE, queueTaskId, generation.generationId()));
     }
 
     /**

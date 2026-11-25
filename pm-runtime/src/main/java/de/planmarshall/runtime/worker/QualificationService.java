@@ -49,23 +49,16 @@ public final class QualificationService {
     /**
      * @param role            the role to grade
      * @param supervisor      the supervisor that starts the workers of the role and its judge
+     * @param ending          the supervisor's own end path, which a rotated warm worker leaves through
      * @param offers          the task protocol's offer port
      * @param worktrees       the item worktrees of the project's repository
      * @param projectCheckout the enrolled project checkout
      * @return the harness the engine offers the role's items through
+     * @throws NullPointerException if an argument is {@code null}
      */
-    public static GradingHarness harness(EffectiveRole role, WorkerSupervisor supervisor, ItemTaskOffers offers,
-            ItemWorktrees worktrees, Path projectCheckout) {
-        return new WorkerGradingHarness(role, supervisor, ending(supervisor), offers, worktrees, projectCheckout);
-    }
-
-    /**
-     * @param supervisor the supervisor whose workers a rotation ends
-     * @return the one end path a rotated warm worker leaves through; a grading run queues no plan work of its own
-     */
-    private static WorkerEnding ending(WorkerSupervisor supervisor) {
-        return new WorkerEnding(supervisor.environment(), () -> false, () -> {
-        });
+    public static GradingHarness harness(EffectiveRole role, WorkerSupervisor supervisor, WorkerEnding ending,
+            ItemTaskOffers offers, ItemWorktrees worktrees, Path projectCheckout) {
+        return new WorkerGradingHarness(role, supervisor, ending, offers, worktrees, projectCheckout);
     }
 
     /**

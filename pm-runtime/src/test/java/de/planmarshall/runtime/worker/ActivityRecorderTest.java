@@ -148,7 +148,7 @@ class ActivityRecorderTest {
                 InstantSource.fixed(AT));
 
         var entry = toolCall(tool, target);
-        assertThrows(IllegalStateException.class,
+        assertThrows(TaskNotOpenException.class,
                 () -> recorder.append(task, generation, entry), "an unreadable task refuses the append");
         assertTrue(journal.entries(task).isEmpty(), "an unreadable task writes no entry");
         assertTrue(signals.isEmpty(), "an unreadable task raises no signal");

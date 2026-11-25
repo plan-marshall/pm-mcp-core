@@ -10,10 +10,12 @@
 package de.planmarshall.runtime.endpoint;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.profile.CanonicalJson;
@@ -43,9 +45,29 @@ public final class AnswerSchema {
     private static final Set<String> ANNOTATIONS = Set.of("$schema", "$id", "title", "description", "$defs",
             "definitions");
 
-    private static final Set<String> KEYWORDS = Set.of("type", "const", "enum", "required", "properties",
-            "additionalProperties", "items", "minItems", "maxItems", "minLength", "maxLength", "minimum", "maximum",
-            "$ref");
+    /** The keyword names the check reads in its code, so no literal is repeated. */
+    private static final String TYPE_KEYWORD = "type";
+    private static final String REQUIRED = "required";
+    private static final String PROPERTIES = "properties";
+    private static final String ENUM = "enum";
+    private static final String ITEMS = "items";
+    private static final String REF = "$ref";
+
+    private static final Set<String> KEYWORDS;
+
+    /** The keywords whose value is an integer bound, which the guard refuses when it is not one the check can read. */
+    private static final Set<String> INTEGER_BOUNDS = Set.of("minItems", "maxItems", "minLength", "maxLength");
+
+    /** The keywords whose value is a decimal bound, which the guard refuses when it is not a number. */
+    private static final Set<String> DECIMAL_BOUNDS = Set.of("minimum", "maximum");
+
+    static {
+        var keywords = new HashSet<>(Set.of(TYPE_KEYWORD, "const", ENUM, REQUIRED, PROPERTIES,
+                "additionalProperties", ITEMS, REF));
+        keywords.addAll(INTEGER_BOUNDS);
+        keywords.addAll(DECIMAL_BOUNDS);
+        KEYWORDS = Set.copyOf(keywords);
+    }
 
     /**
      * @param schema the role's result schema
@@ -103,8 +125,9 @@ public final class AnswerSchema {
     }
 
     /**
-     * @return the refusal of a schema that uses a member outside the supported keywords and annotations, or whose
-     *         {@code type} is neither a string nor an array, or {@link Check#ok()}
+     * @return the refusal of a schema that uses a member outside the supported keywords and annotations, whose
+     *         {@code type} is neither a string nor an array, or whose keyword value is of a kind the check cannot
+     *         enforce, or {@link Check#ok()}
      */
     private static Check guardKeywords(JsonNode schema, String pointer) {
         var unsupported = schema.members().keySet().stream()
@@ -113,11 +136,70 @@ public final class AnswerSchema {
             return Check.refused(pointer,
                     "the result schema uses the unsupported keyword '%s'".formatted(unsupported.get()));
         }
-        var declaredType = schema.member("type").orElse(null);
+        var declaredType = schema.member(TYPE_KEYWORD).orElse(null);
         if (declaredType != null && !declaredType.isString() && !declaredType.isArray()) {
             return Check.refused(pointer, "the result schema's type is neither a string nor an array");
         }
+        var malformed = malformedValue(schema);
+        if (malformed.isPresent()) {
+            return Check.refused(pointer, malformed.get());
+        }
         return Check.ok();
+    }
+
+    /**
+     * @return the refusal of a keyword value of a kind the check would otherwise skip: a bound that is not an integer
+     *         the check can read, a {@code required}, {@code enum} or {@code properties} member of another kind — the
+     *         silent skip that reads a schema as unbounded and lets an answer through
+     */
+    private static Optional<String> malformedValue(JsonNode schema) {
+        return malformedIntegerBound(schema)
+                .or(() -> malformedDecimalBound(schema))
+                .or(() -> malformedMemberShape(schema));
+    }
+
+    /** @return the refusal of an integer bound the check cannot read, or empty */
+    private static Optional<String> malformedIntegerBound(JsonNode schema) {
+        for (var name : INTEGER_BOUNDS) {
+            var value = schema.member(name);
+            if (value.isEmpty()) {
+                continue;
+            }
+            var integer = value.get().integerValue();
+            if (!value.get().isInteger() || integer.getAsLong() > Integer.MAX_VALUE
+                    || integer.getAsLong() < Integer.MIN_VALUE) {
+                return Optional.of(
+                        "the result schema's '%s' is not an integer bound the check enforces".formatted(name));
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** @return the refusal of a decimal bound the check cannot read, or empty */
+    private static Optional<String> malformedDecimalBound(JsonNode schema) {
+        for (var name : DECIMAL_BOUNDS) {
+            var value = schema.member(name);
+            if (value.isPresent() && value.get().decimalValue().isEmpty()) {
+                return Optional.of(
+                        "the result schema's '%s' is not a number the check enforces".formatted(name));
+            }
+        }
+        return Optional.empty();
+    }
+
+    /** @return the refusal of a member of a kind the check would otherwise skip, or empty */
+    private static Optional<String> malformedMemberShape(JsonNode schema) {
+        return malformedKind(schema, REQUIRED, "an array", JsonNode::isArray)
+                .or(() -> malformedKind(schema, PROPERTIES, "an object", JsonNode::isObject))
+                .or(() -> malformedKind(schema, ENUM, "an array", JsonNode::isArray))
+                .or(() -> malformedKind(schema, ITEMS, "an object", JsonNode::isObject));
+    }
+
+    /** @return the refusal of a member whose kind is not the one the check reads, or empty */
+    private static Optional<String> malformedKind(JsonNode schema, String name, String expected,
+            Predicate<JsonNode> kind) {
+        return schema.member(name).filter(member -> !kind.test(member))
+                .map(_ -> "the result schema's '%s' is not %s".formatted(name, expected));
     }
 
     /**
@@ -129,16 +211,16 @@ public final class AnswerSchema {
      */
     private static Optional<Check> followReference(JsonNode root, JsonNode schema, JsonNode answer, String pointer,
             int depth) {
-        if (schema.member("$ref").isEmpty()) {
+        if (schema.member(REF).isEmpty()) {
             return Optional.empty();
         }
         var siblings = schema.members().keySet().stream()
-                .filter(name -> KEYWORDS.contains(name) && !"$ref".equals(name)).findFirst();
+                .filter(name -> KEYWORDS.contains(name) && !REF.equals(name)).findFirst();
         if (siblings.isPresent()) {
             return Optional.of(
                     Check.refused(pointer, "the result schema combines $ref with '%s'".formatted(siblings.get())));
         }
-        var reference = schema.member("$ref").flatMap(JsonNode::text).orElse("");
+        var reference = schema.member(REF).flatMap(JsonNode::text).orElse("");
         if (!reference.startsWith("#/")) {
             return Optional.of(Check.refused(pointer, "the result schema refers to '%s'".formatted(reference)));
         }
@@ -170,7 +252,7 @@ public final class AnswerSchema {
         if (constant.isPresent() && !sameValue(constant.get(), answer)) {
             return Check.refused(pointer, "the answer is not the schema's const value");
         }
-        var values = schema.member("enum");
+        var values = schema.member(ENUM);
         if (values.isPresent() && values.get().elements().stream().noneMatch(value -> sameValue(value, answer))) {
             return Check.refused(pointer, "the answer is none of the schema's enum values");
         }
@@ -206,13 +288,13 @@ public final class AnswerSchema {
     }
 
     private static Check object(JsonNode root, JsonNode schema, JsonNode answer, String pointer, int depth) {
-        for (var required : elements(schema, "required")) {
+        for (var required : elements(schema, REQUIRED)) {
             var name = required.text().orElse("");
             if (answer.member(name).isEmpty()) {
                 return Check.refused(pointer + "/" + name, "the required member '%s' is missing".formatted(name));
             }
         }
-        var properties = schema.member("properties");
+        var properties = schema.member(PROPERTIES);
         var additional = schema.member("additionalProperties").orElse(null);
         if (additional != null && !additional.isBoolean()) {
             return Check.refused(pointer, "the result schema's additionalProperties is not a boolean");
@@ -243,7 +325,7 @@ public final class AnswerSchema {
         if (maximum.isPresent() && elements.size() > maximum.get()) {
             return Check.refused(pointer, "the array has more than %d items".formatted(maximum.get()));
         }
-        var items = schema.member("items");
+        var items = schema.member(ITEMS);
         if (items.isPresent()) {
             for (var index = 0; index < elements.size(); index++) {
                 var result = check(root, items.get(), elements.get(index), pointer + "/" + index, depth + 1);
@@ -284,7 +366,7 @@ public final class AnswerSchema {
     }
 
     private static List<String> typeNames(JsonNode schema) {
-        var value = schema.member("type").orElse(null);
+        var value = schema.member(TYPE_KEYWORD).orElse(null);
         if (value == null) {
             return List.of();
         }

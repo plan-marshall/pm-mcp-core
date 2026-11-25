@@ -68,6 +68,7 @@ import de.planmarshall.runtime.launch.SkillSource;
  * @param timers          the timers the deadlines and the probe backoff use
  * @param startGuard      the start-failure guard of the role on its harness
  * @param eligibilityGate the verification-record gate of the harness for the role
+ * @param spacing         the machine-wide start spacing of one harness, shared by every supervisor of the runtime
  * @since 0.1
  */
 @Builder
@@ -75,7 +76,7 @@ public record SupervisorEnvironment(String projectId, ProjectEnrolment enrolment
 Path runtimeHome, Path relaySocket, String shimParagraph, SkillSource skills, LoadedProfile profile,
 HarnessVerifier harnessVerifier, LaunchComposer composer, WorkerStarter starter, WorkerStateWriter stateWriter,
 JobTokenStore jobTokens, ModelSlots slots, WorkerProtocol protocol, AuditSink audit, InstantSource clock, WorkerTimers timers,
-LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
+LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate, HarnessStartSpacing spacing) {
 
     /**
      * @throws NullPointerException if a required component is {@code null}
@@ -103,6 +104,7 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
         Objects.requireNonNull(locks, "locks");
         Objects.requireNonNull(startGuard, "startGuard");
         Objects.requireNonNull(eligibilityGate, "eligibilityGate");
+        Objects.requireNonNull(spacing, "spacing");
     }
 
     /**
@@ -274,6 +276,20 @@ LockManager locks, StartGuard startGuard, EligibilityGate eligibilityGate) {
          */
         default void firstCall(String role, String harness) {
             // the open guard counts no failure, so a first call leaves it as it is
+        }
+
+        /**
+         * Counts one start failure of the role on the harness and reports it. The open guard counts nothing; it reports
+         * the text so a caller reads the same value either way.
+         *
+         * @param role    the role whose start failed
+         * @param harness the harness id of the harness the start failed on
+         * @param logTail the failed worker's own error text, which the report bounds and redacts
+         * @return the bounded, redacted report of this failure
+         */
+        default StartFailureReport startFailed(String role, String harness, String logTail) {
+            // the open guard counts no failure
+            return StartFailureReport.of(role, harness, logTail);
         }
 
         /**
