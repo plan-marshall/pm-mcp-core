@@ -2,10 +2,10 @@
   "id": "PLAN-V2-126",
   "slug": "test-conformance-runtime-and-providers",
   "workstream": "WS-11",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-126-test-conformance-runtime-and-providers",
+  "pr": "#612",
+  "landing": "landings/PLAN-V2-126.md",
   "seq": 114
 }

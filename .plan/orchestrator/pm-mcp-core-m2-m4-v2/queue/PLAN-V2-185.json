@@ -2,10 +2,10 @@
   "id": "PLAN-V2-185",
   "slug": "commit-unit-caps-rule-and-licensing-residue",
   "workstream": "WS-01",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-185-commit-unit-caps-rule-and-licensing-residue",
+  "pr": "#613",
+  "landing": "landings/PLAN-V2-185.md",
   "seq": 173
 }

@@ -73,3 +73,7 @@ Three deliverables, about 22 files, no split needed. Schema first.
 ## Write-Boundary
 
 The plan touches only its own repository source and tests; it creates and edits NO file under `.plan/orchestrator/` other than its own `inbox/{sender}-{seq}` message (`persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary).
+
+## Record of 2026-11-25 (analyze of PLAN-V2-185, merged as #613 `3ba79c4f`; BINDING)
+
+The three-layer analysis of PLAN-V2-185 found statements about the freshness stamp that this plan removes with the stamp, so the outline does NOT re-word them first: `FreshnessReconcile.java:24-27` ("a future writer will name the commit", "a writer must confirm a successful build exists"), ADR core-store/089 `:28` and `:56-57` ("the writer must write the stamp in the same status transaction", "a future writer will read"), `core-store.adoc` `:356` and `:372`, the ragged re-wrap of `core-store.adoc` (lines 357, 373, 377, 1337, 1342 over 120 characters) and the stale `status.schema.json:365` description (R10 forbade a block edit; it sits inside `:363-375`, which this plan removes). The Javadoc, ADR and guide statements of PLAN-V2-185 (#613) are the text read at `3ba79c4f`; PLAN-V2-196 edits other lines of `core-store.adoc` (`:340`), so the two plans overlap on that file only. The landing is `landings/PLAN-V2-185.md`.
