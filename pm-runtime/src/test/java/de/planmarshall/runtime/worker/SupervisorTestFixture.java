@@ -51,9 +51,12 @@ import de.planmarshall.core.role.RoleSkill;
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
 import de.planmarshall.core.service.JobRunner;
+import de.planmarshall.core.store.EnrolmentSidecar;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.WorkerState;
+import de.planmarshall.runtime.enrolment.EnrolmentHmac;
+import de.planmarshall.runtime.enrolment.HarnessesSidecarCheck;
 import de.planmarshall.runtime.job.WorkerStart;
 import de.planmarshall.runtime.launch.ContractEnvelope;
 import de.planmarshall.runtime.launch.HarnessEnrolment;
@@ -188,6 +191,21 @@ final class SupervisorTestFixture {
     /** Whether the fixture harness is enrolled; a test that wants a refused launch turns it off. */
     boolean enrol = true;
 
+    /** The digest the verifier reads for the enrolled executable; a test that drives a changed build replaces it. */
+    Optional<String> executableDigest;
+
+    /** The version the probe reports for a changed executable; a test that drives an unsupported version replaces it. */
+    String probedVersion = "1.5.0";
+
+    /** Whether the update evidence of a changed executable passes; a test that drives an unverified change turns it off. */
+    boolean evidencePasses = true;
+
+    /** Whether the starter refuses the start; a test that drives a refused spawn turns it on. */
+    boolean refuseStart;
+
+    /** The reason a refusing starter answers with; a lower-case snake-case word, as the runner's refusal requires. */
+    String refusalReason = "draining";
+
     /** The virtual clock every deadline is measured against; a scenario moves it explicitly. */
     final VirtualClock clock = new VirtualClock(NOW);
 
@@ -198,6 +216,7 @@ final class SupervisorTestFixture {
 
     SupervisorTestFixture(Path base) throws IOException {
         this.base = base;
+        executableDigest = Optional.of(sha);
         Files.createDirectories(base.resolve("run"));
         Files.createDirectories(base.resolve("home"));
         workdir = Files.createDirectories(base.resolve("worktree"));
@@ -232,8 +251,8 @@ final class SupervisorTestFixture {
                     new HarnessEnrolment.UsageReport(HarnessEnrolment.UsageSource.DECLARED, Map.of()), Map.of(),
                     Map.of()));
         }
-        var verifier = new HarnessVerifier(store, file -> Optional.of(sha), (file, argv, pattern) -> Optional.of(
-                "1.5.0"), (evidence, file) -> true, eventSink, clock);
+        var verifier = new HarnessVerifier(store, file -> executableDigest,
+                (file, argv, pattern) -> Optional.of(probedVersion), (evidence, file) -> evidencePasses, eventSink, clock);
         return new SupervisorEnvironment(project, enrolment, base, base.resolve("home"), base.resolve("runtime"),
                 base.resolve("run").resolve("pm.sock"), SHIM, skillSource, profile, verifier, new LaunchComposer(),
                 starter, stateWriter, jobTokens, slots, protocol, eventSink, clock, timers,
@@ -341,6 +360,9 @@ final class SupervisorTestFixture {
             starts.add(request);
             if (startFailure != null) {
                 throw startFailure;
+            }
+            if (refuseStart) {
+                return new JobRunner.StartResult.Refused(refusalReason);
             }
             return new JobRunner.StartResult.Started(JobId.parse(request.launch().generationId()).orElseThrow());
         }).anyTimes();
@@ -484,6 +506,18 @@ final class SupervisorTestFixture {
     }
 
     private static final String USER = System.getProperty("user.name");
+
+    /**
+     * Writes a store whose bytes pass the sidecar check but do not read as the store: its {@code harnesses} member is an
+     * array, which the store refuses as unreadable ({@code harness_store_unreadable}).
+     */
+    void writeUnreadableStore() throws IOException {
+        var document = "{\"format_version\":1,\"harnesses\":[]}".getBytes(StandardCharsets.UTF_8);
+        var directory = Files.createDirectories(base.resolve("harness"));
+        Files.write(directory.resolve(HarnessesSidecarCheck.FILE_NAME), document);
+        Files.write(directory.resolve(HarnessesSidecarCheck.FILE_NAME + EnrolmentSidecar.SUFFIX),
+                EnrolmentHmac.sidecar(key(), document).write());
+    }
 
     private static SecretKey key() {
         return new SecretKeySpec("0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8), KEY_ALGORITHM);
