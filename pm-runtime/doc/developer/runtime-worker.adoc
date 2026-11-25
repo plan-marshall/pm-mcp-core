@@ -876,19 +876,25 @@ and the reading never falls back to the launch model.
 
 `ServedModelWatch` holds one attempt's launch model, the comparison that decides whether two identifiers name one model,
 and the models the attempt has seen; `see(model)` reports a change once, when the model differs from the launch model
-and from the previous one, and `served()` returns the attempt's `ServedModels` in first-appearance order. The comparison
+and from the previous one, and `served()` returns the attempt's `ServedModels` in first-appearance order. The decision
+does not move the watch: the caller commits it with `recorded()` once the entry it named is written, so a failed write
+leaves the change pending and the retry of the same line offers it again. The reference a later report is compared with
+is the most specific identifier seen since the last change, so a report of the alias never overwrites the concrete
+release it stands for and a later release is still a change. The comparison
 is a seam: the default treats a launch alias and the fully qualified identifier it stands for as one model (a trailing
 snapshot suffix of eight digits or an ISO date after a hyphen), so that an alias writes nothing and a release switch is
 seen, and the assembly may supply a rule that resolves an alias through the harness's `models_probe` listing.
 `WorkerActivityPump` takes the watch as a collaborator, asks the mapper for the model of every line before it maps the
-line, and writes the `model_differs` entry ahead of the line's own entry; the watch is restarted at every attempt, and
-its launch model is the worker generation's, which does not change while the generation serves task after task. The
+line, writes the `model_differs` entry ahead of the line's own entry, and commits the watch only after that write
+returns; the watch is restarted at every attempt, and its launch model is the worker generation's, which does not change
+while the generation serves task after task. The
 two-argument constructor delegates with `ServedModelWatch.recordingNothing()`, so no production class of this repository
 wires a watch yet — the assembly does. Nothing is derived from a model: no fate, outcome, re-offer, signal or
 qualification reads the entry.
 
 `ServedModelWatchTest` covers the matched control, the alias and its ISO-date suffix, the release switch, two changes,
-a return and a second switch, the unmeasured case and a replaced comparison; `ActivityEventMapperTest` covers the
+a return and a second switch, an alias report after a concrete release, a change that stays pending until it is
+recorded, the unmeasured case and a replaced comparison; `ActivityEventMapperTest` covers the
 line reading; `WorkerActivityPumpTest` covers the order of the two entries and a mapper without the model pointer;
 `OffTrackDetectorTest` shows that a `model_differs` entry raises no signal.
 

@@ -44,17 +44,23 @@ last line. `served()` returns the attempt's `ServedModels`. The watch starts wit
 model, and `restart()` begins the next attempt, so a warm worker that stays on a fallback model shows the change in each
 task's journal; the launch model is the generation's and does not change while the generation serves task after task.
 
+The decision and the state update are separate: `see` answers what to write and does not move the watch, and `recorded()`
+commits the decision once the entry is written. A failed write therefore leaves the change pending, and the retry of the
+same line offers it again instead of losing it. The reference a later report is compared with is the most specific
+identifier seen since the last change, so a report of the alias never overwrites the concrete release it stands for.
+
 The comparison is a seam: `ServedModelWatch(launchModel, BiPredicate)` takes the rule, and the default treats two equal
 identifiers as one model and an identifier and the same model with a trailing snapshot suffix of eight digits or an ISO
 date after a hyphen as one model, in either order — a launch alias and the release it was reported as are one model, the
 two spellings of one release are one model, and two different releases stay two models. The watch compares each reported
-identifier with the previous reported one, not with the launch model, so a switch from one release of the launch alias to
-another is recorded once and a return to the launch model is not. The assembly may supply a rule that resolves an alias
-through the harness's `models_probe` listing.
+identifier with the most specific identifier seen since the last change, not with the launch model, so a switch from one
+release of the launch alias to another is recorded once and a return to the launch model is not. The assembly may supply
+a rule that resolves an alias through the harness's `models_probe` listing.
 
 `WorkerActivityPump` takes the watch as a collaborator, asks the mapper for the model of every line before it maps the
-line, and writes the `model_differs` entry ahead of the line's own entry. The two-argument constructor delegates with
-`ServedModelWatch.recordingNothing()`, so no production class of this repository wires a watch; the assembly does.
+line, writes the `model_differs` entry ahead of the line's own entry, and commits the watch only after that write
+returns. The two-argument constructor delegates with `ServedModelWatch.recordingNothing()`, so no production class of
+this repository wires a watch; the assembly does.
 
 == Alternatives Considered
 

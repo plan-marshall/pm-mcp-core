@@ -916,14 +916,16 @@ class SecretRedactorTest {
     @Test
     @DisplayName("a masked pair whose launch text becomes the raw served text is built in one step")
     void entryModelDiffersIntermediateCollision() {
-        var suffix = Generators.letterStrings(4, 12).next();
+        var secret = "password=" + Generators.letterStrings(8, 16).next();
+        // The served text is what the launch text masks to, so the pair collides halfway through the masking.
+        var maskedLaunch = SecretRedactor.redactText(secret).orElseThrow();
         var entry = ActivityEntry.builder()
                 .seq(Generators.integers(1, 100).next())
                 .attempt(Generators.integers(1, 10).next())
                 .source(ActivityEntry.Source.SERVER)
                 .kind(ActivityEntry.Kind.MODEL_DIFFERS)
-                .launchModel("password=abcd" + suffix)
-                .servedModel("password=" + SecretRedactor.REDACTED + suffix)
+                .launchModel(secret)
+                .servedModel(maskedLaunch)
                 .at(Instant.ofEpochSecond(Generators.longs(1_600_000_000L, 1_900_000_000L).next()))
                 .build();
 

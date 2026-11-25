@@ -47,12 +47,14 @@ public final class ServedModelWatch {
     private final @Nullable String launchModel;
     private final BiPredicate<String, String> sameModel;
     private @Nullable String previous;
+    private @Nullable String next;
     private final LinkedHashSet<String> served = new LinkedHashSet<>();
 
     private ServedModelWatch() {
         this.launchModel = null;
         this.sameModel = ServedModelWatch::sameModel;
         this.previous = null;
+        this.next = null;
     }
 
     /**
@@ -87,12 +89,14 @@ public final class ServedModelWatch {
     public void restart() {
         if (launchModel != null) {
             previous = launchModel;
+            next = null;
             served.clear();
         }
     }
 
     /**
-     * Feeds one reported model.
+     * Feeds one reported model. The decision does not move the watch: the caller commits it with {@link #recorded()} once
+     * the entry it names is written, so a failed write leaves the change pending for the retry of the same line.
      *
      * @param model the model the line reported, or {@code null} when it reported none
      * @return the change to record, or empty when the model is the launch model, the previous model, nothing was
@@ -100,21 +104,40 @@ public final class ServedModelWatch {
      */
     public Optional<Difference> see(@Nullable String model) {
         if (launchModel == null || model == null || model.isEmpty() || model.length() > ServedModels.MAX_MODEL) {
+            next = null;
             return Optional.empty();
         }
         served.add(model);
         var last = previous == null ? launchModel : previous;
         if (sameModel.test(last, model)) {
-            previous = model;
+            // One model reported under two spellings: the reference stays the more specific one, so a later report of
+            // another release is still a change (an alias report never overwrites the concrete release).
+            next = moreSpecific(last, model);
             return Optional.empty();
         }
         if (sameModel.test(launchModel, model) && !sameModel.test(launchModel, last)) {
             // Back in the launch family from another model: a return records nothing, the reported release still wins.
-            previous = model;
+            next = moreSpecific(launchModel, model);
             return Optional.empty();
         }
-        previous = model;
+        next = model;
         return Optional.of(new Difference(launchModel, model));
+    }
+
+    /**
+     * Commits the decision of the last {@link #see(String)}: call it once the entry that decision named has been written,
+     * or immediately when it named none.
+     */
+    public void recorded() {
+        if (next != null) {
+            previous = next;
+            next = null;
+        }
+    }
+
+    /** @return the more specific of two spellings of one model: the one that carries the snapshot suffix, if any */
+    private static String moreSpecific(String first, String second) {
+        return second.length() > first.length() ? second : first;
     }
 
     /**

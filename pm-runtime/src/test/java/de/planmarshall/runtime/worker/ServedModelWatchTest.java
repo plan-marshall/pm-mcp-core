@@ -17,6 +17,7 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
 import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -43,6 +44,13 @@ class ServedModelWatchTest {
         return new ServedModelWatch.Difference(launch, served);
     }
 
+    /** Feeds one line the caller has written: the decision is committed as the pump commits it. */
+    private static Optional<ServedModelWatch.Difference> written(ServedModelWatch watch, @Nullable String model) {
+        var change = watch.see(model);
+        watch.recorded();
+        return change;
+    }
+
     @Test
     @DisplayName("the launch model on every turn writes nothing (the matched control)")
     void launchModelControl() {
@@ -50,8 +58,8 @@ class ServedModelWatchTest {
         var watch = new ServedModelWatch(launch);
 
         assertAll(
-                () -> assertTrue(watch.see(launch).isEmpty(), "the launch model writes no entry"),
-                () -> assertTrue(watch.see(launch).isEmpty(), "a second launch-model turn writes none"),
+                () -> assertTrue(written(watch, launch).isEmpty(), "the launch model writes no entry"),
+                () -> assertTrue(written(watch, launch).isEmpty(), "a second launch-model turn writes none"),
                 () -> assertEquals(ServedModels.of(List.of(launch)), watch.served(),
                         "the row names the launch model"));
     }
@@ -64,9 +72,9 @@ class ServedModelWatchTest {
         var watch = new ServedModelWatch(launch);
 
         assertAll(
-                () -> assertEquals(Optional.of(difference(launch, other)), watch.see(other),
+                () -> assertEquals(Optional.of(difference(launch, other)), written(watch, other),
                         "the change writes its entry"),
-                () -> assertTrue(watch.see(other).isEmpty(), "the same model again writes none"));
+                () -> assertTrue(written(watch, other).isEmpty(), "the same model again writes none"));
     }
 
     @Test
@@ -77,8 +85,8 @@ class ServedModelWatchTest {
         var second = identifier();
         var watch = new ServedModelWatch(launch);
 
-        var entries = java.util.stream.Stream.of(watch.see(first), watch.see(second)).flatMap(Optional::stream)
-                .toList();
+        var entries = java.util.stream.Stream.of(written(watch, first), written(watch, second))
+                .flatMap(Optional::stream).toList();
 
         assertEquals(List.of(difference(launch, first), difference(launch, second)), entries,
                 "each change writes its own entry");
@@ -92,7 +100,7 @@ class ServedModelWatchTest {
         var second = identifier();
         var watch = new ServedModelWatch(launch);
 
-        var entries = java.util.stream.Stream.of(watch.see(first), watch.see(launch), watch.see(second))
+        var entries = java.util.stream.Stream.of(written(watch, first), written(watch, launch), written(watch, second))
                 .flatMap(Optional::stream).toList();
 
         assertAll(
@@ -110,9 +118,9 @@ class ServedModelWatchTest {
         var isoDate = new ServedModelWatch(launch);
 
         assertAll(
-                () -> assertTrue(eightDigits.see(launch + "-20250514").isEmpty(),
+                () -> assertTrue(written(eightDigits, launch + "-20250514").isEmpty(),
                         "an eight-digit snapshot suffix is the launch model"),
-                () -> assertTrue(isoDate.see(launch + "-2025-05-14").isEmpty(),
+                () -> assertTrue(written(isoDate, launch + "-2025-05-14").isEmpty(),
                         "an ISO-date snapshot suffix is the launch model"));
     }
 
@@ -124,14 +132,47 @@ class ServedModelWatchTest {
         var second = base + "-20250929";
         var watch = new ServedModelWatch(base);
 
-        var entries = java.util.stream.Stream.of(watch.see(first), watch.see(second)).flatMap(Optional::stream)
-                .toList();
+        var entries = java.util.stream.Stream.of(written(watch, first), written(watch, second))
+                .flatMap(Optional::stream).toList();
 
         assertAll(
                 () -> assertEquals(List.of(difference(base, second)), entries,
                         "the second release writes the one entry"),
                 () -> assertEquals(ServedModels.of(List.of(first, second)), watch.served(),
                         "both reported releases are named"));
+    }
+
+    @Test
+    @DisplayName("an alias report does not overwrite the concrete release it stands for")
+    void aliasAfterRelease() {
+        var base = identifier();
+        var release = base + "-20250514";
+        var laterRelease = base + "-20250929";
+        var watch = new ServedModelWatch(release);
+
+        var entries = java.util.stream.Stream.of(written(watch, base), written(watch, laterRelease))
+                .flatMap(Optional::stream).toList();
+
+        assertEquals(List.of(difference(release, laterRelease)), entries,
+                "the later release is a change after the alias");
+    }
+
+    @Test
+    @DisplayName("a change stays pending until the caller records it")
+    void changeStaysPendingUntilRecorded() {
+        var launch = identifier();
+        var other = identifier();
+        var watch = new ServedModelWatch(launch);
+
+        var first = watch.see(other);
+        var retry = watch.see(other);
+        watch.recorded();
+
+        assertAll(
+                () -> assertEquals(Optional.of(difference(launch, other)), first, "the change is offered once"),
+                () -> assertEquals(Optional.of(difference(launch, other)), retry,
+                        "an unwritten change is offered again"),
+                () -> assertTrue(watch.see(other).isEmpty(), "a recorded change is not offered again"));
     }
 
     @Test
@@ -145,12 +186,12 @@ class ServedModelWatchTest {
 
         assertAll(
                 () -> {
-                    longFirst.see(release);
-                    assertTrue(longFirst.see(shortForm).isEmpty(), "the short spelling writes no second entry");
+                    written(longFirst, release);
+                    assertTrue(written(longFirst, shortForm).isEmpty(), "the short spelling writes no second entry");
                 },
                 () -> {
-                    shortFirst.see(shortForm);
-                    assertTrue(shortFirst.see(release).isEmpty(), "the long spelling writes no second entry");
+                    written(shortFirst, shortForm);
+                    assertTrue(written(shortFirst, release).isEmpty(), "the long spelling writes no second entry");
                 });
     }
 
@@ -162,7 +203,7 @@ class ServedModelWatchTest {
         var other = base + "-20250601";
         var watch = new ServedModelWatch(launch);
 
-        assertEquals(Optional.of(difference(launch, other)), watch.see(other),
+        assertEquals(Optional.of(difference(launch, other)), written(watch, other),
                 "another release of the same model is a change");
     }
 
@@ -172,8 +213,8 @@ class ServedModelWatchTest {
         var watch = new ServedModelWatch(identifier());
 
         assertAll(
-                () -> assertTrue(watch.see(null).isEmpty(), "a null model writes no entry"),
-                () -> assertTrue(watch.see("").isEmpty(), "an empty model writes no entry"),
+                () -> assertTrue(written(watch, null).isEmpty(), "a null model writes no entry"),
+                () -> assertTrue(written(watch, "").isEmpty(), "an empty model writes no entry"),
                 () -> assertTrue(watch.served().isUnmeasured(), "a row without a reported model is unmeasured"));
     }
 
@@ -184,7 +225,7 @@ class ServedModelWatchTest {
         var other = identifier();
         var watch = new ServedModelWatch(launch, (first, second) -> true);
 
-        assertTrue(watch.see(other).isEmpty(), "the supplied comparison decides what is one model");
+        assertTrue(written(watch, other).isEmpty(), "the supplied comparison decides what is one model");
     }
 
     @Test
@@ -194,7 +235,7 @@ class ServedModelWatchTest {
         var tooLong = Generators.letterStrings(129, 129).next();
 
         assertAll(
-                () -> assertTrue(watch.see(tooLong).isEmpty(), "an over-long model writes no entry"),
+                () -> assertTrue(written(watch, tooLong).isEmpty(), "an over-long model writes no entry"),
                 () -> assertTrue(watch.served().isUnmeasured(), "an over-long model enters no list"));
     }
 
@@ -204,12 +245,12 @@ class ServedModelWatchTest {
         var launch = identifier();
         var other = identifier();
         var watch = new ServedModelWatch(launch);
-        watch.see(other);
+        written(watch, other);
 
         watch.restart();
 
         assertAll(
-                () -> assertEquals(Optional.of(difference(launch, other)), watch.see(other),
+                () -> assertEquals(Optional.of(difference(launch, other)), written(watch, other),
                         "a new attempt records the fallback again"),
                 () -> assertEquals(ServedModels.of(List.of(other)), watch.served(),
                         "a new attempt starts its own list"));
@@ -221,7 +262,7 @@ class ServedModelWatchTest {
         var watch = ServedModelWatch.recordingNothing();
 
         assertAll(
-                () -> assertTrue(watch.see(identifier()).isEmpty(), "a silent watch writes no entry"),
+                () -> assertTrue(written(watch, identifier()).isEmpty(), "a silent watch writes no entry"),
                 () -> assertTrue(watch.served().isUnmeasured(), "a silent watch names no model"));
     }
 }

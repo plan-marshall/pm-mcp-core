@@ -192,6 +192,7 @@ public final class WorkerActivityPump {
             boolean closed) {
         var change = mapper.servedModel(line).flatMap(watch::see).orElse(null);
         if (change == null) {
+            watch.recorded();
             return false;
         }
         var entry = ActivityEntry.builder()
@@ -204,6 +205,9 @@ public final class WorkerActivityPump {
         } else {
             recorder.append(queueTaskId, generationId, entry);
         }
+        // The watch advances only after the entry is written: a failed write leaves the change pending, and the retry of
+        // the same line offers it again instead of losing it.
+        watch.recorded();
         return true;
     }
 
