@@ -34,8 +34,12 @@ The tail pump before the exit, the `START_FAILURE` branch, the requested-end bra
    - Skills: pm-dev-java:java-core, pm-dev-java:junit-core
    - Persona: implementer
 
+4. **The statements and tests the PLAN-V2-162 landing analysis left (`landings/PLAN-V2-162.md` L3-5, L3-6, L3-7 and the conformance row).** (a) `PM_RUNTIME-152` and `PM_RUNTIME-153` are asserted by free-text substring (`WorkerRecyclingTest.java:298`; 153 is PLAN-V2-198's, deliverable 4c): assert 152 by its constant with `LogAsserts` (project rule). (b) `ProbeBudgetTest` uses `30L` where a constant exists; `ProbeBudget.override` and `clearOverrides` are public static mutators of process-global state: decide whether they become package-private (the production never calls them) and keep the test cleanup. (c) `JobLog.java:360`: `tailText.length() == cap` compares a char count with a byte cap; add the test with a multi-byte tail under the cap parameter and compare bytes, or record why a char count is the right unit. (d) The wall-clock bounds `SecretRedactorTest` `PEM_BOUND` (5 s) and `DiagnosticCollectorRedactionTest` `FLOOD_BOUND` (120 s): say in the test whether a timeout is the control (as the lane's flood test intends) and keep the bound large enough for a loaded host. No production behaviour changes except (b) visibility and (c) if the test fails.
+   - Skills: pm-dev-java:java-core, pm-dev-java:junit-core, pm-dev-java-cui:cui-testing
+   - Persona: implementer
+
 **Done when:**
-- Deliverables 1 to 3.
+- Deliverables 1 to 4.
 - Each of the four tests fails against a scratch mutation of the branch it names (the branch removed, or its decision inverted). The run is reported by log id. Production code is not changed for tests 1 and 2, except where deliverable 3 shows a defect.
 - If deliverable 3 shows a defect, the test fails at the post-#567 head of main (sha recorded by the outline) and passes after the fix.
 - The suites keep their test counts per class and stay green after the change.
@@ -68,6 +72,7 @@ The tail pump before the exit, the `START_FAILURE` branch, the requested-end bra
 - OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/SupervisionPass.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerActivityPump.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/worker/ActivityRecorder.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerEnding.java`
 - OBSERVED: `pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisionPassTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorTestFixture.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerActivityPumpTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/worker/ActivityRecorderTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerEndingTest.java`
 - HYPOTHESIS: `pm-runtime/doc/developer/runtime-worker.adoc` only if deliverable 3 changes a statement.
+- OBSERVED (folded from the PLAN-V2-162 landing, `90505ad2`): `pm-runtime/src/main/java/de/planmarshall/runtime/job/ProbeBudget.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/job/JobLog.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerRecyclingTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/job/ProbeBudgetTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/job/JobLogTest.java`, `pm-core/src/test/java/de/planmarshall/core/queue/SecretRedactorTest.java`, `pm-core/src/test/java/de/planmarshall/core/build/DiagnosticCollectorRedactionTest.java`
 
 ## Dependencies and Sequencing
 
