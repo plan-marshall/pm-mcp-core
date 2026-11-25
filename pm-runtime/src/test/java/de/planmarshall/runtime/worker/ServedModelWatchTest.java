@@ -17,6 +17,8 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,8 +34,8 @@ import de.planmarshall.core.store.ServedModels;
 @DisplayName("Served model watch")
 class ServedModelWatchTest {
 
-    private static final java.util.concurrent.atomic.AtomicInteger SEQUENCE =
-            new java.util.concurrent.atomic.AtomicInteger();
+    private static final AtomicInteger SEQUENCE =
+            new AtomicInteger();
 
     /** A fresh identifier per call: two draws never collide, so a comparison test cannot flake. */
     private static String identifier() {
@@ -85,7 +87,7 @@ class ServedModelWatchTest {
         var second = identifier();
         var watch = new ServedModelWatch(launch);
 
-        var entries = java.util.stream.Stream.of(written(watch, first), written(watch, second))
+        var entries = Stream.of(written(watch, first), written(watch, second))
                 .flatMap(Optional::stream).toList();
 
         assertEquals(List.of(difference(launch, first), difference(launch, second)), entries,
@@ -100,7 +102,7 @@ class ServedModelWatchTest {
         var second = identifier();
         var watch = new ServedModelWatch(launch);
 
-        var entries = java.util.stream.Stream.of(written(watch, first), written(watch, launch), written(watch, second))
+        var entries = Stream.of(written(watch, first), written(watch, launch), written(watch, second))
                 .flatMap(Optional::stream).toList();
 
         assertAll(
@@ -132,7 +134,7 @@ class ServedModelWatchTest {
         var second = base + "-20250929";
         var watch = new ServedModelWatch(base);
 
-        var entries = java.util.stream.Stream.of(written(watch, first), written(watch, second))
+        var entries = Stream.of(written(watch, first), written(watch, second))
                 .flatMap(Optional::stream).toList();
 
         assertAll(
@@ -150,7 +152,7 @@ class ServedModelWatchTest {
         var laterRelease = base + "-20250929";
         var watch = new ServedModelWatch(release);
 
-        var entries = java.util.stream.Stream.of(written(watch, base), written(watch, laterRelease))
+        var entries = Stream.of(written(watch, base), written(watch, laterRelease))
                 .flatMap(Optional::stream).toList();
 
         assertEquals(List.of(difference(release, laterRelease)), entries,

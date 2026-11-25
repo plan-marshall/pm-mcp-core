@@ -126,7 +126,7 @@ class VerifyNotResolvePipelineTest {
 
             var refusal = refusedBeforeStageOne();
 
-            assertAll(
+            assertAll(refusal.detail(),
                     () -> assertEquals(Reason.ENROLMENT_TAMPERED, refusal.reason(),
                             "a tampered enrolment is enrolment_tampered"),
                     () -> assertTrue(refusal.changedPaths().isEmpty(), "a tampered refusal names no changed path"),

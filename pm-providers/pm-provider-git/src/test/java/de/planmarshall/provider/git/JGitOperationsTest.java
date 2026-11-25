@@ -114,7 +114,7 @@ class JGitOperationsTest extends JGitOperationsFixtures {
         var result = git.commit(new CommitInput(repo, text(), author, agent, List.of(listed)));
 
         var commit = result.value();
-        assertAll(
+        assertAll(result.detail(),
                 () -> assertEquals(GitOutcome.OK, result.outcome(), "the subset commit is recorded"),
                 () -> assertTrue(inCommit(commit.id(), listed), "the listed path is committed"),
                 () -> assertFalse(inCommit(commit.id(), staged),
@@ -129,7 +129,7 @@ class JGitOperationsTest extends JGitOperationsFixtures {
 
         var result = git.commit(new CommitInput(repo, text(), author, agent, List.of("README.md")));
 
-        assertAll(
+        assertAll(result.detail(),
                 () -> assertEquals(GitOutcome.OK, result.outcome(), "the deletion commit is recorded"),
                 () -> assertFalse(inCommit(result.value().id(), "README.md"),
                         "the deleted path is gone from the committed tree"));

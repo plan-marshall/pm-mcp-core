@@ -222,7 +222,8 @@ class OutcomeDerivationTest {
         @DisplayName("a probe succeeds with an exit code it declares, and not with another")
         void probe() {
             var declaredCode = Generators.integers(1, 100).next();
-            var undeclaredCode = declaredCode + Generators.integers(1, 100).next();
+            // The code adjacent to the declared one is the edge of the undeclared check.
+            var undeclaredCode = declaredCode + 1;
             var declared = new ProcessEnded(Kind.PROBE, null, new Exited(declaredCode),
                     LogState.READABLE, NO_MARKER, Set.of(0, declaredCode), true);
             var undeclared = new ProcessEnded(Kind.PROBE, null, new Exited(undeclaredCode),

@@ -231,7 +231,8 @@ class StartupColdStartIT {
                 TimeUnit.NANOSECONDS.toMicros(verdict.allowed()));
         LOGGER.info("JVM cold start, steps 1 to 5, verdict: %s", verdict.describe(NO_PROJECTS, SEEDED_PROJECTS));
 
-        assertTrue(verdict.agrees(), "the cold start must not grow with the projects");
+        assertAll(verdict.describe(NO_PROJECTS, SEEDED_PROJECTS),
+                () -> assertTrue(verdict.agrees(), "the cold start must not grow with the projects"));
     }
 
     @Test

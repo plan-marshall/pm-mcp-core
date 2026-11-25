@@ -66,7 +66,8 @@ class RuntimeDrainTest {
     private final Clock clock = Clock.fixed(now, ZoneOffset.UTC);
     private final Duration timeout = Duration.ofSeconds(Generators.longs(1, DrainTimeout.DEFAULT_SECONDS * 10).next());
     private final String jobs = "jobs-" + name();
-    private final String web = "web-" + name();
+    /** The web name sorts before the jobs name, so a drain that sorted its participants is detected. */
+    private final String web = "aweb-" + name();
     private final String lsp = "lsp-" + name();
     private final String workers = "workers-" + name();
     private final String job1 = "job-" + name();

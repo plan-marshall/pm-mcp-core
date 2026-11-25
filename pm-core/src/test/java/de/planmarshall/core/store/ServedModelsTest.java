@@ -18,6 +18,7 @@ import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -29,8 +30,8 @@ import org.junit.jupiter.api.Test;
 @DisplayName("Served models")
 class ServedModelsTest {
 
-    private static final java.util.concurrent.atomic.AtomicInteger SEQUENCE =
-            new java.util.concurrent.atomic.AtomicInteger();
+    private static final AtomicInteger SEQUENCE =
+            new AtomicInteger();
 
     /** A fresh identifier per call: two draws never collide, so the distinctness test cannot flake. */
     private static String identifier() {

@@ -29,10 +29,11 @@ import de.planmarshall.core.role.RoleClass;
  * version range, the agent mode, the MCP delivery and the capabilities.
  *
  * <p>
- * The unknown tier, the unmapped model, the versions inside and outside the range and the operator's home are
- * generated. The literals that stay are the contract: the values of the fixture profile the projection reads back
- * (executable, argv placeholder, environment, resource tools, writable paths, version probe and pattern, tier model and
- * efforts) and the bounds {@code >=1.0.0 <2.0.0} of its supported range, which the versions are drawn against.
+ * The unknown tier, the unmapped model, the in-range version and the operator's home are generated. The literals that
+ * stay are the contract: the values of the fixture profile the projection reads back (executable, argv placeholder,
+ * environment, resource tools, writable paths, version probe and pattern, tier model and efforts) and the bounds
+ * {@code >=1.0.0 <2.0.0} of its supported range with the edge versions {@code 1.0.0}, {@code 2.0.0} and
+ * {@code 0.9.9} that the range test pins.
  */
 @EnableGeneratorController
 @DisplayName("Headless block")
@@ -103,10 +104,12 @@ class HeadlessBlockTest {
     @DisplayName("checks the supported version range")
     void supportedVersions() {
         var inside = "1." + minor();
-        var above = Generators.integers(2, 99).next() + "." + minor();
-        var below = "0." + minor();
+        // The exclusive upper and inclusive lower bounds of >=1.0.0 <2.0.0 are the contract edges.
+        var above = "2.0.0";
+        var below = "0.9.9";
         assertAll(
                 () -> assertTrue(block.supports(inside), "a version inside the range is supported"),
+                () -> assertTrue(block.supports("1.0.0"), "the inclusive lower bound is supported"),
                 () -> assertFalse(block.supports(above), "a version above the range is not supported"),
                 () -> assertFalse(block.supports(below), "a version below the range is not supported"));
     }
