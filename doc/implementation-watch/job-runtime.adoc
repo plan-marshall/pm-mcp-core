@@ -527,9 +527,10 @@ bound to the `worktree_sha` of the evaluated tree and recorded as a `baseline_re
 commit makes the row stale and the gate re-runs; a failure whose fingerprint the base does not show calls
 `remediation.ci-failure` for a CI check and `remediation.build-failure` for a local gate; without a CI
 result on the base the local build of the merge base is the proof, and without either the red is not baseline;
-at the pre-merge barrier a red required check whose every failure such a row of `HEAD` covers ends
-`baseline_red_required` and enters `finalize.hand-back` with gap `cause: baseline_red`; matched control: a red required
-check with one fingerprint the base does not show ends `ci_failed` and enters `finalize.remediate-barrier-ci`.
+at the pre-merge barrier, red required checks whose every failure such a row of `HEAD` covers end
+`baseline_red_required` and enter `finalize.hand-back` with gap `cause: baseline_red`; matched control: beside such a
+covered check, a second red required check with one fingerprint the base does not show ends `ci_failed` and enters
+`finalize.remediate-barrier-ci`.
 Source:: design review.
 
 [#PM-WATCH-JOB-26]

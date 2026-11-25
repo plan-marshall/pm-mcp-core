@@ -244,7 +244,9 @@ entering `finalize.adopt-blocked`; fixtures `head_not_writable` and
 `checkout_failed` re-run the adoption (which re-observes the pull request first) within the condition budget, each
 retry waiting in a `composite_job` for its backoff (`TIME`), never an
 engine-chained cycle of `auto` states, and, when the budget is spent, hand the plan back; no link and no operator
-question is offered on the way.
+question is offered on the way. Fixture: a pull request retargeted between the start and `finalize.adopt-pr` gives
+the plan the observed base as its `base_branch` and a `main_sha` stamped from it in the adoption's transaction, with a
+decision-log record naming both bases; matched control: an unchanged base leaves `overrides.json` as the start wrote it.
 Source:: design review.
 
 [#PM-WATCH-PHASE-77]
