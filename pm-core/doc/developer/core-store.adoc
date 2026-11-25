@@ -335,11 +335,13 @@ provider that runs the commit:
 `failedCommitAttempt(stagedTree, messageDigest)` and `fixTask(frameId)` each answer a new counter, and
 `changeSetCapSpent()` and `frameCapSpent()` answer whether their cap is spent. The value holds no combined predicate, so
 the caller's rule is explicit: after the `hook_failed` outcome of `git.stage-and-commit` it reads both caps and writes
-their disjunction, `changeSetCapSpent() || frameCapSpent()`, as the `attempts_exhausted` outcome; each counting event
-reads its own cap. The frame cap is spent after the third `git.commit-fix` task, but the loop ends at the next failed
-commit attempt, never between a task and the attempt that follows it. Counting above a spent cap keeps it spent. The
-state catalogue's `git.stage-and-commit` row pins the guard, and `CommitAttemptCounterTest.Hazard` pins both arms of the
-disjunction.
+their disjunction, `changeSetCapSpent() || frameCapSpent()`, as the `attempts_exhausted` outcome. The two counters are
+counted at their own events — the change-set cap at a failed commit attempt, the frame cap at a `git.commit-fix` task —
+but a counting event reads nothing, so the frame cap is spent after the third task while the loop ends only at the next
+failed commit attempt, never between a task and the attempt that follows it. Counting above a spent cap keeps it spent.
+The rule is stated, not enforced: the state catalogue's `git.stage-and-commit` row is the specification, and
+`CommitAttemptCounterTest.Hazard` pins each arm of the disjunction one at a time, not the disjunction or the read after
+`hook_failed`.
 
 Tested by `CommitAttemptCapsTest` (the empty value, the cap, the grammar of both counters) and
 `CommitAttemptCounterTest` (three attempts spend the change set, a changed tree — alone or beside a changed message — or
