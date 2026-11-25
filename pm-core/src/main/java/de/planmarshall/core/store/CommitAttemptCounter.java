@@ -27,10 +27,11 @@ import de.planmarshall.core.store.CommitAttemptCaps.Frame;
  * Both caps are read at the one event the state catalogue's guard names, the {@code hook_failed} outcome of
  * {@code git.stage-and-commit}: {@link #changeSetCapSpent()} says the identical staged change set has spent its three
  * failed attempts and {@link #frameCapSpent()} says the call frame has spent its three {@code git.commit-fix} tasks, and
- * either being spent answers {@code attempts_exhausted}. A caller reads the caps only after a hook failure and never
- * between a {@code git.commit-fix} task and the commit attempt that follows it, so the frame cap being spent after the
- * third task cannot end the loop before the fourth attempt runs; the counter carries no combined predicate that would
- * let a caller ask elsewhere.
+ * either being spent answers {@code attempts_exhausted}. The counters are counted at their own events — a failed commit
+ * attempt and a {@code git.commit-fix} task — but a counting event reads nothing, so the frame cap being spent after the
+ * third task cannot end the loop before the fourth attempt runs. The rule is stated, not enforced: the counter carries
+ * no combined predicate that would let a caller ask elsewhere, and the test pins each arm one at a time, not the
+ * disjunction or the read after {@code hook_failed}.
  * <p>
  * The class lives beside the value in this package, not in the provider that runs the commit: both the engine and the
  * assembly may count through it, and the engine may depend on this package alone.

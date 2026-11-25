@@ -16,13 +16,15 @@ import lombok.Builder;
 
 /**
  * The stamp for a Phase 6 commit made after the latest successful build, the member {@code freshness_reconcile} of the
- * workflow state store (Phase Workflows § Finalize Commit Instrumentation, item 3).
+ * workflow state store (ADR 089). The rule it was introduced for is superseded: since the 2026-11-24 corpus review a
+ * commit that a {@code mutates_source} step makes after the latest successful build records nothing of its own, and the
+ * freshness gate is specified to derive the build-neutral delta from the build row's {@code head} (Phase Workflows §
+ * Finalize Commit Instrumentation, item 3; the verb is not wired in this checkout).
  * <p>
- * The record is written by {@code git.commit_and_push} when a {@code mutates_source} step commits after the latest
- * successful build: it names the commit, the finalize step that made it, and the working-tree digest of that build, so
- * the push gate recognizes a finalize-internal commit without requiring a redundant full build. The record enforces
- * only that a digest is present; the writer must confirm a successful build exists before it writes the stamp, a
- * condition no constructor can check.
+ * The record is a retained typed carrier: a future writer will name the commit, the finalize step that made it, and the
+ * working-tree digest of that build. The record enforces only that a digest is present; a writer must confirm a
+ * successful build exists before it writes the stamp, a condition no constructor can check. No writer and no reader are
+ * wired today.
  *
  * @param commitSha             the commit the finalized step made
  * @param stepId                the finalize step that made it, {@code default:} or {@code project:}

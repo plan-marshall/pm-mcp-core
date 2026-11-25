@@ -335,11 +335,13 @@ provider that runs the commit:
 `failedCommitAttempt(stagedTree, messageDigest)` and `fixTask(frameId)` each answer a new counter, and
 `changeSetCapSpent()` and `frameCapSpent()` answer whether their cap is spent. The value holds no combined predicate, so
 the caller's rule is explicit: after the `hook_failed` outcome of `git.stage-and-commit` it reads both caps and writes
-their disjunction, `changeSetCapSpent() || frameCapSpent()`, as the `attempts_exhausted` outcome; each counting event
-reads its own cap. The frame cap is spent after the third `git.commit-fix` task, but the loop ends at the next failed
-commit attempt, never between a task and the attempt that follows it. Counting above a spent cap keeps it spent. The
-state catalogue's `git.stage-and-commit` row pins the guard, and `CommitAttemptCounterTest.Hazard` pins both arms of the
-disjunction.
+their disjunction, `changeSetCapSpent() || frameCapSpent()`, as the `attempts_exhausted` outcome. The two counters are
+counted at their own events — the change-set cap at a failed commit attempt, the frame cap at a `git.commit-fix` task —
+but a counting event reads nothing, so the frame cap is spent after the third task while the loop ends only at the next
+failed commit attempt, never between a task and the attempt that follows it. Counting above a spent cap keeps it spent.
+The rule is stated, not enforced: the state catalogue's `git.stage-and-commit` row is the specification, and
+`CommitAttemptCounterTest.Hazard` pins each arm of the disjunction one at a time, not the disjunction or the read after
+`hook_failed`.
 
 Tested by `CommitAttemptCapsTest` (the empty value, the cap, the grammar of both counters) and
 `CommitAttemptCounterTest` (three attempts spend the change set, a changed tree — alone or beside a changed message — or
@@ -350,8 +352,10 @@ loop through the frame cap).
 == The Freshness Reconcile Stamp
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
 
-`freshness_reconcile` is the stamp of a Phase 6 commit made after the latest successful build (Phase Workflows §
-Finalize Commit Instrumentation, item 3; ADR 089). It is `null` when no such stamp is recorded and otherwise an object:
+`freshness_reconcile` is the retained stamp of a Phase 6 commit made after the latest successful build (ADR 089). Its
+rule is superseded: since the 2026-11-24 corpus review such a commit records nothing of its own and the freshness gate
+derives the build-neutral delta from the build row's `head` (Phase Workflows § Finalize Commit Instrumentation, item 3).
+It is `null` when no such stamp is recorded and otherwise an object:
 
 [cols="2,4"]
 |===
@@ -365,11 +369,13 @@ Finalize Commit Instrumentation, item 3; ADR 089). It is `null` when no such sta
 |===
 
 `FreshnessReconcile` is the typed value. The record enforces the grammar of the five members and only that a digest is
-present: a constructor cannot see a build, so the writer `git.commit_and_push` must confirm a successful build exists
-before it writes the stamp (ADR 089). `WorkflowStatusCodec` reads and writes it like the other typed members: a malformed
-digest or step id is a `StoreRefusal` naming the member. The reader side, the `git.pre-commit-verify-freshness` verb,
-consumes the stamp when the engine wires it. Tested by `FreshnessReconcileTest` (the grammar of every member and its hash
-version) and `WorkflowStatusCodecTest` (the round trip, and the byte-for-byte write of a document that carries the stamp).
+present: a constructor cannot see a build, so a future writer `git.commit_and_push` would have to confirm a successful
+build exists before it writes the stamp (ADR 089); no writer is wired. `WorkflowStatusCodec` reads and writes it like the
+other typed members: a malformed digest or step id is a `StoreRefusal` naming the member. The reader side, the
+`git.pre-commit-verify-freshness` verb, is specified to decide freshness from the change ledger and the build
+decision's `exempt` verdict, never the stamp (State Catalogue § `git.verify-freshness`; the verb is not wired in this
+checkout), so the stamp stays a typed carrier without a reader. Tested by `FreshnessReconcileTest` (the grammar of every member and its hash version) and
+`WorkflowStatusCodecTest` (the round trip, and the byte-for-byte write of a document that carries the stamp).
 
 [#_delete_mode]
 == The Delete Mode of the Transaction Journal
@@ -1324,11 +1330,11 @@ minimum is `60`. The fixed probe budgets are unchanged (`runtime.job.ProbeBudget
 (`commit_sha`, required for that kind alone), the paths it carried and the digest of the tree it was made on, taken
 before the commit: a commit moves `HEAD` and the status path set the digest has as inputs, so only a digest taken before
 it names the tree the commit was made on. When the tree is the one the latest successful
-build ran on, that digest equals the build row's; otherwise a build row need not carry it — a later step may have left
-the tree other than it built — and the `freshness_reconcile` stamp holds the build's digest beside this commit, which is
-the pair that licensed the push (ADR 088). The
-freshness gate itself reads `build` and `baseline_red` rows and the stamp, never a `commit` row (State
-Catalogue § `git.verify-freshness`). The ledger takes the `JournalScope` of its
+build ran on, that digest equals that build row's digest; otherwise a build row need not carry it —
+a later step may have left the tree other than it built (ADR 088). The commit row is the attribution record, not an
+input of the gate: the freshness gate is specified to read `build` and `baseline_red` rows and, without a row of the
+same tree, the latest succeeded build row whose changed paths since its recorded head are all build-neutral, never a
+`commit` row (State Catalogue § `git.verify-freshness`; the verb is not wired in this checkout). The ledger takes the `JournalScope` of its
 scope and appends through `ScopeTransaction.append`, which repairs a torn tail and draws the digest entry of the scope,
 so a line is journaled with the other stores of the same decision and never rewritten; a digest of `unavailable`
 carries how the git invocation failed and never satisfies a freshness gate (ADR 044).
