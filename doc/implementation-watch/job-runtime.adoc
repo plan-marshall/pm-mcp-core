@@ -517,14 +517,19 @@ PLAN-TRUTH-145 item -062.
 === PM-WATCH-JOB-25: A red that the base shows is proven, never assumed
 
 Anchor:: link:../specification/job-runtime/03-parsers-and-gates.adoc#_gate_honesty_verification[Job Runtime § Gate Honesty Verification] (Baseline Separation),
+link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#merge-path[Phase Workflows § Merge Path] (item 5),
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-EXEC-6[PM-EXEC-6]
-Hazard:: A red gate is excused as baseline-red on a guess, or a `baseline_red` verdict recorded for one tree is
-reused after a new commit changed it.
+Hazard:: A red gate is excused as baseline-red on a guess, a `baseline_red` verdict recorded for one tree is
+reused after a new commit changed it, or a required check red only through baseline failures sends the merge path
+round the barrier and `remediation.ci-failure` without end.
 Guard:: Fixtures: the base's CI result shows the same failing check with the same fingerprints -> `baseline_red`,
 bound to the `worktree_sha` of the evaluated tree and recorded as a `baseline_red` row of the change ledger; a new
 commit makes the row stale and the gate re-runs; a failure whose fingerprint the base does not show calls
 `remediation.ci-failure` for a CI check and `remediation.build-failure` for a local gate; without a CI
-result on the base the local build of the merge base is the proof, and without either the red is not baseline.
+result on the base the local build of the merge base is the proof, and without either the red is not baseline;
+at the pre-merge barrier a red required check whose every failure such a row of `HEAD` covers ends
+`baseline_red_required` and enters `finalize.hand-back` with gap `cause: baseline_red`; matched control: a red required
+check with one fingerprint the base does not show ends `ci_failed` and enters `finalize.remediate-barrier-ci`.
 Source:: design review.
 
 [#PM-WATCH-JOB-26]
