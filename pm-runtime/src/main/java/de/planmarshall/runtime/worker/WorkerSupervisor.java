@@ -60,8 +60,11 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
  * ({@link WorkerState.State}); {@link WorkerLifecycle#transitionTo(WorkerLifecycle)} refuses a transition the protocol
  * does not have and every transition out of a terminal state.
  * <p>
- * Starts of one supervisor are serialized, so two concurrent callers never start the role's workers beyond its count.
- * A successful start logs {@code WORKER_GENERATION_STARTED} exactly once.
+ * The role's starts are serialized by one start lock, so two concurrent callers never start beyond the role's count.
+ * That lock is NOT the registry's monitor: the harness's start spacing is awaited outside every monitor of this
+ * supervisor, so the pending worker's first call — which reads the registry through {@link #generation(String)} —
+ * releases the wait instead of queueing behind it. A successful start logs {@code WORKER_GENERATION_STARTED} exactly
+ * once.
  *
  * @since 0.1
  */
@@ -79,6 +82,7 @@ public final class WorkerSupervisor {
     private static final String RUN = "run";
 
     private final SupervisorEnvironment environment;
+    private final Object startLock = new Object();
     private final Map<String, WorkerGeneration> generations = new LinkedHashMap<>();
     private boolean admitting = true;
 
@@ -138,31 +142,38 @@ public final class WorkerSupervisor {
      * @throws RuntimeException         whatever a start raises; the probe the guard admitted is settled before it
      *                                  propagates, so a throwing start never leaves the guard held with no future probe
      */
-    public synchronized List<StartOutcome> start(List<WorkerStartRequest> requests) {
+    public List<StartOutcome> start(List<WorkerStartRequest> requests) {
         Objects.requireNonNull(requests, "requests");
-        if (requests.isEmpty() || !admitting) {
+        if (requests.isEmpty()) {
             return List.of();
         }
         var role = requests.getFirst().role();
         for (var request : requests) {
             requireSameRole(role, request.role());
         }
-        var roleName = role.artifact().name();
-        var harness = role.harness();
-        if (environment.startGuard().holds(roleName, harness)) {
-            return declineAll(requests, WorkerStartRefusal.ROLE_GUARD_HELD);
-        }
-        var outcomes = new ArrayList<StartOutcome>();
-        try {
-            if (!environment.eligibilityGate().admits(roleName, harness)) {
-                return declineAll(requests, WorkerStartRefusal.HARNESS_INELIGIBLE);
+        synchronized (startLock) {
+            var roleName = role.artifact().name();
+            var harness = role.harness();
+            synchronized (this) {
+                if (!admitting) {
+                    return List.of();
+                }
+                if (environment.startGuard().holds(roleName, harness)) {
+                    return declineAll(requests, WorkerStartRefusal.ROLE_GUARD_HELD);
+                }
+                if (!environment.eligibilityGate().admits(roleName, harness)) {
+                    return declineAll(requests, WorkerStartRefusal.HARNESS_INELIGIBLE);
+                }
             }
-            for (var request : admitted(role, requests)) {
-                outcomes.add(startOne(request));
+            var outcomes = new ArrayList<StartOutcome>();
+            try {
+                for (var request : admitted(role, requests)) {
+                    outcomes.add(startOne(request));
+                }
+                return List.copyOf(outcomes);
+            } finally {
+                settleProbeUnlessStarted(role, outcomes);
             }
-            return List.copyOf(outcomes);
-        } finally {
-            settleProbeUnlessStarted(role, outcomes);
         }
     }
 
@@ -266,54 +277,68 @@ public final class WorkerSupervisor {
 
     private StartOutcome startOne(WorkerStartRequest request) {
         var role = request.role();
+        var harness = role.harness();
         var generationId = JobId.random(JobId.Kind.LLM).value();
         var block = HeadlessBlock.of(environment.profile());
-        var slot = environment.slots().claim(generationId, role.artifact().name());
-        if (slot.isEmpty()) {
-            environment.slots().withdraw(generationId);
-            return new StartOutcome.Declined(WorkerStartRefusal.NO_MODEL_SLOT);
-        }
-        var verification = environment.harnessVerifier().verify(role.harness(), block);
-        if (verification instanceof HarnessVerification.Refused refused) {
-            countStoreRefusal(role, refused);
-            refuse(role, generationId, refused);
-            environment.slots().release(slot.get());
-            return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
-        }
-        var enrolment = ((HarnessVerification.Accepted) verification).enrolment();
+        ModelSlots.Lease lease;
         WorkerLaunch launch;
-        try {
-            launch = environment.composer().compose(launchRequest(role, request, block, enrolment, generationId));
-        } catch (LaunchComposer.CompositionException failure) {
-            refuse(role, generationId, new HarnessVerification.Refused(failure.refusal(), failure.getMessage()));
-            environment.slots().release(slot.get());
-            return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
+        synchronized (this) {
+            var slot = environment.slots().claim(generationId, role.artifact().name());
+            if (slot.isEmpty()) {
+                environment.slots().withdraw(generationId);
+                return new StartOutcome.Declined(WorkerStartRefusal.NO_MODEL_SLOT);
+            }
+            lease = slot.get();
+            var verification = environment.harnessVerifier().verify(harness, block);
+            if (verification instanceof HarnessVerification.Refused refused) {
+                countStoreRefusal(role, refused);
+                refuse(role, generationId, refused);
+                environment.slots().release(lease);
+                return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
+            }
+            var enrolment = ((HarnessVerification.Accepted) verification).enrolment();
+            try {
+                launch = environment.composer().compose(launchRequest(role, request, block, enrolment, generationId));
+            } catch (LaunchComposer.CompositionException failure) {
+                refuse(role, generationId, new HarnessVerification.Refused(failure.refusal(), failure.getMessage()));
+                environment.slots().release(lease);
+                return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
+            }
         }
-        var started = startAfterSpacing(role, block, launch, slot.get());
-        if (started.isEmpty()) {
-            environment.spacing().ended(role.harness());
-            environment.slots().release(slot.get());
-            return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
+        awaitTurn(harness, generationId);
+        synchronized (this) {
+            var started = false;
+            try {
+                var job = startWorker(role, block, launch, lease);
+                if (job.isEmpty()) {
+                    environment.slots().release(lease);
+                    return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
+                }
+                var generation = register(role, request, launch, job.get(), lease);
+                started = true;
+                LOGGER.info(INFO.WORKER_GENERATION_STARTED, generation.generationId(), generation.role(),
+                        generation.harness());
+                return new StartOutcome.Started(generation);
+            } finally {
+                if (!started) {
+                    environment.spacing().ended(harness, generationId);
+                }
+            }
         }
-        var generation = register(role, request, launch, started.get(), slot.get());
-        LOGGER.info(INFO.WORKER_GENERATION_STARTED, generation.generationId(), generation.role(), generation.harness());
-        return new StartOutcome.Started(generation);
     }
 
     /**
-     * Waits for the harness's start spacing and then starts the composed worker: the workers of one harness start one
-     * after another on the machine, so a start waits until the previous worker of that harness made its first call or
-     * ended, at most the spacing's bound. The spacing only ever delays a start and never refuses one, so an interrupted
-     * wait proceeds at once with the thread's flag restored.
+     * Waits for the harness's start spacing outside every monitor of this supervisor: the workers of one harness start
+     * one after another on the machine, so a start waits until the previous worker of that harness made its first call
+     * or ended, at most the spacing's bound. The spacing only ever delays a start and never refuses one, so an
+     * interrupted wait proceeds at once with the thread's flag restored.
      */
-    private Optional<JobId> startAfterSpacing(EffectiveRole role, HeadlessBlock block, WorkerLaunch launch,
-            ModelSlots.Lease lease) {
+    private void awaitTurn(String harness, String generationId) {
         try {
-            environment.spacing().awaitTurn(role.harness());
+            environment.spacing().awaitTurn(harness, generationId);
         } catch (InterruptedException _) {
             Thread.currentThread().interrupt();
         }
-        return startWorker(role, block, launch, lease);
     }
 
     /**
@@ -437,7 +462,7 @@ public final class WorkerSupervisor {
      * @return the requests the role's form and count admit, in request order: one per queued task for a fresh role, one
      *         per working directory for a warm role
      */
-    private List<WorkerStartRequest> admitted(EffectiveRole role, List<WorkerStartRequest> requests) {
+    private synchronized List<WorkerStartRequest> admitted(EffectiveRole role, List<WorkerStartRequest> requests) {
         var limit = role.artifact().count();
         var existing = existing(role);
         var room = Math.max(0, limit - existing.size());
