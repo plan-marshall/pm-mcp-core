@@ -50,9 +50,9 @@ The outcome transitions of a `job llm` state belong to the task's completion: wh
 
 |Q-Gate validation (`refine.qgate`, `outline.qgate`, `plan.qgate`, role `qgate`)
 |The phase's Q-Gate verdict primitive: `clean` -> the phase exit; `blocking` -> `call remediation.qgate-findings`
-|A `read_only` task that submits assessments and findings on its entity; the primitive runs the compiled mechanical checks of the phase and decides the verdict from the persisted findings alone (link:../phase-workflows/03-q-gate-and-execute.adoc[Phase Workflows Specification, Q-Gate Validation]).
+|A `read_only` task that submits findings on its entity; the primitive runs the compiled mechanical checks of the phase and decides the verdict from the persisted findings alone (link:../phase-workflows/03-q-gate-and-execute.adoc[Phase Workflows Specification, Q-Gate Validation]).
 
-|Single-submit entities (refine and outline authoring, the triage groups of a gather firing, architecture enrichment (kind `enrich-module`, entity `enrich-<module_id>`), the finalize reviews and `lessons-author`, epic `reground`, the epic `landing` entities)
+|Single-submit entities (refine and outline authoring, the triage groups of a gather firing, architecture enrichment (kind `enrich-module`, entity `enrich-<module_id>`), the finalize reviews and `lessons-author`, the epic `landing` entities)
 |Declared by the job state's unit, for example `submitted` -> the next state, and for refine and outline authoring `ask` -> the phase's question state
 |The entity runs the generic entity unit (<<entity-units>>); refine and outline authoring keep their open questions in the optional `decision` of their one `submit`, and the phase's question state serves the records it created.
 
@@ -104,7 +104,7 @@ The workflow engine enforces five invariants when a task ends, a worker settles,
 
 1. *No Synthesized Submissions*: A task that ended without its entity's required submission is never completed by the server (<<job-completion>> item 2), whatever the worker wrote to files or reported in its `job-result`.
 2. *No Blind Re-Offer*: A task is offered again only through the `job_incomplete` remedy, after the server inspected the entity store and the worktree on disk; the next offer carries the observed partial progress in its facts and only the remaining work.
-3. *Citations-Only Results for Read-Only Roles*: `read_only` tasks (Q-Gate validation, triage, enrichment, re-grounding, the reviews) persist their findings, component assessments, and proposals through entity-scoped `submit` links. The server computes the aggregate counts from the submitted records and renders them as facts of the next representation; `display_detail` is never read as evidence of a count.
+3. *Citations-Only Results for Read-Only Roles*: `read_only` tasks (Q-Gate validation, triage, enrichment, the reviews) persist their findings and proposals through entity-scoped `submit` links. The server computes the aggregate counts from the submitted records and renders them as facts of the next representation; `display_detail` is never read as evidence of a count.
 4. *One Row per Attempt*: Every attempt that ran yields one row keyed by `queue_task_id` and `attempt`; a task closed without an attempt yields one row with every usage column `unmeasured` and `cause_class: refused` (<<job-result-schema>>); every warm worker job yields one `worker_idle` row, which belongs to no plan and lies in the workspace's `metrics.json`; every task row lies in the `metrics.json` of the task's scope: a plan's, an epic's (`epics/<epic_id>/`), or the workspace's (`workspace/`); outside a plan the row's `phase` is null. `record-metrics` publishes, per divergence class (`row_absent_from_metrics`, `row_without_task_record`, `phase_re_entered`), the row count and the token mass the divergence hides.
 +
 [#cause-class]

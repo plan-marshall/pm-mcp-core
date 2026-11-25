@@ -1,0 +1,11 @@
+{
+  "id": "PLAN-V2-183",
+  "slug": "sweep-test-and-statement-residue-closeout",
+  "workstream": "WS-03",
+  "status": "shipped",
+  "lane": "runbook",
+  "plan_marshall_plan_id": "rb-v2-183-sweep-test-and-statement-residue-closeout",
+  "pr": "#603",
+  "landing": "landings/PLAN-V2-183.md",
+  "seq": 171
+}

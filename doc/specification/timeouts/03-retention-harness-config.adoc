@@ -198,7 +198,7 @@ Work history is the operator's and goes only on the operator's word, through one
 |link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas, Derived Facts Store]
 
 |[[network-derivation-validity]]Network derivation validity period
-|`86400` since `derived_at`; additionally refreshed by the project-setup reconcile and by the start of a plan in the project. The network kinds are `merge_methods_allowed`, `merge_queue_enforced`, `branch_up_to_date_required`, `required_checks`, `signed_commits_required`, `checks_visible`, and `agent_identity`, plus `ci_provider` and `base_branch_default` in the entries a provider probe or confirmation contributed to (link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas, Derived Facts Store]).
+|`86400` since `derived_at`; additionally refreshed by the project-setup reconcile and by the start of a plan in the project. The network kinds are `merge_methods_allowed`, `merge_queue_enforced`, `required_checks`, `signed_commits_required`, `checks_visible`, and `agent_identity`, plus `ci_provider` and `base_branch_default` in the entries a provider probe or confirmation contributed to (link:../store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas, Derived Facts Store]).
 |fixed
 |—
 |`<PM_MCP_BASE>/projects/<project_id>/derived-facts.json` entries of network kinds
@@ -209,7 +209,7 @@ Work history is the operator's and goes only on the operator's word, through one
 [#size-limits]
 == Worker Input Size Limits
 
-Two compiled size bounds and one per-harness limit shape what a worker receives in-band, and one compiled ratio turns its bytes into tokens. The two compiled bounds are _provisional_ until calibrated against the context windows of the supported harnesses, in tokens through the measured ratio and never through a fixed number of characters per token; the measured basis is the largest task input completed per harness (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#harness-values[Evaluation Reference, Harness Values]). This table is the one place the calibrated values are recorded. The table uses the columns above; a size bound has no expiry, so that column states what happens above the bound.
+Two compiled size bounds and one per-harness limit shape what a worker receives in-band, and one compiled ratio turns its bytes into tokens. The two compiled bounds are _provisional_ until calibrated against the context windows of the supported harnesses, in tokens through the compiled ratio and never through a fixed number of characters per token; the measured basis is the largest task input completed per harness (link:../../../../plan-marshall-documentation/doc/specification/evaluation.adoc#harness-values[Evaluation Reference, Harness Values]). This table is the one place the calibrated values are recorded. The table uses the columns above; a size bound has no expiry, so that column states what happens above the bound.
 
 [cols="2,3,2,2,2,3,2"]
 |===
@@ -232,9 +232,9 @@ Two compiled size bounds and one per-harness limit shape what a worker receives 
 |link:../model-work/07-untrusted-text-screening.adoc[Model Work Specification, Screener]
 
 |[[bytes-per-token]]Bytes per token
-|Provisional `2` UTF-8 bytes per token for every model; a model's own value is the smallest ratio measured over its tasks of a `zero_tool` role: the bytes the server composed in-band (launch prompt and input) over the input tokens of the task's one turn (cache read and cache creation included) less the `start_context` of the class and model (link:../harness-profiles/01-profile-schema.adoc#start-context[Harness Profiles, Start Context]). Characters are never counted and divided by a fixed factor, because a fixed number of characters per token undercounts the tokens of real web pages.
-|fixed (per model once measured)
-|at most `2` until the model is measured
+|Compiled `2` UTF-8 bytes per token, the same for every model. Characters are never counted and divided by a fixed factor, because a fixed number of characters per token undercounts the tokens of real web pages. A value measured per model is a later improvement (link:../../../../plan-marshall-documentation/doc/later-improvements.adoc#L-88[Later Improvements, L-88]).
+|fixed (compiled constant)
+|—
 |The token estimate of the model caller's fit step for a `zero_tool` role, and the calibration of the two compiled bounds above
 |A larger estimate closes the task `input_too_large`; the input is never cut to fit (link:../model-work/01-roles-and-configuration.adoc#model-caller[Model Work Specification, The Model Caller]).
 |link:../model-work/01-roles-and-configuration.adoc#model-caller[Model Work Specification, The Model Caller]; _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-76[PM-WATCH-DISP-76]_

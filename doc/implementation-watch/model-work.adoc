@@ -36,6 +36,7 @@ Source:: design review.
 === PM-WATCH-DISP-51: A judge score counts only from a validated result of an isolated judge
 
 Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#grading[Model Work § Grading],
+link:../specification/model-work/01-roles-and-configuration.adoc#judge-instrument-check[Model Work § Judge Instrument Check],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-6[PM-WORK-6]
 Hazard:: A rubric score parsed from free text, or from a judge that could read the repository or reach the server,
 qualifies a configuration on a grade nobody can trust; a missing score counted as zero or as met skews the
@@ -52,7 +53,10 @@ one turn (`WorkerVectorCheckTest`).
 Matched control: a reply that carries a `score` in the range is the item's score.
 Remaining: the members of `judge-score` beyond `score` are validated by no reader, so a reply that carries an
 undeclared member, or omits one, is accepted; validating the reply against its schema, and a test of the
-`no_graded_items` refusal, are what is left.
+`no_graded_items` refusal, are what is left; and the judge instrument check gating the grading: with the topic
+`judge/` in the corpus, a judge configuration whose check failed refuses the grading `judge_unfit` and one without a
+check verdict refuses it until the check runs again, neither writing a qualification record; matched control: without
+the topic the grading proceeds and its record carries no `judge_check`.
 Source:: design review.
 
 [#PM-WATCH-DISP-77]
@@ -732,12 +736,11 @@ Source:: plan-marshall code-intelligence-substrate PLAN-CIS-052 D6d.
 === PM-WATCH-DISP-15: A spec amendment or an ingested message never re-scopes a running plan
 
 Anchor:: link:../specification/model-work/08-epic-coordination.adoc#git-distributed-epic-ledger[Model Work § Git-Distributed Epic Ledger] (Plan Mailbox),
-link:../specification/model-work/08-epic-coordination.adoc#server-derived-landing-facts[§ Server-Derived Landing Facts, Spec Re-Grounding & Cross-Plan Locks] (Running Rows Are Not Re-Scoped)
+link:../specification/model-work/08-epic-coordination.adoc#server-derived-landing-facts[§ Server-Derived Landing Facts, Staged Specifications & Cross-Plan Locks] (Running Rows Are Not Re-Scoped)
 Hazard:: A message was folded into a plan without reading the target plan's deliverables, which duplicated writers.
 Guard:: A `mailbox_send` of kind `spec_amendment` to a running plan changes neither its state, scope, nor tasks (the
 mailbox is advisory); the `message` entity of a `coordinate` task offers no spec-editing or re-scoping link for a
-queue row in `running`, and a re-grounding verdict that would re-scope such a row stays pending until the row is
-terminal; an intake `submit stage` whose surface overlaps another non-terminal row without an ordering is refused
+queue row in `running`, and `epic.recut` changes staged rows only; an intake `submit stage` whose surface overlaps another non-terminal row without an ordering is refused
 `surface_overlap` (representation and scenario tests per rule).
 Source:: plan-marshall code-intelligence-substrate epic F0b/D14.
 
@@ -757,7 +760,7 @@ archive are never members. An unordered overlap refuses with `surface_overlap` n
 path; an overlap ordered through prerequisites is admitted; a surface that cannot be declared (prose, empty,
 unparseable, untracked) refuses with `surface_undeclared` and is never read as empty or disjoint. A plan start
 re-checks no staging invariant, and its admission compares the row's declared surface only with the running plans
-of the same epic (declared surfaces and realized changes against `overlap_max_files`), so no member outside the epic
+of the same epic (their realized changes against `overlap_max_files`), so no member outside the epic
 can block a start. Every refusal names its recovery (re-cut the plans or
 declare the ordering).
 Fixture:: 95 of 581 sibling-epic-spec candidates across 25 epics plus one plan-marshall `NO_PLAN` placeholder row blocked
@@ -767,19 +770,10 @@ after the fix); 154 table claims parsed to 0; partition 104 / 0 / 26 / 201 = 331
 Source:: plan-marshall orchestrator-refactor epic Open Defect (disjointness), PLAN-11 D3; code-intelligence-substrate epic D10,
 D11 and D13.
 
-[#PM-WATCH-DISP-17]
-=== PM-WATCH-DISP-17: Grounded evidence pinning is a candidate, not a design
-
-Anchor:: link:../specification/model-work/08-epic-coordination.adoc#server-derived-landing-facts[Model Work § Spec Re-Grounding]
-Hazard:: Pinning each re-grounding claim to hashed evidence (current / stale / unresolved) looks attractive but
-buys no protection against false negatives.
-Guard:: Do not adopt it before a population of pins has aged under real edits.
-Source:: plan-marshall code-intelligence-substrate epic W-049.
-
 [#PM-WATCH-DISP-18]
 === PM-WATCH-DISP-18: Citations are verified when written
 
-Anchor:: link:../specification/model-work/08-epic-coordination.adoc#server-derived-landing-facts[Model Work § Server-Derived Landing Facts, Spec Re-Grounding & Cross-Plan Locks],
+Anchor:: link:../specification/model-work/08-epic-coordination.adoc#server-derived-landing-facts[Model Work § Server-Derived Landing Facts, Staged Specifications & Cross-Plan Locks],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-6[PM-WF-6]
 Hazard:: A verdict attributed a fix to a PR whose diff did not touch the file; records cited symbols that did not
 exist and credited the wrong PR; "none blocking" was written over open gaps.
@@ -818,7 +812,7 @@ PLAN-PR-055, PLAN-PR-052 D4.
 === PM-WATCH-DISP-20: An epic's archived snapshot is never its own sibling
 
 Anchor:: link:../specification/filesystem-layout/03-project-store.adoc#archives[Filesystem Layout § Plan & Epic Archives],
-link:../specification/model-work/08-epic-coordination.adoc#server-derived-landing-facts[Model Work § Spec Re-Grounding] (Archived Snapshots Are Not Siblings)
+link:../specification/model-work/08-epic-coordination.adoc#server-derived-landing-facts[Model Work § Server-Derived Landing Facts, Staged Specifications & Cross-Plan Locks] (Archived Snapshots Are Not Siblings)
 Hazard:: The sibling filter deduplicated by exact name, so a live epic and its own dated archive were compared as
 siblings. Titles are no identity: the live "Automated PR review apparatus reliability" and the archived "Review
 Apparatus — archived 2026-09-21" share no substring, and neither plan-marshall `status.json` carries a slug or epic id.
@@ -846,17 +840,16 @@ Fixture:: `code-intelligence-substrate-26-09-21`, `review-apparatus-26-09-21`, `
 Source:: plan-marshall orchestrator-refactor PLAN-11 Claim Labels.
 
 [#PM-WATCH-DISP-22]
-=== PM-WATCH-DISP-22: A staged spec is re-grounded before its plan starts
+=== PM-WATCH-DISP-22: A staged spec meets the epic's landings, never a re-grounding task
 
-Anchor:: link:../specification/model-work/08-epic-coordination.adoc#server-started-plans[Model Work § Server-Started Plans] (Launchable, Staleness in the view),
-link:../specification/model-work/08-epic-coordination.adoc#server-derived-landing-facts[§ Server-Derived Landing Facts, Spec Re-Grounding & Cross-Plan Locks] (item 2)
+Anchor:: link:../specification/model-work/08-epic-coordination.adoc#server-started-plans[Model Work § Server-Started Plans] (Launchable),
+link:../specification/model-work/08-epic-coordination.adoc#server-derived-landing-facts[§ Server-Derived Landing Facts, Staged Specifications & Cross-Plan Locks] (item 2)
 Hazard:: A staged spec decays against a moving tree; emitting it unchecked nearly re-shipped finished work.
-Guard:: A test advances the default branch after a staged row's last re-grounding and asserts that the server does not
-start the row until a `reground` task re-grounded its specification at the current `HEAD`; a row never re-grounded is
-re-grounded before its first start; a row whose latest row verdict is `stale` is not started until its spec section
-is re-submitted through `spec_section`; the epic's view shows `regrounded_at_sha` and `main_commits_since` per staged
-row; matched control: a row re-grounded at the current `HEAD` whose prerequisites shipped starts in the next
-`epic.next-work`.
+Guard:: A test lands a plan of the epic whose change covers a staged row's surface and asserts that the landing
+task's downstream impact judgment reaches the row through `epic.recut` (re-ordered or amended without the review,
+re-scoped through the decomposition's review) before the row starts; a staged row with an `unreadable` claim section
+does not start. Matched control: a row whose prerequisites shipped and whose claim sections parse starts in the next
+`epic.next-work` without a model task over its specification, also after the default branch advanced.
 Fixture:: two staged plans were one emit from re-shipping finished work; the oldest staged specs are the least
 trustworthy.
 Source:: plan-marshall code-intelligence-substrate epic F0.
@@ -880,7 +873,7 @@ Source:: `requirements/02-workflow.adoc` § `PM-WF-15` (the start of launchable 
 [#PM-WATCH-DISP-23]
 === PM-WATCH-DISP-23: The landing commit is found under a squash merge queue
 
-Anchor:: link:../specification/model-work/08-epic-coordination.adoc#server-derived-landing-facts[Model Work § Server-Derived Landing Facts, Spec Re-Grounding & Cross-Plan Locks] (Squash-Aware Landing Commit)
+Anchor:: link:../specification/model-work/08-epic-coordination.adoc#server-derived-landing-facts[Model Work § Server-Derived Landing Facts, Staged Specifications & Cross-Plan Locks] (Squash-Aware Landing Commit)
 Hazard:: The landing-commit lookup relied on a two-parent merge commit, which never exists under a squash merge
 queue.
 Guard:: A test on a squash-merged landing locates the commit as the base-branch commit whose subject ends with
@@ -991,8 +984,8 @@ Hazard:: An epic task state that declares no `infeasible` route leaves the epic 
 reports the item cannot be done, and an epic task routed to a plan fallback ends the epic; either way the epic stops
 moving without a record.
 Guard:: Static check over the compiled `epic.pmwf` and every project-owned epic unit: every `job llm` state routes
-`infeasible` and `lost` to `epic.active` with its item `held`; scenario: an `infeasible` re-grounding holds its rows
-(they do not start) and the epic continues with the next work; matched control: a `submitted` task commits the ledger.
+`infeasible` and `lost` to `epic.active` with its item `held`; scenario: an `infeasible` landing analysis holds its
+item and the epic continues with the next work; matched control: a `submitted` task commits the ledger.
 Source:: design review.
 
 [#PM-WATCH-DISP-66]
@@ -1046,22 +1039,6 @@ two, a write to an ignored path and a tool call that writes nothing yield none. 
 against the changes per file of recorded envelope tasks before the shipped roles choose an action other than `show`.
 Source:: Repository analyses `claude-code-bill-tokeneconomizer` and `orkas` of plan-marshall-documentation.
 
-[#PM-WATCH-DISP-80]
-=== PM-WATCH-DISP-80: The `over_size` distribution shows what the multiple did, from the runtime's measurement alone
-
-Anchor:: link:../specification/model-work/03-supervision-and-recycling.adoc#over-size-distribution[Model Work § The `over_size` Distribution],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7]
-Hazard:: The operator lowers or raises a role's multiple on a chart that misstates past work: plan tasks without a
-predicted cost counted as ratio zero, the spent tokens of a plan task taken from the whole attempt instead of its own
-turns, flagged tasks counted against the multiple in force instead of the proposed one, empty buckets drawn as zero
-bars, or a client that recomputes buckets from raw tokens and disagrees with the runtime's signal.
-Guard:: Unit test of the computation over a fixture of activity journals of one role: plan tasks with known turns and
-predicted costs land in the buckets their ratios name, the last bucket is open-ended, a plan task without a predicted
-cost is not counted, and under a proposed multiple each bucket counts exactly the plan tasks whose ratio exceeds it;
-matched controls: the same fixture without a proposal flags no task, and a role without a measured plan task is served
-without a bucket. The served distribution of the fixture equals the `pm-api` resource the clients read.
-Source:: design review.
-
 [#PM-WATCH-DISP-72]
 === PM-WATCH-DISP-72: A row a task proposes reaches the ledger only through the operator's review
 
@@ -1077,7 +1054,8 @@ draft's input, `queue/` and `spec.md` are byte-identical until the operator's _a
 the same for the `completion` entity's `continue` and for a cross-epic intake, whose `intake_confirmed` is appended
 only when the agreed row is committed. Matched controls: a re-cut that only re-orders staged rows is applied without
 the review (`applied`), and the follow-up of a re-planning is staged and started without the review and, when the plan
-it follows read a source marked untrusted, runs the added-line rule table.
+it follows read a source marked untrusted, runs the instruction check of the `added-lines` step of the phase
+`sanity-check`.
 Source:: Article analysis `secure-architecture-for-ai-agents` of plan-marshall-documentation.
 
 [#PM-WATCH-DISP-73]
@@ -1103,10 +1081,12 @@ Anchor:: link:../specification/model-work/07-untrusted-text-screening.adoc#third
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1]
 Hazard:: The mark is derived from `tool_call` targets that are plain paths only, so `cat node_modules/x/README.md`, a
 search over the tree, or a path reached through a pnpm symbolic link leaves the plan unmarked; or a harness without
-mapped targets counts as having read nothing, so the instruction scan of the added lines never runs for its plans.
+mapped targets counts as having read nothing, so the instruction check of the `added-lines` step never runs for its
+plans.
 Guard:: Scenario tests with scripted activity journals: a read of `node_modules/pkg/README.md`, a shell command line
 `grep -r token node_modules/pkg`, a read of a file below a directory holding `pyvenv.cfg`, and a read through a
-symbolic link into `node_modules/.pnpm/` each mark the plan, the added-line rule table runs, and a lesson the plan writes
+symbolic link into `node_modules/.pnpm/` each mark the plan, the instruction check of the `added-lines` step runs, and a
+lesson the plan writes
 has `derived_from_untrusted: true`; a harness profile without `tool_call` targets on a worktree that holds a
 `node_modules/` marks it as well. Matched controls: reads of `src/` only and a worktree without third-party trees leave
 the plan unmarked and the rule table unrun.
@@ -1130,15 +1110,15 @@ Source:: Article analysis `ai-dfir-toolkit` of plan-marshall-documentation (the 
 repository configuration among its case studies).
 
 [#PM-WATCH-DISP-76]
-=== PM-WATCH-DISP-76: The fit step estimates tokens from bytes at a measured ratio, never characters ÷ 4
+=== PM-WATCH-DISP-76: The fit step estimates tokens from bytes at the compiled ratio, never characters ÷ 4
 
 Anchor:: link:../specification/model-work/01-roles-and-configuration.adoc#model-caller[Model Work § The Model Caller], link:../specification/timeouts/03-retention-harness-config.adoc#bytes-per-token[Timeouts § Bytes per Token]
-Hazard:: The estimate counts Java `char` units or divides characters by four, estimates the input without the launch
-prompt, or takes a model's ratio from a task whose turn input is mostly the harness's start context; an input estimated
+Hazard:: The estimate counts Java `char` units or divides characters by four, or estimates the input without the
+launch prompt; an input estimated
 to fit then exceeds the context the harness has, the harness rejects it as a runtime failure instead of
 `input_too_large`, or an endpoint that cuts its prompt cuts the input the step guarantees is never cut.
 Guard:: Unit tests of the estimator over fixtures with recorded token counts of the worker models: a URL-heavy web page
-in Markdown, a text with umlauts and CJK characters, and a JSON diff; each estimate at the provisional ratio is at least
+in Markdown, a text with umlauts and CJK characters, and a JSON diff; each estimate at the compiled ratio `2` is at least
 the recorded count, and characters ÷ 4 is below it for the page. A scenario test whose launch prompt and input together
 exceed the budget while the input alone fits closes the task `input_too_large` before any request. Matched control: an
 input estimated below the budget is queued and sent whole.

@@ -38,15 +38,15 @@ Declared in `project-onboarding.pmwf` (compiled only, never designable), the one
 |— (`entry`)
 |`composite_job`
 |`project.consent`.
-|Detection, a check line for each: the remote and its owner and name, the base branch, the build wrappers with their pinned files (a wrapper's version read from its pinned properties), the host tools the project uses (only those found on the operator's `PATH` run their version probe, as confined jobs), the language servers, the project scripts, and the hosts and credential locations the build configuration names. The login environment is the one the terminal client sent.
-|`detected` -> `project.identity`; `scripts_needed` (something of the checkout must run to be known) -> `project.run-consent`.
+|Detection, a check line for each: the remote and its owner and name, the base branch, the build wrappers with their pinned files (a wrapper's version read from its pinned properties), the host tools the project uses (only those found on the operator's `PATH` run their version probe, as confined jobs), the language servers, the project scripts, and the files of the compiled credential locations of the project's build domains that exist on the machine (no configuration is parsed for them). The login environment is the one the terminal client sent.
+|`detected` (nothing of the checkout must run) -> `project.identity`; `scripts_needed` (something of the checkout must run to be known, the build of the base branch that records the hosts its build reaches among it) -> `project.run-consent`.
 |link:../credentials-and-enrolment/02-enrolment-and-project-lifecycle.adoc#project-onboarding[Credentials & Enrolment Specification, Onboarding a Project as One Process]
 
 |[[state-project.run-consent]]`project.run-consent`
 |— (`entry`)
 |`operator_wait`
 |`project.detect` (`scripts_needed`).
-|Consent kind `run_checkout_scripts`: run these scripts of the checkout, each named with its arguments, confined like a job. `yes`, `yes_remember` (for the project and the digest of each script, in `consents.json`, never in the enrolment), `no` (goes on without them, what needs them unknown; not asked again in this run).
+|Consent kind `run_checkout_scripts`: run these scripts of the checkout, each named with its arguments, confined like a job, and the build of the base branch that records the hosts (the wrapper's `verify`, tests included), named as such: it runs with every host reachable and reads the project root and every file of the compiled credential locations of the project's build domains that exists on the machine, never a credential-pattern variable. `yes`, `yes_remember` (for the project and the digest of each script, in `consents.json`, never in the enrolment), `no` (goes on without them, what needs them unknown; not asked again in this run).
 |`yes`, `yes_remember` -> `project.probe`; `no` -> `project.identity`.
 |link:../store-schemas/12-machine-stores.adoc#consent[Store Schemas Specification, Consent Before Acting]
 
@@ -54,7 +54,7 @@ Declared in `project-onboarding.pmwf` (compiled only, never designable), the one
 |— (`entry`)
 |`composite_job`
 |`project.run-consent` (`yes`, `yes_remember`).
-|The named scripts as jobs through the job launcher, with the confinement of a job, never in the runtime's own process (link:../job-runtime/02-confinement-and-environment.adoc[Job Runtime Specification, Confinement]).
+|The named scripts as jobs through the job launcher, with the confinement of a job, never in the runtime's own process (link:../job-runtime/02-confinement-and-environment.adoc[Job Runtime Specification, Confinement]), among them one build of the base branch (the wrapper's `verify`, tests included) with the confinement of a build job, its egress proxy in record mode, which admits and records every host the build reaches (link:../job-runtime/02-confinement-and-environment.adoc#build-egress[Job Runtime Specification, Build Egress & Build Read Set]).
 |`probed` -> `project.identity`.
 |link:../job-runtime/02-confinement-and-environment.adoc[Job Runtime Specification, Confinement & Environment]
 
@@ -70,7 +70,7 @@ Declared in `project-onboarding.pmwf` (compiled only, never designable), the one
 |— (`entry`)
 |`operator_wait`
 |`project.identity` (`set`); `project.enrol` (`refused`, with the reason).
-|Everything to be enrolled, each with where it comes from (detected, the machine, the default): wrappers and their pinned files, host tools (the machine's enrolled tools used unless the project enrols its own), language servers, scripts, the build environment (the operator's login environment as the terminal client captured and sent it; from the web app the one the terminal client last captured on the machine, said so, and without one the terminal command that captures it); the hosts the build jobs' egress proxy admits (`egress_hosts`) and the credential files they read (`build_credential_files`), proposed from the detected build configuration; the container engine and the open build network (`build_network: open`) only as separate choices, each with its warning. `enrol`, `back`, `abandon`.
+|Everything to be enrolled, each with where it comes from (detected, the machine, the default): wrappers and their pinned files, host tools (the machine's enrolled tools used unless the project enrols its own), language servers, scripts, the build environment (the operator's login environment as the terminal client captured and sent it; from the web app the one the terminal client last captured on the machine, said so, and without one the terminal command that captures it); the hosts the build jobs' egress proxy admits (`egress_hosts`), proposed from the hosts the build of `project.probe` recorded (none after a _no_ to the consent), and the credential files they read (`build_credential_files`), proposed from the files of the compiled credential locations of the project's build domains that exist on the machine, which the recording build read, each confirmed or removed by the operator (a credential the build needs that none of them holds shows as a failing recording build); the container engine and the open build network (`build_network: open`) only as separate choices, each with its warning. `enrol`, `back`, `abandon`.
 |`enrol` -> `project.enrol`; `back` -> `project.identity`; `abandon` -> `project.abandoned`.
 |link:../store-schemas/11-enrolment-store.adoc#enrolment-store[Store Schemas Specification, Enrolment Store]
 

@@ -327,9 +327,15 @@ class SourceManifestCodecTest {
         }
 
         @Test
-        @DisplayName("a pair whose names the case fold unifies although their NFC forms differ is refused by the case rule")
+        @DisplayName("a precomposed and a decomposed name whose folded forms collide only after the second NFC are refused by the case rule")
         void casedNormalisationVariantPaths() {
             var base = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+            // the code points are this pair's contract: NFC(U+0390) is U+0390 while NFC(U+0399 U+0308 U+0301) is
+            // U+03AA U+0301, so the normalisation rule alone leaves the two apart; their upper-case forms are
+            // U+0399 U+0308 U+0301 and U+03AA U+0301, which are not equal, and the lower case that follows maps them to
+            // U+03B9 U+0308 U+0301 and U+03CA U+0301, of which the fold's second NFC step makes U+0390 each. The
+            // equality is the whole fold — upper, lower and the NFC after it — never the case mapping alone. The pair
+            // is the case rule's, never the normalisation rule's
             var small = base + "-\u0390.md";
             var combined = base + "-\u0399\u0308\u0301.md";
             var first = new Source(sourceId, Kind.DESCRIPTION, "ref", "operator", Trust.TRUSTED,

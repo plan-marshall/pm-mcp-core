@@ -138,7 +138,7 @@ holds no value of the trailer and which no state names in a `facts` clause
 `StagingSets.derive(scope, worktree, dirtyPaths, archiving)` puts every dirty path into `staged` or `outside`
 (link:{adr}/003-the-staging-set-is-derived-from-the-scope.adoc[ADR 003]). A path is staged only when it satisfies the rule
 of a commit path, which is one helper for the commit and the staging set
-(`CommitPathRefusals`, link:{adr}/008-the-staging-set-refuses-what-the-commit-refuses.adoc[ADR 008]): the textual rule
+(`CommitPathRefusals`, link:{adr}/008-the-staging-set-and-the-commit-share-the-path-rule.adoc[ADR 008]): the textual rule
 (`CommitPaths.isRefusedText`: no pathspec magic, no backslash, no control character, no empty segment), the file-system
 rule (no directory, no absolute name, nothing outside the root, no parent that a symbolic link carries outside the real
 root) and the tracked-tree rule (no name that is a directory of the index or of the head tree although the worktree no
@@ -371,7 +371,8 @@ link:{adr}/004-the-trailer-is-appended-by-commit-messages-alone.adoc[ADR 004],
 link:{adr}/005-one-failed-outcome-with-a-closed-reason.adoc[ADR 005],
 link:{adr}/006-the-primitive-checks-the-boundary-half.adoc[ADR 006],
 link:{adr}/007-the-template-message-renders-from-facts.adoc[ADR 007],
-link:{adr}/008-the-staging-set-refuses-what-the-commit-refuses.adoc[ADR 008],
+link:{adr}/008-the-staging-set-and-the-commit-share-the-path-rule.adoc[ADR 008],
 link:{adr}/009-an-absent-message-is-the-primitives-clean-tree-route.adoc[ADR 009],
 link:{adr}/010-the-specification-follows-the-closed-reason-of-the-missing-identity.adoc[ADR 010],
+link:{adr}/011-the-host-path-introducer-is-the-complement-of-the-path-name-characters.adoc[ADR 011],
 link:../../../../pm-workflow/doc/adr/workflow-verify/043-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify 043]

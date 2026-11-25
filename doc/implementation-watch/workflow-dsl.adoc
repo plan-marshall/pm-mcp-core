@@ -252,11 +252,14 @@ Anchor:: link:../specification/workflow-dsl/09-plan-instance.adoc#_versions_comp
 Hazard:: A fallback or outline version that takes effect only from the next transition lets the chain that follows its
 composition still run steps the new version pruned (a post-run-only fallback still entering a finalize step below
 order `900`).
-Guard:: Scenario per server event (`outline`, `plan`, `fallback`, `empty_harvest`, `replan`): the
+Guard:: Scenario per server event (`outline`, `plan`, `realized`, `fallback`, `empty_harvest`, `replan`): the
 transition that enters the composing target state records the new `instance_version`, and every state that chains on
 reads it (`finalize.next-step` after `plan.return` and after `finalize.hand-back` selects only post-run steps, one
 fixture per route); an operator or configuration event composed mid-chain takes effect only from the next transition;
-the history keeps the version in force per firing.
+the history keeps the version in force per firing. The `realized` version evaluates `no_code_delta` and
+`no_production_delta` against the realized footprint (the diff against the plan's base), keeps the steps when the
+footprint cannot be read, and is composed again when a loop-back added tasks; a `replan` version prunes nothing that
+reads the plan's change.
 Guarded: `InstanceVersionEngineTest` (the version is recorded in the entering transaction, the chain selects from it,
 its `instance` history line is written, and an operator event takes force from the next transition). Open: the
 `finalize.next-step` half, which needs a fixture plan whose composed version prunes a finalize step below order `900`.
@@ -642,7 +645,7 @@ provider-git 004], amendment), and `JGitOperationsPathTest` commits files named 
 `<name>?.md` as exactly those files beside the files their glob reading would match (the matched control: those stay
 uncommitted), and a file named `-rf<name>` as that file. A derived name that begins with `:` is outside the staging set
 of `StagingSets`, so the footprint check names it as a violation before the commit is called; the commit's own refusal
-stays for a bound path that reaches it (`commit paths`, `StagingSetsTest`, link:../../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/008-the-staging-set-refuses-what-the-commit-refuses.adoc[ADR provider-git-primitive 008]).
+stays for a bound path that reaches it (`commit paths`, `StagingSetsTest`, link:../../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/008-the-staging-set-and-the-commit-share-the-path-rule.adoc[ADR provider-git-primitive 008]).
 Owed: the CLI half, the same fixture staged through `--literal-pathspecs add --pathspec-from-file=- --pathspec-file-nul`,
 belongs to the assembly that ships the CLI variant. A refusal of the glob characters `*`, `?` and `[` in either variant
 or in `PathRules` fails the fixture.

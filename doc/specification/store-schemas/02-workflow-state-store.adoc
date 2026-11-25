@@ -113,7 +113,7 @@ The plan's `merge_outcome` (this store) and the landing's `merge_state` (link:..
 |`no_pr`
 |`not_applicable`
 
-|The hand-back's local form, whatever its cause: no push remote (derived fact `push_remote` empty), no push credential, an open `credential_shaped` finding, a `landing.main` or `landing.files` plan that could not land, or a `landing.main` operator-path match
+|The hand-back's local form, whatever its cause: no push remote (derived fact `push_remote` empty), no push credential, a `credential_shaped` value the credential barrier of `git.commit_and_push` keeps from every push, a `landing.main` or `landing.files` plan that could not land, or a `landing.main` operator-path match
 |`local_only`
 |`not_applicable`
 

@@ -96,12 +96,12 @@ Source:: design review.
 [#PM-WATCH-PHASE-2]
 === PM-WATCH-PHASE-2: Git conflict output is parsed structurally, never as localized prose
 
-Anchor:: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#_phase_entry_baseline_reconciliation[Phase Workflows § Phase Entry & Baseline Reconciliation]
+Anchor:: link:../specification/phase-workflows/08-dynamic-re-planning.adoc#trial-merge[Phase Workflows § Trial Merge] (`merge_conflict`)
 Hazard:: Baseline reconciliation parsed localized git prose as file paths: 5 Q-Gate findings, 4 of them from German
 git output, all triaged rejected while the real one was buried; duplicate and false-positive conflict messages
 inflated the drift classification (8 findings for 2 real conflicts).
 Guard:: Conflicted paths come from structured output in both variants (native: the conflicted paths of JGit
-`ResolveMerger`; CLI: `git merge-tree` machine output); tests run baseline reconciliation in both variants, the CLI
+`ResolveMerger`; CLI: `git merge-tree` machine output); tests run the trial merge in both variants, the CLI
 variant under a non-English git locale, and assert zero prose paths; one finding per distinct conflicted path, with a
 duplicate-message fixture.
 Fixture:: a 1-file drift reported `conflict_count: 5` from German merge-tree lines `automatischer Merge von …` and
@@ -211,15 +211,18 @@ Source:: plan-marshall defect truthful-signals PLAN-TRUTH-151 item -008.
 [#PM-WATCH-PHASE-59]
 === PM-WATCH-PHASE-59: The clean-checkout guard never incriminates the plan for dirt it did not make
 
-Anchor:: link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#_planning_transition_guards_real_world_invariants[Phase Workflows § Planning Transition Guards & Real-World Invariants] (Clean Main Checkout Guard),
+Anchor:: link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#_planning_transition_guards_real_world_invariants[Phase Workflows § Planning Transition Guards & Real-World Invariants] (Clean Main Checkout Guard, where confinement is unavailable),
+link:../specification/job-runtime/02-confinement-and-environment.adoc#_linux_filesystem_confinement_landlock[Job Runtime § Linux Filesystem Confinement] (the worker write set),
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10]
 Hazard:: `plan-marshall` post-init, refine and handshake gates refused on operator-ledger dirt the phase could not have
 authored (at least five runs), and one run's own sanctioned inbox filing tripped the gate.
 Guard:: Tests: (1) a dirty operator file present before the plan is created lets every planning transition pass, is listed in
 `facts.baseline_dirty`, and is never offered for revert; (2) a sibling plan's `emit-landing` and `outbox:send` during
 this plan's planning never touch the main checkout and never trip this plan's guard; matched negative control: any
-path of the main checkout changed after entry (outside `.marshall/local/`) is a hard error in every phase and raises
-the `footprint_violation` condition on the current state, attributed to the plan.
+path of the main checkout changed after entry (outside `.marshall/local/`) under `confinement: unavailable` is a hard
+error in every phase and raises the `footprint_violation` condition on the current state, attributed to the plan;
+(3) under confinement the guard does not run: a `writer` worker's write to the main checkout is refused by its write
+set, and an operator's edit of the main checkout during the plan concerns no plan and raises nothing.
 Fixture:: runs `module-budget-campaign-completion-001..003`, `plan-06-003`, `truth-147-002`, `truth-179-003`,
 `plan-09-outline-sweep-003`.
 Source:: plan-marshall defect process-compliance PLAN-10 § Claim Labels (main-dirt assertion fires on pre-existing dirt).
@@ -276,12 +279,12 @@ Source:: design review.
 [#PM-WATCH-PHASE-86]
 === PM-WATCH-PHASE-86: Both merge-probe variants report the same conflicts
 
-Anchor:: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#_phase_entry_baseline_reconciliation[Phase Workflows § Phase Entry & Baseline Reconciliation] (Probe Variants)
+Anchor:: link:../specification/phase-workflows/08-dynamic-re-planning.adoc#trial-merge[Phase Workflows § Trial Merge] (`merge_conflict`)
 Hazard:: A native in-memory merge and `git merge-tree` that disagree on renames, binaries, or criss-cross histories
-route the same plan to refinement under one variant and past it under the other.
+raise `merge_conflict` for the same plan under one variant and not under the other.
 Guard:: Fixture repositories with a rename on one side and an edit on the other, a conflicting binary, and a
 criss-cross merge history: JGit `ResolveMerger` and `git merge-tree` report the same conflicted paths and the same
-probe outcome.
+trial-merge outcome.
 Source:: design review.
 
 [#PM-WATCH-PHASE-89]
@@ -294,7 +297,9 @@ work, or a land plan is recaptured and the user's change is overwritten.
 Guard:: The shipped rule `land-lane` binds `actions = [retry]` at every policy call of a `land` plan and prunes
 `*/fix`, `*/loop_back` and `finalize.allocate-remediation` with `land_lane` (`CompositionRuleEvaluatorTest` and
 `PlanInstanceComposerTest` of `pm-workflow`, the cases `land`). Open: a scenario with a red gate: a `land` plan creates no `decide` task: the server takes `retry` within the retry budget, and exhaustion ends the unit `exhausted` and hands the branch back with the failure documented and the
-capture ref retained (`capture_ref_retained`); no `recapture` link or state exists.
+capture ref retained (`capture_ref_retained`); no `recapture` link or state exists. The composition binds
+`fix_budget=0` at the call of `sanity-check`: a `fix` answer in its question hands the plan back with the item in the
+gap, and no fix task is created.
 Source:: design review.
 
 [#PM-WATCH-PHASE-91]
@@ -342,11 +347,12 @@ Source:: design review.
 [#PM-WATCH-PHASE-9]
 === PM-WATCH-PHASE-9: A survey-scope deliverable is not verification-only
 
-Anchor:: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#_plan_vs_deliverable_scope_reconciliation_classification_validation[Phase Workflows § Plan-vs-Deliverable Scope Reconciliation],
+Anchor:: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#change-type-derivation[Phase Workflows § Server-Derived `change_type`],
 link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#recipe-harvest[Domain Extensions § Recipe Workflows: Harvest, Deliverables & Parameters]
 Hazard:: Deliverables with empty `Affected files` but populated mutation scope were classified verification-only.
 Guard:: Deliverable classification uses harvested and mutation targets (recipe `target_harvester`) as well as
-`Affected files`; a `change_type_scope_disagreement` test with such a deliverable.
+`Affected files`, so such a deliverable is mutating and the plan's derived `change_type` is a mutating type; a
+`change_type_scope_disagreement` test with such a deliverable declared `verification`.
 Fixture:: deliverables D5/D7/D8 with 7/138/70 mutation entries.
 Source:: plan-marshall defect truthful-signals (quality-aspect) PLAN-213 D3.
 
@@ -359,7 +365,7 @@ Hazard:: Q-Gate judgments drifted to prose, used untested exclusions, and filed 
 touched.
 Guard:: The Q-Gate vocabulary skill carries the judgment rules: classification from `Affected files`, not prose; an
 exclusion rationale re-tested per coupled deliverable; partial delegation recorded; an invariant criterion
-attached to the editing deliverable. A Q-Gate submit with zero assessments is refused, so an empty pass is never clean.
+attached to the editing deliverable.
 Fixture:: finding class C-019; the outline reached Q-Gate with `findings_store_state: missing`, and 26 assessments
 were recorded afterwards.
 Source:: plan-marshall defect truthful-signals PLAN-TRUTH-151 (self-review lessons, C-019; item -001).
@@ -423,24 +429,29 @@ Guard:: Triage vocabulary prefers the in-scope remedy and records the other thro
 route to `ACCEPT` plus lesson, not `FIX`. A fix that nevertheless changes a file inside the plan's worktree beyond
 the declared footprint is accepted and recorded as an unplanned change with its provenance (task or loop-back),
 listed in the pull-request body and the landing record, never written into the declared footprint; a scenario test
-asserts the listing, and a matched control asserts that a change outside the worktree (or of a protected path)
-raises `footprint_violation` instead.
+asserts the listing, and matched controls assert that a change outside the worktree raises `footprint_violation`
+and that a change of a protected path holds the commit for the operator's decision on its diff instead.
 Fixture:: PR #1436 finding `5b86f8`; 23 findings: 3 fixed, 18 acknowledged, 0 rejected; PR 1455: 7 nitpicks, 4 in
 scope, 3 in production code outside scope.
 Source:: plan-marshall defects truthful-signals (quality-aspect) PLAN-208 D7, PLAN-209 D6 and D9.
 
 [#PM-WATCH-PHASE-60]
-=== PM-WATCH-PHASE-60: A new third-party dependency is visible in the approved outline
+=== PM-WATCH-PHASE-60: A new or removed third-party dependency is seen by the operator before the merge
 
-Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#dependency-delta[Phase Workflows § Dependency Delta Check (Pre-Merge)],
-link:../specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#_5_added_dependencies_section[Phase Workflows § 5. `Added dependencies` Section],
+Anchor:: link:../specification/phase-workflows/09-sanity-check.adoc#sanity-check-steps[Phase Workflows § Sanity Check, Steps] (`dependencies`),
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10]
-Hazard:: A skill adopted a technique that silently required a new third-party dependency, which no one approved.
-Guard:: A dependency addition must appear in the solution outline that passes the server outline gate
-(`outline.gate`); the footprint reconciliation parses the build files the plan changed and reports every added
-dependency coordinate that the gated outline does not name, as a blocking `undeclared_dependency` finding before the
-merge, handled by `remediation.review-findings` (`FIX` only); a changed build file that cannot be parsed makes the
-check `indeterminate`, never clean. Matched negative control: a coordinate the outline names is not reported.
+Hazard:: A skill adopted a technique that silently required a new third-party dependency, which no one approved; or the
+check reads the build files instead of what the build resolved, so a dependency a plugin, a version catalog, or a
+transitive change brings in goes unseen; or a dependency the change removed goes unjudged; or a listing that could
+not run is read as no new dependency.
+Guard:: The `dependencies` step reads the resolved dependencies and plugins per module offline from the build that ran
+(`mvn -o dependency:list` and `dependency:resolve-plugins`, `gradle --offline dependencies` and `buildEnvironment`,
+`npm ls`, the virtual environment's `pip list`) and compares
+them with the baseline `.marshall/sanity/dependencies.json`: every new coordinate is an item of the one operator
+question of the phase, a transitive one grouped under its direct dependency, and so is every baseline coordinate the
+build no longer resolves; an accepted item updates the baseline by the plan's own commit, an added coordinate added and
+a removed one removed. Matched negative controls: a coordinate in the baseline is not asked; a coordinate decided in
+an earlier run of the phase is not asked again; a listing that fails is never read as an empty difference.
 Source:: plan-marshall defect instrumentation-substrate PLAN-07 § Claim Labels (hypothesis dependency needs user approval).
 
 == Phase 5 Execute & Verification Sweep
@@ -523,8 +534,8 @@ link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#merge-
 Hazard:: A branch that had absorbed the base through merge commits (behind 0) was rebased and linearized anyway and
 conflicted on content already upstream.
 Guard:: Regression scenario: branch ahead 9 and behind 0 via merges → sync-baseline is a no-op, and `finalize.merge-sync`
-returns `not_required` for the same branch (the merge path rebases only when `branch_up_to_date_required` holds or the
-base changed the plan's footprint).
+returns `not_required` for the same branch (the merge path rebases only when the base changed a path of the plan's
+realized footprint or the provider reports the branch behind).
 Fixture:: ahead 9 / behind 0; conflict on `a5ebeef6d`, already on main via #1605.
 Source:: plan-marshall lesson 2026-09-24-05-001.
 
@@ -569,7 +580,7 @@ Guard:: The simplify vocabulary skill forbids proposing to revert an outline dec
 the `finalize.simplify-apply` task include the outline decisions and amendments. The `review-simplify` task only
 proposes (`submit:simplify`, proposal records with `file`, `change`, `rationale`; the role has no write tools); a task
 of the writer role `implement` applies the subset it accepts in `finalize.simplify-apply`, and the applied result goes
-through `finalize.settle-commit` (footprint check, `freshness_reconcile`) and the following gates like any change.
+through `finalize.settle-commit` (footprint check, the freshness derivation) and the following gates like any change.
 What a proposal is judged by is guidance of the simplify vocabulary skill (`PM-SKILL-1`), a measurement subject of
 `PM-TEST-6`; a deliberate shortcut is the writer's own call of kind `shortcut`, which the simplify review receives as a
 fact and does not propose to remove before its `ends_when` occurred.
@@ -861,18 +872,6 @@ never answered; user-token #3 auto-reviewed after 15 s and the user trigger acce
 trigger) skipped "authored by a bot without an assigned CodeRabbit review seat".
 Source:: link:../../../plan-marshall-documentation/doc/specification/evaluation.adoc#results[Evaluation Reference], Review-bot triggers and pull-request authorship.
 
-[#PM-WATCH-PHASE-31]
-=== PM-WATCH-PHASE-31: Pre-wait cap gate data
-
-Anchor:: link:../specification/workflow-dsl/03-reference-excerpt.adoc#_reference_workflow_dsl_excerpt_finalize_pmwf[Workflow DSL § Reference Workflow DSL Excerpt] (`finalize.concurrent-wait`)
-Hazard:: Most of a run's wall time was spent waiting for a bot that could never review a diff over its structural
-cap.
-Guard:: Scenario data for a gate that refuses to enter the bot wait region above a bot's cap and proposes a
-concrete split.
-Fixture:: 69.2% of wall time on a 4028-file diff; caps: Sourcery 150,000 characters / 300 files, GitHub 65536;
-split: 179,695 = 129,556 (test sources) + 50,139 (rest).
-Source:: plan-marshall defects review-apparatus PLAN-PR-077 D2 and D3.
-
 [#PM-WATCH-PHASE-32]
 === PM-WATCH-PHASE-32: An incapacitated reviewer is remediated or waived, never retry-looped or skipped
 
@@ -922,8 +921,8 @@ anchor), 297.6 min, finalize 8,221,439 (79%), self-review 12×, 8 loop-backs. Fo
 firings over 9 steps (simplify 12× "0 edits", lessons-housekeeping 8×, plugin-doctor 7× "clean", self-review 9×
 with 7 of 8 `loop_back`), 5.3× a 1.6M anchor; its two ledgers disagree (`evaluated_population 22`,
 `execution_rows 30`), published rather than resolved by picking one. Lane inputs settled later
-(multi_module→single_module, verification→bug_fix; the re-evaluation is logged as `lane_reevaluation` at 4-plan
-without re-routing): the run cost 4,697,985 tokens (a floor) against the 1.3M single_module + bug_fix anchor, 3.6×.
+(multi_module→single_module, verification→bug_fix; `plan-marshall` logged the re-evaluation at 4-plan without
+re-routing): the run cost 4,697,985 tokens (a floor) against the 1.3M single_module + bug_fix anchor, 3.6×.
 Unobserved before merge: 4 plans exceeded their anchors by 3.6×–6.5× (2026-09-04-08-009, unverifiable at HEAD).
 Source:: plan-marshall defects code-intelligence-substrate PLAN-CIS-050 D12 and D5.ii, truthful-signals (quality-aspect)
 PLAN-206 D3, post-run-quality PLAN-PRQ-10 D0 and PLAN-PRQ-08 D4; plan-marshall lessons 2026-09-23-05-003 and
@@ -1070,19 +1069,6 @@ Hazard:: A waiter re-requesting the lease could be enqueued twice; the tests onl
 Guard:: The idempotent-enqueue test drives the waiter path and fails if that path is not reached.
 Source:: plan-marshall defect truthful-signals PLAN-TRUTH-153 D1.
 
-[#PM-WATCH-PHASE-46]
-=== PM-WATCH-PHASE-46: Documentary commitments are re-checked with matched controls
-
-Anchor:: link:../specification/phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows § Normative Step Catalogue] (Unified Triage, commitments)
-Hazard:: A reply promised a change ("Agreed. Will be addressed by TASK-N") and the promise shipped differently: a
-suggestion to reject non-`None` bundles landed as a removed parameter. The re-check lacked a negative control and a
-fixture.
-Guard:: Positive test: a promise that did not land yields a divergence; negative test: a promise that landed yields
-none. A re-check over zero commitments renders `not_reached` with its population, never clear.
-Fixture:: CodeRabbit `166827` ("reject non-None bundles" shipped as a removed parameter); `review_commitments` over
-zero commitments (`5cbc17`, #1475).
-Source:: plan-marshall defects review-apparatus PLAN-PR-031 D6 / PLAN-PR-073 D4, PLAN-PR-030 (`5cbc17`).
-
 [#PM-WATCH-PHASE-47]
 === PM-WATCH-PHASE-47: Plans without an admission record form their own population
 
@@ -1139,13 +1125,14 @@ Fixture:: 24 auditor checks of `audit-archived-plan-retrospectives`.
 Source:: plan-marshall defect post-run-quality PLAN-PRQ-03 D0 / D1.
 
 [#PM-WATCH-PHASE-52]
-=== PM-WATCH-PHASE-52: The assessment comparison has three states
+=== PM-WATCH-PHASE-52: The footprint reconciliation reads the plan's own capture
 
-Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#post-run-quality-report[Phase Workflows § Post-Run Quality Report] (Footprint & Assessments)
-Hazard:: 4 of 16 aspects were ungradeable, and the footprint was resolved against the dead PR 1555 instead of #1557 and
-#1558.
-Guard:: `measured` requires a resolved footprint and more than zero assessments read; an empty store is
-`no_assessments`, never `inconclusive`; `touched_but_unassessed` is still reported; tests for all three states.
+Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#post-run-quality-report[Phase Workflows § Post-Run Quality Report] (Footprint Reconciliation)
+Hazard:: The footprint was resolved against the dead PR 1555 instead of #1557 and #1558.
+Guard:: The report reconciles against the persisted capture of the plan's own worktree, never a footprint resolved from
+a pull request number; a capture that is not `measured` is published as `indeterminate` with its state and cause,
+never as an empty reconciliation; tests for a plan that abandoned one pull request and landed through two others, and
+for an unmeasured capture.
 Fixture:: PLAN-TRUTH-174 (PR 1555 vs #1557/#1558).
 Source:: plan-marshall defect truthful-signals PLAN-TRUTH-174 D2.
 
@@ -1227,9 +1214,10 @@ Hazard:: A flat re-review timeout inside a bot's hourly window could only time o
 was not marked unreviewed: a PR merged with no review covering the merge commit. Waiting instead paid off: a
 close/reopen found five findings that internal passes had missed.
 Guard:: Scenario tests merge under a consumed `review_evidence` waiver and assert `review_state:
-unreviewed_by_waiver` on the merge record, the posted pull-request comment (with the waiver consumption), and the
-landing; a control merge with every required bot current records `reviewed`. The re-review wait of a bot is derived
-from its registered interval (a test with an hourly bot never times out inside the hour).
+unreviewed_by_waiver` on the merge record, the pull-request body's section `## Waivers` (with the waiver
+consumption), and the landing; a control merge with every required bot current records `reviewed`. The re-review wait
+of a bot is derived from its open window, else from its registered interval or the compiled floor (a test with a bot
+whose window resets after an hour never times out inside the hour).
 Fixture:: #1371 merged with no review object covering the merge commit; #1367 close/reopen found 5 findings after 5
 internal clean passes; external reviewers found +31.3% after internal clean passes.
 Source:: plan-marshall defects review-apparatus PLAN-PR-026 (a matched pair), PLAN-PR-030 § Claim Labels (+31.3%).
@@ -1244,7 +1232,7 @@ the same change did not reopen the gate.
 Guard:: Every waiver lookup logs a consumption with `HEAD` and the covered items (check names, finding ids);
 scenario tests: a finding filed after a `findings:<class>` waiver was consumed is a new failure that calls its
 remediation unit again unless the lookup at that evaluation covers it (a new consumption is logged and listed in the
-pull-request comment); a `ci_check:<name>` waiver never covers another check; matched control: re-evaluating the
+pull-request body's section `## Waivers`); a `ci_check:<name>` waiver never covers another check; matched control: re-evaluating the
 same failure set reuses the waiver with an identical consumption record.
 Fixture:: an operator-confirmed redirect change, later found to open an SSRF-shaped hole (cui-http consolidation, 52
 lessons, PRs #153–#186).
@@ -1391,8 +1379,8 @@ Source:: design review.
 Anchor:: link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#merge-path[Phase Workflows § Merge Path] (item 6),
 link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#_cross_plan_merge_mutex_fifo_admission_queue[Phase Workflows § Cross-Plan Merge Mutex & FIFO Admission Queue] (item 5)
 Hazard:: A `not_mergeable` refusal is bypassed by an administrator merge (`plan-marshall`'s `--admin`), or a
-`behind`/`conflict` refusal is retried against the same cached `branch_up_to_date_required` and loops without a
-rebase.
+`behind`/`conflict` refusal re-enters the gate, the next sync sees no reason to rebase, and the dispatch is refused
+again until the retry budget is spent.
 Guard:: Scenario per `facts.reason` value: the `auto` state `finalize.merge-refused` offers no link; `behind`,
 `conflict`, `checks_pending`, and `checks_failed` re-enter `finalize.merge-gate` within the retry budget, and
 `review_required`, `blocked`, `draft`, `method_not_allowed`, `unknown`, and a spent budget enter `finalize.hand-back`
@@ -1400,8 +1388,10 @@ with gap `cause: provider_refused`; a separate hand-back fixture per remaining g
 `provider_refused`: `stepped_out` with `step_out_cause: push_state_unknown` (a `git.commit_and_push` parity state
 `remote_absent_unverified` or an unrecognised state) and `local_only` (no push remote: recorded, not a failure); no link,
 waiver, or verb sends a merge request with an administrative flag (request log of the recorded provider); for
-`behind` and `conflict` the fact `branch_up_to_date_required` is stale after entry and the next
-`finalize.merge-sync` rebases; matched control: `checks_pending` leaves the fact unchanged.
+`behind` the next `finalize.merge-sync` rebases because the last dispatch was refused `behind`, and for `conflict`
+because the base changed a path of the realized footprint; matched control: after `checks_pending` on a branch the
+provider does not report behind and whose footprint the base did not change, the next `finalize.merge-sync` ends
+`not_required`.
 Source:: design review.
 
 [#PM-WATCH-PHASE-85]
@@ -1590,7 +1580,7 @@ note.
 Guard:: Tests submit the self-review without `unclaimed[]` (refused), with an entry that changes a default or deletes
 existing data (filed as a finding at the severity of its effect), and with an empty list (accepted, recorded as "none
 found"); a `conflicts[]` item naming an identifier the records do not hold is refused, and a submission that omits
-`conflicts[]` is accepted as "none found" while the facts hold no unexplained coordinate.
+`conflicts[]` is accepted as "none found".
 Corpus fixtures: a change that meets its one criterion and adds an unrequested delete of duplicate rows on start-up;
 a change that adds two configuration properties whose default no longer honours a header, against a non-goal of no
 speculative configurability; the review role must list both, the first at the severity of data loss.
@@ -1629,10 +1619,10 @@ never judged is a picture nobody acts on.
 Guard:: Tests compute the map for fixture repositories whose base and head differ by an added module, a removed module
 edge, and a replaced coordinate, and compare it with the crawl of each tree checked out in a scratch directory (equal).
 A descriptor that fails to parse at `base_ref` yields `partial` with its diagnostic, never `modules_removed`. The
-worktree's status is unchanged after the map is computed. A replaced coordinate that no own call and no deliverable
-names is in the self-review's `unexplained_coordinates[]`, and a submission whose `conflicts[]` omits it is refused
-(link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#self-review-submission[Phase Workflows § Self-Review Submission]);
-matched control: a replaced coordinate an own call names is not in the list. A decision of reversibility `costly` is
+worktree's status is unchanged after the map is computed. The removed side of a replaced coordinate is an item of the
+sanity check's `dependencies` step
+(link:../specification/phase-workflows/09-sanity-check.adoc#sanity-step-dependencies[Phase Workflows § Sanity Check, `dependencies`]),
+and the map shows it as review context. A decision of reversibility `costly` is
 listed under the map's hard-to-undo decisions, and a plan with none renders no such list and no empty section.
 Source:: Article analysis `barely-read-the-code` of plan-marshall-documentation (the operator reads a diagram of the
 change before its code).
@@ -1728,26 +1718,28 @@ restrictive wins and a cap never raises; its lineage of earlier fixes).
 [#PM-WATCH-PHASE-122]
 === PM-WATCH-PHASE-122: Hidden characters in a plan's added lines never reach the base branch unseen
 
-Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#added-line-scan[Phase Workflows § Added-Line Scan],
+Anchor:: link:../specification/phase-workflows/09-sanity-check.adoc#sanity-check-steps[Phase Workflows § Sanity Check, Steps] (`added-lines`),
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-SEC-1[PM-SEC-1]
 Hazard:: The scan reads the working tree or the whole file instead of the lines added against `base_ref`, so an
 unchanged legacy line blocks every plan, or a line added by a finalize fix after Phase 6 entry is never scanned; or the
 emoji exception is matched by code point alone, so a lone zero-width joiner or variation selector passes; or the rule
 table runs in a plan that read no untrusted text and floods every skill change with findings.
 Guard:: Scenario over a plan whose writer adds one line with a tag-block code point and one with a right-to-left
-override, and whose finalize fix adds a third with a zero-width space after Phase 6 entry: three blocking
-`hidden_characters` findings, the merge refused until each is fixed or waived. Matched controls: an existing line
+override, and whose finalize fix adds a third with a zero-width space after Phase 6 entry: the first two are items of
+the question of the phase `sanity-check`, the third an item of its re-run before the merge barrier, and the merge is
+refused until each is answered `accept` or fixed. Matched controls: an existing line
 with such a character that the plan does not touch is not reported; `\uE0001` spelled in source, an emoji with
 `U+FE0F`, and a byte-order mark at offset 0 are not hits; in a plan without untrusted text the rule table does not run
 (`rule_table_ran: false`) over an added skill line that addresses a model, and in a plan with an issue source the same
-line is one non-blocking `model_instruction` finding.
+line is one `model_instruction` item. An item's key holds no line number: a later commit that inserts lines above an
+accepted occurrence leaves its key unchanged, and the re-run before the landing does not ask it again.
 Source:: Article analysis `context-collapse` of plan-marshall-documentation (an instruction hidden in a Word document
 copied by the model into each document it drafts, which then carries it on).
 
 [#PM-WATCH-PHASE-123]
 === PM-WATCH-PHASE-123: A credential a worker copied never leaves the machine in a commit or a provider text
 
-Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#added-line-scan[Phase Workflows § Added-Line Scan],
+Anchor:: link:../specification/phase-workflows/09-sanity-check.adoc#sanity-check-steps[Phase Workflows § Sanity Check, Steps] (`added-lines`),
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CRED-5[PM-CRED-5]
 Hazard:: The credential stage reads the tree difference `base_ref..HEAD` like the other stages, so a value one commit
 adds and a later fix removes passes while the push publishes the commit that holds it; or commit messages are not read;
@@ -1755,27 +1747,32 @@ or the finding's summary, the audit record, or the refusal of a provider write r
 hand-back before `create-pr` pushes the branch while the finding is open; or the outbound check runs on the text before
 the server adds its own sections, or not at all for a review reply.
 Guard:: Scenario over a plan with three commits: the first adds a `.env` line with a `ghp_` token of valid length, the
-second removes it, the third's message holds an `AKIA` key: two blocking `credential_shaped` findings, no push, and the plan
-waiting for the operator; the operator's end of the plan at its hand-back takes the local form; neither the findings store, the audit log, nor the landing record
+second removes it, the third's message holds an `AKIA` key: two `credential_shaped` items in the question of the phase
+`sanity-check`, the credential barrier of `git.commit_and_push` refusing every push, and the plan waiting for the operator; the operator's end of the plan at its hand-back takes the local form; neither the findings store, the audit log, nor the landing record
 contains either value. A worker that writes a redaction-registry value into a pull-request body gets
 `credential_shaped_text` and no request is sent to the provider. Matched controls: the word `ghp_` in prose, a value of
-the pattern table's example set, and a PEM public key are no hits; an operator waiver of both findings lets the push
-proceed.
+the pattern table's example set, and a PEM public key are no hits; the operator's `accept` of both items lets the
+push proceed.
 Source:: Article analysis `digitalocean-agent-credentials` of plan-marshall-documentation (credentials kept outside the
 agent's reach because a persuaded agent sends on whatever it can read).
 
 [#PM-WATCH-PHASE-124]
 === PM-WATCH-PHASE-124: A red run proves a fix only when a test failed, before the green
 
-Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#fix-proof[Phase Workflows § Fix Proof Guard]
+Anchor:: link:../specification/phase-workflows/09-sanity-check.adoc#sanity-check-steps[Phase Workflows § Sanity Check, Steps] (`fix-proof`)
 Hazard:: A compile error of the new test counts as its red, so the proof holds for a test that never ran; or a red run
 after the last green is taken for the proof; or a worker edits the test after its red run and the edit goes unseen; or
 the `FIX` of a missing proof leaves the reverted production change in the worktree.
 Guard:: Scenario over a plan with a `fix` criterion verified by `test`: a red run through a compile error, one
-`failed_unparsed`, and one that went green each leave `fix_red_missing` open; a red run with a failed test closes it;
-an edit of a `red_tests` file afterwards files `fix_test_changed`, non-blocking; after the `FIX` task the tree equals
-the tree before it and the verification is green. Matched controls: a record with only `new` criteria and a `fix`
-criterion verified by `inspection` owe nothing; an unreadable ledger is `indeterminate`, never clean.
+`failed_unparsed`, one after the last green run, one whose only failed test lies in a file the plan did not change, and
+one run by a task of a deliverable whose `Satisfies` does not name the criterion each leave `fix_red_missing` open; a
+`failed` run before the last green run, by a task of a deliverable that satisfies the criterion, with a failed test in a
+test file the plan changed closes it; an edit of that file afterwards, which changes the plan's diff digest of it, is
+the item `fix_test_changed`; after the remediation task of a `fix` answer, whether it ends `submitted`, `infeasible`, or
+`lost`, the tree equals `HEAD` before it and the verification is green. Matched controls: a record with only `new`
+criteria and a `fix` criterion verified by `inspection` owe nothing; a run submitted with `expect: red` that went red
+outside these conditions closes nothing; a rebase that changes such a test file only through the base raises no
+`fix_test_changed`; an unreadable ledger is `indeterminate`, never clean.
 Source:: Article analysis `ai-native-sdlc-playbook-anthropic` of plan-marshall-documentation (the failing test committed
 before the fix, which the agent may not rewrite).
 
@@ -1806,21 +1803,6 @@ the plan's own lines; an unreadable commit gives `unknown`; a binary file is nam
 a plan with no fix has equal sizes and an empty `fix_balance`; the same plan with fixes ten times as large takes the same
 transitions.
 Source:: Article analysis `review-never-stops` of plan-marshall-documentation.
-
-[#PM-WATCH-PHASE-127]
-=== PM-WATCH-PHASE-127: A substituted dependency never reaches a build
-
-Anchor:: link:../specification/phase-workflows/05-finalize-review-metrics-descriptor.adoc#dependency-delta-pre-build[Phase Workflows § Before Every Build of the Plan],
-link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-10[PM-WF-10]
-Hazard:: The check reads the last commit instead of the disk, so an uncommitted edit of a build file builds unchecked; the
-check is wired to `pm_build` only, so the plan's own verification build resolves the substituted package; a build file the
-parser cannot read refuses every build and stops a plan that only changed a comment.
-Guard:: Scenario in a plan worktree after `outline.gate`: an uncommitted `pom.xml` that adds `maven:org.exampel:util`
-next to the approved `maven:org.example:util` refuses the worker's `pm_build` and the verification build with
-`undeclared_dependency` naming the coordinate, and no build process is spawned. Matched controls: the approved coordinate
-alone builds; a version change of an existing dependency builds; an unparseable `package.json` builds and the pre-merge
-check files `dependency_delta_indeterminate`.
-Source:: Article analysis `your-agent-is-mine` of plan-marshall-documentation.
 
 [#PM-WATCH-PHASE-128]
 === PM-WATCH-PHASE-128: A criterion is met only by a test that ran
@@ -1862,12 +1844,13 @@ Hazard:: Repository content can steer a coding agent into a broad allow rule tha
 listed but never reviewed, and after the merge the operator's own harness sessions load it. The guard misses it when
 it matches paths of one harness only: OpenCode also reads `.claude/skills/` and `.agents/skills/`, so a path that one
 harness's list omits still loads in another.
-Guard:: The footprint check derives the protected harness paths from every row of the harness integration table,
-whichever harness the plan's workers run on, and lifts the protection only for a path that `declared_files` names.
-Fixtures: a task that adds an allow rule to `.claude/settings.json` without declaring it raises `footprint_violation`
-and nothing is committed; the same for a skill under `.agents/skills/` on a project whose workers run on Claude Code.
-Matched controls: the same change declared in the outline is committed; a changed `CLAUDE.md` is recorded as an
-unplanned change only.
+Guard:: The commit check derives the protected harness paths from every row of the harness integration table,
+whichever harness the plan's workers run on; a declaration never lifts the protection. Fixtures: a task that adds an
+allow rule to `.claude/settings.json` holds the commit for one operator decision showing the diff of exactly that path,
+and `refuse` reverts it by a bounded `fix` task so that nothing of it is committed; the same for a skill under
+`.agents/skills/` on a project whose workers run on Claude Code, and for the same change named in `declared_files`.
+Matched controls: `accept` commits exactly the shown diff, and a later different change of the path asks again; a
+changed `CLAUDE.md` is recorded as an unplanned change only.
 Source:: Article analysis `obsidian-second-brain-approval-to-abuse` of plan-marshall-documentation (arXiv:2610.22987:
 58 of 100 synthetic cases reached an allow rule sufficient for the attacker's goal).
 
@@ -1880,14 +1863,14 @@ Hazard:: The match compares the path bytes as git reports them, so on macOS a wo
 or `.GitHub/workflows/x.yml` changes the protected file through a case-insensitive file system while the footprint
 check sees an unprotected path; or the list is kept per harness and misses the forge files, so a workflow step that
 posts the repository's secrets runs at the push of the plan's branch, before any review.
-Guard:: The matcher compares a path ignoring case and after NFC normalisation, and a declaration lifts exactly the
-declared path, over the hook-definition family (`ProtectedPathsTest` of `pm-core`). Open: the forge CI and editor
-families, and the footprint check over them. Fixtures on a case-insensitive and a case-sensitive file system: an
-undeclared change to
-`.github/workflows/ci.yml`, `.gitlab-ci.yml`, `.vscode/tasks.json`, `.envrc`, and to `.CLAUDE/settings.json` and
-`.GITHUB/workflows/ci.yml` each raises `footprint_violation`, nothing is committed and nothing is pushed; a path in NFD
-form of a protected name is matched too. Matched controls: the same changes declared in the outline are committed; a
-changed `.github/ISSUE_TEMPLATE/bug.md` and a changed `docs/vscode-tasks.md` are recorded as unplanned changes only.
+Guard:: The matcher compares a path ignoring case and after NFC normalisation, over the hook-definition family
+(`ProtectedPathsTest` of `pm-core`). Open: the forge CI and editor families, and the commit check over them. Fixtures
+on a case-insensitive and a case-sensitive file system: a change to `.github/workflows/ci.yml`, `.gitlab-ci.yml`,
+`.vscode/tasks.json`, `.envrc`, and to `.CLAUDE/settings.json` and `.GITHUB/workflows/ci.yml` each holds the commit for
+the operator's decision on its diff, and nothing is committed or pushed before it; a path in NFD form of a protected
+name is matched too, and a declaration in the outline changes none of it. Matched controls: the operator's `accept`
+commits exactly the shown diff; a changed `.github/ISSUE_TEMPLATE/bug.md` and a changed `docs/vscode-tasks.md` are
+recorded as unplanned changes only.
 Source:: Article analysis `secure-architecture-for-ai-agents-owasp-agentic` of plan-marshall-documentation.
 
 [#PM-WATCH-PHASE-132]

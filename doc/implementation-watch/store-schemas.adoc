@@ -246,20 +246,6 @@ lines stay as history and are never rewritten. Matched control: a store whose ev
 current records as a replay of the appends in order.
 Source:: design review.
 
-== Component Assessment Record (`assessments.jsonl`)
-
-[#PM-WATCH-STORE-8]
-=== PM-WATCH-STORE-8: An assessment is graded against the scope it was written for
-
-Anchor:: link:../specification/store-schemas/03-findings-and-review-records.adoc#component-assessments[Store Schemas § Component Assessment Record]
-Hazard:: An assessment was never rewritten after its deliverable widened, which produced a false `exclude_violated`.
-Guard:: Grading test over the timeline below.
-Fixture:: 15:34:32Z 12 assessments (6 include, 6 exclude, 0 uncertain); 15:50:17Z quality gate fails; 16:00:16Z the
-deliverable widens from 3 to 5 files; the stale assessment yields `exclude_violated` for 1 of 6 on
-`platform-runtime/SKILL.md` (PLAN-TRUTH-102, PR #1384). A light-lane lessons step also revised deliverables without
-touching assessments.
-Source:: plan-marshall defect post-run-quality PLAN-PRQ-01 D5 (carrying PLAN-TRUTH-130 D1; origin PLAN-TRUTH-102 / PR #1384).
-
 == Epic Inbox & Plan Mailbox Records
 
 [#PM-WATCH-STORE-32]
@@ -853,10 +839,15 @@ part of that class: the name rule refuses CR, LF, U+0085, U+2028 and U+2029, the
 and U+0085, so a NUL, an ESC or another control of the class reaches the trailer line; a `commit_identity` value the
 schema refuses reaches the commit's author
 line, where no rule of this module checks it at all.
-Guard:: The patterns are pinned code point by code point as test input
-(`CommitTrailerSchemaParityTest`, `commit_trailer` and `commit_identity`), the codec's own rule beside them
-(`CommitTrailerTest`, `CommitTrailerUnicodeTest`), and the decoder turns a half the trailer rule refuses into
-`invalid_ignored`. The gap is the class the schema refuses and the codec admits; a decision to validate at run time is the
-operator's and would make this item obsolete, and the plan that takes it names the enforcer.
+Guard:: The C0/C1 class, the line separators and the angle brackets are pinned code point by code point on the *refuse*
+side as test input (`CommitTrailerSchemaParityTest`, `commit_trailer` and `commit_identity`), and the White_Space class of
+the email halves as well; the White_Space class the name halves admit is swept from the engine's own property, and the
+remaining *admit* populations are the generated and enumerated values each case names — an admitted sample never proves
+a class, which is why the refuse side is the sweep. The codec's
+own rule stands beside them (`CommitTrailerTest`, `CommitTrailerUnicodeTest`), the two ECMA-262 divergences (U+FEFF in
+`\s`, a trailing line terminator before `$`) are pinned as divergences rather than sampled around, and the decoder turns a
+half the trailer rule refuses into `invalid_ignored`. The gap is the class the schema refuses and the codec admits; a
+decision to validate at run time is the operator's and would make this item obsolete, and the plan that takes it names
+the enforcer.
 Source:: landing of `PLAN-V2-169` (`git-commit-primitives-closeout`), carried item 90d; `PLAN-V2-172` deliverable 4; epic
 `pm-mcp-core-m2-m4-v2` decisions of 2026-11-08 (`runtime-schema-validation`).

@@ -123,16 +123,40 @@ sweeps both.
   a completed removal drops no kept entry from the report
   (link:../adr/runtime-start/016-the-sweep-removes-pending-entry-residue-by-evidence.adoc[ADR 016]).
 * A fault of the removal itself — a rethrown non-link refusal of the verification, a refused store, an I/O failure or a
-  failed commit — fails the step with its message, the entries whose removal the run had staged and not yet deleted,
-  the directories it had removed and every entry it kept as they stood, plus the unreadable entries the listing
-  collected before it, so that fault drops none of them. The report names how far the faulted removal got, read from the
-  phase the removal had reached and, while the commit was entered, from the workspace's journal: *staged* before the
-  commit is called, so nothing is committed and the next run re-judges every entry; *owed* with the commit entered and
-  the journal durable, so the recovery of the workspace completes the removals; *undecided* with the commit entered and
-  its journal gone — the commit deletes the journal as it closes, so its absence decides nothing — and *committed* once
-  the transaction's commit returned, so the removals are applied and only the directories remain. The discard's two
-  refusals are caught per entry, so only a fault outside them reaches the *committed* arm, and a fault of the lock's own
-  release carries the same state, because the state is kept outside the lock transaction.
+  failed commit, one of the five types the step catches (`UncheckedIOException`, `IllegalArgumentException`,
+  `IllegalStateException`, `InternalFaultException`, `StoreRefusal`) — fails the step with its message, or with its
+  exception type when it carries none, the entries whose removal the run had staged and not yet deleted, the
+  directories it had removed and every entry it kept as they stood, plus the unreadable entries the listing collected
+  before it, so that fault drops none of them. The naming is scoped to the fault of the removal, and `no message`
+  means a `null` one: the kept and unreadable entry texts are not fault texts it covers — the kept texts and the
+  unreadable entry's I/O text print a message every producer composes non-null (`PendingEntryStore` for the
+  discard's two refusals, `JournalScope` for the symbolic-link refusal, and `StoreSnapshot.read` for the
+  `UncheckedIOException` reaching the I/O text), while an unreadable record's `StoreRefusal` is named by its outcome
+  code; a blank message is printed as it is, and a cause beside a `null` message is not carried into the report.
+  A fault of
+  another type leaves `run` uncaught: only these five types are the faults a removal carries as its state. The report
+  names how far the faulted removal got, read from the phase the removal had reached and, while the commit was entered,
+  from the workspace's journal: staged before the commit is called, so nothing is committed and the next run re-judges
+  every entry; owed with the commit entered and the journal durable, so the recovery of the workspace completes the
+  removals; undecided with the commit entered and no journal present — the commit deletes the journal as it closes, and
+  a commit that fails before writing it leaves none, so its absence decides nothing — and the next run re-judges the
+  directories; or committed once the transaction's commit returned, so the removals are applied and only the
+  directories remain. The discard's two refusals are caught per entry, so only a fault outside them reaches the
+  committed arm, and a fault of the lock's own release carries the same state, because the state is kept outside the
+  lock transaction. The reach and the message of a fault the attempt had already built are then kept, and the release
+  fault is reported beside them — by its message, or by its exception type when it carries none — because the release
+  comes after another writer may have left the workspace's journal, so
+  re-reading the journal after it would call an undecided removal owed. A test reaches the staged arm
+  (`PendingEntryRecordsSweepTest.faultBeforeTheCommitRollsBackTheStagedRemovals`), the owed arm
+  (`PendingEntryRecordsSweepTest.auditSinkFaultInsideTheCommitLeavesTheRemovalOwed`) and the undecided arm
+  (`PendingEntryRecordsSweepTest.aCommitThatCannotWriteItsJournalLeavesTheReachUndecided`, and
+  `PendingEntryRecordsSweepTest.aFaultedLockReleaseKeepsTheFirstFaultsReach` for the release fault beside it, and
+  `PendingEntryRecordsSweepTest.aReleaseFaultWithoutAMessageIsNamedByItsType` for a release fault with no message);
+  `PendingEntryRecordsSweepTest.aFirstFaultWithoutAMessageIsNamedByItsType` reaches no reach of its own — the
+  acquisition faults before anything is staged, so its report carries none — and proves the naming of a first fault
+  that carries no message; the
+  committed arm has no seam — the discard's two refusals are caught per entry — so it stays untested, as the test
+  class's Javadoc states.
 * All removals of a run are one transaction, committed only if a directory is removed. A stopped removal is completed
   by the recovery of the workspace, which hands the owed records over again.
 * A workspace whose journal still waits for its recovery cannot be written: the step fails and removes nothing.
@@ -620,7 +644,8 @@ the other residue is still removed, only the symbolic-link refusal holding an en
 refused after the commit named as kept and not counted as removed, a workspace journal still to recover reported as a
 failure with the unreadable entries the listing collected and nothing removed, a fault after the commit reported with
 the removal it had staged and completed by the next run, a fault before the commit reported with the removals it rolled
-back, and two directories removed in one run owing two records with two distinct `transaction_id` values.
+back, a fault of the lock's own release that keeps the first fault's message and undecided reach beside it, and two
+directories removed in one run owing two records with two distinct `transaction_id` values.
 link:{test}/PeriodicSweepKilledRuntimeIT.java[`PeriodicSweepKilledRuntimeIT`]:: A runtime child killed with `SIGKILL`
 inside the real `PendingEntryRecordsSweep`, after its removal transaction applied and recorded its stores and while its
 owed audit record is handed over; the next instance completes the workspace journal and removes the directory the killed

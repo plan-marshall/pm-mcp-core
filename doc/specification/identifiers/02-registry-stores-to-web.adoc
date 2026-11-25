@@ -22,12 +22,12 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |Never reused; carried unchanged into the landing record
 |Findings record, landings link:../store-schemas.adoc[Store Schemas]; the per-finding exceptions of `submit:triage-groups` link:../hypermedia-format.adoc[Hypermedia Format]
 
-|[[id-record-counters]]`amendment_id`, `assessment_id`, `owed_id`, [[id-request-id]]`request_id`, [[id-failure-id]]`failure_id`, [[id-evidence-id]]`evidence_id`, [[id-batch-id]]`batch_id`, [[id-proposal-id]]`proposal_id`, [[id-replan-id]]`replan_id`, [[id-follow-up-id]]`follow_up_id`
-|`^A-[0-9]+$`, `^AS-[0-9]+$`, `^O-[0-9]+$`, `^WR-[0-9]+$` (waiver request), `^FL-[0-9]+$` (failure envelope), `^EV-[0-9]+$` (evidence excerpt), `^BT-[0-9]+$` (screening batch), `^SP-[0-9]+$` (simplify proposal), `^RP-[0-9]+$` (re-planning), `^FU-[0-9]+$` (follow-up record), each at most 64.
+|[[id-record-counters]]`amendment_id`, `owed_id`, [[id-request-id]]`request_id`, [[id-failure-id]]`failure_id`, [[id-evidence-id]]`evidence_id`, [[id-batch-id]]`batch_id`, [[id-proposal-id]]`proposal_id`, [[id-replan-id]]`replan_id`, [[id-follow-up-id]]`follow_up_id`
+|`^A-[0-9]+$`, `^O-[0-9]+$`, `^WR-[0-9]+$` (waiver request), `^FL-[0-9]+$` (failure envelope), `^EV-[0-9]+$` (evidence excerpt), `^BT-[0-9]+$` (screening batch), `^SP-[0-9]+$` (simplify proposal), `^RP-[0-9]+$` (re-planning), `^FU-[0-9]+$` (follow-up record), each at most 64.
 |server
 |Plan (`batch_id`: plan, epic, or workspace scope)
 |Never reused; superseding records reference the superseded identifier
-|link:../store-schemas.adoc[Store Schemas] (Amendments, link:../store-schemas/03-findings-and-review-records.adoc#component-assessments[Component Assessments], link:../store-schemas/03-findings-and-review-records.adoc#owed-item-record[Owed Item Record], link:../store-schemas/14-plan-instance-waivers-questions.adoc#waiver-request-record[Waiver Request Record], link:../store-schemas/14-plan-instance-waivers-questions.adoc#evidence-directory[Evidence Directory & Failure Envelope], link:../store-schemas/15-screening-and-grants.adoc#screen-verdict-cache[Screen Verdict Cache], simplify proposals of a step firing link:../store-schemas/02-workflow-state-store.adoc[Workflow State Store], link:../store-schemas/17-re-planning.adoc#replan-record[Re-Planning Record]); `pm://plan/{plan_id}/evidence/{evidence_id}` link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools]
+|link:../store-schemas.adoc[Store Schemas] (Amendments, link:../store-schemas/03-findings-and-review-records.adoc#owed-item-record[Owed Item Record], link:../store-schemas/14-plan-instance-waivers-questions.adoc#waiver-request-record[Waiver Request Record], link:../store-schemas/14-plan-instance-waivers-questions.adoc#evidence-directory[Evidence Directory & Failure Envelope], link:../store-schemas/15-screening-and-grants.adoc#screen-verdict-cache[Screen Verdict Cache], simplify proposals of a step firing link:../store-schemas/02-workflow-state-store.adoc[Workflow State Store], link:../store-schemas/17-re-planning.adoc#replan-record[Re-Planning Record]); `pm://plan/{plan_id}/evidence/{evidence_id}` link:../../../../plan-marshall-documentation/doc/specification/mcp-tools.adoc[MCP Tools]
 
 |[[id-intent-item-id]]Intent item identifier
 |`^(AC|NG|CN|DC|AN|DF)-[0-9]{1,4}$` (criterion, non-goal, constraint, choice, assumption, deferred item), at most 7.
@@ -58,14 +58,14 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |`instance_version` of `mcp/status.json`, link:../store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas, Plan Instance]
 
 |[[id-composition-event]]`composition_event`
-|Closed enum: `start`, `outline`, `plan`, `config_adopted`, `waiver`, `override` (a plan's own value set while it runs, link:../workflow-dsl/09-plan-instance.adoc#plan-overrides[Workflow DSL, Plan Overrides]), `fallback`, `empty_harvest`, `replan`.
+|Closed enum: `start`, `outline`, `plan`, `realized` (the last plan task of the execute phase committed: the prunes on the realized change, link:../workflow-dsl/09-plan-instance.adoc#_versions_composition_events[Workflow DSL, Versions & Composition Events]), `config_adopted`, `waiver`, `override` (a plan's own value set while it runs, link:../workflow-dsl/09-plan-instance.adoc#plan-overrides[Workflow DSL, Plan Overrides]), `fallback`, `empty_harvest`, `replan`.
 |build
 |—
 |Closed; extended only with a schema version
 |Instance header and `composition.jsonl` link:../store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas, Plan Instance]
 
 |[[id-prune-reason]]Prune reason
-|Closed enum: `posture`, `provider_unconfigured`, `footprint_disjoint`, `change_type_exempt`, `local_only`, `land_lane`, `adopt`, `other_lane` (a state reachable only from the entry of the lane the plan did not choose, pruned from the `outline` event on, link:../workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL, Composition Rules]), `merge_by_operator`, `empty_harvest`, `returned`, `handed_back`, `plan_default` (a step the plan behaviour axes leave out, link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL, Plan Behaviour Axes]), `no_code_delta`, `no_production_delta` (a prunable step whose condition the plan's change does not meet, link:../phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows, Normative Step Catalogue]).
+|Closed enum: `posture`, `provider_unconfigured`, `local_only`, `land_lane`, `adopt`, `other_lane` (a state reachable only from the entry of the lane the plan did not choose, pruned from the `outline` event on, link:../workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL, Composition Rules]), `merge_by_operator`, `empty_harvest`, `returned`, `handed_back`, `plan_default` (a step the plan behaviour axes leave out, link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL, Plan Behaviour Axes]), `no_code_delta`, `no_production_delta` (a prunable step whose condition the plan's realized change does not meet, evaluated at the composition event `realized`, link:../phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows, Normative Step Catalogue]).
 |build (composition rules)
 |—
 |Closed; extended only with a schema version
@@ -305,7 +305,7 @@ link:../../Specification.adoc[Specification] » link:../identifiers.adoc[Identif
 |`pm_build.command` link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/02-service-and-skill-tools.adoc#_pm_build_enrolled_build_execution[MCP Tools]; canonical templates link:../domain-extensions.adoc[Domain Extensions]; budget keys link:../timeouts/01-job-budgets-and-waits.adoc#job-budgets[Timeouts & Budgets]
 
 |[[id-resolver-id]]Resolver and attributor identifier
-|`^[a-z][a-z0-9-]{0,31}$`, 1–32 (for example `maven`, `pyproject`, `python`, `lsp`).
+|`^[a-z][a-z0-9-]{0,31}$`, 1–32 (for example `maven`, `gradle`, `pyproject`, `lsp`).
 |build
 |Binary
 |Immutable; carried as edge and claim provenance

@@ -35,10 +35,6 @@ A part of the answer types `one` or `several` without a recommendation, or whose
 |`scope`
 |`0`.
 
-|`init.domain-choice` (`kind_domain_choice`)
-|`placement`
-|The top domain's share of the detection scores times `100`; `0` without a unique top score.
-
 |`outline.review` (`kind_outline_review`)
 |`scope`
 |`0`.

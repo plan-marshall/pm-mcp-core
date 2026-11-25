@@ -52,7 +52,7 @@ _Implementation watch: link:../../implementation-watch/phase-workflows.adoc#PM-W
 ** `unestablished`: the required set is empty because the roster question was never put (roster aggregate `unestablished`); it never passes as reviewed, and only a `review_evidence` waiver or the fallback ends it.
 ** `refused_awaitable`: a required bot refused with mode `rate` and the registry classifies its rate limit as an awaitable window.
 ** `refused_hard`: a required bot refused with mode `weekly_quota` or `unknown`, or with mode `rate` under a hard or unknown rate-limit class (spend cap, quota exhaustion); waiting cannot recover it.
-** `refused_structural`: a required bot refused with mode `size` (the diff exceeds the bot's structural cap).
+** `refused_structural`: a required bot refused with mode `size` (its own notice states that the change exceeds its limit).
 ** `no_unreviewed_commit`: a required bot refused with mode `no_unreviewed_commit`.
 ** `unproven`: a required bot's evidence is missing and cannot arrive: its poll budget, derived from the bot's registered interval, is exhausted, or its per-bot state fails fast (below).
 ** `not_configured` and `unestablished` arise only for an empty required set. When required bots differ, the first matching value in the order `refused_structural`, `refused_hard`, `running`, `pending`, `unproven`, `no_unreviewed_commit`, `refused_awaitable`, `completed` is the aggregate.
@@ -172,7 +172,7 @@ While the composite job runs, the daemon monitors the underlying jobs (the CI ru
 |`refused_structural`
 |`bot_refused_structural`
 |`finalize.remediate-review` (`call remediation.review-findings`)
-|The diff exceeds the bot's structural cap; the refusal is filed as a finding, which the unit's triage task dispositions like any finding of the firing (`ACCEPT` accepts, `SUPPRESS` disables the bot for this pull request; a split of the change is a re-planning, link:../phase-workflows/08-dynamic-re-planning.adoc#replan-existing-mechanisms[Phase Workflows Specification, Dynamic Re-Planning]). It never waits.
+|The bot's own notice states that the change exceeds its limit; the refusal is filed as a finding, which the unit's triage task dispositions like any finding of the firing (`ACCEPT` accepts, `SUPPRESS` disables the bot for this pull request). It never waits.
 
 |`passed`
 |`passed` / `not_run`

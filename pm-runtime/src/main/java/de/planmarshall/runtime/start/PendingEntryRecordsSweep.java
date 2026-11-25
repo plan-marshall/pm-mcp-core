@@ -59,14 +59,21 @@ import de.planmarshall.core.store.StoreRefusal;
  * completes reports how many directories it left gone, names every one of them, and names every entry it kept or could
  * not remove — the held and tampered ones and a directory whose discard was refused — in one report: an entry whose
  * record cannot be read, whose store path is refused, or whose directory the discard could not remove is named there,
- * and the step's outcome is a failure then, after the readable residue was removed. A fault of the removal itself is
- * reported with what the run had staged for removal, what it had removed and every entry it kept as they stood, so
- * that fault drops none of them, and it says how far the removal got: *staged* before the commit was called, so nothing
- * is committed and the next run re-judges every entry; *owed* with the commit entered and the workspace's journal
- * durable, so the recovery completes the removals; *undecided* with the commit entered and its journal gone, which
- * decides nothing because the commit deletes the journal as it closes; or *committed* once the commit returned, so the
+ * and the step's outcome is a failure then, after the readable residue was removed. A fault of the removal itself is a
+ * fault of one of the five types the step catches — {@link UncheckedIOException}, {@link IllegalArgumentException},
+ * {@link IllegalStateException}, {@link InternalFaultException} and {@link StoreRefusal} — and is reported with what the
+ * run had staged for removal, what it had removed and every entry it kept as they stood, so that fault drops none of
+ * them. A fault of another type is no part of that answer: it leaves {@link #run} uncaught, because only these five
+ * types are the faults a removal carries as its state. The report says how far the faulted removal got: staged before
+ * the commit was called, so nothing is committed and the next run re-judges every entry; owed with the commit entered
+ * and the workspace's journal durable, so the recovery completes the removals; undecided with the commit entered and no
+ * journal present — the commit deletes it as it closes, and a commit that fails before writing it leaves none, so its
+ * absence decides nothing — and the next run re-judges the directories; or committed once the commit returned, so the
  * removals are applied and only the directories remain. The discard's two refusals are caught per entry, so no refusal
- * of the discard is a fault of the run, and only a fault outside them reaches the committed arm (ADR runtime-start/016).
+ * of the discard is a fault of the run, and only a fault outside them reaches the committed arm. A fault of the lock's
+ * own release keeps the reach and the message a fault of the attempt had already built and reports itself beside them —
+ * by its message, or by its exception type when it carries none — because the release comes after another writer may
+ * have left the workspace's journal (ADR runtime-start/016).
  *
  * @since 0.1
  */
@@ -122,7 +129,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                     : remove(workspace, store, candidates, at);
         } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
                 | StoreRefusal e) {
-            var failure = new StringBuilder("pending entry directories not swept: ").append(e.getMessage());
+            var failure = new StringBuilder("pending entry directories not swept: ").append(described(e));
             if (!unreadable.isEmpty()) {
                 failure.append("; kept unreadable entries ").append(unreadable);
             }
@@ -143,22 +150,34 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      * A fault of the removal is no exception of this method but part of its answer: what the run had staged, removed
      * and kept travels into the report as it stood when the fault struck, with the entries whose directory it had not
      * deleted, and the answer says how far the removal got — staged before the commit was called, or entered with the
-     * workspace's journal durable (the recovery completes the removals) or gone (nothing here decides whether the
+     * workspace's journal durable (the recovery completes the removals) or absent (nothing here decides whether the
      * commit applied), or committed once its commit returned. The state lives outside the lock transaction, so a fault
-     * of the lock's own release carries it too.
+     * of the lock's own release carries it too; the reach and the message of a fault the attempt had already built are
+     * then kept, never re-read after the release, and the release fault is reported beside them.
      *
      * @return the directories that are gone, the entries the run kept, and the fault that stopped it
      */
+    // SonarCloud's symbolic execution does not model the try-with-resources close as a path out of the body, so it
+    // reads the removal the attempt returned as unreachable in the catch; the release fault is that path, the
+    // `first == null` conditional's `state.faultBeside(first, e)` arm (S2583). The method is the smallest scope the
+    // annotation allows that covers the flagged branch: the branch is a conditional inside the catch, and
+    // @SuppressWarnings can annotate neither a catch clause, a block nor a statement, so no narrower annotation — a
+    // local variable or a parameter — covers it.
+    @SuppressWarnings("java:S2583")
     private Removal remove(JournalScope workspace, PendingEntryStore store, List<EntryId> candidates, Instant at) {
         var state = new RemovalState();
+        Removal attempted = null;
         try (var lock = lockManager.openTransaction()) {
             lock.acquire(workspace.lockKey());
-            return attempt(lock, workspace, store, candidates, at, state);
+            attempted = attempt(lock, workspace, store, candidates, at, state);
+            return attempted;
         } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
                 | StoreRefusal e) {
             // A fault of opening, acquiring or releasing the lock: the state the removal reached travels with it, so
             // the directories already gone and the entries kept are never dropped by the lock's own release
-            return state.fault(e.getMessage(), workspace);
+            var first = attempted == null ? null : attempted.fault();
+            return first == null ? state.fault(e, workspace)
+                    : state.faultBeside(first, e);
         }
     }
 
@@ -189,7 +208,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
             return new Removal(state.removed, state.kept, null);
         } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
                 | StoreRefusal e) {
-            return state.fault(e.getMessage(), workspace);
+            return state.fault(e, workspace);
         }
     }
 
@@ -210,12 +229,28 @@ public final class PendingEntryRecordsSweep implements SweepStep {
         }
 
         /**
+         * @param stopped   the fault that stopped the removal
+         * @param workspace the workspace the reach is read from
          * @return the answer of a faulted removal: the state as it stood, with the entries whose directory the run had
          *         not deleted, and the reach the phase and the workspace's journal decide
          */
-        private Removal fault(String message, JournalScope workspace) {
+        private Removal fault(RuntimeException stopped, JournalScope workspace) {
             var pending = staged.stream().filter(entryId -> !removed.contains(entryId)).toList();
-            return new Removal(removed, kept, new Fault(message, pending, reach(workspace)));
+            return new Removal(removed, kept, new Fault(described(stopped), pending, reach(workspace)));
+        }
+
+        /**
+         * @param first   the fault the attempt had already built
+         * @param release the fault the lock's own release raised afterwards
+         * @return the answer of a faulted removal that keeps the first fault's message, its entries and its reach, with
+         *         the release fault reported beside it — because the release comes after another writer may have left
+         *         the workspace's journal, so reading the reach again there would turn an undecided removal into an
+         *         owed one. An exception that carries no message is named by its type, on the first fault
+         *         ({@link #fault}) and on the release fault alike
+         */
+        private Removal faultBeside(Fault first, RuntimeException release) {
+            var message = first.message() + "; the lock's release failed: " + described(release);
+            return new Removal(removed, kept, new Fault(message, first.pending(), first.reach()));
         }
 
         /**
@@ -276,8 +311,9 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                         .append(switch (removal.fault().reach()) {
                             case STAGED -> " were staged and not committed";
                             case OWED -> " are completed by the recovery of the workspace";
-                            case UNDECIDED -> " may have been committed: the commit was entered and its journal is"
-                                    + " gone, so the next run re-judges their directories";
+                            case UNDECIDED -> " may have been committed: the commit was entered and no journal of it is"
+                                    + " present, so nothing here decides whether its targets were written and the next"
+                                    + " run re-judges their directories";
                             case COMMITTED -> " are committed, and their directories remain";
                         });
             }
@@ -296,6 +332,24 @@ public final class PendingEntryRecordsSweep implements SweepStep {
 
     private static List<String> names(List<EntryId> entryIds) {
         return entryIds.stream().map(EntryId::value).toList();
+    }
+
+    /**
+     * Names a fault by its message, or by its exception type when it carries none, so that the fault text never prints
+     * {@code null} in place of a message. Of the five types a removal catches,
+     * {@link InternalFaultException} and {@link StoreRefusal} compose a non-null message in their constructors, so a
+     * missing one can only come of the other three.
+     * <p>
+     * The {@code run} catch needs no guard of its own: the only fault of these five types the candidate scan raises is
+     * the listing's {@link UncheckedIOException}, raised by {@link PendingEntryStore#entryIds()}, whose message is never
+     * {@code null}, so no input reaches that catch with a message-less fault.
+     *
+     * @param fault the fault to name
+     * @return its message, or the type label when there is none
+     */
+    private static String described(RuntimeException fault) {
+        var message = fault.getMessage();
+        return message == null ? fault.getClass().getSimpleName() + " with no message" : message;
     }
 
     /**
@@ -375,7 +429,8 @@ public final class PendingEntryRecordsSweep implements SweepStep {
         STAGED,
         /** The commit was entered and its journal is durable: the recovery of the workspace completes the removals. */
         OWED,
-        /** The commit was entered and its journal is gone: nothing here decides whether its targets were applied. */
+        /** The commit was entered and no journal of it is present: nothing here decides whether its targets were
+         * applied. */
         UNDECIDED,
         /** The transaction's commit returned: the staged removals are committed. */
         COMMITTED

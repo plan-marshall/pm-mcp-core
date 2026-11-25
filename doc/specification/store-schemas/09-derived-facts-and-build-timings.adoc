@@ -62,12 +62,6 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/store/derived-
 |`branch-cleanup` merge mechanism (an enforced queue is never bypassed); the merge-queue wait (link:../timeouts/01-job-budgets-and-waits.adoc#merge-queue-wait[Timeouts & Budgets Specification]); the eligibility of `setup-merge-queue` (link:../domain-extensions/04-setup-state-machine.adoc#setup-merge-queue[Domain Extensions Specification], `available` other than `no`; `indeterminate` or a stale fact counts as eligible)
 |none
 
-|`branch_up_to_date_required`
-|network
-|GitHub required status checks `strict` (ruleset `strict_required_status_checks_policy` or classic branch protection) of the base; GitLab `merge_method` `ff` or `rebase_merge`; Forgejo branch protection `block_on_outdated_branch`
-|whether the merge path rebases the plan branch before merging
-|none
-
 |`required_checks`
 |network
 |GitHub required status check contexts of the base; GitLab every pipeline job not `allow_failure`; Forgejo branch protection `status_check_contexts` while `enable_status_check`
@@ -100,7 +94,7 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/store/derived-
 
 |`git_native_capability`
 |local
-|repository configuration and files of the enrolled root: hooks (a non-sample file in `.git/hooks/`, `core.hooksPath`, `.husky/`, `lefthook.yml`, `.pre-commit-config.yaml`), commit signing (`commit.gpgSign`, `tag.gpgSign`) and the network fact `signed_commits_required`, `.gitattributes` filter drivers including LFS, `.gitmodules` submodules, `extensions.objectFormat` (SHA-256), `extensions.partialClone`, `core.sparseCheckout`, split index, `extensions.worktreeConfig`, and a remote that is SSH-only (no HTTPS mapping for its host). Value `{native_supported, reasons[]}`, each reason naming the feature (`hooks`, `signing`, `filter_driver`, `lfs`, `submodules`, `sha256_object_format`, `partial_clone`, `sparse_checkout`, `split_index`, `worktree_config`, `ssh_only_remote`) and the path or key that shows it
+|repository configuration and files of the enrolled root: hooks (`core.hooksPath` set in the effective configuration, repository, global, or system, or a non-sample executable file in the effective hooks directory: what `git` itself runs; a hook manager's own file such as `.husky/`, `lefthook.yml` or `.pre-commit-config.yaml` is no indicator), commit signing (`commit.gpgSign`, `tag.gpgSign`) and the network fact `signed_commits_required`, `.gitattributes` filter drivers including LFS, `.gitmodules` submodules, `extensions.objectFormat` (SHA-256), `extensions.partialClone`, `core.sparseCheckout`, split index, `extensions.worktreeConfig`, and a remote that is SSH-only (no HTTPS mapping for its host). Value `{native_supported, reasons[]}`, each reason naming the feature (`hooks`, `signing`, `filter_driver`, `lfs`, `submodules`, `sha256_object_format`, `partial_clone`, `sparse_checkout`, `split_index`, `worktree_config`, `ssh_only_remote`) and the path or key that shows it
 |`project.operator` (the native git variant is offered only while `native_supported`); every native git operation refuses with `capability_missing{reason}` naming the operator command that enrols the host tool and so selects the CLI variant, never falling back on its own; a newly found reason invalidates an effective native variant and the setup asks again
 |none
 
@@ -118,7 +112,7 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/store/derived-
 
 |`module_discovery`
 |local
-|descriptor tree hash
+|descriptor tree hash; per build system's discovery job also its enrolled job template, the captured build environment, and the build tool's user settings file the job reads
 |module discovery (link:../domain-extensions/03-module-discovery.adoc#_server_owned_module_discovery_enrolled_discovery_jobs[Domain Extensions Specification])
 |none
 
@@ -134,7 +128,7 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/store/derived-
 
 The value schemas of the two fact kinds `module_discovery` and `cost_calibration`. Both are local derivations, keyed by kind alone (no qualifier), and follow the entry rules above: deleting the store only forces a re-crawl and a recalibration.
 
-*`module_discovery`*: the structural snapshot of link:../domain-extensions/03-module-discovery.adoc#_server_owned_module_discovery_enrolled_discovery_jobs[Domain Extensions Specification, Server-Owned Module Discovery]. `input_digest` is the descriptor tree hash over the live descriptor content of the worktree the discovery ran in; the snapshot is a cache, never the gatekeeper (a module directory present on disk but absent from it is still discovered). Facts that only a lazy enrolled discovery job provides are added under the module when that job ran and are dropped with the snapshot when the digest changes.
+*`module_discovery`*: the structural snapshot of link:../domain-extensions/03-module-discovery.adoc#_server_owned_module_discovery_enrolled_discovery_jobs[Domain Extensions Specification, Server-Owned Module Discovery]. `input_digest` is the descriptor tree hash over the live descriptor content of the worktree the discovery ran in, the descriptor set of each build system listing every file its discovery job reads (link:../domain-extensions/03-module-discovery.adoc#_server_owned_module_discovery_enrolled_discovery_jobs[Domain Extensions Specification, In-Process Crawl vs. Lazy Discovery Jobs]); the snapshot is a cache, never the gatekeeper (a module directory present on disk but absent from it is still discovered). Facts that only a build system's discovery job provides (its plugins, source sets, profiles, and inter-module and external dependencies) are added under the module when that job ran, are keyed in addition by the digests of the job's enrolled template, of the captured build environment, and of the build tool's user settings file the job reads, are dropped when the descriptor tree hash or any of these digests changes, and are `unknown` while the job could not run.
 
 The schema of the `module_discovery` value is the file `fact-module-discovery.schema.json` in `pm-core/src/main/resources/de/planmarshall/core/store/`, beside the codec of the derived facts store, `DerivedFactsCodec`:
 

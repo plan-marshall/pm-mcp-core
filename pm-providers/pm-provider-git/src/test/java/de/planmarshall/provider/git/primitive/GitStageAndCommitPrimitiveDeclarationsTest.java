@@ -125,7 +125,8 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
     }
 
     // the message shapes are the contract: the detail of JGitOperations.failure(e) and a refusal detail, each beside a
-    // host path the fact must never carry
+    // host path the fact must never carry; several name an introducer a positive list of characters missed, and the tilde
+    // is the punctuation the fail-closed direction keeps as an introducer
     @ParameterizedTest(name = "detail \"{0}\"")
     @ValueSource(strings = {
             "java.io.IOException: /srv/git/worktrees/plan",
@@ -134,15 +135,26 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
             "refused }/srv/git/worktrees/plan",
             "refused >/srv/git/worktrees/plan",
             "refused `/srv/private/key`",
+            "refused {/srv/git/worktrees/plan",
+            "refused \u201c/srv/private/key\u201d",
+            "refused \u00a0/srv/git/worktrees/plan",
+            "refused ~/srv/private/key",
             "refused \\\\server\\share\\private",
-            "refused C:\\Users\\plan\\checkout"})
+            "refused C:\\Users\\plan\\checkout",
+            "refused {C:\\Users\\plan\\checkout",
+            "refused {\\\\server\\share\\private",
+            "refused {]/srv/git/worktrees/plan",
+            "refused \u0001/srv/git/worktrees/plan"})
     @DisplayName("a message that still names an absolute host path is carried as the outcome's code")
     void messageNamingAHostPathIsACode(String message) {
         var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
 
-        assertEquals("FAILED",
-                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
-                "A message naming a host path becomes the code");
+        assertAll("refusal of " + message,
+                () -> assertEquals(Outcome.FAILED, result.outcome(), "A message naming a host path fails"),
+                () -> assertEquals(Reason.COMMIT_FAILED, result.reason(), "The refusal carries commit_failed"),
+                () -> assertEquals("FAILED",
+                        result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                        "A message naming a host path becomes the code"));
     }
 
     @Test
@@ -168,16 +180,69 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
                 "A blank detail becomes the code");
     }
 
-    @Test
-    @DisplayName("a relative path inside a message stays as the message states it")
-    void relativePathInAMessageIsKept() {
-        var message = "file src/Main.java is not a file";
-
+    @ParameterizedTest(name = "relative name in \"{0}\"")
+    @ValueSource(strings = {"file src/Main.java is not a file", "file src/main/x is refused", "refused a/b"})
+    @DisplayName("a relative name inside a message stays as the message states it")
+    void relativePathInAMessageIsKept(String message) {
         var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
 
         assertEquals(message,
                 result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
                 "A relative path inside a message is kept");
+    }
+
+    // the pattern's stated residual: the introducer is the complement of the path-name characters, so a host path glued
+    // behind one reaches the fact; these cases pin the residual instead of closing it (ADR provider-git-primitive 011)
+    @ParameterizedTest(name = "residual \"{0}\"")
+    @ValueSource(strings = {
+            "refused -/srv/git/worktrees/plan",
+            "refused 1/srv/git/worktrees/plan",
+            "refused (x)/srv/git/worktrees/plan",
+            "refused ]/srv"})
+    @DisplayName("a host path glued behind a path-name character stays as the stated residual")
+    void gluedHostPathStaysAsStated(String message) {
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
+
+        assertEquals(message,
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "The glued host path is the pattern's stated residual");
+    }
+
+    // a segment that ends in a character that is no path-name character: its separator is read as absolute (ADR 011)
+    @ParameterizedTest(name = "segment end \"{0}\"")
+    @ValueSource(strings = {
+            "refused dir{/x",
+            "refused dir\\/x",
+            "refused dir\u0301/x",
+            "refused dir$/x",
+            "refused dir+/x",
+            "refused dir@/x",
+            "refused dir~/x",
+            "refused c++/src/main.cpp",
+            "refused dir\uD83D\uDE00/x"})
+    @DisplayName("a relative name whose segment ends in no path-name character is carried as the code")
+    void relativeNameEndingInANonPathCharacterIsACode(String message) {
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
+
+        assertAll("refused name " + message,
+                () -> assertEquals(Outcome.FAILED, result.outcome(), "The refused name fails the commit"),
+                () -> assertEquals(Reason.COMMIT_FAILED, result.reason(), "The refusal carries commit_failed"),
+                () -> assertEquals("FAILED",
+                        result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                        "A name ending outside the path characters becomes the code"));
+    }
+
+    // a segment that ends in a hyphen is a name character before the separator, as `.` and `_` are
+    @Test
+    @DisplayName("a relative name whose segment ends in a hyphen stays as the message states it")
+    void relativeHyphenatedNameIsKept() {
+        var message = "refused dir-/x.txt";
+
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
+
+        assertEquals(message,
+                result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                "A hyphen before the separator is no introducer");
     }
 
     // the bracket shapes are the contract ADR workflow-input/006 admits: a closing bracket before a one-segment
