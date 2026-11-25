@@ -34,7 +34,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 8 (rename of code already built: the intent record)
 
 |link:job-confinement-and-environment.adoc[`job-confinement-and-environment`]
-|Job confinement and job environment in the daemon
+|Job confinement and job environment in the daemon: the write and read sets with the narrower worker write set, and Build Egress and Build Read Set
 |`open`
 |`pm-mcp-clients` / `exec-read-denied-paths`; `pm-mcp-clients` / `exec-listed-read-set`; `pm-mcp-clients` / `exec-hardening`
 |Milestone 4
@@ -82,7 +82,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestones 7 and 10; the client work of `pm-mcp-clients`
 
 |link:project-onboarding-unit.adoc[`project-onboarding-unit`]
-|The onboarding of a project as one process, the project's values over the machine's, and the projects of the machine
+|The onboarding of a project as one process (the recording build with its egress hosts and credential files), the project's values over the machine's, and the projects of the machine
 |`open`
 |`job-confinement-and-environment` (the Build Egress and Build Read Set task)
 |Milestone 7; the client work of `pm-mcp-clients`
@@ -238,7 +238,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 14
 
 |link:build-parsers-and-gate-honesty.adoc[`build-parsers-and-gate-honesty`]
-|The native build output and coverage parsers, `failed_unparsed`, the gate honesty checks with their coverage facts and baseline separation, and the adaptive timeout and failure evidence
+|The native build output and coverage parsers, `failed_unparsed`, the gate honesty checks with their coverage facts and baseline separation, the build-neutral derivation of the freshness gate and the build row's new members, and the adaptive timeout and failure evidence
 |`open`
 |nothing
 |Milestone 6
@@ -268,7 +268,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 9
 
 |link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]
-|The finalize pipeline from re-entry to merge: verdict currency and the step records of a firing, the merge path's states, the Pre-Merge Review Barrier and its waivable gates, the composite wait, and the phase `sanity-check`
+|The finalize pipeline from re-entry to merge: verdict currency and the step records of a firing, the merge path's states, the Pre-Merge Review Barrier and its waivable gates, the composite wait, the pull-request author's title, the compiled-in review-bot records, and the phase `sanity-check`
 |`open`
 |`phase-sub-workflows` (the default units as phase sub-workflows, the simplify step); `domain-extensions-and-architecture`; `re-planning` (the `finalize.replan` call and the triggers it consumes)
 |Milestone 10
@@ -286,9 +286,9 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 10
 
 |link:initial-lane-router.adoc[`initial-lane-router`]
-|The initial planning-lane router with its `lane_route` record, the bound of the clarification batch, the builder check's overflow, and the outline review's revisions of a light plan; outside the window: starts when its milestone is planned
+|The initial planning-lane router with its `lane_route` record, the light gate `outline.light-gate`, the tie rule of `init.classify`, the bound of the clarification batch, the builder check's overflow, and the outline review's revisions of a light plan; outside the window: starts when its milestone is planned
 |`open`
-|`z3-deferred-code-removal`; `phase-sub-workflows` (the default units as phase sub-workflows, the outline record)
+|`z3-deferred-code-removal`; `phase-sub-workflows` (the default units as phase sub-workflows, the outline record); `domain-extensions-and-architecture` (the module graph of the light gate)
 |Milestone 8
 
 |link:finalize-prune-and-land-files.adoc[`finalize-prune-and-land-files`]

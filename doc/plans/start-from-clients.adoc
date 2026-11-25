@@ -19,7 +19,7 @@ The specification sections named are the single statement of what each task buil
 . *The other sources*: pull request, lesson with its premise check, and local changes: § Source Units; link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-record[Store Schemas § Lesson Record].
 . *The start's end*: the local changes under `landing.files` and the re-check at `start.create`: § Starting from the Clients.
 . *Room for the choice Chat* at `start.sources` and `start-epic.sources`, the entry's `chat/` kept: § Starting from the Clients.
-. *Asked when needed*: posture and base branch in `init.options`, and `epic.parallelization_scope` as the project's operator value: link:../specification/state-catalogue/09-bootstrap-and-lessons.adoc#options-when-needed[§ Asked When Needed]; link:../specification/store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas § Operator Local Configuration].
+. *Asked when needed*: posture and base branch in `init.options`, the posture with the shipped default `standard` preselected, and `epic.parallelization_scope` as the project's operator value: link:../specification/state-catalogue/09-bootstrap-and-lessons.adoc#options-when-needed[§ Asked When Needed]; link:../specification/store-schemas/08-project-configuration-local.adoc#local-config[Store Schemas § Operator Local Configuration].
 
 Left out: the rate limits, documents copy or move, the source directory, the screening, failing closed and the claimed lesson (link:start-source-intake.adoc[`start-source-intake`]); the landing variants (link:../Traceability.adoc#PM-WF-25[Traceability PM-WF-25]); the chat (link:chat.adoc[`chat`]); _Next plan_ (link:epic-resource-and-release.adoc[`epic-resource-and-release`]).
 
@@ -35,4 +35,4 @@ The starting set of the trace matrix of the project skill `traced-implementation
 == Done When
 
 * Watch: link:../implementation-watch/model-work.adoc#PM-WATCH-DISP-38[PM-WATCH-DISP-38].
-* Tests: no unit driven by a session and no answer with the channel `session`; one test per source kind; a plan and an epic from several sources; a pull request's changed files; a start refused before the machine's onboarding; each branch of a lesson source; `init.options` only where no level sets the values; the local changes under `landing.files` and the refusal at `start.create`.
+* Tests: no unit driven by a session and no answer with the channel `session`; one test per source kind; a plan and an epic from several sources; a pull request's changed files; a start refused before the machine's onboarding; each branch of a lesson source; `init.options` only where no level sets the values, the posture asked with `standard` preselected; the local changes under `landing.files` and the refusal at `start.create`.

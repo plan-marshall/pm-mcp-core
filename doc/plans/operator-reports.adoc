@@ -13,7 +13,7 @@ Status, milestone and dependencies:: in the link:README.adoc#packages[index], th
 The specification sections named are the single statement of what each task builds.
 
 . *The report record* and its identifier: link:../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#reports[Runtime Model § Reports to the Operator]; link:../specification/identifiers/02-registry-stores-to-web.adoc#id-report-id[Identifiers § `report_id`].
-. *The closed catalogue* of kinds with their subject texts and `detail`: § Reports to the Operator.
+. *The closed catalogue* of kinds with their subject texts and `detail`, with no `epic.overlap_found`: § Reports to the Operator.
 . *The sources*: each kind written once after its server transition committed, an owed report written at the next start: § Reports to the Operator; the transitions are those of the packages named under _Left out_.
 . *The store*, the journal with its events, its fold, its ids and the cleanup's rewrite: link:../specification/store-schemas/12-machine-stores.adoc#report-journal[Store Schemas § Report Journal].
 . *Read*, per machine with channel and device: § Reports to the Operator; § Report Journal.
