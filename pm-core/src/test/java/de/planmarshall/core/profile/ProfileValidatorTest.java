@@ -40,6 +40,10 @@ class ProfileValidatorTest {
 
     private static final String DOCUMENT = "profiles/acme-cli.json";
 
+    /** The seven numeric figures of {@code headless.usage}, the wire contract; the model is a pointer beside them. */
+    private static final List<String> USAGE_FIGURE_NAMES = List.of("input_tokens", "output_tokens", "cache_read",
+            "cache_creation", "reasoning", "cost_usd", "tool_uses");
+
     @Test
     @DisplayName("the valid fixture loads")
     void validProfileLoads() {
@@ -137,9 +141,7 @@ class ProfileValidatorTest {
     @DisplayName("the usage figures stay the seven numeric names and the model is no figure")
     void usageFiguresStayNumeric() {
         // The seven names are the wire contract of the figures; the model is a pointer beside them.
-        var expectedNames = List.of("input_tokens", "output_tokens", "cache_read", "cache_creation", "reasoning",
-                "cost_usd", "tool_uses");
-        assertEquals(expectedNames, ProfileStages.USAGE_FIGURES, "the usage figures are the seven numeric names");
+        assertEquals(USAGE_FIGURE_NAMES, ProfileStages.USAGE_FIGURES, "the usage figures are the seven numeric names");
         assertFalse(ProfileStages.USAGE_FIGURES.contains("model"), "the model is no usage figure");
     }
 
