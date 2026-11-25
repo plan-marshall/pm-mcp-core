@@ -79,9 +79,10 @@ class SupervisorEnvironmentRecordsTest {
         SupervisorEnvironment.EligibilityGate eligibilityGate =
                 createMock(SupervisorEnvironment.EligibilityGate.class);
 
+        var spacing = new HarnessStartSpacing();
         var constructed = new SupervisorEnvironment(projectId, enrolment, base, home, runtimeHome, relaySocket,
                 shimParagraph, skills, profile, harnessVerifier, composer, starter, stateWriter, jobTokens, slots,
-                protocol, audit, clock, timers, locks, startGuard, eligibilityGate);
+                protocol, audit, clock, timers, locks, startGuard, eligibilityGate, spacing);
         var built = SupervisorEnvironment.builder()
                 .projectId(projectId)
                 .enrolment(enrolment)
@@ -105,6 +106,7 @@ class SupervisorEnvironmentRecordsTest {
                 .locks(locks)
                 .startGuard(startGuard)
                 .eligibilityGate(eligibilityGate)
+                .spacing(spacing)
                 .build();
 
         assertEquals(constructed, built, "the builder builds the same supervisor environment");

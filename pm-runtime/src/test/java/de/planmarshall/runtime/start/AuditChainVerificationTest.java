@@ -100,7 +100,7 @@ class AuditChainVerificationTest {
 
             // the reason text is the contract of the constructor's refusal
             assertAll(
-                    () -> assertEquals("A first broken line is given exactly for link_broken, not for link_broken",
+                    () -> assertEquals("The reason link_broken is refused without a first broken line",
                             withoutLine.getMessage(), "the factory refusal names the reason"),
                     () -> assertEquals(withoutLine.getMessage(), nullLine.getMessage(),
                             "the null line is refused like the factory"));
@@ -117,7 +117,7 @@ class AuditChainVerificationTest {
                     "a line for a reason other than link_broken is refused");
 
             // the reason text is the contract of the constructor's refusal
-            assertEquals("A first broken line is given exactly for link_broken, not for " + reason.wireName(),
+            assertEquals("A first broken line is refused for the reason " + reason.wireName(),
                     refusal.getMessage(), "the refusal names the reason that has no line");
         }
 

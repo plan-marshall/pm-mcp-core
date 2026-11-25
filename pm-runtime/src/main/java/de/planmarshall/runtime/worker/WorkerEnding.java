@@ -90,6 +90,8 @@ public final class WorkerEnding {
     public synchronized void end(WorkerGeneration generation, EndCause cause) {
         Objects.requireNonNull(generation, GENERATION_ARGUMENT);
         Objects.requireNonNull(cause, "cause");
+        // a generation that ends before its first call releases the harness's start spacing, which the next start waits
+        environment.spacing().ended(generation.harness());
         if (requests.containsKey(generation.generationId())) {
             return;
         }

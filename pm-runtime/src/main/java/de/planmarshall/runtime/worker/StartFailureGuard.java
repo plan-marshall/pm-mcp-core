@@ -32,6 +32,12 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
  * and when the runtime refuses the launch before its spawn. A worker of a {@code zero_tool} role makes no call at all,
  * so it is never counted here: the supervisor consults the guard for a role that has a connection only.
  * <p>
+ * A launch the runtime refuses on the enrolment store — {@code harness_store_unreadable} or {@code harness_tampered} —
+ * is counted by {@code WorkerSupervisor} through {@link #startFailed}, because no worker of it spawned; a refusal of
+ * any other reason is a decision about that one start and counts nothing. A spawned worker that ended before its first
+ * call is counted when a guard is rebuilt from the supervisor's registry: the one end path records
+ * {@link EndCause#START_FAILURE} for it whatever the job's fate was, a kill or a cancellation included.
+ * <p>
  * The guard owns four transitions of the specification:
  * <ul>
  *   <li><em>Count</em>: {@link #startFailed} counts one failure per role and harness and reports it, bounded and
@@ -182,6 +188,7 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
      * @param harness the harness id of the harness
      * @throws NullPointerException if a value is {@code null}
      */
+    @Override
     public synchronized void firstCall(String role, String harness) {
         states.remove(new StartFailureState.Key(role, harness));
     }
@@ -201,6 +208,7 @@ public final class StartFailureGuard implements SupervisorEnvironment.StartGuard
      * @return the bounded, redacted report of this failure, which the assembly hands to its clients
      * @throws NullPointerException if the role or the harness is {@code null}
      */
+    @Override
     public synchronized StartFailureReport startFailed(String role, String harness, String logTail) {
         var key = new StartFailureState.Key(role, harness);
         var previous = states.getOrDefault(key, StartFailureState.OPEN);

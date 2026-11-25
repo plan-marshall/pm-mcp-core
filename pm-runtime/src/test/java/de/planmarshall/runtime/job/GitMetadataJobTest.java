@@ -151,6 +151,24 @@ class GitMetadataJobTest {
     }
 
     @Test
+    @DisplayName("the recorded git metadata depends on the report and the read-only path")
+    void theRecordedValueNeedsBothTheReportAndThePath() {
+        assertAll("only a reported value above a sent path is enforced",
+                () -> assertEquals(GitMetadata.ENFORCED,
+                        SubprocessJobRunner.gitMetadataFor(GitMetadata.ENFORCED, true),
+                        "a reported enforced above a sent path stays enforced"),
+                () -> assertEquals(GitMetadata.UNENFORCED,
+                        SubprocessJobRunner.gitMetadataFor(GitMetadata.ENFORCED, false),
+                        "no sent path refuses the enforced claim"),
+                () -> assertEquals(GitMetadata.UNENFORCED,
+                        SubprocessJobRunner.gitMetadataFor(GitMetadata.UNENFORCED, true),
+                        "a reported unenforced stays unenforced"),
+                () -> assertEquals(GitMetadata.UNENFORCED,
+                        SubprocessJobRunner.gitMetadataFor(null, true),
+                        "a report without the member records unenforced"));
+    }
+
+    @Test
     @DisplayName("a worker whose report names no member records unenforced")
     void workerWithoutMember() {
         var settled = settleWorker();

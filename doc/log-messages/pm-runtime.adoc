@@ -101,6 +101,8 @@
 |PM_RUNTIME-149 |The supervision pass could not advance generation '%s': %s
 |PM_RUNTIME-150 |The idle yield of the supervision pass failed: %s
 |PM_RUNTIME-151 |The terminal worker state of generation '%s' cannot be read: %s
+|PM_RUNTIME-152 |The facts of the held task '%s' of generation '%s' cannot be read: the hold ends without the notification
+|PM_RUNTIME-153 |The git metadata of '%s' is only partly composable: %d refused path(s), %d skipped record(s); %d path(s) are read-only for the worker
 |===
 
 === ERROR Level (200-299)

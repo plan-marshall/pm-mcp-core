@@ -207,7 +207,7 @@ class AnswerSchemaTest {
         var check = AnswerSchema.validate(parse(schema), parse(answer));
 
         assertAll(
-                () -> assertFalse(check.valid(), "a schema outside the subset is refused"),
+                () -> assertFalse(check.valid(), "the case's refusal is returned, not a pass"),
                 () -> assertEquals(detail, check.detail(), "the refusal names the bound it applies"));
     }
 
@@ -224,7 +224,45 @@ class AnswerSchemaTest {
                 Arguments.of("a reference outside the document", "{\"$ref\":\"https://example.com/a.json\"}", "{}",
                         "/: the result schema refers to 'https://example.com/a.json'"),
                 Arguments.of("an array below minItems", "{\"type\":\"array\",\"minItems\":2}", "[1]",
-                        "/: the array has fewer than 2 items"));
+                        "/: the array has fewer than 2 items"),
+                Arguments.of("a bound beyond the int range", "{\"type\":\"array\",\"minItems\":4294967296}", "[]",
+                        "/: the result schema's 'minItems' is not an integer bound the check enforces"),
+                Arguments.of("a bound that is not an integer", "{\"type\":\"array\",\"minItems\":2.0}", "[]",
+                        "/: the result schema's 'minItems' is not an integer bound the check enforces"),
+                Arguments.of("a bound that is not a number", "{\"type\":\"number\",\"minimum\":\"1\"}", "2",
+                        "/: the result schema's 'minimum' is not a number the check enforces"),
+                Arguments.of("a required of another kind", "{\"required\":\"verdict\"}", "{}",
+                        "/: the result schema's 'required' is not an array"),
+                Arguments.of("a properties of another kind", "{\"properties\":[]}", "{}",
+                        "/: the result schema's 'properties' is not an object"),
+                Arguments.of("an enum of another kind", "{\"enum\":\"clean\"}", "\"clean\"",
+                        "/: the result schema's 'enum' is not an array"),
+                Arguments.of("an items of another kind", "{\"type\":\"array\",\"items\":[]}", "[]",
+                        "/: the result schema's 'items' is not an object"));
+    }
+
+    @Test
+    @DisplayName("the keyword guard is returned before the $ref branch")
+    void keywordGuardPrecedesReference() {
+        var check = AnswerSchema.validate(
+                parse("{\"$ref\":\"https://example.com/a.json\",\"patternProperties\":{}}"), parse("{}"));
+
+        assertAll(
+                () -> assertFalse(check.valid(), "a schema outside the subset is refused"),
+                () -> assertEquals("/: the result schema uses the unsupported keyword 'patternProperties'",
+                        check.detail(), "the keyword guard wins over the reference branch"));
+    }
+
+    @Test
+    @DisplayName("the const refusal is returned before the enum refusal")
+    void constRefusalPrecedesEnumRefusal() {
+        var check = AnswerSchema.validate(parse("{\"const\":\"clean\",\"enum\":[\"suspicious\"]}"),
+                parse("\"other\""));
+
+        assertAll(
+                () -> assertFalse(check.valid(), "an answer outside const and enum is refused"),
+                () -> assertEquals("/: the answer is not the schema's const value", check.detail(),
+                        "the const refusal wins over the enum refusal"));
     }
 
     @Test

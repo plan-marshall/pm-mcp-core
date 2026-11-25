@@ -10,6 +10,7 @@
 package de.planmarshall.runtime.launch;
 
 import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.shortWords;
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -24,12 +25,16 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.runtime.enrolment.EnrolmentHmac;
 import de.planmarshall.runtime.enrolment.EnrolmentKey;
@@ -127,31 +132,52 @@ class HarnessEnrolmentStoreTest {
                 "only the new client is in the re-baselined store");
     }
 
-    @Test
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("malformedEntries")
     @DisplayName("an entry without a required object member is refused, not read as empty")
-    void malformedMembers() throws Exception {
-        var withoutEvents = entryDocument("");
-        assertUnreadable(withoutEvents);
-        assertUnreadable(entryDocument(",\"events\":\"not-an-object\""));
-        assertUnreadable(entryDocument(",\"events\":{\"text\":5}"));
-        assertUnreadable(entryDocument(",\"events\":{},\"weights\":[]"));
-    }
+    void malformedMembers(String name, String tail, String member) throws Exception {
+        writeVerifiable(entryDocument(tail));
 
-    private void assertUnreadable(String document) throws Exception {
-        writeVerifiable(document);
         var refusal = assertThrows(HarnessEnrolmentStore.StoreException.class, () -> store.find("claude"),
                 "a malformed store document is refused");
-        assertEquals(HarnessEnrolmentStore.Refusal.UNREADABLE, refusal.refusal(),
-                "the malformed document is refused as unreadable");
+
+        assertAll(
+                () -> assertEquals(HarnessEnrolmentStore.Refusal.UNREADABLE, refusal.refusal(),
+                        "the malformed document is refused as unreadable"),
+                () -> assertTrue(refusal.getMessage().contains(member),
+                        "the refusal names the malformed member"));
     }
 
-    @Test
+    static Stream<Arguments> malformedEntries() {
+        return Stream.of(
+                Arguments.of("the events member is absent", "", "events"),
+                Arguments.of("the events member is not an object", ",\"events\":\"not-an-object\"", "events"),
+                Arguments.of("the events member is empty", ",\"events\":{\"text\":5}", "text"),
+                Arguments.of("the weights member is an array", ",\"events\":{},\"weights\":[]", "weights"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("topLevelDocuments")
     @DisplayName("a missing, null or non-object top-level harnesses is refused, not read as empty")
-    void topLevelHarnessesRefused() throws Exception {
-        assertUnreadable("{\"format_version\":1}");
-        assertUnreadable("{\"format_version\":1,\"harnesses\":null}");
-        assertUnreadable("{\"format_version\":1,\"harnesses\":[]}");
-        assertUnreadable("{\"format_version\":1,\"harnesses\":\"claude\"}");
+    void topLevelHarnessesRefused(String name, String document) throws Exception {
+        writeVerifiable(document);
+
+        var refusal = assertThrows(HarnessEnrolmentStore.StoreException.class, () -> store.find("claude"),
+                "a store without its harnesses object is refused");
+
+        assertAll(
+                () -> assertEquals(HarnessEnrolmentStore.Refusal.UNREADABLE, refusal.refusal(),
+                        "the store is refused as unreadable"),
+                () -> assertTrue(refusal.getMessage().contains("harnesses"),
+                        "the refusal names the harnesses member"));
+    }
+
+    static Stream<Arguments> topLevelDocuments() {
+        return Stream.of(
+                Arguments.of("the harnesses member is absent", "{\"format_version\":1}"),
+                Arguments.of("the harnesses member is null", "{\"format_version\":1,\"harnesses\":null}"),
+                Arguments.of("the harnesses member is an array", "{\"format_version\":1,\"harnesses\":[]}"),
+                Arguments.of("the harnesses member is a string", "{\"format_version\":1,\"harnesses\":\"claude\"}"));
     }
 
     @Test
@@ -172,6 +198,14 @@ class HarnessEnrolmentStoreTest {
         var restricted = PosixFilePermissions.fromString("rw-------");
         Files.setPosixFilePermissions(file, restricted);
         Files.setPosixFilePermissions(sidecar, restricted);
+    }
+
+    private void assertUnreadable(String document) throws Exception {
+        writeVerifiable(document);
+        var refusal = assertThrows(HarnessEnrolmentStore.StoreException.class, () -> store.find("claude"),
+                "a malformed store document is refused");
+        assertEquals(HarnessEnrolmentStore.Refusal.UNREADABLE, refusal.refusal(),
+                "the malformed document is refused as unreadable");
     }
 
     /**

@@ -191,6 +191,8 @@ final class SupervisorTestFixture {
     /** The virtual clock every deadline is measured against; a scenario moves it explicitly. */
     final VirtualClock clock = new VirtualClock(NOW);
 
+    /** The start spacing of the fixture harness; a test lowers its bound to see a wait without the compiled 30 s. */
+    HarnessStartSpacing spacing = new HarnessStartSpacing();
     /** The timers of the environment; a scenario drives them through the same virtual clock. */
     WorkerTimers timers = clock;
 
@@ -236,7 +238,7 @@ final class SupervisorTestFixture {
                 base.resolve("run").resolve("pm.sock"), SHIM, skillSource, profile, verifier, new LaunchComposer(),
                 starter, stateWriter, jobTokens, slots, protocol, eventSink, clock, timers,
                 new FileLockManager(event -> {
-                }), guard, gate);
+                }), guard, gate, spacing);
     }
 
     /** @return a role of the fixture harness with the given class, form and count */

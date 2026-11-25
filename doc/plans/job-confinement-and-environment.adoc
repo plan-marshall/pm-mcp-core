@@ -45,6 +45,8 @@ package leaves:
 * *The production start of `WorkerEgressProxy`* for a worker generation, and the producer of the `egress` entries: the
   supervisor passes no proxy URL today, and a proxy started without a platform that forces the route is configured, not
   enforced (link:../specification/job-runtime/02-confinement-and-environment.adoc#worker-egress[§ Worker Egress Proxy]).
+  That producer must bound and shape the text before it builds the entry: the proxy passes the request-line token up to
+  8 KiB, while `ActivityEntry.Egress` accepts only 3 to 259 characters and refuses a line break.
 * *The operator's acceptance of unenforced egress* — where it is stored, the name and fields of its audit record, the
   command of each client and how it is withdrawn — and *the admission gate* that refuses a worker until it is accepted.
 * *The runtime status line* for the egress state, and the bound on the journal's growth when a worker keeps asking for a

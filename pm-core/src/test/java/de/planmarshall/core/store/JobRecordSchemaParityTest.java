@@ -141,6 +141,35 @@ class JobRecordSchemaParityTest {
     }
 
     @Test
+    @DisplayName("the kind rules hold the egress, the git metadata and the worker to the kind")
+    void kindRulesEqualSchema() {
+        var allOf = SchemaResource.array(schema.get("allOf"));
+        var llm = SchemaResource.object(allOf.getFirst());
+        var llmThen = SchemaResource.object(llm.get("then"));
+        var llmElse = SchemaResource.object(llm.get("else"));
+        var probe = SchemaResource.object(allOf.get(1));
+        var probeThen = SchemaResource.object(probe.get("then"));
+
+        assertAll("the kind rules are the schema's",
+                () -> assertEquals(2, allOf.size(), "the schema declares two kind rules"),
+                () -> assertEquals("llm", constOf(llm, "if", "kind"), "the first rule is the llm kind"),
+                () -> assertEquals("probe", constOf(probe, "if", "kind"), "the second rule is the probe kind"),
+                () -> assertEquals("object", typeOf(llmThen, "worker"), "an llm job carries a worker block"),
+                () -> assertEquals("process", constOf(llm, "then", "execution"), "an llm job runs as a process"),
+                () -> assertEquals(Set.of("project", "machine"), enumAt(llmThen, "scope", "type"),
+                        "an llm job is scoped to a project or the machine"),
+                () -> assertEquals("string", typeOf(llmThen, "egress"), "an llm job carries an egress value"),
+                () -> assertEquals("string", typeOf(llmThen, "git_metadata"),
+                        "an llm job carries a git metadata value"),
+                () -> assertEquals("null", typeOf(llmElse, "worker"), "another kind carries no worker block"),
+                () -> assertEquals("null", typeOf(llmElse, "egress"), "another kind carries no egress value"),
+                () -> assertEquals("null", typeOf(llmElse, "git_metadata"), "another kind carries no git metadata"),
+                () -> assertEquals("process", constOf(probe, "then", "execution"), "a probe job runs as a process"),
+                () -> assertEquals(Set.of("machine", "entry"), enumAt(probeThen, "scope", "type"),
+                        "a probe job is scoped to the machine or an entry"));
+    }
+
+    @Test
     @DisplayName("the confinement and job id patterns, the format version and the outcome rows are the schema's")
     void patternsEqualSchema() {
         var confinements = Arrays.stream(Confinement.values())
@@ -237,6 +266,22 @@ class JobRecordSchemaParityTest {
 
     private static Map<?, ?> member(String name) {
         return SchemaResource.object(properties.get(name));
+    }
+
+    private static Object constOf(Map<?, ?> rule, String branch, String name) {
+        return SchemaResource.object(
+                SchemaResource.object(SchemaResource.object(rule.get(branch)).get("properties")).get(name))
+                .get("const");
+    }
+
+    private static Object typeOf(Map<?, ?> branch, String name) {
+        var member = SchemaResource.object(SchemaResource.object(branch.get("properties")).get(name));
+        return member.get("type");
+    }
+
+    private static Set<String> enumAt(Map<?, ?> branch, String object, String name) {
+        var owner = SchemaResource.object(SchemaResource.object(branch.get("properties")).get(object));
+        return enumOf(SchemaResource.object(owner.get("properties")), name);
     }
 
     private static List<String> keys(Map<?, ?> object) {
