@@ -44,7 +44,6 @@ The per-project machine store `<PM_MCP_BASE>/projects/<project_id>/` is the one 
 │       │       └── <queue_task_id>.jsonl.lock  # Sidecar the journal leaf key's OS lock is taken on (mode 0600)
 │       ├── findings.jsonl
 │       ├── analysis.jsonl               # Observations of the code analysis providers (gate result, issue counts)
-│       ├── assessments.jsonl            # Append-only component assessments (never findings)
 │       ├── review-participation.jsonl   # Per-round review-bot participation records
 │       ├── metrics.json                 # Task usage rows and phase measurements (record-metrics)
 │       ├── quality-report.json          # Post-run quality report (plan-retrospective)

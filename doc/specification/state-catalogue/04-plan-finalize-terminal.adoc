@@ -169,7 +169,7 @@ This part lists the start, the settle band (orders `3..10`), push and pull reque
 |`phase-6-finalize`
 |`job`
 |`finalize.next-step` (step `default:create-pr`, order `20`; pruned for local-only plans, for the `adopt` lane, and with reason `plan_default` for `landing.main` and `landing.files`).
-|`job llm pr-body role pr-author`: the entity offers `retitle` (`submit`, `pr_title:text[1..72]`) first while `pr_title_stale` is set, then `submit` of `body:text[1..32768]` (the server injects `pr_title`, the unplanned changes, amendments, and gaps), rejected with `invalid_link_args` (detail `pr_title_missing`) while `pr_title` is empty. The return evaluation persists the body; the provider call runs in `finalize.open-pr`.
+|`job llm pr-body role pr-author`: the entity offers `submit` of `pr_title:text[1..72]` and `body:text[1..32768]` (the recorded `pr_title` in `facts`, keepable verbatim; the server injects the unplanned changes, amendments, and gaps into the body). The return evaluation persists the title and the body; the provider call runs in `finalize.open-pr`.
 |`submitted` -> `finalize.open-pr`; `infeasible`, `lost` -> `finalize.hand-back` (a draft pull request with the server-composed body).
 |link:../phase-workflows/04-finalize-step-bands.adoc#_normative_step_catalogue_across_ordering_bands[Phase Workflows Specification, Step Catalogue row `20`]
 

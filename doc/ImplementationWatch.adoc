@@ -28,7 +28,7 @@ The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtim
 
 |link:implementation-watch/phase-workflows.adoc[Phase Workflows]
 |`PHASE`, `GEN`
-|121
+|120
 |link:specification/phase-workflows.adoc[Phase Workflows & Finalize Specification]
 
 |link:implementation-watch/model-work.adoc[Model Work]
@@ -48,7 +48,7 @@ The runtime-lifecycle watch keeps its `RUN` items, a code shared with the runtim
 
 |link:implementation-watch/store-schemas.adoc[Store Schemas]
 |`STORE`
-|53
+|52
 |link:specification/store-schemas.adoc[Store Schemas Specification]
 
 |link:implementation-watch/job-runtime.adoc[Job Runtime]

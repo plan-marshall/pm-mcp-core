@@ -24,16 +24,16 @@ The init questions are server-raised question records of class `init`, asked as 
 |[[state-init.classify]]`init.classify`
 |`phase-1-init`
 |`auto`
-|The plan's creation by its start (`start.create`, or `start.launch` for a plan of an epic; start state of the phase `init`, which the plan unit calls first); every answer of `init.sibling-collision`, `init.domain-choice`; `init.options` (`set`).
-|Re-entrant: raises the next unanswered init question in fixed order (sibling collision, domain, the plan's open options), never re-asks an answered one, and never rewrites a write-once output. Runs in fixed order: workflow settings resolution, initial planning-lane router (which reads the resolved `minimum_lane`), sibling collision detector (a `land` or `adopt` plan only), `main_sha` base stamp. The lesson premise was checked by `source-lesson` before the plan existed; its evidence is an `amendments[]` entry (`source: fact`) when the operator used the lesson despite a resolved or invalid premise. The posture is asked where the lane is chosen: the plan's own value, else the project's or the machine's, else `init.options` asks it; its prunes (reason `posture`) compose an instance version. For source `local_changes`: collision detector and settings only. For source `pr`: sets the closed `planning_lane` value `adopt` (fixed at creation, outside the lane ratchet, like `land`), takes the pull request's changed files as `declared_files`, runs the collision detector over them (an overlap raises `init.sibling-collision` like every source), settings, and base stamp; the plan instance carries the finalize steps (no tasks).
-|`init.sibling-collision`; `init.domain-choice` (ambiguous domain); `options_open` (an option the plan needs here that neither the plan, the project, nor the machine sets) -> `init.options`; `init.ready` (no question open); `returned` (an answer whose effect is the `returned` route) -> `plan.return`.
+|The plan's creation by its start (`start.create`, or `start.launch` for a plan of an epic; start state of the phase `init`, which the plan unit calls first); every answer of `init.sibling-collision`; `init.options` (`set`).
+|Re-entrant: raises the next unanswered init question in fixed order (sibling collision, the plan's open options), never re-asks an answered one, and never rewrites a write-once output. Runs in fixed order: workflow settings resolution, initial planning-lane router (which reads the resolved `minimum_lane`), sibling collision detector (a `land` or `adopt` plan only), `main_sha` base stamp. The lesson premise was checked by `source-lesson` before the plan existed; its evidence is an `amendments[]` entry (`source: fact`) when the operator used the lesson despite a resolved or invalid premise. The posture is asked where the lane is chosen: the plan's own value, else the project's or the machine's, else `init.options` asks it; its prunes (reason `posture`) compose an instance version. For source `local_changes`: collision detector and settings only. For source `pr`: sets the closed `planning_lane` value `adopt` (fixed at creation, outside the lane ratchet, like `land`), takes the pull request's changed files as `declared_files`, runs the collision detector over them (an overlap raises `init.sibling-collision` like every source), settings, and base stamp; the plan instance carries the finalize steps (no tasks).
+|`init.sibling-collision`; `options_open` (an option the plan needs here that neither the plan, the project, nor the machine sets) -> `init.options`; `init.ready` (no question open); `returned` (an answer whose effect is the `returned` route) -> `plan.return`.
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_deterministic_init_classifiers_workflow_settings[Phase Workflows Specification, Deterministic Init Classifiers], link:../phase-workflows/01-planning-phases-1-2.adoc#initial-lane-router[Initial Planning-Lane Router]; link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Plan Source Contracts]
 
 |[[state-init.options]]`init.options`
 |`phase-1-init`
 |`operator_wait`
 |`init.classify` (`options_open`).
-|The plan's options that it needs at this point and no level sets, each with its proposal preselected (link:../../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-1[UC-STA-1]): the posture, asked while neither the plan's settings nor the project's or the machine's optional `plan_defaults.posture` sets one, and the base branch, needed by the base stamp. `set` (the values, each written to the plan's overrides as an operator act, composition event `override`, link:../workflow-dsl/09-plan-instance.adoc#plan-overrides[Workflow DSL Specification, Plan Overrides]); an option the operator sets earlier in the plan's settings is not asked.
+|The plan's options that it needs at this point and no level sets, each with its proposal preselected (link:../../../../plan-marshall-documentation/doc/use-cases/05-starting-work.adoc#UC-STA-1[UC-STA-1]): the posture, asked while neither the plan's settings nor the project's or the machine's optional `plan_defaults.posture` sets one (the shipped default `standard` preselected), and the base branch, needed by the base stamp. `set` (the values, each written to the plan's overrides as an operator act, composition event `override`, link:../workflow-dsl/09-plan-instance.adoc#plan-overrides[Workflow DSL Specification, Plan Overrides]); an option the operator sets earlier in the plan's settings is not asked.
 |`set` -> `init.classify`.
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows Specification, Plan Source Contracts]
 
@@ -45,15 +45,6 @@ The init questions are server-raised question records of class `init`, asked as 
 |`call decision`: options `proceed` (`recommended`) and `return`. `facts`: the overlapping plans, modules, and paths.
 |`answered` -> `init.classify` (`return` leaves it `returned`); `withdrawn` -> this state (asked anew).
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_deterministic_init_classifiers_workflow_settings[Phase Workflows Specification, Deterministic Init Classifiers item 3]
-
-|[[state-init.domain-choice]]`init.domain-choice`
-|`phase-1-init`
-|`call`
-|`init.classify` (the domain detection is ambiguous).
-|`call decision`: options the candidate domains, the one with a unique top score `recommended`.
-|`answered` -> `init.classify`; `withdrawn` -> this state (asked anew).
-|link:../phase-workflows/01-planning-phases-1-2.adoc#_deterministic_init_classifiers_workflow_settings[Phase Workflows Specification, Deterministic Init Classifiers]
-
 
 |[[state-init.ready]]`init.ready`
 |`phase-1-init`
@@ -118,7 +109,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`phase-2-refine`
 |`job`
 |`refine.analyze` (`qgate`: lesson-derived deep-lane plans only); `refine.builder-check` (`continue`, for such a plan).
-|`job llm qgate role qgate` (entity `submit:qgate` of assessments and findings), whose return-evaluation primitive runs the compiled mechanical checks (narrative vs code) and decides from the persisted findings alone: `stale` findings are non-blocking, `invalid` ones blocking.
+|`job llm qgate role qgate` (entity `submit:qgate` of findings), whose return-evaluation primitive runs the compiled mechanical checks (narrative vs code) and decides from the persisted findings alone: `stale` findings are non-blocking, `invalid` ones blocking.
 |`clean` -> `refine.ready`; `blocking` -> `refine.remediate-qgate`; `infeasible`, `lost` (no verdict) -> `plan.return`.
 |link:../phase-workflows/03-q-gate-and-execute.adoc#_q_gate_validation_loop[Phase Workflows Specification, Q-Gate Validation Loop]
 
@@ -150,7 +141,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`phase-3-outline`
 |`job`
 |The phase's entry `start` (the phase `refine` ended with its exit `ready`: `refine.ready`); `outline.awaiting_answers` (the single second task); the phase's entry `rework` (the deep lane's rework call `phases.outline-rework`, xref:18-plan-unit-axes-short-landings.adoc#state-catalogue-plan-unit[Plan Unit]), among them the `loop_back_outline` of `plan.derive-tasks` (`derivation_failed`), whose failure is a blocking `3-outline` finding the reworked outline answers.
-|`job llm outline role outline` (after a loop-back from Phase 5 the task's worker runs in the kept plan worktree): the entity submits `submit:outline` (`outline:schema[outline-record]`, open questions in the optional `decision:schema[decision-envelope]?`); full discovery, ADR scan, consumer sweeps. The submit primitive validates the outline before accepting it (`OutlineValidator`: intent markers, six-bucket classifier, the read-only refusal of `analysis` and `verification` deliverables, the task-derivation dry-run; then the single domain narrowing pass, which may set `pr_title_stale`, and the derivation of the plan's `change_type` from the deliverables, link:../phase-workflows/03-q-gate-and-execute.adoc#change-type-derivation[Phase Workflows Specification, Server-Derived `change_type`]); a refusal, including a non-derivable outline, is `invalid_link_args`, a `rejected` representation of this state. An unchanged outline in a remediation pass is refused `fix_unchanged`.
+|`job llm outline role outline` (after a loop-back from Phase 5 the task's worker runs in the kept plan worktree): the entity submits `submit:outline` (`outline:schema[outline-record]`, open questions in the optional `decision:schema[decision-envelope]?`); full discovery, ADR scan, consumer sweeps. The submit primitive validates the outline before accepting it (`OutlineValidator`: intent markers, six-bucket classifier, the read-only refusal of `analysis` and `verification` deliverables, the task-derivation dry-run; then the single domain narrowing pass and the derivation of the plan's `change_type` from the deliverables, link:../phase-workflows/03-q-gate-and-execute.adoc#change-type-derivation[Phase Workflows Specification, Server-Derived `change_type`]); a refusal, including a non-derivable outline, is `invalid_link_args`, a `rejected` representation of this state. An unchanged outline in a remediation pass is refused `fix_unchanged`.
 |Return evaluation: `accepted` -> `outline.qgate` (also with open questions on the second pass, listed in the outline gate's `facts`); `bypass` (accepted, the surgical bypass holds) -> `outline.gate`; `ask` (open questions on the first pass) -> `outline.awaiting_answers`; `infeasible`, `lost` -> `plan.return`.
 |link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#planning-lanes[Phase Workflows Specification, Planning Lanes]; link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#outline-validation-gate[Phase 3 Validation Rules]
 
@@ -183,7 +174,7 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`phase-3-outline`
 |`job`
 |`outline.deep` (`accepted`).
-|`job llm qgate role qgate` (entity `submit:qgate` of assessments and findings), whose return-evaluation primitive runs the compiled mechanical checks and decides from the persisted findings alone.
+|`job llm qgate role qgate` (entity `submit:qgate` of findings), whose return-evaluation primitive runs the compiled mechanical checks and decides from the persisted findings alone.
 |`clean` -> `outline.gate`; `blocking` -> `outline.remediate-qgate`; `infeasible`, `lost` (no verdict) -> `plan.return`.
 |link:../phase-workflows/03-q-gate-and-execute.adoc#_q_gate_validation_loop[Phase Workflows Specification, Q-Gate Validation Loop]
 
