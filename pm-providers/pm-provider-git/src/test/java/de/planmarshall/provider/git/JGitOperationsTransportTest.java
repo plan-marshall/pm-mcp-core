@@ -67,7 +67,8 @@ class JGitOperationsTransportTest extends JGitOperationsFixtures {
     void pushFetchReject() throws Exception {
         String head = git.open(repo).value().head();
         var pushed = push(repo, null);
-        assertEquals(GitOutcome.OK, pushed.outcome(), "the first push is accepted");
+        assertAll(pushed.detail(),
+                () -> assertEquals(GitOutcome.OK, pushed.outcome(), "the first push is accepted"));
         assertEquals(head, pushed.value().newId(), "the remote now holds the head");
 
         Path other = temp.resolve("other");
@@ -75,7 +76,9 @@ class JGitOperationsTransportTest extends JGitOperationsFixtures {
                 .call().close();
         Files.writeString(other.resolve(file()), text());
         CommitInfo otherCommit = commitIn(other, text());
-        assertEquals(GitOutcome.OK, push(other, head).outcome(), "lease on the expected head holds");
+        var leased = push(other, head);
+        assertAll(leased.detail(),
+                () -> assertEquals(GitOutcome.OK, leased.outcome(), "lease on the expected head holds"));
 
         write(file(), text());
         commit(text());
@@ -84,7 +87,8 @@ class JGitOperationsTransportTest extends JGitOperationsFixtures {
         assertEquals(GitOutcome.REJECTED_LEASE, push(repo, head).outcome(), "a stale lease is rejected");
 
         var fetched = git.fetch(new RemoteInput(repo, ORIGIN, List.of(), null));
-        assertEquals(GitOutcome.OK, fetched.outcome(), "the fetch from the remote succeeds");
+        assertAll(fetched.detail(),
+                () -> assertEquals(GitOutcome.OK, fetched.outcome(), "the fetch from the remote succeeds"));
         assertEquals(otherCommit.id(), fetched.value().stream()
                 .filter(u -> ("refs/remotes/" + ORIGIN + "/" + branch).equals(u.ref())).findFirst().orElseThrow()
                 .newId(), "the tracking ref holds the other clone's commit");

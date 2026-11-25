@@ -306,10 +306,10 @@ class TaskQueueSchemaParityTest {
             assertAll(
                     () -> assertValid(validator, ActivityEntryCodec.write(entry)),
                     () -> assertEquals(ActivityEntry.MODEL_BOUND, ((Number) SchemaResource.object(
-                                    member(schema, "launch_model")).get("maxLength")).intValue(),
+                            member(schema, "launch_model")).get("maxLength")).intValue(),
                             "the launch model ceiling is the record's"),
                     () -> assertEquals(ActivityEntry.MODEL_BOUND, ((Number) SchemaResource.object(
-                                    member(schema, "served_model")).get("maxLength")).intValue(),
+                            member(schema, "served_model")).get("maxLength")).intValue(),
                             "the served model ceiling is the record's"));
         }
 

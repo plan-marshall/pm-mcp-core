@@ -157,7 +157,7 @@ class ArgumentCheckTest {
         void forbiddenFlagInWrapperBuild(String flag) {
             var refusal = refused(maven("verify", flag));
 
-            assertAll(
+            assertAll(refusal.detail(),
                     () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason(),
                             "a forbidden flag is refused as argument_rejected"),
                     () -> assertTrue(refusal.detail().startsWith("the module is the forbidden flag "),
@@ -171,7 +171,7 @@ class ArgumentCheckTest {
         void forbiddenFlagInHostToolBuild(String flag) {
             var refusal = refused(new HostToolBuild("test", flag));
 
-            assertAll(
+            assertAll(refusal.detail(),
                     () -> assertEquals(Reason.ARGUMENT_REJECTED, refusal.reason(),
                             "a forbidden npm module is argument_rejected"),
                     () -> assertTrue(refusal.detail().startsWith("the module is the forbidden flag "),
@@ -279,7 +279,7 @@ class ArgumentCheckTest {
 
             var refusal = refused(new HostToolCall(HostToolName.PYTHON3, List.of("-c", code)));
 
-            assertAll(
+            assertAll(refusal.detail(),
                     () -> assertInterpreterRefused(refusal, HostToolName.PYTHON3),
                     () -> assertFalse(refusal.detail().contains(code), "the detail does not repeat the caller code"));
         }

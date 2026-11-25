@@ -93,8 +93,9 @@ class GitIdentityTest {
 
         var result = git.worktreeAdd(detached(initial.id()));
 
-        assertEquals(GitOutcome.GIT_IDENTITY_AMBIGUOUS, result.outcome(),
-                "a commit id that is a branch name is ambiguous");
+        assertAll(result.detail(),
+                () -> assertEquals(GitOutcome.GIT_IDENTITY_AMBIGUOUS, result.outcome(),
+                        "a commit id that is a branch name is ambiguous"));
     }
 
     @Test
@@ -102,7 +103,7 @@ class GitIdentityTest {
     void abbreviatedCommitId() {
         var result = git.worktreeAdd(detached(initial.id().substring(0, ABBREVIATED)));
 
-        assertAll(
+        assertAll(result.detail(),
                 () -> assertEquals(GitOutcome.UNKNOWN_REVISION, result.outcome(),
                         "an abbreviated id is an unknown revision"),
                 // the reason word of the refusal detail is the contract
@@ -120,8 +121,9 @@ class GitIdentityTest {
 
         var result = git.worktreeAdd(detached(duplicate));
 
-        assertEquals(GitOutcome.GIT_IDENTITY_AMBIGUOUS, result.outcome(),
-                "a name of a branch and a tag is ambiguous");
+        assertAll(result.detail(),
+                () -> assertEquals(GitOutcome.GIT_IDENTITY_AMBIGUOUS, result.outcome(),
+                        "a name of a branch and a tag is ambiguous"));
     }
 
     @Test
@@ -138,7 +140,7 @@ class GitIdentityTest {
         var result = git.worktreeAdd(new WorktreeAddInput(repo, repo.resolve("wt"), pinned, false,
                 initial.id()));
 
-        assertAll(
+        assertAll(result.detail(),
                 () -> assertEquals(GitOutcome.GIT_IDENTITY_MISMATCH, result.outcome(),
                         "a branch away from its pin is a mismatch"),
                 () -> assertTrue(result.detail().contains(initial.id()), "the detail names the pinned commit id"),
@@ -156,7 +158,7 @@ class GitIdentityTest {
         var result = git.worktreeAdd(new WorktreeAddInput(repo, repo.resolve("wt"), pinned, false,
                 initial.id().substring(0, ABBREVIATED)));
 
-        assertAll(
+        assertAll(result.detail(),
                 () -> assertEquals(GitOutcome.UNKNOWN_REVISION, result.outcome(),
                         "an abbreviated start point is unknown"),
                 // the reason word of the refusal detail is the contract
@@ -177,7 +179,7 @@ class GitIdentityTest {
 
         var result = git.log(repo, tagId, 10);
 
-        assertAll(
+        assertAll(result.detail(),
                 () -> assertEquals(GitOutcome.GIT_IDENTITY_MISMATCH, result.outcome(),
                         "a tag id in place of a commit is a mismatch"),
                 () -> assertTrue(result.detail().contains(tagId), "the detail names the annotated tag's id"),

@@ -73,7 +73,8 @@ class JGitOperationsWorktreeTest extends JGitOperationsFixtures {
     private Worktree add(String name, String newBranch) {
         var result = git.worktreeAdd(new WorktreeAddInput(repo, worktrees().resolve(name), newBranch,
                 true, HEAD));
-        assertEquals(GitOutcome.OK, result.outcome(), "the linked worktree is added");
+        assertAll(result.detail(),
+                () -> assertEquals(GitOutcome.OK, result.outcome(), "the linked worktree is added"));
         return result.value();
     }
 
@@ -204,7 +205,8 @@ class JGitOperationsWorktreeTest extends JGitOperationsFixtures {
         var again = git.worktreeAdd(new WorktreeAddInput(repo, worktrees().resolve(names.next()),
                 existing, false, names.next()));
 
-        assertEquals(GitOutcome.OK, again.outcome(), "a free existing branch is checked out");
+        assertAll(again.detail(),
+                () -> assertEquals(GitOutcome.OK, again.outcome(), "a free existing branch is checked out"));
     }
 
     @Test
@@ -235,7 +237,7 @@ class JGitOperationsWorktreeTest extends JGitOperationsFixtures {
 
         var removed = git.worktreeRemove(repo, clean.path());
 
-        assertAll(
+        assertAll(removed.detail(),
                 () -> assertEquals(GitOutcome.OK, removed.outcome(), "the clean worktree is removed"),
                 () -> assertFalse(Files.exists(clean.path()), "the clean worktree's directory is gone"),
                 () -> assertFalse(Files.exists(admin(cleanName)), "the clean worktree's admin dir is gone"),
@@ -253,7 +255,7 @@ class JGitOperationsWorktreeTest extends JGitOperationsFixtures {
         Worktree listed = git.worktreeList(repo).value().get(1);
         var removed = git.worktreeRemove(repo, gone.path());
 
-        assertAll(
+        assertAll(removed.detail(),
                 () -> assertTrue(listed.prunable(), "a worktree without directory is prunable"),
                 () -> assertEquals(GitOutcome.OK, removed.outcome(), "a prunable worktree is removed"),
                 () -> assertFalse(Files.exists(admin(name)), "the prunable worktree's admin dir is gone"));

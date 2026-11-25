@@ -300,7 +300,8 @@ class JobRecoveryStepTest {
         @Test
         @DisplayName("rule (b): a job spawned before the boot of the system is settled without a signal")
         void spawnedBeforeBoot() {
-            var job = postSpawn(pid(), BOOT.minusSeconds(Generators.integers(1, 86_400).next()));
+            // One second before the boot is the contract edge of "before boot".
+            var job = postSpawn(pid(), BOOT.minusSeconds(1));
 
             step().run(PROJECT_A);
 
@@ -454,7 +455,7 @@ class JobRecoveryStepTest {
                 Arguments.of("in-process", Status.RUNNING, Execution.IN_PROCESS, null, null,
                         JobRecoveryStep.Rule.IN_PROCESS),
                 Arguments.of("before boot with PID", Status.RUNNING, Execution.PROCESS, pid(),
-                        BOOT.minusSeconds(Generators.integers(1, 86_400).next()), JobRecoveryStep.Rule.BEFORE_BOOT),
+                        BOOT.minusSeconds(1), JobRecoveryStep.Rule.BEFORE_BOOT),
                 Arguments.of("after boot without PID", Status.RUNNING, Execution.PROCESS, null, null,
                         JobRecoveryStep.Rule.UNIDENTIFIABLE),
                 Arguments.of("spawned at the boot instant", Status.RUNNING, Execution.PROCESS, unownedPid(), BOOT,
