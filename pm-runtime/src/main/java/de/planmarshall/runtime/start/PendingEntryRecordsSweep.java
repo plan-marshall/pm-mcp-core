@@ -335,13 +335,17 @@ public final class PendingEntryRecordsSweep implements SweepStep {
     }
 
     /**
-     * Names a fault by its message, or by its exception type when it carries none, so that the fault text this method
-     * composes never prints {@code null} in place of a message. Of the five types a removal catches,
+     * Names a fault by its message, or by its exception type when it carries none, so that the fault text never prints
+     * {@code null} in place of a message. Of the five types a removal catches,
      * {@link InternalFaultException} and {@link StoreRefusal} compose a non-null message in their constructors, so a
      * missing one can only come of the other three.
+     * <p>
+     * The {@code run} catch needs no guard of its own: the only fault of these five types the candidate scan raises is
+     * the listing's {@link UncheckedIOException}, raised by {@link PendingEntryStore#entryIds()}, whose message is never
+     * {@code null}, so no input reaches that catch with a message-less fault.
      *
      * @param fault the fault to name
-     * @return its message, or the simple name of its type when it carries none
+     * @return its message, or the type label when there is none
      */
     private static String described(RuntimeException fault) {
         var message = fault.getMessage();
