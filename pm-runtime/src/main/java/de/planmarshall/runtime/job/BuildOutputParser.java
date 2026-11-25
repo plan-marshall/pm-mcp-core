@@ -113,15 +113,16 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
      * The other parsers read their count lines from the tail too — Gradle, pyproject, Jest and TAP each build a
      * {@link TestCounts} — and the population they derive from the tail is the one carried: measured, or unmeasured by
      * the rule of the parser that derived it. One rule is shared: every parser passes its counts to
-     * {@link TestCounts#from}, which reports a negative count, a count outside the {@code int} range or a total outside
-     * it as {@link TestCounts.Unmeasured}. Each parser adds a rule of its own where it has one, stated where that rule is
-     * read and not here: Gradle a negative block count, a skipped count above its block total or a running sum past
-     * {@code Integer.MAX_VALUE} ({@link GradleOutputParser}, {@code extractTestCounts}); Jest exact addition, a block
-     * that does not add up to its total and a {@code Tests:} summary it cannot read ({@link JestOutputParser},
-     * {@code extractTestCounts}); Maven a count outside the {@code int} range, an ambiguous count line and per-class
-     * counts with no summary ({@link MavenOutputParser}, {@code CountScan}); pyproject a running sum past
-     * {@code Integer.MAX_VALUE} ({@link PyprojectOutputParser}, {@code pytestTestCounts}); and TAP a {@code long}
-     * overflow or a total that is not the sum of its parts ({@link TapOutputParser}, {@code SummarySum}).
+     * {@link TestCounts#from}, which reports a negative count, a count outside the {@code int} range, a total outside it
+     * or a negative per-runner executed count as {@link TestCounts.Unmeasured}. Each parser adds rules of its own before
+     * that call: Gradle a negative block count, a skipped count above its block total or a running sum past
+     * {@code Integer.MAX_VALUE} ({@link GradleOutputParser}, {@code extractTestCounts}); Jest a negative block count,
+     * exact addition, a block whose parts do not add up to its total or a {@code Tests:} summary it cannot read
+     * ({@link JestOutputParser}, {@code extractTestCounts}); Maven a count outside the {@code int} range, a skipped
+     * count above its total, an ambiguous count line or per-class counts with no summary ({@link MavenOutputParser},
+     * {@code CountScan}); pyproject a negative block count or a running sum past {@code Integer.MAX_VALUE}
+     * ({@link PyprojectOutputParser}, {@code pytestTestCounts}); and TAP a {@code long} overflow or a total that is not
+     * the sum of its parts ({@link TapOutputParser}, {@code SummarySum}).
      * The carried population is deliberate: no production code branches on the result's {@code testCounts()} yet, and
      * ADR {@code core-build/011} rejected a tail-only figure no consumer branches on, so the fact is stated rather than
      * added as a field (ADR {@code runtime-job/015}).
