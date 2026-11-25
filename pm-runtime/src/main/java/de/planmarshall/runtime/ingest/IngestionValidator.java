@@ -33,7 +33,8 @@ import org.commonmark.parser.Parser;
  * an {@code https} URL (or a relative link) whose path and query pass the {@code cui-http} URL validation
  * pipelines. A text with any finding is refused; nothing is changed silently.
  * <p>
- * The other stages (Unicode fixpoint, bounds, rule table, spotlighting) are not part of this slice.
+ * The other stages are not part of this slice: the Unicode stage (which removes every hidden character and then
+ * normalizes to NFC, once, with no pass limit), the bounds, the rule table and the spotlighting.
  *
  * @since 0.1
  */
