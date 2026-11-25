@@ -99,6 +99,7 @@ Source, tests, specification and documentation (specific files, R19; the outline
 ## Dependencies and Sequencing
 
 - Depends on: PLAN-V2-156 (shipped, #516, `landings/PLAN-V2-156.md`: the plan this one succeeds), PLAN-V2-83.
+- Third doc-review round (`doc-review-2026-11-25-002.md` §2): items 34 and 38 of this plan touch the same test files as the removal of the question class `init` (PLAN-V2-191 deliverable 4: `AdditionalRulesTest`, `WorkflowParserTest`) and of `consultation_ids` (PLAN-V2-202: `ScenarioReplayRunner`); sequence them: 191 and 202 first, then this plan re-reads its lines at the head.
 - Sequence: after PLAN-V2-157 (`call-time-bind-and-input-residue`) and PLAN-V2-154: both edit `WorkflowEngine`, `CallStack` and the worker classes this plan reads; emit after 157 lands. Overlaps with PLAN-V2-19, 20, 25 (the engine track) and 125, 141 (test trees): the gate decides at emit.
 
 ## Hand-Off Command

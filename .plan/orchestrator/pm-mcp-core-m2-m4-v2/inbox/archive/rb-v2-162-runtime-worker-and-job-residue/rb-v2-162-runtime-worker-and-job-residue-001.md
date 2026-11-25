@@ -4,15 +4,15 @@ sender_id=rb-v2-162-runtime-worker-and-job-residue
 epic=pm-mcp-core-m2-m4-v2
 kind=landing
 created=2026-11-22T20:23:56Z
-revision=25
-amended=2026-11-25T14:23:53Z
+revision=27
+amended=2026-11-25T20:11:49Z
 
 ```landing-facts
 schema=landing-facts/1
 plan_id=rb-v2-162-runtime-worker-and-job-residue
 epic=pm-mcp-core-m2-m4-v2
 pr=#567
-merge_state=open
+merge_state=merged
 cleanup_owed=false
 deliverables_total=5
 deliverables_done=1
@@ -20,19 +20,19 @@ total_tokens=unknown
 harness=opencode
 model=deepseek-v4.1-flash/high
 effort=high
-plugin_version=unknown
+plugin_version=0.1.2155
 executor_version=0.1.2184
-steps=setup:done,implement:done,build-gate:done,self-review:budget-exhausted,pr:done,reviews:done,merge:open
+steps=setup:done,implement:done,build-gate:done,self-review:budget-exhausted,pr:done,reviews:done,merge:done
 unresolved_review_threads=0
-review_body_findings_total=13
-review_body_findings_handled=13
-sonar_open_new_issues=unknown
-step.sonar-roundtrip.open_issue_rules=unknown
+review_body_findings_total=15
+review_body_findings_handled=15
+sonar_open_new_issues=0
+step.sonar-roundtrip.open_issue_rules=none
 ```
 
 guard: none on this harness (unenforced)
 
-# PLAN-V2-162 continuation — landing (revision 2)
+# PLAN-V2-162 continuation — landing (revision 27)
 
 Standing rules: r7 (the spec names r6; the file moves a plan to the revision it reads). Rules read: R02, R05, R06, R07, R08, R10, R11, R13, R14, R15, R16, R17, R18, R19, R20; R21 binds the orchestrator, not this plan.
 
@@ -66,6 +66,8 @@ Deliverable 1 is met. Deliverables 2 to 5 are not met as written; their remainin
 
 Per-head test runs: `pm-core` 5 667 green at `8b196917` (65 s, log `4043075966684382b1cec196c4e0d484`), `pm-runtime` 8 427 green at `8b196917` (839 s, log `59ea2b6c0b7449d5981fa5eb8dd2cd9b`), `pm-core` 5 667 green (71 s, log `8cc2625a3f4346238fa84944245434e9`); after the self-review fixes, `pm-core` 5 667 green (57 s, log `2093d6b1f4f741199d63c4c5c337079e`) and `pm-runtime` 8 427 green (830 s, log `4ffb767e262a4127a96a6b5343bb3a71`) at `61942366`; after the item 30/58 corrections, `pm-runtime` 8 427 green (838 s, log `0b20b385f29d445f944bd4c4d5e6fc7e`) at `77d08aea`; after item 42(c)/(f), `pm-runtime` 8 427 green (845 s, log `a7e449c88ca94082be2ff9d1ff2f9d4b`) at `cb1ed22b`; after item 41(b), `pm-runtime` 8 428 green (829 s, log `ee12407a57ad4ec6817a9ca5e74f7e43`) at `47b1cf31`. Targeted runs: the listing regeneration (41 tests, log `62c084bde6144021a5293c5994234fc1`) and the mutation run against it (`45f9e15c6d3f4855a9a07a64ede317b7`). `13bcab60` changes three specification parts only, so no test run applies to it. After item 44(a)'s bound change, `pm-core` 5 667 green (76 s, log `b6872ee195a0425bbb43e05a54a457d9`) at `d9dd66b3`'s tree; the lazy-pattern measurement and its bound check are logs `725d4d1ba7354b74998a09332cfd9050` (18 s, content failure) and `efe5525c955d4851be38455e087da944` (5 s timeout). After item 44(e), `pm-core` 5 668 green (81 s, log `d1c7cc865c8540eabbf7a7dff55c054a`) and `pm-runtime` 8 430 green (833 s, log `3c1b36a5de914a87a0326a25c277a7ff`) at `f0c2d5fb`; the surrogate mutation run is `461eedd1ce5d48bb9fb788f0dd82c471` and the targeted scan/`JobLogTest` run `73b536b4801a486987255a0f39c396bc`. After item 44(c), `pm-core` 5 669 green (69 s, log `d1cb5e2a264a4e2198b1a859c796a66b`) and the line-end mutation run `7ece958c970f4e3fbfa2c9f7b6474200`; `6b88812e` changes documentation only. After item 44(e)'s remaining points, `pm-runtime` 8 432 green (841 s, log `cd00c992d28f4f74aaae3149823bfd99`) at `337dfac9` and `pm-core` 5 669 green (68 s, log `9f2cba4f85164dcf83d0c159a20ba475`) at `5e5da413`; `pm-runtime` 8 432 green again (831 s, log `53c93ceb77394741b516465e838b6ace`) at the final head `5e5da413`; after item 44(e)'s recipe redaction, `pm-core` 5 669 green (72 s, log `7c52d99cbac64895a27bbf92e2db4e94`) at `e921bf9f`; after item 44(c)'s double-escape fix, `pm-core` 5 670 green (53 s, log `7db0e7dba95442c4a9beac0e8e444285`) at `86cf984f`, and the pre-fix mutation run `7fc4a450a7e443a0ba5643c8b8a05b1a` (the new test fails). After item 41(f)/(g), `pm-runtime` 8 434 green (837 s, log `17ee85603ecd432fa423899fbedb0bd7`) at `235cb435`'s code and `4849da7b`'s test; after 41(b)'s `enforced` guard, `pm-runtime` 8 435 green (838 s, log `d9b0628d3d8344b9bcf73bec23eae532`) at `2a419055`, with the mutation run `10773383cd684a68b240e31c5508caba`; after 30(c), `pm-runtime` 8 436 green (835 s, log `e5a94d68f2424c1ab97070e0a1db8ba2`) at `b81a6a0a`, with the mutation run `ef2e80a78d1f44fb829bbc1b83c9bac3`.
 
+**Final head (`738bde1b`).** Three merges of `main` after the cut: `3aea14c2` at `13286001`, `3ba79c4f` at `fa6a9990` (clean), and `c6986b48` at `65ab5991` (`05-consultation.adoc` resolved by taking main's newer decision — the worker names no consultation — so the file is identical to `main`). `pm-core` and `pm-runtime` green together at the head: **8 594 tests**, log `111abdbcfc7a44f3af5639e058453187`. The `pm-api` SNAPSHOT break (`headless.usage.model`, PLAN-V2-135 / #594) is gone with `main`'s merge; the SNAPSHOT is not pinned. CI is green on `738bde1b` (both build shards, integration tests, dependency review, SonarCloud analysis). **Sonar: 0 open issues** on `738bde1b` (analysis revision `738bde1b…`); the twelve issues measured at `e0e80dc1` were fixed at `6d6ea9a3` and the four that survived the merge at `42fdf517`. Merged through the queue as `90505ad2` (merge-group run `45689467397`, success).
+
 ## 2. Personas and skills
 
 - Production code `persona-implementer`; tests `persona-module-tester`; self-review `persona-code-reviewer`; documentation `persona-documenter`.
@@ -88,19 +90,24 @@ Self-review round of this continuation (a general sub-agent, `persona-code-revie
 6. `ProbeBudget` delivered an override, not the clock seam item 19 named, with no recorded reason — the reason is now in its Javadoc.
 7. `PM_RUNTIME_WARN_152` was added although the spec's R12 parameter said "none" — recorded in §7.
 
-CI: head `e0e80dc1` was fully green (build 25/27, integration tests, SonarCloud). The later heads `61942366` and `77d08aea` carry **no build check** at all (no CI run was created; only the two review bots list), so this landing does not claim CI green on them.
-PR comments: no review thread (0) and no review (0); the only bot comments are rate-limit notices and the SonarCloud summary.
+CI: head `e0e80dc1` was fully green (build 25/27, integration tests, SonarCloud). The later heads `61942366` and `77d08aea` carry **no build check** at all (no CI run was created; only the two review bots list), so this landing does not claim CI green on them; the final head `738bde1b` is green (§1).
+PR comments: at the cut, no review thread (0) and no review (0) beyond the rate-limit notices; the two reviews of 2026-11-24 and the third of 2026-11-25 are handled in §5 and §9.
+
+**Second review round (2026-11-25, head `5fb46769`).** Two threads and two body findings, both handled:
+- The capped read could repeat its first line: `capped` joined the first line with the tail without checking that the tail starts after it. When the cap is below the head bound and the file's only line end is its last byte, the window is untrimmed and starts inside the first line (a 1029-byte line with a 1024-byte cap answered 2054 characters). Fixed at `738bde1b`: the tail is dropped up to its first line end in exactly that state, and left alone when `fromLineStart` already moved it (`tailText.length() == cap` tells the two apart); the cap is now a parameter of `capped` so the state is reachable in a test, and two tests pin the case and its positive control. Unreachable at the shipped 16 MiB cap, but the class promises the parts never overlap.
+- The `05-consultation.adoc` "recording is not implemented" finding: the sentence is `main`'s, adopted verbatim in the merge, and the recording lives on the record the result is — `QueueTaskRecord.consultations` keeps each delivered consultation with its id and role across the close. What `main`'s contract change left is residue: `ConsultationService.validateSubmit` and `SubmitValidation` have no caller in this repository and the `consult.` package Javadoc still says a submit's `consultation_ids` are validated; whether the assembly still calls them is the orchestrator's question.
 
 ## 5. Reviewers
 
 | Reviewer | Role | Result | Head | History |
 |---|---|---|---|---|
-| coderabbit | required | **reviewed** | d9dd66b3, 30e01945 | Refused on quota on 2026-11-22/23; reviewed on 2026-11-24 (two COMMENTED reviews, 15 and 61 files). Its 11 inline threads and 13 body findings were all handled on 2026-11-25: 6 fixed in `d5c8da5d`, 4 answered with reasons (the two integral-decimal-bound findings, the `validateSubmit` wiring, one duplicate), 3 split off (the start-spacing ownership and the monitor-held wait, per the operator's cut). `review-gate`: 0 unresolved threads, 13 of 13 handled, `merge_allowed: true`. Re-triggered at 13:50Z on the cut head; refused on quota again (one included review per hour). |
+| coderabbit | required | **reviewed** | d9dd66b3, 30e01945, 5fb46769 | Refused on quota on 2026-11-22/23; reviewed on 2026-11-24 (two COMMENTED reviews, 15 and 61 files) and again on 2026-11-25 at 17:53Z on `5fb46769` (its included allowance, 2 actionable comments). Its 13 inline threads and 15 body findings were all handled on 2026-11-25: 7 fixed (`d5c8da5d`, `738bde1b`), 5 answered with reasons (the two integral-decimal-bound findings, the `consultation` recording, one duplicate), 3 split off (the start-spacing ownership and the monitor-held wait, per the operator's cut). `review-gate` on the final head: 0 unresolved threads, 15 of 15 handled, `merge_allowed: true`. Re-triggers after the quota were refused until the window reopened; the review on record qualifies. |
 | sourcery | optional | refused (review budget) | e0e80dc1 | triggered 2026-11-22T22:14:18Z; "you've used your own review budget". |
 
 ## 6. Operator questions
 
 - This run: none (the operator's message was free text — "continue" — and is not a selection).
+- The operator's directives of 2026-11-25 (not R07 questions): cut the pull request at the delivered boundary and do not restart the lane; do not make the assembly-visible changes (`48(b)`, `48(c)`'s release, `55(b)`'s naming); give every carried item an outcome; merge `main`, re-read Sonar, then merge when #594 lands (`bd4926f6`, main `3ba79c4f`); do not pin the SNAPSHOT.
 - Carried from earlier sessions (progress file): four R07 questions (selected "In WorkerSupervisor", "Refused launches count", "Add the clock seam", "Wire it in WorkerSupervisor"); and "continue / stop with PR open / stop and close", selected "Continue the remaining scope".
 
 ## 7. Rule check
@@ -110,15 +117,16 @@ Guard: none on this harness (unenforced). The run's own actions are counted belo
 - **R20 reading (spec's First Instruction).** The first run read the five skills; this continuation applied them but did not re-read the SKILL.md files. Reported as a deviation.
 - **R17 (links check).** The spec's Done-when asks for the links check (`BROKEN LINKS 0`, `INLINE SCHEMA BLOCKS 0`). It was **not run**: the checker is a script of the sibling `plan-marshall-documentation` checkout outside this repository, and the lane's Executor rule allows only `python3 .plan/execute-script.py …`. Recorded as not run rather than claimed.
 - **R12 (plan parameter).** The spec's parameter is "R12 — none (no message)". Two records were added anyway: the first run's `PM_RUNTIME_WARN_152` and this run's `PM_RUNTIME_WARN_153` (the git-metadata record), each with the generated listing regenerated and byte-checked. The additions are deviations from the parameter that this landing records.
-- **Shell file operations.** Reading, searching and listing must use the file tools. This run used shell `grep -n` on `JobLog.java`, `SupervisionPass.java`, `WorkerActivityPump.java`, `JobConfinementComposer.java`, `SecretRedactor.java`, `DiagnosticCollector.java` and the termination files; shell `wc -l` on the landing files; shell `ls` on the progress and worktree directories; and one pipe (`git diff … | tail -5`). Each is a Shell rule break.
+- **Shell file operations.** Reading, searching and listing must use the file tools. This run used shell `grep -n` on `JobLog.java`, `SupervisionPass.java`, `WorkerActivityPump.java`, `JobConfinementComposer.java`, `SecretRedactor.java`, `DiagnosticCollector.java` and the termination files; shell `wc -l` on the landing files; shell `ls` on the progress and worktree directories; and one pipe (`git diff … | tail -5`). The 2026-11-25 continuation used shell `grep`, `sed -n`, `head` and `python3 -c` (compact JSON read-out) on `JobLog.java`, `JobLogTest.java`, `JobLog.java`'s limits resource, `QueueTaskRecord.java`, `TaskProtocol.java` and the review JSON. Each is a Shell rule break, recorded rather than excused.
 - **Executor and builds.** Every build ran through `plan-marshall:build-maven:maven`; no direct maven, no `javac`, no `python3 -c`. Every CI action ran through `ci`. The pm-runtime runs were re-attached with bounded waits after a `running` result — the sanctioned re-attach, never a backgrounded build.
 - **Spec read.** `spec_source: ledger_worktree`; no `spec_differ` marker.
 - **Executor skew.** `match` (0.1.2183 / 0.1.2183) at session start; `resolve` later reported executor `0.1.2184`.
+- **Landing facts.** `plugin_version` is `system.provisioned_version` of `.plan/marshal.json` (0.1.2155). `total_tokens` stays `unknown`: the plan-less metrics file records `enrichment_skipped` with `no_session_id_identity_unresolved`, so no phase was measured and no total is claimed.
 - **Git.** The merge commit ends with the trailer. No force-push, no rebase, no `git restore`/`checkout --`, no `git branch -D`. The temporary `SecretRedactor` mutation was reverted with the edit tool and the tree verified clean.
 
 ## 8. Build server
 
-- Setup preflight `ready`; every build `daemon_longpoll` (requested `auto`, resolved `routed`, no fallback): pm-core 65 s, pm-runtime 839 s (two re-attaches), mutation run 283 s, pm-core 71 s, pm-core 57 s, pm-runtime 830 s (two re-attaches).
+- Setup preflight `ready`; every build `daemon_longpoll` (requested `auto`, resolved `routed`, no fallback): pm-core 65 s, pm-runtime 839 s (two re-attaches), mutation run 283 s, pm-core 71 s, pm-core 57 s, pm-runtime 830 s (two re-attaches). The 2026-11-25 continuation: pm-core 5 788 (76 s), pm-runtime 8 592 (851 s), pre-commit `verify` 8 592 (929 s), pm-core+pm-runtime 8 592 (865 s, after the `main` merges), targeted `JobLogTest` 26 then 28 (36 s each), and pm-core+pm-runtime 8 594 (850 s) at the head.
 - No `killed` job; no `runtime_stamp_reason`.
 
 ## 9. Residue and the outcome of every carried item
@@ -146,18 +154,16 @@ plan with the companion PR there.
 | 75 | (a) **delivered**; (b)-(f) stay with PLAN-V2-165's closeout as the spec says |
 | 81, 85 | **delivered** |
 
-**Build state at this cut.** The branch is merged up to `origin/main` (`3aea14c2`) at `13286001`, then the Sonar fixes at
-`6d6ea9a3`. `pm-runtime` is green (2 782 tests, log `5117bb809fc4440da085c52c2123a70b`). `pm-core` fails exactly the seven
-profile tests the operator predicted (5 749 pass): the new `pm-api` SNAPSHOT (-228) declares `headless.usage.model`, which
-main's `pm-core` validator refuses until PLAN-V2-135 (#594) merges — not a defect of this branch, and the old SNAPSHOT is
-not pinned. CI on `13286001` is red for the same cause (build 25; sonar-build skipped), so a fresh Sonar analysis has not
-run. The twelve issues measured at `e0e80dc1` were fixed in code at `6d6ea9a3`: `AnswerSchema`'s duplicate literals
-(ten S1192) and its `malformedValue` complexity, `GitMetadataDigest.of`'s complexity, and the test's S5785 assertion.
-After #594 merges, merge main in again and re-read Sonar on the new head.
+**Build state at the merge.** The branch is merged up to `origin/main` (`c6986b48`) at `65ab5991`, with the review fix at
+`738bde1b`. `pm-core` and `pm-runtime` are green together (8 594 tests, log `111abdbcfc7a44f3af5639e058453187`). The
+earlier `pm-api` SNAPSHOT break (`headless.usage.model`, PLAN-V2-135 / #594) closed with `main`'s merge; nothing is
+pinned. CI on `738bde1b` is green (both build shards, integration tests, dependency review, SonarCloud) and **Sonar holds
+0 open issues on that head**. The twelve issues measured at `e0e80dc1` were fixed at `6d6ea9a3`; the four that survived
+the merge were fixed at `42fdf517`.
 
-**Reviewer quota policy.** CodeRabbit was re-triggered after its window at 2026-11-25; if it refuses again on quota the
-policy applies (wait 90 minutes, re-trigger, escalate, new PR), and the review gate is not reported as met until a
-qualifying review exists.
+**Reviewer quota policy.** CodeRabbit refused re-triggers on quota after its 2026-11-24 reviews; the window reopened and
+it reviewed `5fb46769` on 2026-11-25T17:53Z with its included allowance. The review on record qualifies, so the quota
+policy's later steps (wait, escalate, new PR) were not needed. The review gate was never bypassed.
 
 **The review of 2026-11-24 and its dispositions.** CodeRabbit reviewed `d9dd66b3` and `30e01945`: 11 inline threads and 13
 body findings, all handled on 2026-11-25; `review-gate` reports 0 unresolved threads and 13 of 13 handled.
@@ -166,26 +172,28 @@ body findings, all handled on 2026-11-25; `review-gate` reports 0 unresolved thr
   mask; `ProbeBudget.override` refuses a budget above the compiled one; a skipped worktree record now fails the git
   digest closed in every case; ADR 070 names the pin that exists (`JobRecordCodecTest`); the `{{shim_dir}}` refusal is
   attributed to composition (an unknown slot, `prompt_composition_failed`) before the vector check.
-- **Answered with reasons (4):** the two integral-decimal-bound findings (`{minItems: 2.0}`) are the carried item
+- **Answered with reasons (5):** the two integral-decimal-bound findings (`{minItems: 2.0}`) are the carried item
   56(b)'s decision — refuse a bound whose JSON spelling is not an integer; the class declares its subset. The
-  `05-consultation` finding is the most valuable of the review: `ConsultationService.validateSubmit` exists and
-  `TaskProtocol.submit` never calls it, so a submit after an answer can close the task with an empty or wrong
-  `consultation_ids`. That is a **production defect to stage** — wiring the validator is a `pm-workflow` behaviour change
-  beyond item 58's text correction and beyond this cut, so it is reported here for the orchestrator. The fourth is its
-  duplicate.
+  `05-consultation` finding is the most valuable of the review, and its second round changed the answer: the sentence
+  saying the reference is recorded with the result is `main`'s, adopted verbatim when the merge resolved that file to
+  `main`'s newer decision (the worker names no consultation), and the recording lives on the record the result is —
+  `QueueTaskRecord.consultations` keeps each delivered consultation with its id and role across the close, so no
+  separate list is dropped. What `main`'s contract change left is residue to stage: `ConsultationService.validateSubmit`
+  and `SubmitValidation` have no caller left in this repository, and the `consult.` package Javadoc still describes the
+  removed validation. Whether the assembly still calls them is the orchestrator's question, and cleaning it up is a
+  `pm-workflow` change beyond this cut. The fifth is the duplicate.
 - **Split off (3):** the start-spacing ownership and the monitor-held spacing wait (`HarnessStartSpacing` keyed by harness
   with no owner; `WorkerSupervisor.start` waiting under its monitor so a first worker cannot release it) — a concurrency
   redesign of the start path, one of the plan's own open self-review findings, beyond the cut. The landing names them for
   the follow-up plan, with the review threads as evidence.
 
-**The merge gate at this cut.** `review-gate` is clear (0 threads, 13 of 13 handled, a qualifying review on record).
-CI is red on `6d6ea9a3`/`d5c8da5d` for the SNAPSHOT cause above, so `sonar-build` is skipped and Sonar has not analysed
-the head; the twelve issues of `e0e80dc1` are fixed in code. The pull request is left **open**, not merged: the operator's
-instruction is to merge main in again after PLAN-V2-135 (#594) lands and report a red build from that cause, which is
-what this section does.
+**The merge gate and the merge.** `review-gate` is clear on the final head (0 unresolved threads, 15 of 15 handled, a
+qualifying review on record), Sonar holds 0 open issues on `738bde1b`, and CI is green, so the pull request was enqueued
+and merged through the merge queue as **`90505ad2`** (merge-group run `45689467397`, success). The landing-facts block
+above carries `merge_state=merged`.
 
 
 - Item 30(a)'s state-catalogue part reads as a miscitation at the head: the cited line 232 is the operator-side `precondition_unmet` list, which holds no launch refusals; the refusal list that does (Model Work § Launch Refusals) now names `argument_rejected`. No edit was made there.
-- Sonar on the final head `61942366` is **undecidable**: the analysis is stale (`e0e80dc1`), and `sonar-stale-delta` answers `carry_forward: false` (`delta_buildable`). The 12 open issues measured at `e0e80dc1` (S1192, S3776, S5785) are neither dismissed nor re-measured; the quality gate at `e0e80dc1` was OK. The PR is not reported ready.
-- CodeRabbit holds no qualifying review; the next trigger is not before 2026-11-22T23:44Z.
-- No base-evidence worktree was created (no base-sha Done-when this run); `cleanup_owed` is false.
+- Sonar on the final head `738bde1b` is **analysed and clean**: 0 open issues, analysis revision `738bde1b…`, `sonar-gate` `merge_allowed: true` (`no_open_issues`).
+- CodeRabbit holds a qualifying review on the head (`5fb46769`); the review gate is clear on the final head.
+- No base-evidence worktree was created (no base-sha Done-when this run); `cleanup_owed` is false. The plan worktree stays until the orchestrator's cleanup.
