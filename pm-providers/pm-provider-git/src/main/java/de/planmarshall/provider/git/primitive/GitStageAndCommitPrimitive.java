@@ -71,7 +71,7 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
  * detail with the checkout's absolute root made repository-relative, or the code of the git outcome where the contract
  * states no detail or a detail that still names an absolute path: no absolute path of the server behind an introducer
  * reaches a fact, while a path glued behind a path-name character stays as the text states it, the residual
- * {@link #modelDetail} names.
+ * {@code modelDetail} names.
  * Hooks run only in the CLI variant, so only its hook refusal returns {@code hook_failed}; the native variant never does.
  * A {@code committed} result also carries the provenance of the resolved trailer as the fact
  * {@value #TRAILER_SOURCE_FACT}, for the commit's audit record; no other outcome carries it.
