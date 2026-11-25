@@ -298,13 +298,13 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 8
 
 |link:finalize-prune-and-land-files.adoc[`finalize-prune-and-land-files`]
-|The composition rules on the event `realized` (the prune reasons `no_code_delta` and `no_production_delta`), the hand-over `default:land-files` in the default roster, and rule 1 of the pipeline validator per composed instance; outside the window: starts when its milestone is planned
+|The `no_production_delta` prune of the mutation step on the event `realized` (the event and `no_code_delta` are `lane-entries-and-realized-composition`'s), the hand-over `default:land-files` in the default roster, and rule 1 of the pipeline validator per composed instance; outside the window: starts when its milestone is planned
 |`open`
 |nothing
 |Milestone 10
 
 |link:commit-boundary.adoc[`commit-boundary`]
-|The commit boundary: the protected-path decision at the commit check, the main-checkout clause made conditional on confinement, and the `declared_files` lift removal, as decisions (their code is the plans of the cut)
+|The commit boundary: the protected-path decision at the commit check (built here), the main-checkout clause made conditional on confinement and the `declared_files` lift removal as decisions (their code is the plans of the cut)
 |`open`
 |`job-confinement-and-environment` (the confinement level in the job record)
 |Milestone 10

@@ -1,4 +1,4 @@
-= Finalize: the prune reasons of a delta and the hand-over of `landing.files`
+= Finalize: the realized-change prune and the hand-over of `landing.files`
 :nofooter:
 
 link:README.adoc[Work packages of `pm-mcp-core`] » `finalize-prune-and-land-files`
@@ -29,4 +29,4 @@ The starting set of the trace matrix of the project skill `traced-implementation
 == Done When
 
 * Watch: link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-39[PM-WATCH-PHASE-39], link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-55[PM-WATCH-PHASE-55], link:../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-3[PM-WATCH-DSL-3].
-* Tests: `PlanInstanceHeaderTest` with the schema's own prune-reason, fallback-cause and composition-event enumerations read from the two files through `SchemaResource`, not copied into the test; a plan whose realized footprint holds no file of the code and build globs prunes its `prunable` steps with `no_code_delta`, an `.adoc`-only footprint included, and its mutation step with `no_production_delta`, both evaluated at `realized`, and an unreadable footprint keeps the steps; no prune reading the declared footprint or the change type; the default roster passing the validator, `default:land-files` composed only under `landing.files` and pruned `plan_default` otherwise; two steps at one order in one composed instance refused (control).
+* Tests: `PlanInstanceHeaderTest` with the schema's own prune-reason, fallback-cause and composition-event enumerations read from the two files through `SchemaResource`, not copied into the test; the mutation step pruned with `no_production_delta` at `realized`, and an unreadable footprint keeping the steps; the `no_code_delta` prune and its `.adoc`-only case are `lane-entries-and-realized-composition`'s (PLAN-V2-190); the default roster passing the validator, `default:land-files` composed only under `landing.files` and pruned `plan_default` otherwise; two steps at one order in one composed instance refused (control).
