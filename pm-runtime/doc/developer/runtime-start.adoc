@@ -128,11 +128,12 @@ sweeps both.
   exception type when it carries none, the entries whose removal the run had staged and not yet deleted, the
   directories it had removed and every entry it kept as they stood, plus the unreadable entries the listing collected
   before it, so that fault drops none of them. The naming is scoped to the fault of the removal, and `no message`
-  means a `null` one: the kept and unreadable entry texts print the message of the fault they quote, and every
-  producer composes a non-null one — `PendingEntryStore` for its four refusals, `JournalScope` for the
-  symbolic-link refusal, and `StoreSnapshot.read` for an unreadable record — so those texts are not fault texts
-  the naming covers; a blank message is printed as it is, and a cause beside a `null` message is not carried
-  into the report. A fault of
+  means a `null` one: the kept and unreadable entry texts are not fault texts it covers — the kept texts and the
+  unreadable entry's I/O text print a message every producer composes non-null (`PendingEntryStore` for the
+  discard's two refusals, `JournalScope` for the symbolic-link refusal, and `StoreSnapshot.read` for the
+  `UncheckedIOException` reaching the I/O text), while an unreadable record's `StoreRefusal` is named by its outcome
+  code; a blank message is printed as it is, and a cause beside a `null` message is not carried into the report.
+  A fault of
   another type leaves `run` uncaught: only these five types are the faults a removal carries as its state. The report
   names how far the faulted removal got, read from the phase the removal had reached and, while the commit was entered,
   from the workspace's journal: staged before the commit is called, so nothing is committed and the next run re-judges
