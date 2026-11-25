@@ -84,7 +84,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:project-onboarding-unit.adoc[`project-onboarding-unit`]
 |The onboarding of a project as one process, the project's values over the machine's, and the projects of the machine
 |`open`
-|nothing
+|`job-confinement-and-environment` (the Build Egress and Build Read Set task)
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:start-source-intake.adoc[`start-source-intake`]
