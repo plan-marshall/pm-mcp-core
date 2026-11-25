@@ -70,7 +70,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:phase-sub-workflows.adoc[`phase-sub-workflows`]
-|The six phases as sub-workflows of the plan unit (the land lane's `land.*` states within `execute`), and the plan's history
+|The seven phases as sub-workflows of the plan unit (the `sanity-check` phase between `execute` and `finalize`, the land lane's `land.*` states within `execute`), and the plan's history
 |`open`
 |nothing
 |Milestones 3, 7, 8, 9 and 10, per task; the client work of `pm-mcp-clients`
@@ -292,7 +292,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 8
 
 |link:finalize-prune-and-land-files.adoc[`finalize-prune-and-land-files`]
-|The prune reasons `no_code_delta` and `no_production_delta`, the hand-over `default:land-files` in the default roster, and rule 1 of the pipeline validator per composed instance; outside the window: starts when its milestone is planned
+|The composition rules on the event `realized` (the prune reasons `no_code_delta` and `no_production_delta`), the hand-over `default:land-files` in the default roster, and rule 1 of the pipeline validator per composed instance; outside the window: starts when its milestone is planned
 |`open`
 |nothing
 |Milestone 10
