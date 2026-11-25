@@ -240,7 +240,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:build-parsers-and-gate-honesty.adoc[`build-parsers-and-gate-honesty`]
 |The native build output and coverage parsers, `failed_unparsed`, the gate honesty checks with their coverage facts and baseline separation, the build-neutral derivation of the freshness gate and the build row's new members, and the adaptive timeout and failure evidence
 |`open`
-|nothing
+|`domain-extensions-and-architecture` (the build map)
 |Milestone 6
 
 |link:decision-quorum-and-calibration.adoc[`decision-quorum-and-calibration`]
@@ -270,7 +270,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]
 |The finalize pipeline from re-entry to merge: verdict currency and the step records of a firing, the merge path's states, the Pre-Merge Review Barrier and its waivable gates, the composite wait, the pull-request author's title, the compiled-in review-bot records, and the phase `sanity-check`
 |`open`
-|`phase-sub-workflows` (the default units as phase sub-workflows, the simplify step); `domain-extensions-and-architecture`; `re-planning` (the `finalize.replan` call and the triggers it consumes); `ci-contract-finalize-operations` (the `behind` route and the realized-footprint sync read)
+|`phase-sub-workflows` (the default units as phase sub-workflows, the simplify step); `domain-extensions-and-architecture`; `re-planning` (the `finalize.replan` call and the triggers it consumes); `ci-contract-finalize-operations` (the `behind` route and the realized-footprint sync read); `build-parsers-and-gate-honesty` (the build-neutral freshness derivation)
 |Milestone 10
 
 |link:ci-contract-finalize-operations.adoc[`ci-contract-finalize-operations`]
@@ -300,7 +300,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:finalize-prune-and-land-files.adoc[`finalize-prune-and-land-files`]
 |The `no_production_delta` prune of the mutation step on the event `realized` (the event and `no_code_delta` are `lane-entries-and-realized-composition`'s), the hand-over `default:land-files` in the default roster, and rule 1 of the pipeline validator per composed instance; outside the window: starts when its milestone is planned
 |`open`
-|nothing
+|PLAN-V2-190 `lane-entries-and-realized-composition` (the composition event `realized`; a correction plan, not a package row)
 |Milestone 10
 
 |link:commit-boundary.adoc[`commit-boundary`]
