@@ -789,7 +789,13 @@ class GitHubCiProviderTest {
     private static Fixture fixture() {
         return Fixture.builder().title(Generators.nonBlankStrings().next()).body(Generators.nonBlankStrings().next())
                 .baseBranch(branch()).headBranch(branch()).headSha(Generators.letterStrings(40, 40).next())
-                .paths(List.of(path(), path(), path())).build();
+                .paths(unsortedPaths()).build();
+    }
+
+    /** @return three distinct paths in descending order, so an implementation that sorts them is detected */
+    private static List<String> unsortedPaths() {
+        var base = path();
+        return List.of("z/" + base, "m/" + base, "a/" + base);
     }
 
     private static String branch() {
@@ -1024,7 +1030,8 @@ class GitHubCiProviderTest {
             stringContent = "{\"permissions\":{\"push\":true}}")
     void reportsProviderResultCap(MockWebServer server) {
         var fixture = fixture();
-        int changedFiles = fixture.paths().size() + Generators.integers(1, 5000).next();
+        // One more than the listed count is the lowest cap case the provider reports.
+        int changedFiles = fixture.paths().size() + 1;
         prime(fixture, pullBody(fixture, "open", false, OWNER, false, changedFiles));
 
         PullRequest read = tokenProvider(server, CLASSIC_TOKEN).prView(PULL_REQUEST).value();

@@ -14,10 +14,10 @@ Accepted
 The ledger's `kind` carried `build`, `change`, `job`, `task_diff` and `baseline_red`, and none of them recorded the
 commit itself: a `change` row names a footprint change, not the commit that carried it, so a reader could not attribute
 a commit to the tree it was made on. The freshness verb never needed such a row for its own decision:
-`git.pre-commit-verify-freshness` reads `build` and `baseline_red` rows of the same `worktree_sha` and the
-`freshness_reconcile` stamp, and answers the `fresh` and `exempt` verdicts without a commit row (State Catalogue §
-`git.verify-freshness`; Workflow DSL § Six-Stage Execution Contract, stage 5). The new kind is the attribution record
-those rows cannot be.
+`git.pre-commit-verify-freshness` is specified to read `build` and `baseline_red` rows of the same `worktree_sha` — or,
+without one, the latest succeeded build row whose changed paths since its recorded head are all build-neutral — and
+answers the `fresh` and `exempt` verdicts without a commit row (State Catalogue § `git.verify-freshness`; Workflow DSL
+§ Six-Stage Execution Contract, stage 5). The new kind is the attribution record those rows cannot be.
 
 The format is a stored contract: `change-ledger-record.schema.json` is read by a schema-parity test (R10), and a new
 kind is a stored-format change. The spec marked the format-version question ask-at-refine (R13); the operator confirmed
@@ -33,10 +33,10 @@ on 2026-11-23 (question 2 of the runbook-lane outline) that the version stays `1
   input (Working-Tree Hash, rule 1), so the commit's own move of `HEAD` and of the status path set changes it: a digest
   taken before the commit can never equal the live digest after it. Before the commit it is the state the commit was made
   on: when the tree is the one the latest successful build ran on, it equals that build row's digest; otherwise a build
-  row need not carry it — a later step may have left the tree other than it built — and the `freshness_reconcile` stamp
-  then holds the build's digest beside this commit. Once the commit exists, old tree-keyed rows no longer match, and only a
-  new `build` or `baseline_red` row for the new tree, an `exempt` verdict (which needs no build), or that stamp licenses
-  the push;
+  row need not carry it — a later step may have left the tree other than it built. Once the commit exists, old tree-keyed
+  rows no longer match, and only a new `build` or `baseline_red` row for the new tree, an `exempt` verdict (which needs no
+  build), or the latest succeeded build row whose changed paths since its recorded head are all build-neutral licenses the
+  push (State Catalogue § `git.verify-freshness`);
 * `commit_sha` — the commit that was made, required for this kind alone (`ChangeLedgerRecord` refuses a `commit` row
   without it);
 * `changed_paths` — the paths the commit carried;
@@ -63,11 +63,11 @@ The format version stays `1`; a `commit` row is written and read in place, with 
 
 == Consequences
 
-* A commit is attributable to the tree it was made on: the row's digest equals the licensing build row's when the tree is
-  the built one, and a `freshness_reconcile` stamp carries the build's digest beside the commit when a later step changed
-  it. The freshness verb itself
-  reads `kind = "build"` and `kind = "baseline_red"` rows and the `freshness_reconcile` stamp, never a `commit` row
-  (State Catalogue § `git.verify-freshness`); the `commit` row is the attribution record, not an input of the gate.
+* A commit is attributable to the tree it was made on: the row's digest equals the digest of the build row when the tree
+  is the one that build ran on. The freshness verb itself is specified to read `kind = "build"` and
+  `kind = "baseline_red"` rows, and without one the latest succeeded build row whose changed paths since its recorded
+  head are all build-neutral, never a `commit` row (State Catalogue § `git.verify-freshness`; the verb is not wired in
+  this checkout); the `commit` row is the attribution record, not an input of the gate.
 * The schema's `kind` enum and the record's enum move together; a new kind that skips one side fails the parity test.
 * `doc/Traceability.adoc` no longer lists the change-ledger commit row as unimplemented.
 

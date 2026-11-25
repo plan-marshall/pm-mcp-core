@@ -95,6 +95,76 @@ class ActivityJournalMaskingTest {
     }
 
     @Test
+    @DisplayName("a model_differs entry is masked before it is written")
+    void masksTheModelIdentifiers(@TempDir Path base) {
+        var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
+        var served = Generators.letterStrings(3, 16).next();
+        journal.append(TASK, ActivityEntry.builder()
+                .seq(1)
+                .attempt(1)
+                .source(ActivityEntry.Source.SERVER)
+                .kind(ActivityEntry.Kind.MODEL_DIFFERS)
+                .launchModel("api_key=abcd1234")
+                .servedModel(served)
+                .at(QueueFixtures.AT)
+                .build());
+
+        var written = journal.entries(TASK).getFirst();
+        assertAll(
+                () -> assertTrue(written.launchModel().contains(SecretRedactor.REDACTED),
+                        "the launch identifier carries the redaction marker"),
+                () -> assertFalse(written.launchModel().contains("abcd1234"),
+                        "the secret in the launch identifier is masked"),
+                () -> assertEquals(served, written.servedModel(),
+                        "the served identifier stays readable"));
+    }
+
+    @Test
+    @DisplayName("a model_differs pair whose identifiers both mask is written, not refused")
+    void writesACollidingModelPair(@TempDir Path base) {
+        var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
+        journal.append(TASK, ActivityEntry.builder()
+                .seq(1)
+                .attempt(1)
+                .source(ActivityEntry.Source.SERVER)
+                .kind(ActivityEntry.Kind.MODEL_DIFFERS)
+                .launchModel("api_key=a" + Generators.letterStrings(8, 16).next())
+                .servedModel("api_key=b" + Generators.letterStrings(8, 16).next())
+                .at(QueueFixtures.AT)
+                .build());
+
+        var written = journal.entries(TASK).getFirst();
+        assertAll(
+                () -> assertTrue(SecretRedactor.isRedactionOf(written.launchModel()),
+                        "the launch identifier is masked"),
+                () -> assertTrue(SecretRedactor.isRedactionOf(written.servedModel()),
+                        "the served identifier is masked"));
+    }
+
+    @Test
+    @DisplayName("a pair that masking collapses onto one text is written, not refused")
+    void writesACollapsedModelPair(@TempDir Path base) {
+        var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());
+        var model = Generators.letterStrings(4, 12).next();
+        journal.append(TASK, ActivityEntry.builder()
+                .seq(1)
+                .attempt(1)
+                .source(ActivityEntry.Source.SERVER)
+                .kind(ActivityEntry.Kind.MODEL_DIFFERS)
+                .launchModel(model)
+                .servedModel(model + "\u200B")
+                .at(QueueFixtures.AT)
+                .build());
+
+        var written = journal.entries(TASK).getFirst();
+        assertAll(
+                () -> assertEquals(SecretRedactor.REDACTED, written.launchModel(),
+                        "the launch identifier is masked whole"),
+                () -> assertEquals(SecretRedactor.REDACTED, written.servedModel(),
+                        "the served identifier is masked whole"));
+    }
+
+    @Test
     @DisplayName("a destination that masking shrinks below the floor is masked whole, not refused")
     void masksADestinationShrunkBelowTheFloor(@TempDir Path base) {
         var journal = ActivityJournal.ofScope(base, "project-a", QueueFixtures.planScope(), new TestLocks());

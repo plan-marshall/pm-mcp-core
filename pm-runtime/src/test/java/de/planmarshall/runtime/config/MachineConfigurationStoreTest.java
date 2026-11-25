@@ -175,7 +175,8 @@ class MachineConfigurationStoreTest {
         var document = document();
         Files.writeString(file, document, UTF_8);
         var stale = defaults();
-        long staleRevision = Generators.longs(0, revision - 1).next();
+        // One behind the current revision is the edge of the stale-revision check.
+        long staleRevision = revision - 1;
 
         var conflict = assertThrows(SettingsConflict.class, () -> store.writeProviders(stale, staleRevision),
                 "a write against an older revision is refused");

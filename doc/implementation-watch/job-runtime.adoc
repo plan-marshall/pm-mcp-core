@@ -672,7 +672,10 @@ and `egress_hosts`, and a `security` record `egress_refused` is written; a test 
 consecutive Gradle builds of one project and write set reuse one daemon; the job records state `egress: enforced` and
 the admitted hosts. The onboarding's recording build of a fixture project runs its proxy in record mode, admits every
 host it reaches, records each, and proposes exactly the recorded hosts as `egress_hosts`; a host that only a build file
-names and the build never reached is not proposed. Matched controls: under `build_network: open` the outside host is reached and the record states
+names and the build never reached is not proposed; it reads the existing files of the compiled credential locations of
+the project's build domains and proposes exactly those as `build_credential_files`, and a build that needs a credential
+none of them holds fails at onboarding. Matched controls: a file of another build domain's location (`~/.npmrc` for a
+Maven project) and `~/.ssh/id_ed25519` stay unreadable to the recording build; under `build_network: open` the outside host is reached and the record states
 `egress: open`; a `build_environment` with the operator's `HTTPS_PROXY` set leaves the job's own proxy in force, never the captured value.
 Source:: Article analyses `secure-architecture-for-ai-agents-owasp-llm` and `secure-architecture-for-ai-agents-owasp-agentic` of plan-marshall-documentation.
 

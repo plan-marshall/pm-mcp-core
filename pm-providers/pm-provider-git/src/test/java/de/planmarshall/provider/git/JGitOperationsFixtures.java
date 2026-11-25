@@ -9,6 +9,7 @@
  */
 package de.planmarshall.provider.git;
 
+import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -102,7 +103,8 @@ abstract class JGitOperationsFixtures {
 
     CommitInfo commitIn(Path root, String message) {
         GitResult<CommitInfo> result = git.commit(new CommitInput(root, message, author, agent, List.of()));
-        assertEquals(GitOutcome.OK, result.outcome(), "the fixture commit is recorded");
+        assertAll(result.detail(),
+                () -> assertEquals(GitOutcome.OK, result.outcome(), "the fixture commit is recorded"));
         return result.value();
     }
 
@@ -138,7 +140,8 @@ abstract class JGitOperationsFixtures {
 
     String sha(Path root) {
         GitResult<WorktreeSha> result = git.worktreeSha(root);
-        assertEquals(GitOutcome.OK, result.outcome(), "the working-tree digest is computed");
+        assertAll(result.detail(),
+                () -> assertEquals(GitOutcome.OK, result.outcome(), "the working-tree digest is computed"));
         // contract literal: the worktree-sha hash version pinned by the specification is 1
         assertEquals(1, result.value().version(),
                 "the digest carries hash version 1");

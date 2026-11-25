@@ -391,7 +391,7 @@ class TerminationProtocolTest {
             var elapsed = Duration.ofNanos(System.nanoTime() - started);
             assertTrue(launched.process().waitFor(10, TimeUnit.SECONDS), "the leader should have ended");
             descendant.onExit().get(10, TimeUnit.SECONDS);
-            assertAll(
+            assertAll("elapsed " + elapsed,
                     () -> assertEquals(new Report(Ending.GROUP_KILLED, false, null), report,
                             "the ignoring group is killed"),
                     () -> assertEquals(1, signals.count(true, Signal.SIGKILL), "the group is sent SIGKILL once"),
@@ -413,7 +413,7 @@ class TerminationProtocolTest {
             var report = new TerminationProtocol(signals).terminate(launched.pid());
 
             var elapsed = Duration.ofNanos(System.nanoTime() - started);
-            assertAll(
+            assertAll("elapsed " + elapsed,
                     () -> assertEquals(new Report(Ending.GROUP_EXITED, false, null), report,
                             "the obedient group exited"),
                     () -> assertEquals(0, signals.count(true, Signal.SIGKILL), "the group is never sent SIGKILL"),

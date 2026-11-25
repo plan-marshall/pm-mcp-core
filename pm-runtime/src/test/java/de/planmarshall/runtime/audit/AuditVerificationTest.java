@@ -131,8 +131,9 @@ class AuditVerificationTest {
             var outcome = assertInstanceOf(Outcome.NotVerified.class, trail.verification().verify(),
                     "a trail with a locked key is not verified");
 
-            assertTrue(outcome.reason().contains(SecretStoreException.Reason.LOCKED.code()),
-                    "the outcome names the reason of the keyring");
+            assertAll(outcome.reason(),
+                    () -> assertTrue(outcome.reason().contains(SecretStoreException.Reason.LOCKED.code()),
+                            "the outcome names the reason of the keyring"));
         }
     }
 
@@ -189,7 +190,9 @@ class AuditVerificationTest {
 
             var broken = assertBroken(BreakReason.LINK_BROKEN, trail.verification().verify());
 
-            assertTrue(broken.diagnostic().contains(AuditIndex.FILE_NAME), "the diagnostic names the index file");
+            assertAll(broken.diagnostic(),
+                    () -> assertTrue(broken.diagnostic().contains(AuditIndex.FILE_NAME),
+                            "the diagnostic names the index file"));
         }
     }
 
@@ -653,8 +656,9 @@ class AuditVerificationTest {
         private static void assertNotAnchoringLineBeforeCheckpoint(Outcome outcome) {
             var broken = assertBroken(BreakReason.HEAD_MISMATCH, outcome);
             // the diagnostic text of the verification is the contract
-            assertTrue(broken.diagnostic().contains("the line before its checkpoint"),
-                    "the diagnostic names the line before the checkpoint");
+            assertAll(broken.diagnostic(),
+                    () -> assertTrue(broken.diagnostic().contains("the line before its checkpoint"),
+                            "the diagnostic names the line before the checkpoint"));
         }
 
         @Test

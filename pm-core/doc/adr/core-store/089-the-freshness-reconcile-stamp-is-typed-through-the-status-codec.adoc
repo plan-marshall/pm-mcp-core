@@ -31,11 +31,15 @@ writer had no constructor to build one with.
 * `recorded_at` — the instant the stamp was recorded.
 
 The member is `null` when no stamp is recorded. The schema already declares the five members and its `const` hash
-version, so the schema file is not changed; `WorkflowStatusSchemaParityTest` pins the record's required members to the
-schema's and `WorkflowStatusCodecTest` round-trips the stamp.
+version, so this record changes no schema shape; a later correction reworded only the `description` of the member
+(PLAN-V2-182, #604). `WorkflowStatusSchemaParityTest` pins the record's required members to the schema's and
+`WorkflowStatusCodecTest` round-trips the stamp.
 
-The reader side — the freshness verb that consults the stamp — is the `git.pre-commit-verify-freshness` verb of the
-commit sub-process, which the engine wires later; this record supplies the typed carrier it reads.
+The reader side — the freshness verb the stamp was introduced for — is the `git.pre-commit-verify-freshness` verb of
+the commit sub-process; it is specified to decide freshness from the change ledger (`build` and `baseline_red` rows, or
+the build-neutral derivation) and the build decision's `exempt` verdict, never the stamp (State Catalogue §
+`git.verify-freshness`; the verb is not wired in this checkout), so this record supplies a typed carrier the current
+rule does not read, and the engine wires no writer.
 
 == Alternatives Considered
 
@@ -50,7 +54,7 @@ commit sub-process, which the engine wires later; this record supplies the typed
 
 * A malformed stamp is a `StoreRefusal` on read, naming the member, rather than a raw object a gate would trust.
 * The writer must write the stamp in the same status transaction as the commit it describes. This revision does not
-  yet wire that writer; it supplies the typed carrier the writer reads.
+  yet wire that writer; it supplies the typed carrier a future writer will read.
 
 == Source
 

@@ -70,8 +70,9 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
  * {@code failed} with the reason {@code commit_failed}. The {@value #DETAIL_FACT} of that failure is the contract's
  * detail with the checkout's absolute root made repository-relative, or the code of the git outcome where the contract
  * states no detail or a detail that still names an absolute path: no absolute path of the server behind an introducer
- * reaches a fact, while a path glued behind a path-name character stays as the text states it, the residual
- * {@link #modelDetail} names.
+ * reaches a fact, while a path glued behind a path-name character stays as the text states it. A separator immediately
+ * after a supplementary-plane letter is read as absolute because the one-unit lookbehind cannot consume the surrogate
+ * pair, so a segment that is the letter alone becomes the code: these are the residuals {@code modelDetail} names.
  * Hooks run only in the CLI variant, so only its hook refusal returns {@code hook_failed}; the native variant never does.
  * A {@code committed} result also carries the provenance of the resolved trailer as the fact
  * {@value #TRAILER_SOURCE_FACT}, for the commit's audit record; no other outcome carries it.
@@ -337,7 +338,10 @@ public final class GitStageAndCommitPrimitive
      * in {@code +}, {@code @} or {@code ~} ({@code c++/src/main.cpp}) becomes the code because that punctuation is no
      * path-name character here: these are the pattern's stated residual cost. The same reading refuses a relative name
      * whose segment ends in a character that is no path-name character — an opening brace, a backslash, a combining
-     * mark, a symbol such as {@code +} or {@code $}, or an emoji — because its separator is then read as absolute.
+     * mark, a symbol such as {@code +} or {@code $}, or an emoji — because its separator is then read as absolute. A
+     * supplementary-plane letter is not seen by the lookbehind either: its one-unit character class cannot consume the
+     * surrogate pair, so the separator immediately after such a letter is read as absolute and a segment that is the
+     * letter alone becomes the code as well.
      */
     static String modelDetail(GitOutcome outcome, @Nullable String detail, Path worktree) {
         if (detail == null || detail.isBlank()) {

@@ -20,12 +20,13 @@ class UsagePointersBuilderContractTest {
     @Test
     @DisplayName("the builder builds the constructor's usage pointers")
     void builderBuildsPointers() {
-        var canonical = new UsagePointers("/input", "/output", null, null, null, null, "/tool_uses");
+        var canonical = new UsagePointers("/input", "/output", null, null, null, null, "/tool_uses", "/model");
 
         var built = UsagePointers.builder().inputTokens(canonical.inputTokens())
                 .outputTokens(canonical.outputTokens()).cacheRead(canonical.cacheRead())
                 .cacheCreation(canonical.cacheCreation()).reasoning(canonical.reasoning())
-                .costUsd(canonical.costUsd()).toolUses(canonical.toolUses()).build();
+                .costUsd(canonical.costUsd()).toolUses(canonical.toolUses())
+                .model(canonical.model()).build();
 
         assertEquals(canonical, built, "the builder builds the constructor's value");
     }
