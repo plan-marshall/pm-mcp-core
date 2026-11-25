@@ -4,8 +4,8 @@
 link:README.adoc[Work packages of `pm-mcp-core`] » `commit-boundary`
 
 [horizontal]
-Roadmap item:: the protected-path decision at the commit check and the main-checkout clause of the commit boundary (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap]); the code of the two parts is the plans of the cut, and this package owns the decision
-Where:: pm-core (`core.store`: `ProtectedPaths`, `FootprintBoundary`); pm-provider-git (the commit primitive's `CommitSite`)
+Roadmap item:: none of its own: the commit boundary's decisions follow the merged specification (the protected-path decision at the commit check, the main-checkout clause conditional on confinement, the lift removal; link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Where:: pm-core (`core.store`: `ProtectedPaths`); pm-provider-git (the commit primitive's `FootprintBoundary` and `CommitSite`)
 Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
 == Tasks
@@ -13,20 +13,20 @@ Status, milestone and dependencies:: in the link:README.adoc#packages[index], th
 The specification sections named are the single statement of what each task builds.
 
 . *The protected-path decision at the commit check*: the server asks the operator one question over the diff of exactly the touched protected paths, `accept` or `refuse`, and a `refuse` leads to a `fix` task; the family of protected paths is unchanged: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths].
-. *The main-checkout clause conditional on confinement*: the main-checkout check holds only under `confinement: unavailable`; under confinement the main checkout is no concern of a plan, and the operator's own edits there never concern one: link:../specification/job-runtime/02-confinement-and-environment.adoc#_linux_filesystem_confinement_landlock[Job Runtime § Linux Filesystem Confinement]; link:../specification/store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas § Workflow State Store], `entry_baseline`.
-. *The lift removal*: `ProtectedPaths` drops the `declared_files` lift, and the family stays what it was; the `unplanned_changes` breach sentence names the protected path it reports: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths]; link:../specification/store-schemas/06-task-and-references.adoc[Store Schemas § Task and References].
+. *The main-checkout clause made conditional on confinement*: the guard's check holds only under `confinement: unavailable`, and under confinement the main checkout is no concern of a plan, so the operator's own edits there never concern one; the guard's code is `worker-write-set-and-main-checkout-guard` (PLAN-V2-193, staged), and this package decides the clause and the wording every reader relies on: link:../specification/job-runtime/02-confinement-and-environment.adoc#_linux_filesystem_confinement_landlock[Job Runtime § Linux Filesystem Confinement]; link:../specification/store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas § Workflow State Store], `entry_baseline`.
+. *The lift removal*: a path the plan declares no longer lifts a protected path, and the family stays what it was; the matcher's code is `lane-entries-and-realized-composition` (PLAN-V2-190, staged), and this package owns the decision and the `unplanned_changes` wording: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths]; link:../specification/store-schemas/06-task-and-references.adoc[Store Schemas § Task and References].
 
-Left out: the code of the protected-path matcher and of the main-checkout guard themselves, which the plans of the cut own; this package owns the decision they implement.
+Left out: the code of the protected-path matcher (`lane-entries-and-realized-composition`, PLAN-V2-190) and of the main-checkout guard (`worker-write-set-and-main-checkout-guard`, PLAN-V2-193), which the plans of the cut own; this package owns the decisions they implement and the wording they report.
 
 == Trace
 
 The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
 
 * Requirements: link:../../../plan-marshall-documentation/doc/requirements/08-security.adoc#PM-SEC-1[PM-SEC-1], link:../../../plan-marshall-documentation/doc/requirements/08-security.adoc#PM-SEC-5[PM-SEC-5]
-* Specification: the sections the tasks name; link:../specification/job-runtime/02-confinement-and-environment.adoc[Job Runtime § Confinement & Environment]
-* Watch: link:../implementation-watch/job-runtime.adoc[Job Runtime]
+* Specification: the sections the tasks name; link:../specification/job-runtime/02-confinement-and-environment.adoc[Job Runtime § Confinement & Environment]; link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths]
+* Watch: link:../implementation-watch/job-runtime.adoc[Job Runtime]; link:../implementation-watch/phase-workflows.adoc[Phase Workflows]
 
 == Done When
 
-* Watch: the items of link:../implementation-watch/job-runtime.adoc[Job Runtime] anchored to the sections the tasks name.
-* Tests: one operator question over the diff of exactly the touched protected paths, with `accept` letting the commit through and `refuse` leading to a `fix` task; a touched protected path without a decision blocking the commit; the main-checkout check refused under `confinement: unavailable` and not applied under any confinement; the `declared_files` lift gone with the family unchanged (control); an `unplanned_changes` breach naming its protected path.
+* Watch: link:../implementation-watch/job-runtime.adoc[Job Runtime]; link:../implementation-watch/phase-workflows.adoc[Phase Workflows]
+* Tests: one operator question over the diff of exactly the touched protected paths, with `accept` letting the commit through and `refuse` leading to a `fix` task; a touched protected path without a decision blocking the commit; the main-checkout check refused under `confinement: unavailable` and not applied under any confinement; a declared path no longer lifting a protected path, with a changed `README.md` as the matched control; a protected path refused and never recorded as an unplanned change.

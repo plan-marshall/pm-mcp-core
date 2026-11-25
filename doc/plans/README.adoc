@@ -37,7 +37,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Job confinement and job environment in the daemon: the write and read sets with the narrower worker write set, and Build Egress and Build Read Set
 |`open`
 |`pm-mcp-clients` / `exec-read-denied-paths`; `pm-mcp-clients` / `exec-listed-read-set`; `pm-mcp-clients` / `exec-hardening`
-|Milestone 4
+|Milestone 4; Milestone 6 (Build Egress and Build Read Set)
 
 |link:worker-activity.adoc[`worker-activity`]
 |What a worker does: the activity of a task mapped per harness, the activity journal, the off-track signals and their actions (without the navigation figures, link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-40[L-40])
@@ -72,7 +72,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:phase-sub-workflows.adoc[`phase-sub-workflows`]
 |The seven phases as sub-workflows of the plan unit (the `sanity-check` phase between `execute` and `finalize`, the land lane's `land.*` states within `execute`), and the plan's history
 |`open`
-|nothing
+|`domain-extensions-and-architecture` (the build map and `derive-verification` task)
 |Milestones 3, 7, 8, 9 and 10, per task; the client work of `pm-mcp-clients`
 
 |link:process-and-overview.adoc[`process-and-overview`]

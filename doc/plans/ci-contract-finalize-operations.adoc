@@ -4,19 +4,19 @@
 link:README.adoc[Work packages of `pm-mcp-core`] » `ci-contract-finalize-operations`
 
 [horizontal]
-Roadmap item:: the finalize operations of the CI contract: the pull-request observation, the merge and the enqueue (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
-Where:: pm-provider-ci (the contract) and the providers `pm-provider-github`, `pm-provider-gitlab` and the Forgejo provider (`forgejo-provider`)
+Roadmap item:: none of its own: the CI contract's finalize operations follow the merged specification (the pull-request observation, the merge and the enqueue; link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Where:: pm-provider-ci (the contract) and the providers `pm-provider-github` and `pm-provider-gitlab`; the Forgejo provider implements the same member over its API from this contract (`forgejo-provider`)
 Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
 == Tasks
 
 The specification sections named are the single statement of what each task builds.
 
-. *The pull-request observation* `ci.pr-observe`: `pr_state`, `queue_state`, `behind`, `merge_queue_required`, `merge_commit_sha`, `head_sha` and `observed_at`, with the GitHub, GitLab and Forgejo mapping of `behind`, `null` where a forge reports none: link:../specification/store-schemas/02-workflow-state-store.adoc#merge-outcome-mapping[Store Schemas § Merge Outcome Mapping]; link:../specification/workflow-dsl/05-primitives.adoc[Workflow DSL § Primitives], the re-observing primitives.
+. *The pull-request observation* `ci.pr-observe`: `pr_state`, `queue_state`, `behind`, `merge_queue_required`, `merge_commit_sha`, `head_sha` and `observed_at`, with the GitHub and GitLab mapping of `behind`, `null` where a forge reports none; the Forgejo provider implements the same member over its API from this contract: link:../specification/store-schemas/02-workflow-state-store.adoc#merge-outcome-mapping[Store Schemas § Merge Outcome Mapping]; link:../specification/workflow-dsl/05-primitives.adoc[Workflow DSL § Primitives], the re-observing primitives.
 . *The merge `ci.merge` and the enqueue `ci.enqueue`*, both bound to the expected head SHA, the enqueue selected when `ci.pr-observe` reports `merge_queue_required: true` or the plan's last dispatch was refused `queue_required`, and the queue membership observed on its own: link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#_cross_plan_merge_mutex_fifo_admission_queue[Phase Workflows § Cross-Plan Merge Mutex & FIFO Admission Queue]; link:../specification/state-catalogue/07-plan-finalize-merge-post-run.adoc[State Catalogue § Merge Path].
 . *The provider refusal and its closed class* `merge.route-refusal`: `conflict`, `behind`, `queue_required`, `checks_pending`, `checks_failed`, `review_required`, `blocked`, `draft`, `method_not_allowed` and `unknown`, with `behind` and `conflict` re-entering the gate: link:../specification/state-catalogue/07-plan-finalize-merge-post-run.adoc[State Catalogue § Merge Path], `merge.route-refusal`.
 
-Left out: `finalize-pipeline-and-merge` task 3, which keeps the `behind` route of `merge.route-refusal` and the sync decision over the realized footprint and depends on this package; the Forgejo provider itself (link:forgejo-provider.adoc[`forgejo-provider`]), which supplies the Forgejo mapping to `behind`.
+Left out: `finalize-pipeline-and-merge` task 3, which keeps the `behind` route of `merge.route-refusal` and the sync decision over the realized footprint and depends on this package; the Forgejo provider's implementation of this contract's member over its API (link:forgejo-provider.adoc[`forgejo-provider`]).
 
 == Trace
 
@@ -29,4 +29,4 @@ The starting set of the trace matrix of the project skill `traced-implementation
 == Done When
 
 * Watch: the items of link:../implementation-watch/phase-workflows.adoc[Phase Workflows] anchored to the sections the tasks name.
-* Tests: each provider's `ci.pr-observe` mapping `behind` to `true`, `false` and `null`; the merge and the enqueue both bound to the expected head SHA; the enqueue selected on `merge_queue_required` and on a `queue_required` refusal; every class of `merge.route-refusal` routed, `behind` and `conflict` re-entering the gate; a head that moved since the barrier refused; queue membership observed separately and never inferred from a merge call's return value.
+* Tests: the GitHub and GitLab `ci.pr-observe` mapping `behind` to `true`, `false` and `null`, and the contract's member shaped so the Forgejo provider can implement it (`forgejo-provider`); the merge and the enqueue both bound to the expected head SHA; the enqueue selected on `merge_queue_required` and on a `queue_required` refusal; every class of `merge.route-refusal` routed, `behind` and `conflict` re-entering the gate; a head that moved since the barrier refused; queue membership observed separately and never inferred from a merge call's return value.
