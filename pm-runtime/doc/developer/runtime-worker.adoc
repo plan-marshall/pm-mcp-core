@@ -286,11 +286,17 @@ link:{src}/StartFailureGuard.java[`StartFailureGuard`] counts the consecutive st
 failed before the worker's first call, or that the runtime refused before the spawn. A `zero_tool` worker makes no call,
 so it is never counted; the supervisor consults the guard for a role that has a connection only.
 
-* *Count* — `startFailed(role, harness, logTail)` counts one failure per role and harness. The
+* *Count* — `startFailed(role, harness, logTail)` counts one failure per role and harness. A launch the runtime refuses
+  before its spawn counts: the four enrolment-store refusals (`harness_store_unreadable`, `harness_tampered`,
+  `harness_version_unsupported`, `harness_not_enrolled`), a launch the composer cannot compose and a start the runner
+  refuses. A refusal of `harness_update_unverified` counts nothing, and neither does a start the supervisor declines
+  itself (ADR `runtime-worker/025`). The
   link:{src}/StartFailureReport.java[`StartFailureReport`] bounds the worker's own error text to the job record's
   `MAX_HARNESS_ERROR` tail and redacts a minted job token, a minted worker secret, the user information of a URI and an
-  e-mail address. The report goes to the audit log as `workerStartFailed` and to the assembly's clients; it is never
-  rendered to a model.
+  e-mail address. The report goes to the audit log as `workerStartFailed`, to the assembly's clients on the declined
+  `StartOutcome`, and nowhere to a model. `WorkerSupervisor` records the refused job and releases the model slot before
+  it counts, so a count that throws — the audit sink, or the protocol's close at the hold — loses neither; and a batch
+  of starts stops at the first request after which the guard holds, so one failure is counted once.
 * *Hold* — at `StartFailureGuard.HOLD_THRESHOLD` (three) consecutive failures the guard holds. It logs
   `WORKER_START_GUARD_HELD` and closes the role's queued and new tasks through `WorkerProtocol.closeUnavailable` as
   `lost` with the reason `role_unavailable`, with their conservative fallback (PM-WORK-6).
@@ -310,12 +316,18 @@ started workers resumes the count of the generations that exited before their fi
 
 link:{src}/HarnessStartSpacing.java[`HarnessStartSpacing`] is the machine-wide spacing of one harness: it keys on the
 harness id alone, so one instance shared by the supervisors of every project spaces two projects that start the same
-harness at once. `awaitTurn` waits until the previous worker of the harness made its first call or ended, at most
-`SPACING_BOUND` (30 seconds). Past the bound the next start proceeds, so the spacing only ever delays a start and never
-refuses one. A collision that still makes a worker exit before its first call is a start failure and counts for the
-guard. A test lowers the bound instead of sleeping. `WorkerSupervisor` calls `awaitTurn` before the spawn,
-`firstCall` at the worker's connection and `ended` when the spawn was refused or the worker ended; the instance travels
-in `SupervisorEnvironment`, so the assembly supplies the one shared by every supervisor.
+harness at once. `awaitTurn(harness, owner)` waits until the previous start of the harness made its first call or
+ended, at most `SPACING_BOUND` (30 seconds), and then records the turn as that owner's — the start's generation id.
+Past the bound the next start proceeds and owns the turn, so the spacing only ever delays a start and never refuses
+one. `firstCall(harness, owner)` and `ended(harness, owner)` release the turn for THAT owner alone: an unrelated end, a
+worker that already called first, and a former owner past the bound release nothing. A collision that still makes a
+worker exit before its first call is a start failure and counts for the guard. A test lowers the bound instead of
+sleeping. `WorkerSupervisor` awaits the turn between the launch's preparation and its registration, outside every
+monitor of the supervisor, and releases it when the spawn was refused or the runner threw; `WorkerEnding` releases it
+when the generation ends and `SupervisorCalls` when its worker calls first. The start decision is serialized by a
+private start lock, so the pending worker's first call reaches the registry while another start waits
+(ADR `runtime-worker/024`). The instance travels in `SupervisorEnvironment`, so the assembly supplies the one shared
+by every supervisor.
 
 The guard and the spacing are part of the supervisor's start ownership (ADR 001).
 
