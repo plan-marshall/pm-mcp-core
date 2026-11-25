@@ -45,10 +45,11 @@ Source:: plan-marshall defect truthful-signals PLAN-TRUTH-151 D1 (carrying PLAN-
 
 Anchor:: link:../specification/phase-workflows/01-planning-phases-1-2.adoc#quality-dimensions[Phase Workflows § Six Quality Dimensions] (Evidence Class)
 Hazard:: A refine confidence jumped to certainty on self-assessment alone, indistinguishable from an
-operator-answered or downstream-reproduced one.
-Guard:: A test submits `submit:refine` with all dimensions at 100 and `evidence_class: self_assessment` and asserts
-the class is persisted and rendered in `facts`; only
-`operator_answered` and `downstream_reproduced` count as independent.
+operator-answered one; or the class is taken from the submission, so the model names its own evidence.
+Guard:: A test submits `submit:refine` with all dimensions at 100 in a plan whose clarification round has no answer
+the operator gave and asserts that the server derives `evidence_class: self_assessment`, persists it beside the
+score, and renders it in `facts`; matched control: the same submission after the operator answered the round
+(channel `web` or `cli`) derives `operator_answered`, and a round answered by a quorum derives `self_assessment`.
 Fixture:: all six dimensions at 100, confidence 49.0% → 100.0% in one operator round, justified by self-assessment.
 Source:: plan-marshall defect truthful-signals PLAN-TRUTH-151 D1 (carrying PLAN-TRUTH-119 D2).
 
@@ -385,11 +386,15 @@ Source:: plan-marshall lesson 2026-09-22-07-003.
 === PM-WATCH-PHASE-12: Fix-induced findings are counted separately
 
 Anchor:: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#_q_gate_validation_loop[Phase Workflows § Q-Gate Validation Loop],
+link:../specification/store-schemas/03-findings-and-review-records.adoc#fix-attribution[Store Schemas § Fix Attribution],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-7[PM-WF-7]
 Hazard:: Fix commits spawned the next round's findings (a fix created a `contract_drift`; a false "closed population
 of 3"), and nobody could see that a loop was feeding itself.
 Guard:: Loop-back scenario tests count fix-induced (self-seeded) findings separately from findings on the original
-change, per round and cumulatively.
+change, per round and cumulatively. No `FIX` finding is resolved `fixed` without the recorded commit (the fix task's
+verified commit or the settle commit of the round that carried its fix): a fixture whose settle commit's message or
+diff matches the fix task's `population` text but belongs to another round leaves the finding `pending`, and a defect
+the producer reports again at the new `HEAD` is a new finding.
 Fixture:: `0b918c` (`7bd671bec` fixed `6bc073` and created a `contract_drift`); `037198` (`819e4055f` false "closed
 population of 3"); both closed by deletion (`069c9519e`, `b29541c83`); 14 of 51 findings (27%) over 19 firings
 self-seeded, in 5 chains. Convergence vs oscillation: 4 / 4 / 2 findings over three rounds, 6 of 10 authored by the
@@ -1249,8 +1254,11 @@ Guard:: Table test over every `failure_class` (`failure`, `cancelled`, `timed_ou
 `startup_failure`, `not_triggered`, `no_checks`) and `failure_kind` (`compile`, `test`, `lint`, `policy`,
 `unknown`): `unknown` blocks; the closed enumerations admit no flake class, the evidence kind `infra` marks only a
 failed gather constituent, and a retry `reason` (`flaky`, `infra`, `timeout`) re-runs but never excuses a required
-check; a failing non-required check is recorded but does not block; a required check missing from an `incomplete` read is never green and the verdict is not
-`passed`.
+check; whether a check is required comes from the checks read at that moment (recorded provider answers: the GitHub
+per-check required flag, a GitLab job's `allow_failure`, the Forgejo branch protection), never from a stored fact; a
+failing non-required check is recorded but does not block; a required check missing from an `incomplete` read is
+never green and the verdict is not `passed`; a `checks_failed` merge refusal whose red check carries only a
+non-blocking finding makes that finding blocking and routes it to `remediation.ci-failure`.
 Source:: design review.
 
 [#PM-WATCH-PHASE-73]
@@ -1382,7 +1390,9 @@ Hazard:: A `not_mergeable` refusal is bypassed by an administrator merge (`plan-
 `behind`/`conflict` refusal re-enters the gate, the next sync sees no reason to rebase, and the dispatch is refused
 again until the retry budget is spent.
 Guard:: Scenario per `facts.reason` value: the `auto` state `finalize.merge-refused` offers no link; `behind`,
-`conflict`, `checks_pending`, and `checks_failed` re-enter `finalize.merge-gate` within the retry budget, and
+`conflict`, `queue_required`, `checks_pending`, and `checks_failed` re-enter `finalize.merge-gate` within the retry
+budget (after `queue_required` the next `merge.dispatch` is `ci.enqueue`), a `checks_failed` whose red check carries
+only a non-blocking finding makes it blocking and enters `finalize.remediate-barrier-ci`, and
 `review_required`, `blocked`, `draft`, `method_not_allowed`, `unknown`, and a spent budget enter `finalize.hand-back`
 with gap `cause: provider_refused`; a separate hand-back fixture per remaining gap cause asserts its own value, never
 `provider_refused`: `stepped_out` with `step_out_cause: push_state_unknown` (a `git.commit_and_push` parity state

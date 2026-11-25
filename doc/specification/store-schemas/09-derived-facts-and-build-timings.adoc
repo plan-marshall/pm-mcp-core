@@ -58,14 +58,8 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/store/derived-
 
 |`merge_queue_enforced`
 |network
-|GitHub branch rules of the base (`rules/branches/<base>`, rule `merge_queue`, with its `check_response_timeout_minutes`); GitLab `merge_trains_enabled` and `merge_pipelines_enabled`; for `available`, the repository owner type and plan where readable. Value `{enforced, available, check_response_timeout}`: `enforced` whether the base branch requires the queue; `available` (`yes`, `no`, `indeterminate`) whether the repository can have one, `no` only where readable (GitHub: a repository owned by a user, or a private or internal repository whose organization plan is readable and is not Enterprise Cloud; GitLab: a tier below Premium, when readable), otherwise `yes` or `indeterminate`; `check_response_timeout` in seconds, `null` when the provider states none
-|`branch-cleanup` merge mechanism (an enforced queue is never bypassed); the merge-queue wait (link:../timeouts/01-job-budgets-and-waits.adoc#merge-queue-wait[Timeouts & Budgets Specification]); the eligibility of `setup-merge-queue` (link:../domain-extensions/04-setup-state-machine.adoc#setup-merge-queue[Domain Extensions Specification], `available` other than `no`; `indeterminate` or a stale fact counts as eligible)
-|none
-
-|`required_checks`
-|network
-|GitHub required status check contexts of the base; GitLab every pipeline job not `allow_failure`; Forgejo branch protection `status_check_contexts` while `enable_status_check`
-|`ci-verify`: a failing check outside the set is filed non-blocking; a required check the credential cannot see is never counted as passed
+|GitHub branch rules of the base (`rules/branches/<base>`, rule `merge_queue`, with its `check_response_timeout_minutes`); for `available`, the repository owner type and plan where readable. Value `{available, check_response_timeout}`: `available` (`yes`, `no`, `indeterminate`) whether the repository can have a queue, `no` only where readable (GitHub: a repository owned by a user, or a private or internal repository whose organization plan is readable and is not Enterprise Cloud; GitLab: a tier below Premium, when readable), otherwise `yes` or `indeterminate`; `check_response_timeout` in seconds, `null` when the provider states none. Whether a pull request must go through the queue is never read from this fact: `ci.pr-observe` reports it for the pull request (xref:02-workflow-state-store.adoc#merge-outcome-mapping[Merge Outcome Mapping])
+|the merge-queue wait (link:../timeouts/01-job-budgets-and-waits.adoc#merge-queue-wait[Timeouts & Budgets Specification]); the eligibility of `setup-merge-queue` (link:../domain-extensions/04-setup-state-machine.adoc#setup-merge-queue[Domain Extensions Specification], `available` other than `no`; `indeterminate` or a stale fact counts as eligible)
 |none
 
 |`signed_commits_required`
@@ -78,12 +72,6 @@ include::../../../pm-core/src/main/resources/de/planmarshall/core/store/derived-
 |network
 |whether a direct push to the base branch is refused: GitHub branch rules of the base (`pull_request`, `update`, or `non_fast_forward` with no bypass for the agent identity) or classic branch protection with required reviews; GitLab protected branch push access level below the agent identity; Forgejo branch protection with `enable_push` false. Value `true` or `false`
 |the validation of `landing.main` at the project's setup and at a plan's start (link:../workflow-dsl/09-plan-instance.adoc#plan-axes[Workflow DSL Specification, Plan Behaviour Axes]): `true` refuses it with the reason; a `stale` or `failed` fact refuses it as `indeterminate`; never read against the machine default
-|none
-
-|`checks_visible`
-|network
-|whether the agent credential can read check runs of the repository (a fine-grained personal access token cannot read the Checks API); value `true` or `false`
-|`ci.checks` reports `completeness: incomplete` from the first read when `false` (commit statuses are still read); `project.operator` shows it to the operator (link:../state-catalogue/15-project-onboarding.adoc#state-project.operator[State Catalogue Specification, `project.operator`])
 |none
 
 |`agent_identity`

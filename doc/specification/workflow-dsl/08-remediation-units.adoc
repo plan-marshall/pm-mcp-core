@@ -75,7 +75,7 @@ The budgets are call arguments of the phase units (the template values). The pla
 |1 / 3
 |`resolved` -> in Phase 5 the `auto` router state `execute.route-build-cause`, which continues by the persisted `remediation_cause` (`deliverable` -> `execute.envelope-ready`, `sweep` -> `execute.verify-sweep`), in the `land` lane `land.verify-sweep`, in Phase 6 `finalize.settle-commit`; `fix_requested` -> remediation task allocation, whose commit enters the router `execute.route-commit-cause`; `exhausted` -> `execute.replan` or `finalize.replan` (trigger `ceiling`; in the `land` lane `land.handed-back`, the lane's exit `hand_back`), `stepped_out` -> in Phase 5 the phase's exit `hand_back`, in the `land` lane `land.handed-back`, in Phase 6 `finalize.hand-back` (each reaching `finalize.hand-back`, outcome `returned` when the branch holds no commit beyond the base)
 
-|`finalize.remediate-ci` (`ci_failed` of the wait region and of `finalize.merge-evidence-wait`), `finalize.remediate-barrier-ci` (`ci_failed` of the pre-merge barrier; `actions=[retry,fix]`; `resolved`, `waived` -> `finalize.merge-gate`)
+|`finalize.remediate-ci` (`ci_failed` of the wait region and of `finalize.merge-evidence-wait`), `finalize.remediate-barrier-ci` (`ci_failed` of the pre-merge barrier and of `finalize.merge-refused`; `actions=[retry,fix]`; `resolved`, `waived` -> `finalize.merge-gate`)
 |`remediation.ci-failure`
 |2 / 3
 |`resolved`, `waived` -> `finalize.next-step` completing `default:ci-verify`; `fix_requested` -> `finalize.allocate-remediation`; `exhausted` -> `finalize.replan` (trigger `ceiling`); `stepped_out` -> `finalize.hand-back`

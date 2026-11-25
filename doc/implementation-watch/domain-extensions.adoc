@@ -262,7 +262,8 @@ Source:: plan-marshall repository cui-jsf-test-basic, `.plan/local/lessons-learn
 [#PM-WATCH-EXT-13]
 === PM-WATCH-EXT-13: The surfacer detects restated sets and closed-set literals
 
-Anchor:: link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#self-review-surfacer[Domain Extensions § Pre-Submission Self-Review Surfacer Extension Point]
+Anchor:: link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#self-review-surfacer[Domain Extensions § Pre-Submission Self-Review Surfacer Extension Point],
+link:../specification/domain-extensions/05-recipes-and-extension-points.adoc#retrospective-aspects[Domain Extensions § Retrospective Aspect Extension Point]
 Hazard:: The dominant finalize finding class (about two thirds) was a set restated without an anchor to its
 definition: a hard-coded literal beside the symbol that defines the set, a test table hand-mirroring an exported
 production set, exclusive-quantifier prose ("only", "every", "exactly N", "closed vocabulary") contradicted by the
@@ -270,7 +271,11 @@ code. No surfacer detector covered it.
 Guard:: The corpus below is the regression fixture of the detectors the domain surfacer declares; per content class
 the round records `files`, `files_with_candidates`, and `detectors`, a class with files and no detector is `gap`,
 never clean, and when the plan's outline names this class as its target defect class every round seeds candidates
-of it over the plan footprint (Target-Class Seeding).
+of it over the plan footprint (Target-Class Seeding). The surfacers and the retrospective aspects that run are those of
+the domains `domain-detect` finds in the realized change at the step, never of the plan's recorded domains: a plan whose
+recorded domains lack the domain of its realized change runs that domain's surfacer and aspect; matched control: a plan
+whose recorded domain has a surfacer but whose realized change touches only domains without a registered surfacer
+records `not_run` (`no_domain_surfacer`).
 Fixture:: 17 findings from 2 detectors reduce to one shape (self-review `cae00c` … `037198`; CodeRabbit PR #1539
 `f97bff`, `3bcf06`, `15ddea`); `7fa03a` four stale counts; `037198` "closed population of 3" when there were 4.
 Escapes `a1ebb0`, `986369`, `bc1344`, `df7702`: 4 of 5 escapes closed-set literals, 0 of 21 detectors covering the
@@ -514,11 +519,12 @@ Source:: design review.
 Anchor:: link:../specification/domain-extensions/04-setup-state-machine.adoc#setup-merge-queue[Domain Extensions § Merge-Queue Probe]
 Hazard:: A probe that finds no merge queue enables one or changes branch protection, a repository administration
 action outside the agent identity's permissions and mandate.
-Guard:: The code under test is the probe (`setup.probe-merge-queue`, `setup.merge-queue`) and the derivation of the
-fact `merge_queue_enforced`, run against recorded GitHub and GitLab provider answers (queue present and absent,
-credential with and without administrative rights), so no request reaches a provider; every request the
-derivation composes is a read (`GET`; GraphQL: queries only, no mutation document), and the state names the provider setting for the operator instead of
-changing it.
+Guard:: The code under test is the probe (`setup.probe-merge-queue`, `setup.merge-queue`), its read of the base
+branch's queue setting, and the derivation of the fact `merge_queue_enforced`, run against recorded GitHub and GitLab
+provider answers (queue present and absent, credential with and without administrative rights), so no request
+reaches a provider; every request the probe and the derivation compose is a read (`GET`; GraphQL: queries only, no
+mutation document), a base branch with a queue ends the probe `not_needed`, and the state names the provider setting
+for the operator instead of changing it.
 Source:: design review.
 
 [#PM-WATCH-EXT-31]

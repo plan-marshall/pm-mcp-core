@@ -24,7 +24,7 @@ The decision is the question set of one creation: its id is the id of its first 
 |the caller's phase value
 |`auto`
 |The question state's call (entry `deliver`), after the scope's adjudication of the new question set.
-|`auto decision.open`: a set the quorum decided is closed at once (its answers recorded with `channel: quorum`); otherwise the decision is assembled as the workflow made it (the evidence, what it blocks, its reversibility, its parts and options, the recommendation, the votes and dissent of a quorum as each option's support) and its `delivered_at` recorded.
+|`auto decision.open`: a set the quorum decided is closed at once (its answers recorded with `channel: quorum`); otherwise the decision is assembled as the workflow made it (the evidence, what it blocks as the server writes it from what waits on the decision, its reversibility, its parts and options, the recommendation, the votes and dissent of a quorum as each option's support) and its `delivered_at` recorded.
 |`decided` -> `decision.closed`; `deliver` -> `decision.announce`.
 |link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]
 
