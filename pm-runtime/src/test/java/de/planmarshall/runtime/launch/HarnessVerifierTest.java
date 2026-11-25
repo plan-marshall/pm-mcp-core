@@ -49,10 +49,10 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
  * The launch-time verification of an enrolled harness, its self-update and its refusals.
  *
  * <p>
- * The instants, the HMAC key, the stale digests, the versions inside and outside the fixture profile's supported
- * range, the operator-added client id and the probed texts are generated. The
- * literals that stay are the contract: the fixture profile's client id {@code claude} and its supported range
- * {@code >=1.0.0 <2.0.0}, which the versions are drawn against, the version pattern under test, the store's file name
+ * The instants, the HMAC key, the stale digests, the version inside the fixture profile's supported range, the
+ * operator-added client id and the probed texts are generated. The literals that stay are the contract: the fixture
+ * profile's client id {@code claude} and its supported range {@code >=1.0.0 <2.0.0} with the out-of-range bounds
+ * {@code 2.0.0} and {@code 0.9.9} that the version test pins, the version pattern under test, the store's file name
  * {@code harnesses.json}, the shell script shape of the fixture executable, and the usage figure and event names with
  * their stage result {@code reported}.
  */
