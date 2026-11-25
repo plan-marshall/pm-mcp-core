@@ -66,7 +66,7 @@ The self-review surfacer is a domain extension point, not a recipe: a domain bun
 *Outcomes*: every round records exactly one of three outcomes, carried into the landing facts as `self_review` (link:../phase-workflows/05-finalize-review-metrics-descriptor.adoc#_landing_envelope_emit_landing[Phase Workflows Specification § Landing Envelope]):
 
 * `reviewed`: at least one applicable surfacer ran and the model submitted its verdict over the surfaced candidates.
-* `not_covered`: a surfacer is registered for a domain of the realized change but does not apply to the footprint; the surfacer names the reason (`no_covered_content_class` with the uncovered content classes, or `zero_detectors`).
+* `not_covered`: surfacers are registered for domains of the realized change, but none of them applies to the footprint; the surfacer names the reason (`no_covered_content_class` with the uncovered content classes, or `zero_detectors`).
 * `not_run`: no surfacer is registered for any domain of the realized change; the reason is `no_domain_surfacer`.
 
 Neither `not_covered` nor `not_run` is ever recorded or rendered as `clean` or `passed`. The contract rules:

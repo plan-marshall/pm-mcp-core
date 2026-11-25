@@ -274,8 +274,8 @@ never clean, and when the plan's outline names this class as its target defect c
 of it over the plan footprint (Target-Class Seeding). The surfacers and the retrospective aspects that run are those of
 the domains `domain-detect` finds in the realized change at the step, never of the plan's recorded domains: a plan whose
 recorded domains lack the domain of its realized change runs that domain's surfacer and aspect; matched control: a plan
-whose recorded domain has a surfacer but whose realized change touches none of that domain records `not_run`
-(`no_domain_surfacer`).
+whose recorded domain has a surfacer but whose realized change touches only domains without a registered surfacer
+records `not_run` (`no_domain_surfacer`).
 Fixture:: 17 findings from 2 detectors reduce to one shape (self-review `cae00c` … `037198`; CodeRabbit PR #1539
 `f97bff`, `3bcf06`, `15ddea`); `7fa03a` four stale counts; `037198` "closed population of 3" when there were 4.
 Escapes `a1ebb0`, `986369`, `bc1344`, `df7702`: 4 of 5 escapes closed-set literals, 0 of 21 detectors covering the

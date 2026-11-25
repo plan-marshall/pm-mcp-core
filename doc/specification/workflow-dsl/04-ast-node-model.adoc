@@ -127,7 +127,7 @@ The graph the invariants are decided over is the *call-resolved graph of the com
 
 |`INV-INIT-1`
 |`init`
-|`init.classify` runs the planning-lane router on every path from the start state (except the `local_changes` and `pr` sources; the `pr` source is fixed to the `adopt` lane by the entry's scope creation); the router applies the team's `minimum_lane`; every init question state returns to the re-entrant `init.classify`; `main_sha` is stamped before `init.ready`.
+|`init.classify` runs the planning-lane router on every path from the start state (except the `local_changes` and `pr` sources; the `pr` source is fixed to the `adopt` lane by the entry's scope creation); the router applies the team's `minimum_lane`; the operator wait `init.options` returns to the re-entrant `init.classify`; `main_sha` is stamped before `init.ready`.
 
 |`INV-INIT-2`
 |`init`, `outline`
