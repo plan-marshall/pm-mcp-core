@@ -1,0 +1,67 @@
+= ADR 017: The Usage Model Pointer Sits Beside the Closed Numeric Figures
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-24
+
+== Context
+
+The Harness Profiles specification requires the profile to name where a line of the harness output reports the model
+that answered it (`headless.usage.model`, link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#served-model[The
+Model That Answered]), and the schema file `harness-profile-v1.schema.json` already declares the member as
+`["string", "null"]` and lists it among the required members of `headless.usage`.
+
+`headless.usage` is one flat block: seven numeric figures whose pointers the stage `usage` of the profile verification
+parses as decimals, that `ActivityEventMapper` turns into a turn's seven-member usage object, and that
+`ShippedUsageFixturesTest` fills with one integer per figure. The model is no figure: it is an identifier, read as text
+and recorded, never summed. Adding it to `ProfileStages.USAGE_FIGURES` would put a non-numeric value in front of three
+consumers that read a number, and the specification states the distinction (link:../../../../doc/specification/store-schemas/05-metrics-and-quality-report.adoc#metrics-store[The
+Metrics Store], where the total is derived from the five token components and never one of its pointers).
+
+== Decision
+
+`ProfileStages.MODEL` is the member's name, `"model"`, spelled once beside the seven figure names.
+`ProfileStages.USAGE_FIGURES` stays the seven numeric figures, and `ProfileStages.USAGE_MEMBERS` is the block's whole
+member list in schema order: the figures and `model`.
+
+`ProfileValidator.usage` passes `ProfileStages.USAGE_MEMBERS` as both the required and the allowed member set, so a
+profile without the member is refused with `the member 'model' of 'usage' is missing` and a member the block does not
+declare is still refused. The value is `null`, for a harness that reports no model, or a JSON Pointer: it must start
+with `/` and is at most 256 characters long, the same check `output.result_pointer` applies. `not_applicable` is not a
+value of the member.
+
+The stage `usage` of the profile verification keeps its closed result set of token figures (`REPORT_FIGURES`) and does
+not check `model`, because a profile like the shipped `claude` declares a pointer into a line kind the stage's single
+captured turn does not carry.
+
+== Alternatives Considered
+
+Adding `model` to `USAGE_FIGURES` was rejected: the stage `usage` parses every figure there as a decimal, the turn's
+usage object would gain a non-numeric member, and the parsing fixtures would have to draw a string where they draw an
+integer.
+
+A nested block (`headless.usage.model: {pointer: ...}`) was rejected: the schema file declares a flat member, and every
+other member of the block is a flat pointer.
+
+Accepting `not_applicable` for the member was rejected: the block's `not_applicable` marks a figure a harness has no
+such number for, while a harness that reports no model has no value at all, which `null` states.
+
+== Consequences
+
+A profile's `usage` block has one member more, and every shipped profile must declare it: the five profiles of
+`pm-api` are a hard predecessor outside this repository, and until their SNAPSHOT carries the member the shipped-profile
+tests of this repository fail. `HarnessProfileSchemaParityTest` pins the remaining deviation,
+`headless.usage.accumulation`, and `ProfileFixtures.usage()` declares `model: null`. The model pointer is read by the
+runtime, never by the stage `usage`; a later stage check of the pointer against a captured output is a separate
+follow-up.
+
+== Source
+
+PLAN-V2-135; `doc/specification/harness-profiles/01-profile-schema.adoc#served-model`;
+`doc/specification/harness-profiles/01-profile-schema.adoc#profile-verification`;
+`pm-core/src/main/resources/de/planmarshall/core/profile/harness-profile-v1.schema.json`.

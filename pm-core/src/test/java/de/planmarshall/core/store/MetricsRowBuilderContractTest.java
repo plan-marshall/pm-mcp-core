@@ -43,7 +43,7 @@ class MetricsRowBuilderContractTest {
                 Measurement.measured(0), Measurement.measured(0), Measurement.measured(0),
                 Measurement.measured(1), null, null);
         var canonical = new MetricsRow("qt-0123456789abcdef", 1, role, "l-0123456789abcdef",
-                "l-0123456789abcdef", harness, harnessVersion, model, null, Form.FRESH,
+                "l-0123456789abcdef", harness, harnessVersion, model, null, ServedModels.unmeasured(), Form.FRESH,
                 Phase.PHASE_5_EXECUTE, null, null, null, null, Outcome.SUBMITTED, null,
                 CauseClass.BENIGN, SpendClass.SUBMITTED, Population.MODEL_TASK, usage, null,
                 DurationBasis.TASK, null, null, Instant.parse("2026-10-22T10:00:00Z"));
@@ -51,7 +51,8 @@ class MetricsRowBuilderContractTest {
         var built = MetricsRow.builder().queueTaskId(canonical.queueTaskId()).attempt(canonical.attempt())
                 .role(canonical.role()).jobId(canonical.jobId()).generationId(canonical.generationId())
                 .harness(canonical.harness()).harnessVersion(canonical.harnessVersion()).model(canonical.model())
-                .effort(canonical.effort()).form(canonical.form()).phase(canonical.phase())
+                .effort(canonical.effort()).servedModels(canonical.servedModels()).form(canonical.form())
+                .phase(canonical.phase())
                 .stepId(canonical.stepId()).envelopeId(canonical.envelopeId())
                 .predictedCost(canonical.predictedCost()).yieldReason(canonical.yieldReason())
                 .outcome(canonical.outcome())
@@ -64,7 +65,8 @@ class MetricsRowBuilderContractTest {
         var fromConstructor = assertThrows(NullPointerException.class,
                 () -> new MetricsRow(canonical.queueTaskId(), canonical.attempt(), canonical.role(),
                         canonical.jobId(), canonical.generationId(), canonical.harness(),
-                        canonical.harnessVersion(), canonical.model(), canonical.effort(), canonical.form(),
+                        canonical.harnessVersion(), canonical.model(), canonical.effort(),
+                        canonical.servedModels(), canonical.form(),
                         canonical.phase(), canonical.stepId(), canonical.envelopeId(),
                         canonical.predictedCost(), canonical.yieldReason(), null,
                         canonical.continuation(), canonical.causeClass(),

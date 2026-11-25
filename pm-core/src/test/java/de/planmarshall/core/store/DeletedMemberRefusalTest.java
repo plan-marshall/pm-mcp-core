@@ -67,7 +67,8 @@ class DeletedMemberRefusalTest {
                 Measurement.measured(4), Measurement.measured(5), Measurement.measured(6), null, null);
         var row = MetricsRow.builder().queueTaskId("qt-0123456789abcdef").attempt(1).role("implementer")
                 .jobId("l-0123456789abcdef").generationId("l-0123456789abcdef").harness("opencode")
-                .harnessVersion("1").model("model").effort("high").form(Form.FRESH).phase(Phase.PHASE_5_EXECUTE)
+                .harnessVersion("1").model("model").effort("high").servedModels(ServedModels.unmeasured())
+                .form(Form.FRESH).phase(Phase.PHASE_5_EXECUTE)
                 .stepId("step").envelopeId(null).predictedCost(null).yieldReason(null).outcome(Outcome.SUBMITTED)
                 .continuation(null).causeClass(CauseClass.BENIGN).spendClass(SpendClass.SUBMITTED)
                 .population(Population.MODEL_JOB).usage(usage).durationMs(1L).durationBasis(DurationBasis.PROCESS)

@@ -941,9 +941,7 @@ public class ProfileValidator {
             var resultPointer = required(output, pointer, NAME_RESULT_POINTER);
             if (!resultPointer.isNull()) {
                 var value = text(resultPointer, pointer + "/result_pointer", NAME_RESULT_POINTER, 256);
-                if (!value.startsWith("/")) {
-                    throw invalid(pointer + "/result_pointer", MSG_NOT_A_POINTER.formatted(value));
-                }
+                requirePointer(value, pointer + "/result_pointer");
             }
         }
 
@@ -951,17 +949,50 @@ public class ProfileValidator {
          * The usage block is the one the Harness Profiles specification describes under <em>Tokens, Not Money</em>: the
          * {@code headless.usage} pointers, including the rule that {@code input_tokens}, {@code output_tokens} and
          * {@code tool_uses} are never {@code not_applicable}; this validator checks only its shape and leaves the meaning
-         * of a figure to the stage {@code usage} of the profile verification.
+         * of a figure to the stage {@code usage} of the profile verification. The member {@code model} stands beside the
+         * seven figures: it is a JSON Pointer into the harness output, or {@code null} when the harness reports no model.
          */
         private void usage(JsonNode usage, String pointer) {
-            var members = Set.copyOf(ProfileStages.USAGE_FIGURES);
+            var members = Set.copyOf(ProfileStages.USAGE_MEMBERS);
             object(usage, pointer, NAME_USAGE, members, members);
             for (var member : members) {
                 var value = required(usage, pointer, member);
-                if (!value.isNull()) {
-                    text(value, pointer + "/" + member, member, 256);
+                if (value.isNull()) {
+                    continue;
+                }
+                var pointerValue = text(value, pointer + "/" + member, member, 256);
+                if (ProfileStages.MODEL.equals(member)) {
+                    requirePointer(pointerValue, pointer + "/" + member);
                 }
             }
+        }
+
+        /**
+         * Requires a value to be an RFC 6901 JSON Pointer: a leading slash and no {@code ~} other than the escapes
+         * {@code ~0} and {@code ~1}. A pointer with a malformed escape resolves to nothing at run time, so it would load
+         * and read as not reported for ever.
+         */
+        private void requirePointer(String value, String pointer) {
+            if (!isJsonPointer(value)) {
+                throw invalid(pointer, MSG_NOT_A_POINTER.formatted(value));
+            }
+        }
+
+        /**
+         * Answers whether a value is an RFC 6901 JSON Pointer. The check is a scan rather than a regular expression: a
+         * repetition over an alternation can overflow the stack on a long input.
+         */
+        private static boolean isJsonPointer(String value) {
+            if (!value.startsWith("/")) {
+                return false;
+            }
+            for (var index = 0; index < value.length(); index++) {
+                if (value.charAt(index) == '~'
+                        && (index + 1 == value.length() || "01".indexOf(value.charAt(index + 1)) < 0)) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private void events(JsonNode events, String pointer) {

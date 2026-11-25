@@ -244,3 +244,28 @@ The runtime writes the `agent_started` detection through `workflow.task`'s proto
 * Every text, tool target and link target is stripped of its escape sequences and masked before the write; a masked
   value is stored masked, and a secret of a shape the redactor knows is never in the journal at rest (the shapes it
   leaves readable are listed in <<redactor-shapes>>).
+
+== The model_differs Entry
+_Requirements: link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WORK-7[PM-WORK-7], link:../../../doc/specification/harness-profiles/01-profile-schema.adoc#served-model[Harness Profiles § The Model That Answered]_
+
+`ActivityEntry.Kind.MODEL_DIFFERS("model_differs", Source.SERVER)` is a server kind: the model that answered a line
+differed from the one the task was launched with. The entry carries `@Nullable String launchModel` and
+`@Nullable String servedModel` (the wire members `launch_model` and `served_model`) directly after `egress`; both belong
+to that kind only, are required on it, carry 1 to `ActivityEntry.MODEL_BOUND` (128) characters, and must name two
+different models. `ActivityEntryCodec` writes and reads them in that place in `FIELDS`, and
+`activity-entry.schema.json` declares them.
+
+The identifiers are a harness's output and therefore untrusted: `SecretRedactor.redact(ActivityEntry)` strips their
+escape sequences, masks them like a link target and refits them to the bound, masking an identifier that drops to nothing
+whole so the journal never refuses an entry it was handed (link:../adr/core-queue/008-the-journal-masks-at-its-write-boundary.adoc[ADR
+core-queue/008]). Masking is not injective: two identifiers that both carry a secret mask to the same text, and the
+entry then states one masked pair (`SecretRedactor.isRedactionOf`), because the fact of the change survives and no
+unmasked identifier is written. The journal never drops a server entry at its bound, so a `model_differs` entry
+survives it.
+
+`ActivityEntryValidationTest` covers the per-kind rule, the required pair and the distinctness; `ActivityEntryTest`
+covers the round trip; `TaskQueueSchemaParityTest` pins the kind, the members and their bounds against the schema;
+`SecretRedactorTest` and `ActivityJournalMaskingTest` pin the masking at both the entry and the journal.
+
+link:../adr/core-queue/011-the-served-model-change-is-a-server-entry.adoc[ADR core-queue/011]: the entry names both models
+flat, and both are masked.

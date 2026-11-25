@@ -25,6 +25,7 @@ import de.planmarshall.core.profile.ProfileStages;
 import de.planmarshall.core.queue.ActivityEntry;
 import de.planmarshall.core.queue.ActivityEventMapping;
 import de.planmarshall.core.queue.ActivityEventMapping.KindMapping;
+import de.planmarshall.core.store.UsagePointers;
 
 /**
  * Maps one line of a worker's output stream onto the closed activity kinds through the harness's
@@ -57,6 +58,7 @@ public final class ActivityEventMapper {
 
     private final @Nullable ActivityEventMapping mapping;
     private final Map<String, String> usagePointers;
+    private final UsagePointers pointers;
 
     /**
      * @param mapping       the harness's events mapping; {@code null} for a harness without an event stream
@@ -65,11 +67,36 @@ public final class ActivityEventMapper {
     public ActivityEventMapper(@Nullable ActivityEventMapping mapping, Map<String, String> usagePointers) {
         this.mapping = mapping;
         this.usagePointers = Map.copyOf(usagePointers);
+        this.pointers = UsagePointers.builder().model(this.usagePointers.get(ProfileStages.MODEL)).build();
     }
 
     /** @return whether this harness maps any event */
     public boolean mapsEvents() {
         return mapping != null;
+    }
+
+    /**
+     * Reads the model a line of the output stream was answered by, through the profile's {@code model} usage pointer.
+     * <p>
+     * The reading is independent of the events mapping: any line that carries the value answers it, whatever kind the
+     * line maps to or whether it maps at all. The shipped {@code claude} declares the model of its {@code assistant}
+     * lines, whose text it maps, while its turn is the {@code result} line. A line that is no JSON object, a pointer
+     * that does not resolve and a value that is no identifier all read as not reported.
+     *
+     * @param line the line of the output stream
+     * @return the identifier of the model, or empty when the line reports none
+     */
+    public Optional<String> servedModel(@Nullable String line) {
+        if (line == null || line.isBlank()) {
+            return Optional.empty();
+        }
+        JsonNode root;
+        try {
+            root = JsonDocument.parse(line.getBytes(StandardCharsets.UTF_8), "activity line");
+        } catch (ProfileRefusal _) {
+            return Optional.empty();
+        }
+        return pointers.readModel(root);
     }
 
     /**

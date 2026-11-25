@@ -22,6 +22,7 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.OptionalLong;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -62,11 +63,11 @@ class UsagePointersTest {
     private static final String TOOL_USES = "/tool_uses";
 
     private static final UsagePointers OPENCODE = new UsagePointers(INPUT, OUTPUT,
-            "/part/tokens/cache/read", "/part/tokens/cache/write", "/part/tokens/reasoning", null, TOOL_USES);
+            "/part/tokens/cache/read", "/part/tokens/cache/write", "/part/tokens/reasoning", null, TOOL_USES, null);
 
     private static final UsagePointers CLAUDE = new UsagePointers("/message/usage/input_tokens",
             "/message/usage/output_tokens", "/message/usage/cache_read_input_tokens",
-            "/message/usage/cache_creation_input_tokens", UsagePointers.NOT_APPLICABLE, null, TOOL_USES);
+            "/message/usage/cache_creation_input_tokens", UsagePointers.NOT_APPLICABLE, null, TOOL_USES, null);
 
     private static JsonNode parse(String document) {
         return JsonDocument.parse(document.getBytes(UTF_8), "turn");
@@ -129,7 +130,7 @@ class UsagePointersTest {
             // the prefix keeps the cost member apart from the "part" member of the document
             var costPointer = "/cost-" + lowerName();
             var pointers = new UsagePointers(INPUT, OUTPUT, "/part/tokens/cache/read", "/part/tokens/cache/write",
-                    "/part/tokens/reasoning", costPointer, TOOL_USES);
+                    "/part/tokens/reasoning", costPointer, TOOL_USES, null);
             var cost = BigDecimal.valueOf(Generators.integers(1, 99_999).next(), 4);
             var document = "{\"part\":{\"tokens\":{\"input\":" + Generators.integers(0, 1000).next()
                     + ",\"output\":" + Generators.integers(0, 1000).next()
@@ -143,13 +144,63 @@ class UsagePointersTest {
     }
 
     @Nested
+    @DisplayName("the model pointer")
+    class ModelPointer {
+
+        @Test
+        @DisplayName("reads the identifier a line carries at its pointer")
+        void readsTheIdentifier() {
+            var model = lowerName();
+            var line = parse("{\"message\":{\"model\":\"" + model + "\"}}");
+            var pointers = UsagePointers.builder().model("/message/model").build();
+
+            assertEquals(Optional.of(model), pointers.readModel(line), "the model should be read");
+        }
+
+        @Test
+        @DisplayName("reads an identifier of 128 characters and refuses one of 129")
+        void boundIsTheRowColumns() {
+            var longest = Generators.letterStrings(128, 128).next();
+            var tooLong = longest + longest.substring(0, 1);
+            var pointers = UsagePointers.builder().model("/model").build();
+
+            assertAll(
+                    () -> assertEquals(Optional.of(longest),
+                            pointers.readModel(parse("{\"model\":\"" + longest + "\"}")),
+                            "128 characters should read as an identifier"),
+                    () -> assertTrue(pointers.readModel(parse("{\"model\":\"" + tooLong + "\"}")).isEmpty(),
+                            "129 characters should read as not reported"));
+        }
+
+        @Test
+        @DisplayName("is not reported when the pointer is null, does not resolve or the value is no identifier")
+        void notReported() {
+            var pointers = UsagePointers.builder().model("/message/model").build();
+            var nullPointer = UsagePointers.builder().model(null).build();
+            var absent = parse("{\"message\":{}}");
+            var nonString = parse("{\"message\":{\"model\":42}}");
+            var empty = parse("{\"message\":{\"model\":\"\"}}");
+            var control = parse("{\"message\":{\"model\":\"a\\u0007b\"}}");
+            var number = parse("{\"message\":{\"model\":7}}");
+
+            assertAll(
+                    () -> assertTrue(pointers.readModel(absent).isEmpty(), "a line without a model reads empty"),
+                    () -> assertTrue(nullPointer.readModel(absent).isEmpty(), "a null pointer reads empty"),
+                    () -> assertTrue(pointers.readModel(nonString).isEmpty(), "a number reads as not reported"),
+                    () -> assertTrue(pointers.readModel(number).isEmpty(), "a numeric identifier reads empty"),
+                    () -> assertTrue(pointers.readModel(empty).isEmpty(), "an empty identifier reads empty"),
+                    () -> assertTrue(pointers.readModel(control).isEmpty(), "a control character reads empty"));
+        }
+    }
+
+    @Nested
     @DisplayName("a missing figure")
     class MissingFigure {
 
         @Test
         @DisplayName("is recorded unmeasured with the reason not_reported_by_harness")
         void missingFigureIsRecordedUnmeasuredWithItsReason() {
-            var pointers = new UsagePointers(INPUT, OUTPUT, null, null, null, null, TOOL_USES);
+            var pointers = new UsagePointers(INPUT, OUTPUT, null, null, null, null, TOOL_USES, null);
 
             var usage = pointers.read(parse(OPENCODE_TURN));
 
@@ -169,7 +220,7 @@ class UsagePointersTest {
         @DisplayName("a pointer that does not resolve is unmeasured, not a zero")
         void unresolvedPointer() {
             var pointers = new UsagePointers(INPUT, OUTPUT, "/part/tokens/cache/absent-" + lowerName(),
-                    UsagePointers.NOT_APPLICABLE, UsagePointers.NOT_APPLICABLE, null, TOOL_USES);
+                    UsagePointers.NOT_APPLICABLE, UsagePointers.NOT_APPLICABLE, null, TOOL_USES, null);
 
             var usage = pointers.read(parse(OPENCODE_TURN));
 
@@ -182,7 +233,7 @@ class UsagePointersTest {
         @Test
         @DisplayName("a figure whose output is not an integer is unmeasured with the reason output_unparsed")
         void unparsedFigure() {
-            var pointers = new UsagePointers(INPUT, OUTPUT, null, null, null, null, TOOL_USES);
+            var pointers = new UsagePointers(INPUT, OUTPUT, null, null, null, null, TOOL_USES, null);
             var document = "{\"part\":{\"tokens\":{\"input\":\"" + lowerName() + "\",\"output\":"
                     + Generators.integers(0, 1000).next() + "}},\"tool_uses\":1}";
 
@@ -203,7 +254,7 @@ class UsagePointersTest {
         @Test
         @DisplayName("makes every applicable component unmeasured and the total unmeasured")
         void emptyTurn() {
-            var pointers = new UsagePointers(INPUT, OUTPUT, null, null, null, null, null);
+            var pointers = new UsagePointers(INPUT, OUTPUT, null, null, null, null, null, null);
 
             var usage = pointers.read(parse("{\"type\":\"" + lowerName() + "\"}"));
 
@@ -273,7 +324,7 @@ class UsagePointersTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class, () -> new UsagePointers(input, output, null,
-                                    null, null, null, UsagePointers.NOT_APPLICABLE),
+                                    null, null, null, UsagePointers.NOT_APPLICABLE, null),
                             "a not_applicable tool-use pointer should fail"),
                     () -> assertThrows(IllegalArgumentException.class, () -> new HarnessUsage(unmeasured, unmeasured,
                             notApplicable, notApplicable, notApplicable, notApplicable, null,
@@ -292,9 +343,11 @@ class UsagePointersTest {
             var output = pointer();
             var reasoning = pointer();
             var toolUses = pointer();
+            var model = pointer();
             var block = JsonDocument.parse(("{\"input_tokens\":\"" + input + "\",\"output_tokens\":\"" + output
                     + "\",\"cache_read\":null,\"cache_creation\":\"not_applicable\",\"reasoning\":\"" + reasoning
-                    + "\",\"cost_usd\":null,\"tool_uses\":\"" + toolUses + "\"}").getBytes(UTF_8), "usage");
+                    + "\",\"cost_usd\":null,\"tool_uses\":\"" + toolUses + "\",\"model\":\"" + model + "\"}")
+                    .getBytes(UTF_8), "usage");
 
             var pointers = UsagePointers.of(block);
 
@@ -306,7 +359,8 @@ class UsagePointersTest {
                             "the cache creation should be not_applicable"),
                     () -> assertEquals(reasoning, pointers.reasoning(), "the reasoning pointer should be read"),
                     () -> assertNull(pointers.costUsd(), "a null cost should be not reported"),
-                    () -> assertEquals(toolUses, pointers.toolUses(), "the tool-use pointer should be read"));
+                    () -> assertEquals(toolUses, pointers.toolUses(), "the tool-use pointer should be read"),
+                    () -> assertEquals(model, pointers.model(), "the model pointer should be read"));
         }
 
         @Test
@@ -320,10 +374,10 @@ class UsagePointersTest {
 
             assertAll(
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new UsagePointers(notApplicable, output, null, null, null, null, null),
+                            () -> new UsagePointers(notApplicable, output, null, null, null, null, null, null),
                             "a not_applicable input should be refused"),
                     () -> assertThrows(IllegalArgumentException.class,
-                            () -> new UsagePointers(input, notApplicable, null, null, null, null, null),
+                            () -> new UsagePointers(input, notApplicable, null, null, null, null, null, null),
                             "a not_applicable output should be refused"),
                     () -> assertThrows(IllegalArgumentException.class, () -> UsagePointers.of(withoutMember),
                             "a block without a member should be refused"));

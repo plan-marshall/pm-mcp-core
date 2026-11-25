@@ -1,0 +1,93 @@
+= ADR 023: The Served Model Is Read per Line, Watched per Attempt and Recorded Once per Change
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-24
+
+== Context
+
+A harness can answer a line with another model than the one the launch named: a router that picks per turn, a fallback
+after an overload or a quota, a preview the account cannot use replaced by another model. The specification asks the
+runtime to read the model of every line of the output stream that carries one, through `headless.usage.model`, to record
+the distinct models of a row's turns as
+`served_models`, and to write a `model_differs` entry once per change
+(link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#served-model[The Model That Answered]).
+
+Two facts shape the reading. The shipped `claude` profile maps its `turn` from the `result` line while the
+specification's mapping makes the per-message usage of its `assistant` lines the turn (PLAN-V2-147), and it declares the
+model of its `assistant` lines: a reader that read the model only on turn lines would see none. And a harness may report
+an alias at launch and the fully qualified identifier on a line, so exact equality alone would write a false entry on
+every line.
+
+The turn's usage object is a closed seven-member object of numeric figures
+(link:../runtime-worker/013-the-turn-keeps-tool-uses-and-cost-raw.adoc[ADR 013]); the model is no figure and must not
+enter it.
+
+== Decision
+
+`ActivityEventMapper.servedModel(line)` reads the model on every line of the output stream that carries one, independent
+of the events mapping and of whether the line maps at all, through the `model` pointer of the profile's usage pointers.
+A pointer that resolves to no value, or to something that is not a non-empty string of at most 128 characters without a
+control character, reads as not reported; the reading never defaults to the launch model. The turn's usage object stays
+the seven numeric figures.
+
+`ServedModelWatch`, in `de.planmarshall.runtime.worker`, holds a worker generation's launch model, a comparison of two
+identifiers and the models seen in the current attempt. `see(model)` adds every reported model to the list and returns a
+`Difference` when the model differs both from the launch model and from the previous one; a return to the launch model
+returns nothing while the model still enters the list, so a fallback that switches back is recorded rather than only the
+last line. `served()` returns the attempt's `ServedModels`. The watch starts with the previous model equal to the launch
+model, and `restart()` begins the next attempt, so a warm worker that stays on a fallback model shows the change in each
+task's journal; the launch model is the generation's and does not change while the generation serves task after task.
+
+The decision and the state update are separate: `see` answers what to write and does not move the watch, and `recorded()`
+commits the decision once the entry is written. A failed write therefore leaves the change pending, and the retry of the
+same line offers it again instead of losing it. The reference a later report is compared with is the most specific
+identifier seen since the last change, so a report of the alias never overwrites the concrete release it stands for.
+
+The comparison is a seam: `ServedModelWatch(launchModel, BiPredicate)` takes the rule, and the default treats two equal
+identifiers as one model and an identifier and the same model with a trailing snapshot suffix of eight digits or an ISO
+date after a hyphen as one model, in either order — a launch alias and the release it was reported as are one model, the
+two spellings of one release are one model, and two different releases stay two models. The watch compares each reported
+identifier with the most specific identifier seen since the last change, not with the launch model, so a switch from one
+release of the launch alias to another is recorded once and a return to the launch model is not. The assembly may supply
+a rule that resolves an alias through the harness's `models_probe` listing.
+
+`WorkerActivityPump` takes the watch as a collaborator, asks the mapper for the model of every line before it maps the
+line, writes the `model_differs` entry ahead of the line's own entry, and commits the watch only after that write
+returns. The two-argument constructor delegates with `ServedModelWatch.recordingNothing()`, so no production class of
+this repository wires a watch; the assembly does.
+
+== Alternatives Considered
+
+Reading the model only on lines mapped as `turn` was rejected: for `claude` the model is on the `assistant` line, which
+its mapping reads as `text`, so the reading would see nothing.
+
+Mapping `assistant` lines as `turn` was rejected: it changes the usage reading and the per-turn entries, and the
+specification settles that the pointer applies to every line of the stream.
+
+Exact equality alone was rejected: an alias launched as `sonnet` and reported as `sonnet-20250514` would write one
+false entry per line.
+
+Stripping an identifier to a family was rejected: it would miss a switch from one release to another.
+
+A watch on the worker rather than on the attempt was rejected: a warm worker that stays on a fallback model would show
+the change once and never in the journals of the tasks that followed.
+
+== Consequences
+
+The model is recorded per attempt and never acted on: no fate, outcome, re-offer, signal or qualification reads the
+`model_differs` entry or `served_models`. The default comparison is stated once here and in the developer guide; a
+change to it changes what the specification promises, so the specification sentence is corrected with it. The assembly
+that wires the pump must pass the launch model and its alias resolution; until it does, no journal entry is written in
+production.
+
+== Source
+
+PLAN-V2-135; `doc/specification/harness-profiles/01-profile-schema.adoc#served-model`;
+`doc/implementation-watch/harness-profiles.adoc#PM-WATCH-CLIENT-20`;
+`pm-core/doc/developer/core-profile.adoc`.

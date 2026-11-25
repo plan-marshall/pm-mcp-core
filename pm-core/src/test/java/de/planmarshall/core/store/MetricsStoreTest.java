@@ -103,7 +103,8 @@ class MetricsStoreTest {
     private MetricsRow row(String queueTaskId, HarnessUsage usage) {
         return MetricsRow.builder().queueTaskId(queueTaskId).attempt(Generators.integers(1, 9).next()).role(role)
                 .jobId(jobId).generationId(jobId).harness(harness).harnessVersion(harnessVersion).model(model)
-                .effort(lowerName()).form(Form.FRESH).phase(Phase.PHASE_5_EXECUTE).stepId("step-" + lowerName())
+                .effort(lowerName()).servedModels(ServedModels.unmeasured()).form(Form.FRESH)
+                .phase(Phase.PHASE_5_EXECUTE).stepId("step-" + lowerName())
                 .envelopeId(null).predictedCost(null).yieldReason(null).outcome(Outcome.SUBMITTED)
                 .continuation(null).causeClass(CauseClass.BENIGN)
                 .spendClass(SpendClass.SUBMITTED).population(Population.MODEL_JOB).usage(usage)
@@ -204,6 +205,31 @@ class MetricsStoreTest {
         }
 
         @Test
+        @DisplayName("round-trips the distinct served models in first-appearance order")
+        void servedModelsRoundTrip() {
+            var first = "first-" + lowerName();
+            var second = "second-" + lowerName();
+            var row = row(taskId, usage()).withServedModels(ServedModels.of(List.of(second, first, second)));
+
+            append(row);
+
+            var read = store.snapshot().taskRows().getFirst();
+            assertEquals(List.of(second, first), read.servedModels().measured().orElseThrow(),
+                    "the distinct served models should round-trip in order");
+        }
+
+        @Test
+        @DisplayName("records a row no turn reported a model for as unmeasured")
+        void servedModelsUnmeasured() {
+            var row = row(taskId, usage()).withServedModels(ServedModels.unmeasured());
+
+            append(row);
+
+            var read = store.snapshot().taskRows().getFirst();
+            assertTrue(read.servedModels().isUnmeasured(), "a row without a model should stay unmeasured");
+        }
+
+        @Test
         @DisplayName("round-trips the continuation mark of a hold and of a resume")
         void continuationMark() {
             var marked = row(taskId, usage()).toBuilder()
@@ -221,7 +247,7 @@ class MetricsStoreTest {
         @Test
         @DisplayName("keeps an unmeasured figure and the reason of the row; the usage pointers and turn are wire data")
         void unmeasured() {
-            var pointers = new UsagePointers("/input", "/output", null, null, null, null, null);
+            var pointers = new UsagePointers("/input", "/output", null, null, null, null, null, null);
             var usage = pointers.read(JsonDocument.parse(
                     "{\"input\":%d,\"output\":%d}".formatted(input, output).getBytes(UTF_8), "turn"));
 
@@ -409,7 +435,9 @@ class MetricsStoreTest {
                     () -> assertEquals(OptionalLong.empty(), read.totalTokens(),
                             "a refused task should have no total"),
                     () -> assertEquals(Optional.empty(), read.unmeasuredReason(),
-                            "a refused task should have no unmeasured reason"));
+                            "a refused task should have no unmeasured reason"),
+                    () -> assertTrue(read.servedModels().isUnmeasured(),
+                            "a refused task should record no served models"));
         }
     }
 
@@ -465,7 +493,7 @@ class MetricsStoreTest {
             var inconsistent = """
                     {"format_version":1,"rows":[{"kind":"task","queue_task_id":"qt-0123456789abcdef","attempt":1,
                      "role":"writer","job_id":"l-0123456789abcdef","generation_id":"l-0123456789abcdef",
-                     "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,"form":"fresh",
+                     "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,"served_models":"unmeasured","form":"fresh",
                      "phase":"phase-5-execute","step_id":null,"envelope_id":null,"predicted_cost":null,
                      "yield_reason":null,"outcome":"submitted","continuation":null,"cause_class":"benign",
                      "spend_class":"submitted","population":"model_job","total_tokens":9,
@@ -485,7 +513,7 @@ class MetricsStoreTest {
             var notApplicable = """
                     {"format_version":1,"rows":[{"kind":"task","queue_task_id":"qt-0123456789abcdef","attempt":1,
                      "role":"writer","job_id":"l-0123456789abcdef","generation_id":"l-0123456789abcdef",
-                     "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,"form":"fresh",
+                     "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,"served_models":"unmeasured","form":"fresh",
                      "phase":"phase-5-execute","step_id":null,"envelope_id":null,"predicted_cost":null,
                      "yield_reason":null,"outcome":"submitted","continuation":null,"cause_class":"benign",
                      "spend_class":"submitted","population":"model_job","total_tokens":2,
@@ -564,12 +592,43 @@ class MetricsStoreTest {
         }
 
         @Test
+        @DisplayName("a repeated or empty served model is refused (wire document)")
+        void servedModelsRefusals() {
+            var repeated = """
+                    {"format_version":1,"rows":[{"kind":"task","queue_task_id":"qt-0123456789abcdef","attempt":1,
+                     "role":"writer","job_id":"l-0123456789abcdef","generation_id":"l-0123456789abcdef",
+                     "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,
+                     "served_models":["m","m"],"form":"fresh",
+                     "phase":"phase-5-execute","step_id":null,"envelope_id":null,"predicted_cost":null,
+                     "yield_reason":null,"outcome":"submitted","continuation":null,"cause_class":"benign",
+                     "spend_class":"submitted","population":"model_job","total_tokens":2,
+                     "input_tokens":1,"output_tokens":1,"cache_read_input_tokens":"not_applicable",
+                     "cache_creation_input_tokens":"not_applicable","reasoning_tokens":"not_applicable",
+                     "tool_uses":"unmeasured","cost_usd":"unmeasured","unmeasured_reason":null,
+                     "duration_ms":null,"duration_basis":"process","queued_ms":null,"consultation_of":null,
+                     "recorded_at":"2026-10-22T10:00:00Z"}]}""";
+            var empty = repeated.replace("[\"m\",\"m\"]", "[\"\"]");
+
+            assertAll(
+                    () -> {
+                        Files.writeString(file, repeated, UTF_8);
+                        assertThrows(StoreRefusal.class, () -> store.snapshot(),
+                                "a repeated served model is refused");
+                    },
+                    () -> {
+                        Files.writeString(file, empty, UTF_8);
+                        assertThrows(StoreRefusal.class, () -> store.snapshot(),
+                                "an empty served model is refused");
+                    });
+        }
+
+        @Test
         @DisplayName("a task row whose outcome is JSON null is refused (wire document)")
         void nullOutcome() throws Exception {
             var nullOutcome = """
                     {"format_version":1,"rows":[{"kind":"task","queue_task_id":"qt-0123456789abcdef","attempt":1,
                      "role":"writer","job_id":"l-0123456789abcdef","generation_id":"l-0123456789abcdef",
-                     "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,"form":"fresh",
+                     "harness":"opencode","harness_version":"1.2.3","model":"m","effort":null,"served_models":"unmeasured","form":"fresh",
                      "phase":"phase-5-execute","step_id":null,"envelope_id":null,"predicted_cost":null,
                      "yield_reason":null,"outcome":null,"continuation":null,"cause_class":"benign",
                      "spend_class":"submitted","population":"model_job","total_tokens":2,
