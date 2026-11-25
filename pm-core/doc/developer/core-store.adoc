@@ -1421,7 +1421,7 @@ the store with the rules that decide when an entry is derived again. The derivat
 here — each belongs to the package that consumes the kind.
 
 [horizontal]
-`DerivedFactKind`:: The closed enumeration of the sixteen kinds of the schema's `kind` enum. Each constant carries its
+`DerivedFactKind`:: The closed enumeration of the fifteen kinds of the schema's `kind` enum. Each constant carries its
 wire name (`fromWireName` reads it back) and `operatorOnly`, true for `AGENT_IDENTITY` alone: the identity of the agent
 credential is shown to the operator and used server-side, and it never appears in a model-facing representation,
 resource or tool result.

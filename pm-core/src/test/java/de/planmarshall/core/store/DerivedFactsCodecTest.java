@@ -227,6 +227,22 @@ class DerivedFactsCodecTest {
     }
 
     @Test
+    @DisplayName("a stored entry keyed with the removed branch-up-to-date kind is refused and named")
+    void removedBranchUpToDateKindIsRefused() {
+        var document = MINIMAL
+                .replace("\"module_discovery\":{", "\"branch_up_to_date_required\":{")
+                .replace("\"kind\":\"module_discovery\"", "\"kind\":\"branch_up_to_date_required\"");
+
+        var refusal = refused(document);
+
+        assertAll("The removed kind is refused and named",
+                () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                        "the removed kind should be unreadable"),
+                () -> assertTrue(refusal.getMessage().contains("branch_up_to_date_required"),
+                        "the refusal should name the removed key"));
+    }
+
+    @Test
     @DisplayName("a bad digest, an offset instant and a reason of 501 code points are refused")
     void valueBoundsAreRefused() {
         assertAll("A value outside its bound is refused",

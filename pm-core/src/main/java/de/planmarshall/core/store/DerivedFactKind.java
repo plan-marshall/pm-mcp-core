@@ -16,7 +16,7 @@ import java.util.Optional;
  * The closed set of the fact kinds of the derived facts store (Store Schemas § Derived Facts Store, {@code kind};
  * PM-EXT-6).
  * <p>
- * The schema enumerates the sixteen kinds, so a kind is a Java constant and never a free-form string: a document that
+ * The schema enumerates the fifteen kinds, so a kind is a Java constant and never a free-form string: a document that
  * names another kind is unreadable. The set is closed in the code and open for extension only through the
  * specification: a new kind is a specification change, an enum constant and a registration of its value schema in
  * {@link DerivedFactKinds} (ADR {@code core-store/053}).
@@ -39,8 +39,6 @@ public enum DerivedFactKind {
     MERGE_METHODS_ALLOWED("merge_methods_allowed", false),
     /** Whether the base branch enforces its merge queue, and whether a queue is available (network). */
     MERGE_QUEUE_ENFORCED("merge_queue_enforced", false),
-    /** Whether the merge path requires the base branch to be up to date (network). */
-    BRANCH_UP_TO_DATE_REQUIRED("branch_up_to_date_required", false),
     /** The required status check contexts of the base branch (network). */
     REQUIRED_CHECKS("required_checks", false),
     /** Whether the repository requires signed commits (network). */
