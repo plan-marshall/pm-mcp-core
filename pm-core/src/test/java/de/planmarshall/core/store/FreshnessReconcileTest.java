@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.time.Instant;
+import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +35,7 @@ class FreshnessReconcileTest {
     private static final Instant RECORDED_AT = Instant.parse("2026-11-23T10:00:00Z");
 
     private static String stepId() {
-        return "default:" + Generators.letterStrings(3, 20).next().toLowerCase();
+        return "default:" + Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
     }
 
     /** One stamp built through the builder, so an `assertThrows` lambda holds the one throwing invocation. */

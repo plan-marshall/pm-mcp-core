@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Locale;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -36,7 +37,7 @@ import org.junit.jupiter.api.io.TempDir;
 class CommitPathRefusalsTest {
 
     private static String name() {
-        return Generators.letterStrings(1, 12).next().toLowerCase() + ".txt";
+        return Generators.letterStrings(1, 12).next().toLowerCase(Locale.ROOT) + ".txt";
     }
 
     @Nested

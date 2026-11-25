@@ -62,9 +62,11 @@ script, `.`, `_`, `-` and the closing brackets `]`, `}`, `)` — and `HOST_PREFI
   `drivePathIsACode` stay green: a relative name with a bracket or a hyphen-ended segment is still a name, and a
   drive-qualified path is still refused.
 * A new Unicode punctuation character needs no change here: it is an introducer because it is no path-name character.
-* The residual is documented in the Javadoc of `modelDetail` and pinned by `gluedHostPathStaysAsStated` rather than left
-  as an unstated boundary: a path glued to a preceding path-name character (a multi-segment host path among them), a
-  single-segment fragment after a stray closing bracket, and a name whose segment ends in `+`, `@` or `~`.
+* The residual is documented in the Javadoc of `modelDetail` and pinned by `gluedHostPathStaysAsStated` and
+  `gluedDriveAndUncStayAsStated` rather than left as an unstated boundary: a path glued to a preceding path-name
+  character (a multi-segment host path, a drive path or a UNC path among them), a single-segment fragment after a stray
+  closing bracket, and a name whose segment ends in `+`, `@` or `~`. `relativeNameWithASupplementaryLetterIsKept` pins
+  that a supplementary-plane letter is a path-name character.
 
 == Source
 

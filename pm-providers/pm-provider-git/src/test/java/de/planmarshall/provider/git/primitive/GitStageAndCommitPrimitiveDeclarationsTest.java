@@ -208,6 +208,37 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
                 "The glued host path is the pattern's stated residual");
     }
 
+    // DRIVE_PATH and UNC_PATH share HOST_PREFIX, so a drive or UNC path glued behind a name character is the same
+    // residual as the POSIX shapes above: the reason is asserted with the kept detail (ADR provider-git-primitive 011)
+    @ParameterizedTest(name = "glued shape \"{0}\"")
+    @ValueSource(strings = {"refused xC:\\Users\\plan", "refused x\\\\server\\share\\private"})
+    @DisplayName("a drive or UNC path glued behind a name character stays as the stated residual")
+    void gluedDriveAndUncStayAsStated(String message) {
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
+
+        assertAll("glued shape " + message,
+                () -> assertEquals(Outcome.FAILED, result.outcome(), "The glued shape still fails the commit"),
+                () -> assertEquals(Reason.COMMIT_FAILED, result.reason(), "The refusal carries commit_failed"),
+                () -> assertEquals(message,
+                        result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                        "The glued host path is the pattern's stated residual"));
+    }
+
+    // a supplementary-plane letter is a path-name character, so the separator after it is no absolute introducer
+    @ParameterizedTest(name = "supplementary name \"{0}\"")
+    @ValueSource(strings = {"refused \uD801\uDC00/x", "file \uD801\uDC01/spec.adoc is refused"})
+    @DisplayName("a relative name that starts with a supplementary letter stays as the message states it")
+    void relativeNameWithASupplementaryLetterIsKept(String message) {
+        var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
+
+        assertAll("supplementary name " + message,
+                () -> assertEquals(Outcome.FAILED, result.outcome(), "The refused name fails the commit"),
+                () -> assertEquals(Reason.COMMIT_FAILED, result.reason(), "The refusal carries commit_failed"),
+                () -> assertEquals(message,
+                        result.updatedFacts().get(GitStageAndCommitPrimitive.DETAIL_FACT),
+                        "A supplementary letter before the separator stays a name"));
+    }
+
     // a segment that ends in a character that is no path-name character: its separator is read as absolute (ADR 011)
     @ParameterizedTest(name = "segment end \"{0}\"")
     @ValueSource(strings = {

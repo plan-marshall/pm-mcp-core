@@ -20,6 +20,7 @@ import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,7 @@ class ChangeLedgerCommitRowTest {
     private static final Instant RECORDED_AT = Instant.parse("2026-11-23T10:00:00Z");
 
     private static String path() {
-        return Generators.letterStrings(1, 12).next().toLowerCase() + ".txt";
+        return Generators.letterStrings(1, 12).next().toLowerCase(Locale.ROOT) + ".txt";
     }
 
     /** A commit row with no commit, the refusal the kind carries; one builder call for an `assertThrows` lambda. */
