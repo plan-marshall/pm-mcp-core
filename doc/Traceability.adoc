@@ -3513,10 +3513,11 @@ one — derived from the asking task's queue task record; the refusal of a gener
 consultation task; the consultation task of the consulted role, served by the task protocol with its own wait while
 that role runs on its own effective harness and model; the answer through the asking
 task's next wait, or after a fence through the successor's offer in the task's facts, with the successor offered no
-`consult` link for it; the `unavailable` delivery of a consultation that closed `lost`, and the repair of one closed
-outside the service or never created, with the durable `wait`-to-`facts` rewrite of a delivery whose generation is
-gone; and the `consultation_ids` of a submit validated against the consultations delivered to the task.
-Not implemented here, and not claimed by this package: the server that serves the wait, the supervisor that starts the
+`consult` link for it; and the `unavailable` delivery of a consultation that closed `lost`, with the repair of one closed
+outside the service or never created and the durable `wait`-to-`facts` rewrite of a delivery whose generation is
+gone.
+Not implemented here, and not claimed by this package: the record of the consultations delivered to the task with its
+accepted final submission, the server that serves the wait, the supervisor that starts the
 consulted role's worker, the durable home of the question in the asking entity's facts, the usage accounting of a
 consultation, and the clients): link:../pm-workflow/src/main/java/de/planmarshall/workflow/consult/ConsultationService.java[ConsultationService],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/consult/ConsultationLink.java[ConsultationLink],

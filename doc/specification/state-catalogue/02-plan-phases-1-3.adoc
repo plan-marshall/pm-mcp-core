@@ -15,7 +15,7 @@ The plan unit (`plan.pmwf`) is a workflow of the seven phase sub-workflows `phas
 [#state-catalogue-init]
 === Phase 1: `init`
 
-The init questions are server-raised question records of class `init`, asked as decisions by question states (xref:01-conventions-generic-conditions.adoc#_state_kinds[State Kinds, question state]). Every answer returns to the re-entrant `init.classify`, which reads it and decides; an option whose effect is the `returned` route leaves it through its outcome `returned` into `plan.return`. Every other option of the plan that no level sets is asked where the plan first needs it, in `init.options` (link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows Specification, Plan Source Contracts]).
+The phase raises no decision. Every option of the plan that no level sets is asked where the plan first needs it, in the operator wait `init.options`, whose answer returns to the re-entrant `init.classify` (link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows Specification, Plan Source Contracts]).
 
 [cols="2,1,1,2,3,2,2"]
 |===
@@ -24,9 +24,9 @@ The init questions are server-raised question records of class `init`, asked as 
 |[[state-init.classify]]`init.classify`
 |`phase-1-init`
 |`auto`
-|The plan's creation by its start (`start.create`, or `start.launch` for a plan of an epic; start state of the phase `init`, which the plan unit calls first); every answer of `init.sibling-collision`; `init.options` (`set`).
-|Re-entrant: raises the next unanswered init question in fixed order (sibling collision, the plan's open options), never re-asks an answered one, and never rewrites a write-once output. Runs in fixed order: workflow settings resolution, initial planning-lane router (which reads the resolved `minimum_lane`), sibling collision detector (a `land` or `adopt` plan only), `main_sha` base stamp. The lesson premise was checked by `source-lesson` before the plan existed; its evidence is an `amendments[]` entry (`source: fact`) when the operator used the lesson despite a resolved or invalid premise. The posture is asked where the lane is chosen: the plan's own value, else the project's or the machine's, else `init.options` asks it; its prunes (reason `posture`) compose an instance version. For source `local_changes`: collision detector and settings only. For source `pr`: sets the closed `planning_lane` value `adopt` (fixed at creation, outside the lane ratchet, like `land`), takes the pull request's changed files as `declared_files`, runs the collision detector over them (an overlap raises `init.sibling-collision` like every source), settings, and base stamp; the plan instance carries the finalize steps (no tasks).
-|`init.sibling-collision`; `options_open` (an option the plan needs here that neither the plan, the project, nor the machine sets) -> `init.options`; `init.ready` (no question open); `returned` (an answer whose effect is the `returned` route) -> `plan.return`.
+|The plan's creation by its start (`start.create`, or `start.launch` for a plan of an epic; start state of the phase `init`, which the plan unit calls first); `init.options` (`set`).
+|Re-entrant: asks the plan's open options in `init.options`, never re-asks an answered one, never rewrites a write-once output, and raises no decision. Runs in fixed order: workflow settings resolution, initial planning-lane router (which reads the resolved `minimum_lane`), `main_sha` base stamp. The lesson premise was checked by `source-lesson` before the plan existed; its evidence is an `amendments[]` entry (`source: fact`) when the operator used the lesson despite a resolved or invalid premise. The posture is asked where the lane is chosen: the plan's own value, else the project's or the machine's, else `init.options` asks it; its prunes (reason `posture`) compose an instance version. For source `local_changes`: settings and base stamp only. For source `pr`: sets the closed `planning_lane` value `adopt` (fixed at creation, outside the lane ratchet, like `land`), takes the pull request's changed files as `declared_files`, settings, and base stamp; a `land` or `adopt` plan meets a conflict with another plan's change at integration, like every plan (the trial merge `merge_conflict`, `finalize.merge-sync`, `remediation.merge-conflict`); the plan instance carries the finalize steps (no tasks).
+|`options_open` (an option the plan needs here that neither the plan, the project, nor the machine sets) -> `init.options`; `init.ready` (no option open).
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_deterministic_init_classifiers_workflow_settings[Phase Workflows Specification, Deterministic Init Classifiers], link:../phase-workflows/01-planning-phases-1-2.adoc#initial-lane-router[Initial Planning-Lane Router]; link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Plan Source Contracts]
 
 |[[state-init.options]]`init.options`
@@ -37,19 +37,10 @@ The init questions are server-raised question records of class `init`, asked as 
 |`set` -> `init.classify`.
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Phase Workflows Specification, Plan Source Contracts]
 
-
-|[[state-init.sibling-collision]]`init.sibling-collision`
-|`phase-1-init`
-|`call`
-|`init.classify` (the sibling collision detector of a `land` or `adopt` plan found an overlap of its captured or pull-request paths with a live plan's realized footprint).
-|`call decision`: options `proceed` (`recommended`) and `return`. `facts`: the overlapping plans, modules, and paths.
-|`answered` -> `init.classify` (`return` leaves it `returned`); `withdrawn` -> this state (asked anew).
-|link:../phase-workflows/01-planning-phases-1-2.adoc#_deterministic_init_classifiers_workflow_settings[Phase Workflows Specification, Deterministic Init Classifiers item 3]
-
 |[[state-init.ready]]`init.ready`
 |`phase-1-init`
 |`auto`
-|`init.classify` (no question open).
+|`init.classify` (no option open).
 |Routes by `planning_lane` alone (one outcome per lane); like every plan transition it is checked by the Clean Main Checkout Guard (link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#_planning_transition_guards_real_world_invariants[Phase Workflows Specification, Clean Main Checkout Guard]).
 |`deep` -> the phase's exit `deep`, on which the plan unit calls the phase `refine` at its entry `start` (`refine.analyze`); `light` -> the phase's exit `light`, on which the plan unit calls the phase `outline` at its entry `light` (`outline.light`, `phase_2_mode = collapsed_light`); `land` -> the phase's exit `land`, on which the plan unit calls the phase `execute` at its entry `land` (`execute.land`, which calls the land lane); `adopt` (source `pr`) -> the phase's exit `adopt`, on which the plan unit calls the phase `finalize` at its entry `adopt` (`finalize.adopt-pr`).
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_lifecycle_topology_phases_14[Phase Workflows Specification, Lifecycle Topology]; link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#land-lane[Land Lane]; link:../phase-workflows/01-planning-phases-1-2.adoc#_plan_source_contracts[Plan Source Contracts (`pr`)]
@@ -69,15 +60,15 @@ Deep-lane plans only (including a plan ratcheted from `light`).
 |`phase-2-refine`
 |`job`
 |The phase's entry `start` (the phase `init` ended with its exit `deep`: `init.ready` (`deep`); or the phase `outline` ended with its exit `escalate_to_deep`: `outline.light`, `outline.light-gate` (escalation), with the phase set back to `phase-2-refine` and `phase_2_mode = full`); `refine.awaiting_answers` (the single second task); `refine.remediate-qgate` (`fix_requested`: a remediation pass with `facts.qgate_findings`).
-|`job llm refine role refine`: the task's entity submits `submit:refine` (`intent`, the intent record, `pr_title`, six dimension scores, `evidence_class`, `compatibility`, `simplicity`, per-claim hypothesis verdicts of a plan of an epic, open questions in the optional `decision:schema[decision-envelope]?`).
-|Return evaluation: `builder_check` (where `qgate` or `ready` would follow and no builder check ran for the plan) -> `refine.builder-check`; `qgate` (confidence at or above threshold, a lesson-derived plan) -> `refine.qgate`; `ready` (confidence at or above threshold, any other plan) -> `refine.ready`; `ask` (below threshold on the first pass, or a refuted hypothesis) -> `refine.awaiting_answers`; `refuted_again` (a claim refuted again) -> `refine.hypothesis-refuted`; below threshold on the second pass or in a remediation pass: `qgate` or `ready` with `low_confidence_manual_review: true`; `infeasible`, `lost` -> `plan.return`.
+|`job llm refine role refine`: the task's entity submits `submit:refine` (`intent`, the intent record, `pr_title`, six dimension scores, `compatibility`, `simplicity`, per-claim hypothesis verdicts of a plan of an epic, open questions in the optional `decision:schema[decision-envelope]?`).
+|Return evaluation: `builder_check` (where `qgate` or `ready` would follow and no builder check ran for the plan) -> `refine.builder-check`; `qgate` (no round asked, a lesson-derived plan) -> `refine.qgate`; `ready` (no round asked, any other plan) -> `refine.ready`; `ask` (questions in the submission's `decision` on the first pass, whatever the score, or a refuted hypothesis) -> `refine.awaiting_answers`; `refuted_again` (a claim refuted again) -> `refine.hypothesis-refuted`; a score below the threshold with no round asked, on the second pass, or in a remediation pass, and questions after the round was used or in a remediation pass: `qgate` or `ready` with `low_confidence_manual_review: true`. The server records the evidence class beside the score (`operator_answered` when this plan's clarification round has an answer the operator gave, else `self_assessment`) and appends the `refine.confidence` decision-log record; `infeasible`, `lost` -> `plan.return`.
 |link:../phase-workflows/01-planning-phases-1-2.adoc#quality-dimensions[Phase Workflows Specification, Six Quality Dimensions]; link:../phase-workflows/01-planning-phases-1-2.adoc#_single_batch_clarification_relaunch_ceiling[Single-Batch Clarification & Relaunch Ceiling]
 
 |[[state-refine.awaiting_answers]]`refine.awaiting_answers`
 |`phase-2-refine`
 |`call`
 |`refine.analyze` (at most once); `refine.builder-check` (`ask`, while the relaunch is unused).
-|As xref:01-conventions-generic-conditions.adoc#state-phase.awaiting_answers[`<phase>.awaiting_answers`]; at most 4 questions in one batch. `operator_answered` evidence requires a round of this state answered by the operator (not by the quorum).
+|As xref:01-conventions-generic-conditions.adoc#state-phase.awaiting_answers[`<phase>.awaiting_answers`]; at most 4 questions in one batch. An answer the operator gave here (channel `web` or `cli`, not the quorum) makes the server record the evidence class `operator_answered` for the plan's later refine passes.
 |`refine.analyze` (writes `## Clarifications` and records `all_recommended`, increments `refine_relaunch_count`; the second task carries the answers).
 |link:../phase-workflows/01-planning-phases-1-2.adoc#_single_batch_clarification_relaunch_ceiling[Phase Workflows Specification, Single-Batch Clarification]
 

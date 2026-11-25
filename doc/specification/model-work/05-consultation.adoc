@@ -50,10 +50,10 @@ The asker waits in `pm_wait`, which holds the call open, so a consulting worker 
 * *Fenced asker*: When the asking generation is fenced while the consultation is open or its answer undelivered, the answer is recorded in the asking task's facts, and the successor's offer of the task carries it (xref:02-task-protocol.adoc#redelivery[Redelivery within the Re-Offer Budget]); the successor does not consult again for it.
 
 [#consult-reference]
-=== The Submit Refers to the Consultation
+=== The Result Refers to the Consultation
 _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-78[PM-WATCH-DISP-78]_
 
-Every submit link of an entity whose state declares consultations takes the parameter `consultation_ids` (`list<text[1..64]>`, each a `consultation_id`, link:../hypermedia-format/02-link-grammar.adoc[Hypermedia Format Specification, Link Grammar]). Once the task received an answer, its required submission must list every delivered `consultation_id` and no other, else it is refused `invalid_link_args` naming the missing or unknown reference, and the worker may submit again (xref:02-task-protocol.adoc#execute-submit[Execute & Submit]; link:../../../pm-workflow/doc/developer/workflow-consult.adoc[Consultation Developer Guide]). The reference is recorded with the result, so the decision and the judgment it rested on stay linked.
+When the server accepts the task's final submission, it records with the result the consultations it delivered to the task (each `consultation_id` with its role), so the decision and the judgment it rested on stay linked. The worker names no consultation in its submission: the server knows what it delivered (xref:02-task-protocol.adoc#execute-submit[Execute & Submit]).
 
 [#consult-accounting]
 === Accounting

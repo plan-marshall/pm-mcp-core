@@ -170,7 +170,7 @@ input_type           = enum_type
 
 question_clause      = "question" , question_class , EOL ,
                        outcome_transition , { outcome_transition } ;
-question_class       = "init" | "clarification" | "review" | "task" | "setup" | "ask" ;
+question_class       = "clarification" | "review" | "task" | "setup" | "ask" ;
                        (* the state runs the adjudication of the scope's new question set and, for
                           a set it does not decide, calls the compiled unit decision, an operator wait
                           (02-units-jobs-decisions.adoc, Question States & Decisions) *)

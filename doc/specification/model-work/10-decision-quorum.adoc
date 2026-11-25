@@ -31,10 +31,6 @@ A part of the answer types `one` or `several` without a recommendation, or whose
 |===
 |Server question (declaration) |Kind |Score
 
-|`init.sibling-collision` (`kind_sibling_collision`)
-|`scope`
-|`0`.
-
 |`outline.review` (`kind_outline_review`)
 |`scope`
 |`0`.

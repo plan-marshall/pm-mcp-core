@@ -510,7 +510,7 @@ Every blocking condition of a plan has a bounded server retry and then a defined
 |link:../store-schemas/17-re-planning.adoc#replan-record[Store Schemas, Re-Planning Record]
 
 |[[server-rule-retry]]Server-rule retry budget
-|`2` retries of each bounded server rule: the provider call of `finalize.open-pr`, the `.gitignore` oracle of `git.commit_and_push`, landing delivery, `sync_failed` of `finalize.merge-sync` (a fetch failure or a push failure other than the lease rejection), `push_failed` of `git.push` and `git.push-with-lease` (a push failure other than a rejection), the `indeterminate` re-evaluation of `finalize.merge-barrier`, the `re_enter` outcomes of `finalize.merge-refused` (`behind`, `conflict`, `checks_pending`, `checks_failed`) and of `finalize.merge-queue-exit` (an ejected pull request), and `fetch_failed` of `replan.integrate-base`.
+|`2` retries of each bounded server rule: the provider call of `finalize.open-pr`, the `.gitignore` oracle of `git.commit_and_push`, landing delivery, `sync_failed` of `finalize.merge-sync` (a fetch failure or a push failure other than the lease rejection), `push_failed` of `git.push` and `git.push-with-lease` (a push failure other than a rejection), the `indeterminate` re-evaluation of `finalize.merge-barrier`, the `re_enter` outcomes of `finalize.merge-refused` (`behind`, `conflict`, `queue_required`, `checks_pending`, `checks_failed`) and of `finalize.merge-queue-exit` (an ejected pull request), and `fetch_failed` of `replan.integrate-base`.
 |fixed
 |—
 |`finalize.open-pr`, `git.artifact-escalate`, `git.execute-push`, `git.push-with-lease`, `finalize.emit-landing-failed`, `finalize.merge-sync`, `finalize.merge-barrier`, `finalize.merge-refused`, `finalize.merge-queue-exit`, `replan.integrate-base`

@@ -118,8 +118,8 @@ Declared in `project-setup.pmwf` (`scope subworkflow`, compiled only, never desi
 |`workspace`
 |`auto`
 |`setup.configure-finalize`; `setup.merge-queue` (`answered`).
-|Re-entrant: reads the answer of a resolved merge-queue decision first (`skip` ends the probe), otherwise the derived network fact `merge_queue_enforced` (with the queue's check-response timeout) for the base branch; raises the question record when the queue is not enforced and the project is eligible.
-|`not_needed` (enforced, or not eligible) -> `setup.probe-qualification`; `skipped` (answer `skip`) -> `setup.probe-qualification`; `needs_answer` (no answer yet, or `recheck` and still not enforced) -> `setup.merge-queue`.
+|Re-entrant: reads the answer of a resolved merge-queue decision first (`skip` ends the probe), otherwise reads at the probe whether the base branch requires a merge queue (the provider's branch rules, never a stored fact) and the member `available` of the derived network fact `merge_queue_enforced` for the base branch; raises the question record when no queue is required and the project is eligible.
+|`not_needed` (a queue required, or not eligible) -> `setup.probe-qualification`; `skipped` (answer `skip`) -> `setup.probe-qualification`; `needs_answer` (no answer yet, or `recheck` and still no queue required) -> `setup.merge-queue`.
 |link:../domain-extensions/04-setup-state-machine.adoc#setup-merge-queue[Domain Extensions Specification, Merge-Queue Probe]
 
 |[[state-setup.merge-queue]]`setup.merge-queue`

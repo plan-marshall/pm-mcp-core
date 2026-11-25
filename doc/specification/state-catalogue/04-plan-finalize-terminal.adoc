@@ -274,7 +274,7 @@ The fallback state `finalize.hand-back` is declared in `phase-6-finalize.pmwf`, 
 |[[state-plan.return]]`plan.return`
 |`phase-6-finalize`
 |`auto`
-|Phases 1–4, through the `returned` exit of the phase: `refine.hypothesis-refuted` (`return`); `init.classify` (`returned`); the `infeasible` and `lost` routes of the model states of Phases 2–4; `exhausted` / `stepped_out` of every `<phase>.remediate-qgate`; `outline.route-review` (`budget_spent`); a spent condition budget in Phases 1–4.
+|Phases 1–4, through the `returned` exit of the phase: `refine.hypothesis-refuted` (`return`); the `infeasible` and `lost` routes of the model states of Phases 2–4; `exhausted` / `stepped_out` of every `<phase>.remediate-qgate`; `outline.route-review` (`budget_spent`); a spent condition budget in Phases 1–4.
 |`auto plan.return`, a state of the plan unit: the fallback of Phases 1–4. Without committed work it records `outcome: returned`; no pull request exists, and the planning artifacts are archived. A plan that came back from Phase 5 through `loop_back_outline` and whose plan branch has commits beyond the base is forwarded to `finalize.hand-back`, which delivers that work.
 |`returned` -> `phases.finalize-post-run`, which calls the phase `finalize` at its entry `post_run` (`finalize.next-step`: the post-run band, then `finalize.archive-plan`); `committed_work` (the plan branch has commits beyond the base) -> `phases.finalize-hand-back`, which calls the phase `finalize` at its entry `hand_back` (`finalize.hand-back`).
 |link:../phase-workflows/01-planning-phases-1-2.adoc#plan-outcomes[Phase Workflows Specification, Plan Outcomes & Fallback Routes]
