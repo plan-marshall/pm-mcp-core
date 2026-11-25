@@ -91,7 +91,7 @@ public class SecretRedactor {
     private static final Pattern INVISIBLE = Pattern.compile("[\\u00AD\\u200B\\u2060\\uFEFF]");
 
     /** The separator head every assignment form shares: an optional quoted or backslash-quoted opening and the operator. */
-    private static final String SEPARATOR_HEAD = "(?:\\\\?[\"'])?\\s*[:=]\\s*";
+    private static final String SEPARATOR_HEAD = "(?:\\\\*[\"'])?\\s*[:=]\\s*";
 
     /** The shared separator head with its own capturing group and an optional closing quote. */
     private static final String SEPARATOR = "(" + SEPARATOR_HEAD + "(?:\\\\?[\"'])?)";
@@ -344,7 +344,7 @@ public class SecretRedactor {
 
     /** One escaped-JSON assignment: the label, the separator, the escaped opening quote and the rest of its line. */
     private static Pattern escapedJsonAssignment(String label) {
-        return Pattern.compile(ASSIGNMENT_PREFIX + label + QUOTED_ASSIGNMENT_HEAD + "(\\\\[\"'])" + REST_OF_LINE);
+        return Pattern.compile(ASSIGNMENT_PREFIX + label + QUOTED_ASSIGNMENT_HEAD + "(\\\\+[\"'])" + REST_OF_LINE);
     }
 
     /**
@@ -367,9 +367,9 @@ public class SecretRedactor {
         var separator = indexOfSeparator(value, schemeSeparator, 0);
         while (separator >= 0) {
             var match = urlUserInformationMatch(value, separator, schemeSeparator.length(), token);
-            var next = match == null ? separator + 1 : match.lastAt() + 1;
-            if (match != null) {
-                out.append(value, copied, match.secretStart()).append(REDACTED).append('@');
+            var next = match.map(shape -> shape.lastAt() + 1).orElse(separator + 1);
+            if (match.isPresent()) {
+                out.append(value, copied, match.get().secretStart()).append(REDACTED).append('@');
                 copied = next;
             }
             separator = indexOfSeparator(value, schemeSeparator, next);
@@ -384,20 +384,20 @@ public class SecretRedactor {
      * @param separator       where the scheme separator starts
      * @param separatorLength the length of the separator
      * @param token           the token cache in use for this pass
-     * @return the shape's secret start and its token's last {@code @}, or {@code null}
+     * @return the shape's secret start and its token's last {@code @}, or empty when the separator starts no shape
      */
-    private static @Nullable UrlMatch urlUserInformationMatch(String value, int separator, int separatorLength,
+    private static Optional<UrlMatch> urlUserInformationMatch(String value, int separator, int separatorLength,
             UrlToken token) {
         if (schemeStart(value, separator) < 0) {
-            return null;
+            return Optional.empty();
         }
         var userEnd = tokenUserStop(value, separator + separatorLength, token);
         if (userEnd >= value.length() || value.charAt(userEnd) != ':') {
-            return null;
+            return Optional.empty();
         }
         var secretStart = userEnd + 1;
         var lastAt = tokenLastAt(value, secretStart, token);
-        return lastAt <= secretStart ? null : new UrlMatch(secretStart, lastAt);
+        return lastAt <= secretStart ? Optional.empty() : Optional.of(new UrlMatch(secretStart, lastAt));
     }
 
     /** The start of the scheme before a separator, or {@code -1} when no letter starts one there. */
@@ -615,7 +615,8 @@ public class SecretRedactor {
      * A block runs from its {@code BEGIN} marker to the next {@code END} marker after it; the scan resumes after that
      * {@code END}, so a marker already passed is never revisited and the cost stays linear in the length of the text. A
      * {@code BEGIN} without a later {@code END} masks the rest of the text: the over-masking is kept deliberately,
-     * because masking too much costs evidence while leaving a key body readable costs the credential.
+     * because masking too much costs evidence while leaving a key body readable costs the credential. The masked text's
+     * line ends are kept, so a line-based reader still sees the text's line structure.
      */
     private static String redactPrivateKeyBlocks(String value) {
         var out = new StringBuilder(value.length());
@@ -625,6 +626,14 @@ public class SecretRedactor {
         while (begin.find(position)) {
             out.append(value, position, begin.start()).append(REDACTED);
             if (!end.find(begin.end())) {
+                // an unclosed block masks the rest of the text; its line ends (\n, \r and a CRLF pair) are kept, so a
+                // line-based reader — the OutputParser, the activity pump — still sees the text's line structure
+                for (var index = begin.start(); index < value.length(); index++) {
+                    var lineEnd = value.charAt(index);
+                    if (lineEnd == '\n' || lineEnd == '\r') {
+                        out.append(lineEnd);
+                    }
+                }
                 return out.toString();
             }
             position = end.end();

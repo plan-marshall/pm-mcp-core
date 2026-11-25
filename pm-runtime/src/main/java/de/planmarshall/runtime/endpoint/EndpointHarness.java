@@ -131,9 +131,18 @@ public final class EndpointHarness {
         }
         try {
             var document = JsonDocument.parse(response.body().getBytes(StandardCharsets.UTF_8), "models");
-            return Optional.of(JsonPointer.resolve(document, profile.endpoint().modelsPointer(), "models listing"));
+            return Optional.of(atModelsPointer(document, profile));
         } catch (ProfileRefusal _) {
             return Optional.empty();
         }
+    }
+
+    /**
+     * @param document the models listing document
+     * @param profile  the endpoint profile whose pointer selects the models
+     * @return the models the listing holds at the profile's pointer
+     */
+    static JsonNode atModelsPointer(JsonNode document, EndpointProfile profile) {
+        return JsonPointer.resolve(document, profile.endpoint().modelsPointer(), "models listing");
     }
 }

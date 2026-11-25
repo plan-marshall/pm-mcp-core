@@ -46,7 +46,8 @@ public enum LaunchRefusal {
 
     /** The composed argument vector does not conform to the profile's template and the slot grammars. */
     ARGUMENT_REJECTED("argument_rejected",
-            "correct the profile's template or enrol the harness profile again with `pm-operator enrol-harness %s`");
+            "correct the profile's argument template and launch again; enrolling the harness again records only its "
+                    + "path, version and digest (`pm-operator enrol-harness %s`) and cannot correct the template");
 
     private final String code;
     private final String act;

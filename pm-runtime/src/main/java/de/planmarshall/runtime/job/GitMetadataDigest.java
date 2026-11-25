@@ -99,20 +99,49 @@ public final class GitMetadataDigest {
         for (var refusal : paths.refused()) {
             failures.add(name(root, refusal.path()));
         }
+        // a skipped worktree record is no part of the digest: the tree it names goes unread, so the digest fails closed
+        // in every case rather than only when no git directory resolves
+        for (var skipped : paths.skipped()) {
+            failures.add(name(root, skipped.path()));
+        }
         var gitDirectory = paths.gitDirectory();
         if (gitDirectory == null) {
-            failClosed(parts, failures);
-            return parts;
+            return failed(parts, failures);
         }
+        if (!Files.isDirectory(gitDirectory, LinkOption.NOFOLLOW_LINKS)) {
+            // a git file that names no directory leaves the tree unreadable, never an empty digest to baseline
+            failures.add(name(root, gitDirectory));
+            return failed(parts, failures);
+        }
+        var budget = new TraversalBudget();
+        digestConfiguration(root, gitDirectory, parts, failures, budget);
+        hooks(root, gitDirectory.resolve(HOOKS), parts, failures);
+        digestLinkFiles(root, paths.linkFiles(), parts, failures, budget);
+        failClosed(parts, failures);
+        return parts;
+    }
+
+    /** @return the parts with the fail-closed part added, for a tree the digest cannot read at all */
+    private static SortedMap<String, String> failed(SortedMap<String, String> parts, Set<String> failures) {
+        failClosed(parts, failures);
+        return parts;
+    }
+
+    /** Digests the git directory's config and worktree config, with the files they include. */
+    private static void digestConfiguration(Path root, Path gitDirectory, SortedMap<String, String> parts,
+            Set<String> failures, TraversalBudget budget) {
         var config = gitDirectory.resolve(CONFIG);
         var worktreeConfig = gitDirectory.resolve(CONFIG_WORKTREE);
-        var budget = new TraversalBudget();
         digestFile(root, config, parts, failures);
         includes(root, config, parts, failures, 0, new HashSet<>(), budget);
         digestFile(root, worktreeConfig, parts, failures);
         includes(root, worktreeConfig, parts, failures, 0, new HashSet<>(), budget);
-        hooks(root, gitDirectory.resolve(HOOKS), parts, failures);
-        for (var linkFile : paths.linkFiles()) {
+    }
+
+    /** Digests every linked worktree's link file and its administration files, their worktree config included. */
+    private static void digestLinkFiles(Path root, List<Path> linkFiles, SortedMap<String, String> parts,
+            Set<String> failures, TraversalBudget budget) {
+        for (var linkFile : linkFiles) {
             digestFile(root, linkFile, parts, failures);
             var administration = administration(linkFile);
             if (administration == null) {
@@ -129,8 +158,6 @@ public final class GitMetadataDigest {
                 }
             }
         }
-        failClosed(parts, failures);
-        return parts;
     }
 
     /** Adds the fail-closed part when any input could not be read, so such a tree can never compare equal to a clean one. */

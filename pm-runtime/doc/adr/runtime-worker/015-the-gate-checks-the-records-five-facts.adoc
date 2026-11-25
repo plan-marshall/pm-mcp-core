@@ -71,7 +71,8 @@ recorded stage in the order of its name.
 == Alternatives Considered
 
 1. *Leave the refusal as it was and amend the specification sentence* (`egress: unenforced` no longer honoured).
-   _Not taken_ — the operator chose the acceptance as an input instead (PLAN-V2-145 deliverable 1(e)): the specification
+   _Not taken_ — the acceptance is an input instead, as the operator answered the lane's operator question of
+   2026-11-17 (PLAN-V2-145 deliverable 1(e)): the specification
    states the rule and the runtime can carry it as a value it does not yet receive.
 2. *A small consent port instead of a boolean parameter.* _Not taken for this plan_ — the port's shape belongs to the
    consent store PLAN-V2-59 builds; a boolean parameter is the smallest seam that carries the decision and leaves the

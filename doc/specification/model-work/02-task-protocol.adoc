@@ -59,7 +59,7 @@ The offer leases the task to the caller's generation in the transaction that ans
 [#ack]
 === Acknowledge
 
-The worker acknowledges an offer by following the link `ack` (rel `next`, form `noop`) of the offered entity through `pm_do`; the acknowledgement tells the server that the worker is alive and holds the task, and is due within `worker.ack_deadline_seconds` of the worker's harness, counted from the offer, for a fresh worker from its first call (<<offer>>; link:../harness-profiles/01-profile-schema.adoc[Harness Profiles Specification, Worker Block]). Where the harness's `worker.ack_informational` is set, a missing acknowledgement ends no worker and silence alone decides (xref:03-supervision-and-recycling.adoc#detection[Detection]).
+The worker acknowledges an offer by following the link `ack` (rel `next`, form `noop`) of the offered entity through `pm_do`; the acknowledgement tells the server that the worker is alive and holds the task, and is due within `worker.ack_deadline_seconds` of the worker's harness, counted from the offer, for a fresh worker from its first call (<<offer>>; link:../harness-profiles/01-profile-schema.adoc[Harness Profiles Specification, Worker Block]). Where the harness's `worker.ack_informational` is set, a missing acknowledgement ends no worker and silence alone decides (xref:03-supervision-and-recycling.adoc#detection[Detection]); the guide of the task protocol is link:../../../pm-workflow/doc/developer/workflow-task.adoc[Task Protocol Developer Guide].
 
 A `pm_wait` of a generation that holds an unacknowledged offer shows that the offer's answer did not reach the worker; it is answered with the same offer under the same lease.
 
@@ -79,7 +79,7 @@ A worker whose `pm_wait` arrives while it holds an acknowledged task, neither co
 === Closed Task Outcomes
 _Implementation watch: link:../../implementation-watch/model-work.adoc#PM-WATCH-DISP-42[PM-WATCH-DISP-42]_
 
-A task ends only in one of four closed outcomes, recorded on the queue task with its reason:
+A task ends only in one of four closed outcomes, recorded on the queue task with its reason (link:../../../pm-workflow/doc/developer/workflow-task.adoc[Task Protocol Developer Guide]):
 
 [cols="1,4"]
 |===

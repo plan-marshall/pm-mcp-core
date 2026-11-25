@@ -19,6 +19,7 @@ import static org.easymock.EasyMock.verify;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -165,6 +166,22 @@ class WorkerGradingHarnessTest {
                 () -> assertEquals(1, fixture.starts.size(), "one directory holds one warm worker"),
                 () -> assertEquals(1, tasks.size(), "no task is offered to the worker it may not share"),
                 () -> assertEquals(FIRST, tasks.getFirst().item().id(), "the one task is the uncontaminated item"));
+    }
+
+    @Test
+    @DisplayName("a zero-tool role creates no item worktree for an origin commit")
+    void aZeroToolRoleCreatesNoWorktree() {
+        var role = fixture.role(RoleClass.ZERO_TOOL, RoleForm.FRESH, 1);
+        ItemWorktrees worktrees = createMock(ItemWorktrees.class);
+        replay(worktrees);
+        var harness = harness(role, worktrees);
+
+        harness.answer(offered(item(FIRST, null), RoleForm.FRESH, Checkout.ITEM_COMMIT));
+
+        assertAll(
+                () -> assertEquals(1, tasks.size(), "the zero-tool item is offered in its own directory"),
+                () -> assertNull(tasks.getFirst().workdir(), "a zero-tool task carries no worktree"));
+        verify(worktrees);
     }
 
     @Test

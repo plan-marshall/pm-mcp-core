@@ -122,6 +122,20 @@ class HarnessStartSpacingTest {
     }
 
     @Test
+    @DisplayName("the starts of two harnesses are not spaced")
+    void twoHarnessesAreNotSpaced() throws Exception {
+        var spacing = new HarnessStartSpacing(Duration.ofSeconds(5));
+        var other = client + "-other";
+        spacing.awaitTurn(client);
+
+        var started = System.nanoTime();
+        spacing.awaitTurn(other);
+        var waited = Duration.ofNanos(System.nanoTime() - started);
+
+        assertTrue(waited.compareTo(Duration.ofMillis(500)) < 0, "another harness starts at once");
+    }
+
+    @Test
     @DisplayName("a collision that exits before its first call counts for the guard")
     void aCollisionCountsForTheGuard() throws Exception {
         var spacing = new HarnessStartSpacing(Duration.ofMillis(50));

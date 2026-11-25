@@ -1,87 +1,82 @@
-# PLAN-V2-202: The submit validates the consultation references: TaskProtocol.submit never checks consultation_ids
+# PLAN-V2-202: The consultation references the worker declares are removed: the server already knows which consultations it delivered
 
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-06
-origin: PLAN-V2-162 (#567) review (CodeRabbit finding on `05-consultation`), landing revision 25, section 9; PM-WATCH-DISP-78
+origin: PLAN-V2-162 (#567) review (CodeRabbit finding on `05-consultation`), landing revision 25 and 27, section 9; PM-WATCH-DISP-78; **superseded in direction by `doc-review-2026-11-25-002.md` section 1 (merged as core #617, `515c1fa3`)**: this plan was staged as "the submit validates the `consultation_ids`" and is now "the `consultation_ids` are removed".
 lane: runbook
 
-> Staged plan spec, one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off. SELF-SUFFICIENT together with the standing rules. This is a production defect: it needs no #567 code and may start at once on main.
+> Staged plan spec, one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off. SELF-SUFFICIENT together with the standing rules. The file keeps its name (the queue row and the hand-off command name it). It needs no #567 code and may start at once on main.
 
 ## First Instruction: Read The Standing Rules
 
 **Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`). They bind this plan exactly as if they were written below. Say in your first progress note that you read them, with their revision (`r7`; R21 binds the orchestrator's analysis and not this plan), and repeat the revision and the rule ids in your landing message.
 
-Rules that apply to this plan: R05, R06, R11, R14, R15, R19, R20 (the drafter's candidates, confirmed by the orchestrator against the rules file at staging; an id the lane finds not applicable it says so).
+Rules that apply to this plan: R05, R06, R11, R13, R14, R15, R19, R20 (the orchestrator's candidates; an id the lane finds not applicable it says so). R13 binds because a refusal and a scenario grammar shrink.
 
 ## Objective
 
-`ConsultationService.validateSubmit` (`pm-workflow`, `consult` package) compares a submit's `consultation_ids` with the consultations delivered to the task. `TaskProtocol.submit` (`task` package) never calls it, takes no `consultation_ids`, and has no refusal that can carry its reason. A submit after an answer therefore closes the task `submitted` with an empty or wrong list. Model Work § The Submit Refers to the Consultation and PM-WATCH-DISP-78 require the opposite: every delivered id and no other, else `invalid_link_args` naming the id, the task stays executing, and the worker may submit again. The scenario suite hides the defect, because its replay runner calls the validator itself before it calls the protocol.
+The merged specification (Model Work 05, "The Result Refers to the Consultation"; watch DISP-78) no longer lets the worker name the consultations of its submit: the server records the consultations it delivered with the accepted final submission, so a list the worker declares can only be wrong. The engine still has the old mechanism: `ConsultationService.validateSubmit` compares a submit's `consultation_ids` with the delivered ones, `SubmitValidation` carries its answer, and the scenario harness calls it. At the head no production caller exists (`TaskProtocol.submit` takes no `consultation_ids`; the PLAN-V2-162 landing found the same). The earlier direction of this plan, to wire the check into `TaskProtocol.submit`, is withdrawn by the operator's merged decision. This plan removes the mechanism, the tests that pin it and the sentences that describe it, and proves the accepted result carries the delivered consultations without the worker's help.
 
 ## Deliverables
 
-1. **Failing tests first, through the submit path of the task protocol.** All tests are in `TaskProtocolSubmitTest` or a new neighbour, not in `ConsultationServiceTest`.
-   - A task with a delivered consultation and an empty list is refused `invalid_link_args`, the detail names the missing id, and the task stays `EXECUTING`. This fails at 3ba79c4f.
-   - An unknown id is refused, naming it. This fails at 3ba79c4f.
-   - Re-submitting the corrected list closes the task `submitted` (the worker may submit again).
-   - Matched controls: the exact delivered ids close the task `submitted` (holds at 3ba79c4f); a task with no consultation and no ids closes `submitted` (holds at 3ba79c4f); a consultation answered between the worker's last read and its submit is refused naming the new id; a consultation entity still gets `link_not_available`.
+1. **Failing tests first: the record of the delivered consultations does not depend on the worker.** In `TaskProtocolSubmitTest` or a new neighbour (not in `ConsultationServiceTest`): a task with one delivered consultation closes `submitted` with a submit that names no consultation, and the closed `QueueTaskRecord` keeps the consultation with its id and role (`QueueTaskRecord.consultations`, schema `queue-task.schema.json:98-117`); a task with no consultation closes `submitted` with an empty record list; a consultation answered between the worker's last read and its submit is part of the record (the server's list is the delivered set at the close, not the worker's last read). **Ask-at-refine (put it in the outline's question once, with the recommendation):** whether `consultations[]` on the asking task already is the record "with the result", or the accepted result needs its own member; recommended: it already is, no new member (the lane read it in the PLAN-V2-162 review and the schema carries id and role across the close; confirm at `TaskProtocol` and the codec).
    - Skills: pm-dev-java:junit-core, pm-dev-java-cui:cui-testing
    - Persona: module-tester
-2. **Wire the validation into the closing transaction.** `submit` takes the list and checks it inside `onLeasedTask`, after the link check and before the skills check (Model Work order: job and generation, lease, link, schema, skills), so there is no gap between the check and the close.
-   - One implementation of the rule. `ConsultationService.validateSubmit` either becomes the pure rule over the leased record that both use, or is removed. Do not copy it. Today the `task` and `consult` packages import each other not at all, so the outline decides where the rule lives.
-   - `CallResult.Refused` carries only `missingSkills`, so give it a reason member. The detail text is the one of `validateSubmit` ("omits the delivered consultation_id '%s'", "names the consultation_id '%s', which was not delivered").
-   - Edge set of the unchanged consumers: `CallResult.Accepted(task)` is unchanged, `Refused.missingSkills` stays empty for the new refusal, and the refusals `link_not_available`, `stale_entity`, `skills_not_loaded` keep their order and meaning.
-   - Remove the validator call from `ScenarioReplayRunner` (`:442`), so the scenario goes through the protocol.
-   - Skills: pm-dev-java:java-core, pm-dev-java:java-null-safety, pm-dev-java:java-lombok, pm-dev-java:javadoc, pm-dev-java:junit-core
+2. **Remove the mechanism.** `ConsultationService.java:70-72` (the sentence on the submit's list) and `:401-433` (`validateSubmit`); `SubmitValidation.java` (the whole type); `consult/package-info.java:14` (the validation clause). `ConsultationRefusal.INVALID_LINK_ARGS` STAYS (`:163`, `:242`): another refusal uses it, check with a grep at the head before leaving it. Tests: `ConsultationServiceTest:62` (class Javadoc), `:320-321`, `:326-356` are deleted with a negative control only where the type is gone (nothing to test of a removed type: the compile is the control); the scenario harness: `ScenarioReplayRunner:37`, `:430-447` (the validator call before `worker.submit`), `:497-504` (the `consultation_ids` argument read), `ScenarioScript:38` (the grammar's `consultation_ids` member), `ScenarioReplayRunnerTest:1067-1118` (scenario 14, the `consultation_ids` case is rewritten to submit with no list and to assert the recorded consultation), `ScenarioScriptTest:250, 261`. Pre-1.0: no shim, no ignored legacy argument: a scenario script naming `consultation_ids` is refused by the grammar and the refusal names the member.
+   - Skills: pm-dev-java:java-core, pm-dev-java:java-null-safety, pm-dev-java:javadoc, pm-dev-java:junit-core
    - Persona: implementer
-3. **Documents.** Correct the sentences that say no production submit path calls it: `pm-workflow/doc/developer/workflow-consult.adoc` (`:112-114`, `:122`), the task guide, the scenario guide (`:144`, `:280`), ADR `workflow-consult/005` (`:20`), ADR `workflow-scenario/009` (`:50`). State the submit in `doc/specification/model-work/05-consultation.adoc` § The Submit Refers to the Consultation and `02-task-protocol.adoc` § Execute & Submit. Update PM-WATCH-DISP-78 and Traceability. Add one ADR in `pm-workflow/doc/adr/workflow-task/` (next free number at the head of main when the outline is written) for the rule's place.
+   - Test order: deliverable 1 first, red at the head where the record assertion needs the server's list; then the removal; one negative control: a script with `consultation_ids` is refused as an unknown member.
+3. **Documents.** `pm-workflow/doc/developer/workflow-consult.adoc:6, 23, 60, 107-112` and `workflow-scenario.adoc:101, 143` drop the validator; the task guide states that the accepted submit records the delivered consultations. ADRs `workflow-consult/005:19` and `workflow-scenario/009:51` are HISTORY: leave their text, add a stamp naming this plan only if the ADR directory's convention asks for one. Update PM-WATCH-DISP-78 in `doc/implementation-watch/model-work.adoc` (the half "arguments outside the link's closed schema refused `invalid_link_args`" is a separate point: read `TaskCall` and the watch entry; adopt it or name the plan it belongs to) and `doc/Traceability.adoc`. Whether an ADR is needed for the record's place is decided at the outline (a design decision only if the answer to the ask above is "a new member").
    - Skills: pm-documents:ref-asciidoc, pm-dev-java:javadoc
    - Persona: documenter
 
 **Done when:**
 - Deliverables 1 to 3.
-- The first two tests of deliverable 1 fail at 3ba79c4f with a failing run id and pass after the change.
-- The matched controls hold at 3ba79c4f and still hold after the change.
-- The scenario suite (`ScenarioReplayRunnerTest`, the consult scenario at `:1082`) passes without the runner's own validator call.
-- A scratch mutation that makes the protocol accept every list fails the new tests (reported by log id).
-- Build: `verify -Ppre-commit`, `verify` of `pm-workflow`, `verify -Pcoverage`, and `verify -Pintegration-tests -pl pm-core -am` is unchanged by this plan. Use per-module runs with log ids if a full run exceeds the host's bound.
+- The record test of deliverable 1 passes at the head and still passes after the removal (it must not depend on `validateSubmit`); the scenario suite (`ScenarioReplayRunnerTest`, the consult scenario) passes with no validator call and no `consultation_ids` in any script.
+- `ConsultationService` has no method named `validateSubmit`, `SubmitValidation` is gone, and a script naming `consultation_ids` is refused naming the member; fails at 90505ad2.
+- A scratch mutation that makes the server's record drop the delivered consultation fails the new tests (reported by log id).
+- Build: `verify -Ppre-commit` (rewrites reviewed and committed), `verify` of `pm-workflow` (and `pm-core` if a schema member is added), `verify -Pcoverage`. Use per-module runs with log ids if a full run exceeds the host's bound.
 - Sonar: the open-finding read at the head is `0` or each key is selected for dismissal by the operator (`unknown` for a failed read, never `0`).
+- **Companion (outside this repository, state it in the landing message):** the stub of the assembly, `plan-marshall-mcp` `pm-e2e/src/test/java/de/planmarshall/e2e/question/stub/QuestionStub.java:1881, 2165-2167` (`consultation_ids` in the submit grammar and its refusal), pinned by `QuestionStubTest.java:576-590` and the fixtures `QuestionDriver.java:2415`, `QuestionStubTest.java:1263`. That repository has no epic; this plan changes the stub in the same step as a companion pull request there, or names in the landing message why not.
 
 ## Standing Constraints
 
-- Read every cited line at the head first and drop what a merge settled (name the commit).
-- Work to the Done-when. Ask only the questions this spec marks ask-at-refine, once.
+- Read every cited line at the head first and drop what a merge settled (name the commit). The lines are those of the doc review on `3ba79c4f`; the head is `90505ad2`.
+- Work to the Done-when. Ask only the one question this spec marks ask-at-refine, once.
 - Every carried item gets an outcome: adopted, split off to a NAMED plan, or dropped with its reason.
-- No behaviour change beyond the check. No model-facing content. Pre-1.0: no shim, no overload that skips the check.
-- The refusal is asserted by reason, not by type. A literal stays only where it is the contract (the detail texts, the wire name).
+- No behaviour change beyond the removal. No model-facing content. Pre-1.0: no shim, no overload that ignores a legacy argument.
+- The refusal of a script member is asserted by reason, not by type. A literal stays only where it is the contract (the wire name `consultation_ids` in the negative control).
 - No dependency or plugin is added. No more than 100 files per PR.
 - Sonar dismissal only on the operator's selection, through `sonar_rest transition`.
 
 ## Claim Labels
 
-- OBSERVED: `ConsultationService.validateSubmit(String askingTaskId, List<String> consultationIds)` is at `consult/ConsultationService.java:409`. It reads the queue with `queue.read`, takes the delivered ids as those with `deliveredAt() != null`, and refuses a missing id first and an unknown id second.
-- OBSERVED: `TaskProtocol.submit(TaskCall, List<RoleSkill>, Instant)` is at `task/TaskProtocol.java:386` and `submit(TaskCall, Instant)` at `:413`. Neither reads `consultation_ids`. `TaskCall` is `(queueTaskId, generationId)` only.
-- OBSERVED: `CallResult.Refused(TaskRefusal, QueueTaskRecord, List<String> missingSkills)` has no reason member. `TaskRefusal.INVALID_LINK_ARGS` exists (`TaskRefusal.java:30`).
-- OBSERVED: `ScenarioReplayRunner.java:442` calls `fixtures.consultations.validateSubmit(...)` before `worker.submit(at)`.
-- OBSERVED: `workflow-consult.adoc:114` and `:122` say no production submit path calls the validator. Neither `TaskProtocol` nor `ConsultationService` appears in plan-marshall-mcp origin/main 02639c14, so the wiring belongs in this repository.
-- OBSERVED (drift): the PLAN-32 landing called the wiring "server-assembly work". At 3ba79c4f the protocol, not the assembly, owns the submit, so this plan fixes it here.
-- HYPOTHESIS: PM-WATCH-DISP-78's first half (arguments outside the link's closed schema refused `invalid_link_args`) is also unbuilt. `TaskCall` carries no arguments. Confirm at `TaskProtocol.java` § `submit` and the watch entry; adopt it or split it off to a named plan.
+- OBSERVED: `ConsultationService.validateSubmit(String askingTaskId, List<String> consultationIds)` at `consult/ConsultationService.java:409` (Javadoc `:402`; the class sentence `:70`), with `SubmitValidation.Refused/Accepted` returns (`:414-432`); `consult/package-info.java:14` names the validation.
+- OBSERVED: the only callers at the head are `ScenarioReplayRunner.java:442` and `ConsultationServiceTest:321-352`; `TaskProtocol.submit` takes no `consultation_ids` (re-read by the PLAN-V2-162 lane and by the orchestrator's grep at 90505ad2).
+- OBSERVED: `queue-task.schema.json:98` carries `consultations` on the asking task (`required` list at `:6`); the PLAN-V2-162 landing states `QueueTaskRecord.consultations` keeps each delivered consultation with its id and role across the close: a lead to confirm at `QueueTaskRecord` and its codec.
+- OBSERVED (doc review, `3ba79c4f`): `ScenarioScript:38`, `ScenarioReplayRunner:497-504`, `ScenarioReplayRunnerTest:1067-1118`, `ScenarioScriptTest:250, 261`; docs `workflow-consult.adoc:6, 23, 60, 107-112`, `workflow-scenario.adoc:101, 143`.
+- HYPOTHESIS: `ConsultationRefusal.INVALID_LINK_ARGS` has another producer than `validateSubmit` (the review says it stays at `:163`, `:242`); confirm by grep at the outline before leaving it.
+- HYPOTHESIS: PM-WATCH-DISP-78's first half (arguments outside the link's closed schema refused `invalid_link_args`) is unbuilt: `TaskCall` carries no arguments. Adopt it or split it off to a named plan.
 - HYPOTHESIS: workstream WS-06 (the task protocol and the consultation of the worker); the orchestrator confirms against the epic's workstream list.
-- Verify-first clause: re-read `TaskProtocol.submit` at the head. A caller added since (the assembly) changes the signature cost.
+- Verify-first clause: re-read `ConsultationService` and `TaskProtocol` at the head. A caller added since (the assembly) turns the removal into a signature change for it: stop and name it.
 
 ## Expected Surface
 
-24 existing files plus 1 new ADR.
+About 22 existing files, no new file.
 
-- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/task/CallResult.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskRefusal.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/task/package-info.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/consult/ConsultationService.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/consult/SubmitValidation.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/consult/package-info.java`
-- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolSubmitTest.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolRefusalTest.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskFixtures.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/consult/ConsultationServiceTest.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/consult/ConsultationFixtures.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioReplayRunner.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioReplayRunnerTest.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScriptedProtocolWorker.java`
-- OBSERVED: `pm-workflow/doc/developer/workflow-consult.adoc`, `pm-workflow/doc/developer/workflow-task.adoc`, `pm-workflow/doc/developer/workflow-scenario.adoc`, `pm-workflow/doc/adr/workflow-consult/005-the-consultation-id-comes-from-a-seam.adoc`, `pm-workflow/doc/adr/workflow-scenario/009-task-protocol-under-the-replay.adoc`, `doc/specification/model-work/02-task-protocol.adoc`, `doc/specification/model-work/05-consultation.adoc`, `doc/implementation-watch/model-work.adoc`, `doc/Traceability.adoc`
-- HYPOTHESIS: a new ADR in `pm-workflow/doc/adr/workflow-task/`.
+- OBSERVED: `pm-workflow/src/main/java/de/planmarshall/workflow/consult/ConsultationService.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/consult/SubmitValidation.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/consult/package-info.java`
+- HYPOTHESIS: `pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskProtocol.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/task/CallResult.java`, `pm-workflow/src/main/java/de/planmarshall/workflow/task/TaskRefusal.java` (only if the answer to the ask is "a new member")
+- OBSERVED: `pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolSubmitTest.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskFixtures.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/consult/ConsultationServiceTest.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/consult/ConsultationFixtures.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioReplayRunner.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioReplayRunnerTest.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioScript.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScenarioScriptTest.java`, `pm-workflow/src/test/java/de/planmarshall/workflow/scenario/ScriptedProtocolWorker.java`
+- OBSERVED: `pm-workflow/doc/developer/workflow-consult.adoc`, `pm-workflow/doc/developer/workflow-task.adoc`, `pm-workflow/doc/developer/workflow-scenario.adoc`, `doc/implementation-watch/model-work.adoc`, `doc/Traceability.adoc`
+- HYPOTHESIS: `pm-core/src/main/resources/de/planmarshall/core/queue/queue-task.schema.json` (only if the answer to the ask is "a new member")
+
+Not surface (R19): `pm-workflow/doc/adr/workflow-consult/005-the-consultation-id-comes-from-a-seam.adoc` and `pm-workflow/doc/adr/workflow-scenario/009-task-protocol-under-the-replay.adoc` (history), `pm-workflow/src/test/java/de/planmarshall/workflow/task/TaskProtocolRefusalTest.java`
 
 ## Dependencies and Sequencing
 
 - Depends on: none. It needs no #567 code.
-- Overlaps with: the staged plans that touch `TaskProtocol` or the scenario harness; the gate decides at emit.
-- Adjacent to: `pm-runtime` (untouched). The assembly has no consumer of `TaskProtocol` at 02639c14, so no companion PR is expected; re-check at the outline.
+- Overlaps with: PLAN-V2-161 (items 34 and 38 touch `ScenarioReplayRunner`, `AdditionalRulesTest`, `WorkflowParserTest`: this plan and PLAN-V2-191 go first), PLAN-V2-191 (deliverable 4 edits `WorkflowParserTest` and `AdditionalRulesTest`, not the scenario harness); other staged plans that touch `TaskProtocol` or the scenario harness: the gate decides at emit.
+- Adjacent to: `pm-runtime` (untouched) and the assembly `plan-marshall-mcp` (companion pull request for the stub, see Done when).
 
 ## Hand-Off Command
 

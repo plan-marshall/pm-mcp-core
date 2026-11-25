@@ -244,7 +244,9 @@ entering `finalize.adopt-blocked`; fixtures `head_not_writable` and
 `checkout_failed` re-run the adoption (which re-observes the pull request first) within the condition budget, each
 retry waiting in a `composite_job` for its backoff (`TIME`), never an
 engine-chained cycle of `auto` states, and, when the budget is spent, hand the plan back; no link and no operator
-question is offered on the way.
+question is offered on the way. Fixture: a pull request retargeted between the start and `finalize.adopt-pr` gives
+the plan the observed base as its `base_branch` and a `main_sha` stamped from it in the adoption's transaction, with a
+decision-log record naming both bases; matched control: an unchanged base leaves `overrides.json` as the start wrote it.
 Source:: design review.
 
 [#PM-WATCH-PHASE-77]
@@ -1384,14 +1386,16 @@ Source:: design review.
 [#PM-WATCH-PHASE-83]
 === PM-WATCH-PHASE-83: A provider refusal offers no merging path
 
-Anchor:: link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#merge-path[Phase Workflows § Merge Path] (item 6),
+Anchor:: link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#merge-path[Phase Workflows § Merge Path] (items 4 and 6),
 link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#_cross_plan_merge_mutex_fifo_admission_queue[Phase Workflows § Cross-Plan Merge Mutex & FIFO Admission Queue] (item 5)
 Hazard:: A `not_mergeable` refusal is bypassed by an administrator merge (`plan-marshall`'s `--admin`), or a
 `behind`/`conflict` refusal re-enters the gate, the next sync sees no reason to rebase, and the dispatch is refused
-again until the retry budget is spent.
+again until the retry budget is spent, or a `checks_pending` refusal re-enters the gate, whose barrier does not wait
+for a pending check, and is refused again until the budget is spent while the checks still run.
 Guard:: Scenario per `facts.reason` value: the `auto` state `finalize.merge-refused` offers no link; `behind`,
-`conflict`, `queue_required`, `checks_pending`, and `checks_failed` re-enter `finalize.merge-gate` within the retry
-budget (after `queue_required` the next `merge.dispatch` is `ci.enqueue`), a `checks_failed` whose red check carries
+`conflict`, `queue_required`, and `checks_failed` re-enter `finalize.merge-gate` within the retry budget (after
+`queue_required` the next `merge.dispatch` is `ci.enqueue`), `checks_pending` enters `finalize.merge-evidence-wait`
+over the same `HEAD` without charging the retry budget and re-enters the gate on `all_green`, a `checks_failed` whose red check carries
 only a non-blocking finding makes it blocking and enters `finalize.remediate-barrier-ci`, and
 `review_required`, `blocked`, `draft`, `method_not_allowed`, `unknown`, and a spent budget enter `finalize.hand-back`
 with gap `cause: provider_refused`; a separate hand-back fixture per remaining gap cause asserts its own value, never
@@ -1399,7 +1403,7 @@ with gap `cause: provider_refused`; a separate hand-back fixture per remaining g
 `remote_absent_unverified` or an unrecognised state) and `local_only` (no push remote: recorded, not a failure); no link,
 waiver, or verb sends a merge request with an administrative flag (request log of the recorded provider); for
 `behind` the next `finalize.merge-sync` rebases because the last dispatch was refused `behind`, and for `conflict`
-because the base changed a path of the realized footprint; matched control: after `checks_pending` on a branch the
+because the base changed a path of the realized footprint; matched control: after `checks_failed` on a branch the
 provider does not report behind and whose footprint the base did not change, the next `finalize.merge-sync` ends
 `not_required`.
 Source:: design review.
@@ -1427,7 +1431,7 @@ Hazard:: A fallback that ends the plan at once skips the post-run band (no landi
 same fallback (a spent budget and a step-out) are indistinguishable in the record; begun steps stay open and later
 re-fire on an ended plan.
 Guard:: Scenario per cause (`exhausted`, `stepped_out`, `decided`, `infeasible`, `condition`, `provider_refused`,
-`merge_by_operator`, `operator_path`, `local_only`, `files_not_applicable`, `deliverable_removed`): the transaction entering `plan.return` or `finalize.hand-back` records every
+`merge_by_operator`, `operator_path`, `local_only`, `files_not_applicable`, `deliverable_removed`, `baseline_red`): the transaction entering `plan.return` or `finalize.hand-back` records every
 begun, unsettled step `failed`, writes one gap record with its cause and the spent budget, the server's step-out
 cause, or the decision task's reason and evidence, and composes the post-run-only instance version (event
 `fallback`); the plan then runs the post-run band and ends only through `finalize.archive-plan` in `returned` or

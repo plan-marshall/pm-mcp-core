@@ -203,9 +203,9 @@ public record JobLog(Path path) {
         var text = new String(bytes, 0, end + 1, StandardCharsets.UTF_8);
         var nextOffset = offset + end + 1;
         if (offset == 0 && LaunchReport.read(text) instanceof LaunchReport.Reported(var report, var output)) {
-            return new Lines(redactedLines(output), nextOffset, report);
+            return new Lines(redactedLines(output, offset > 0), nextOffset, report);
         }
-        return new Lines(redactedLines(text), nextOffset, null);
+        return new Lines(redactedLines(text, offset > 0), nextOffset, null);
     }
 
     /**
@@ -215,13 +215,14 @@ public record JobLog(Path path) {
      * counted from the first line beginning inside them. The first line is kept because the launch report is the first
      * line, and a launcher failure is decided from it: a tail read alone would report {@code Unreported} and lose the
      * launcher-failure decision. The cut is not {@link LogState#TRUNCATED}: that state means the log is shorter than
-     * what the runtime already read from it, and an over-cap log is longer, not shorter. The first line is looked
-     * for in at most {@link #FIRST_LINE_MAX_BYTES} bytes before the tail window; a first line that does not end there
-     * is not kept and the tail alone is answered, so a cut read never takes more than that head and the cap. A log
-     * that shrinks between the size read and the read of its content is {@link LogState#TRUNCATED} too: the bytes the
-     * read returned are compared with the length the channel reported, so a short read is never reported as a complete
-     * log, and a log that shrank and regrew between two size reads is caught by the same comparison. A log that grows
-     * instead loses nothing and is answered as the content read, with the length read before.
+     * what the runtime already read from it, and an over-cap log is longer, not shorter. The first line is looked for in
+     * at most {@link #FIRST_LINE_MAX_BYTES} bytes read from the file start, so a report longer than the overshoot is
+     * kept; a first line longer than that head is not kept and the tail alone is answered, so a cut read never takes
+     * more than that head and the cap. A log that shrinks between the size read and the read of its content is
+     * {@link LogState#TRUNCATED} too: the bytes the read returned are compared with the length the channel reported, so
+     * a short read is never reported as a complete log, and a log that shrank and regrew between two size reads is
+     * caught by the same comparison. A log that grows instead loses nothing and is answered as the content read, with the
+     * length read before.
      *
      * @param observedLength the number of bytes the runtime already read from the log while the job ran; {@code 0} when
      *                       it read nothing
@@ -267,7 +268,7 @@ public record JobLog(Path path) {
         if (!content.complete()) {
             return shortRead(content);
         }
-        return new Complete(redacted(LaunchReport.read(content.text())), size);
+        return new Complete(redacted(LaunchReport.read(content.text()), size > MAX_BYTES), size);
     }
 
     /**
@@ -279,7 +280,7 @@ public record JobLog(Path path) {
      * @param read     the bytes the read returned
      * @param expected the bytes the length of the log promised
      */
-    private record Window(String text, long read, long expected) {
+    record Window(String text, long read, long expected) {
 
         boolean complete() {
             return read == expected;
@@ -303,48 +304,78 @@ public record JobLog(Path path) {
     }
 
     /** Redacts a read-out before the text leaves this class; the whole read reaches it after its size cap. */
-    private static String redacted(String text) {
-        return SecretRedactor.redactText(SecretRedactor.redactKeyBlockTail(text)).orElseThrow();
+    private static String redacted(String text, boolean tailWindow) {
+        return SecretRedactor.redactText(tailWindow ? SecretRedactor.redactKeyBlockTail(text) : text).orElseThrow();
     }
 
     /** Redacts the two texts of a whole read: the job's output and the reason it carries no report. */
-    private static LaunchReport.Reading redacted(LaunchReport.Reading reading) {
+    private static LaunchReport.Reading redacted(LaunchReport.Reading reading, boolean tailWindow) {
         return switch (reading) {
             case LaunchReport.Reported(var report, var jobOutput) ->
-                new LaunchReport.Reported(report, redacted(jobOutput));
+                new LaunchReport.Reported(report, redacted(jobOutput, tailWindow));
             case LaunchReport.Unreported(var detail, var jobOutput) ->
-                new LaunchReport.Unreported(redacted(detail), redacted(jobOutput));
+                new LaunchReport.Unreported(redacted(detail, tailWindow), redacted(jobOutput, tailWindow));
         };
     }
 
     /** The complete lines of a redacted read-out. */
-    private static List<String> redactedLines(String text) {
-        return redacted(text).lines().toList();
+    private static List<String> redactedLines(String text, boolean tailWindow) {
+        return redacted(text, tailWindow).lines().toList();
     }
 
     /**
-     * The first line and the last {@link #MAX_BYTES} bytes of a log longer than the cap. The first line is looked
-     * for in a head of at most {@link #FIRST_LINE_MAX_BYTES} bytes that ends before the tail window starts, so the
-     * read takes at most that head and the cap, and the two never overlap. A first line that does not end inside that
-     * head is not kept: the tail alone is answered.
+     * The first line and the last {@link #MAX_BYTES} bytes of a log longer than the cap. The first line is looked for in
+     * a head of at most {@link #FIRST_LINE_MAX_BYTES} bytes read from the file start, so a head shorter than the first
+     * line does not lose the report: the tail window then starts inside that first line, and the tail is trimmed back to
+     * the next line beginning, so the two parts never overlap. A first line longer than
+     * {@link #FIRST_LINE_MAX_BYTES} is not kept: the tail alone is answered.
      */
     private static Window capped(FileChannel channel, long size) throws IOException {
-        var headExpected = Math.min(FIRST_LINE_MAX_BYTES, size - MAX_BYTES);
+        return capped(channel, size, MAX_BYTES);
+    }
+
+    /**
+     * The first line and the last {@code cap} bytes of a log longer than the cap. The cap is a parameter so a test can
+     * drive the no-overlap guarantee with a cap below {@link #FIRST_LINE_MAX_BYTES}, where the only way the two parts
+     * could overlap occurs; the shipped cap of {@link #MAX_BYTES} is above it and never reaches that state.
+     *
+     * @param channel the open job log
+     * @param size    the length the channel reported
+     * @param cap     the number of tail bytes to keep
+     * @return the first line and the tail, reading exactly the head bound and the cap
+     * @throws IOException if a read of the channel fails
+     */
+    static Window capped(FileChannel channel, long size, int cap) throws IOException {
+        var headExpected = Math.min(FIRST_LINE_MAX_BYTES, size);
         var head = read(channel, 0, headExpected);
-        var tail = tail(channel, size);
+        var tail = tail(channel, size, cap);
         var end = firstLineEnd(head);
-        var text = end < 0
-                ? tail.text()
-                : new String(head, 0, end + 1, StandardCharsets.UTF_8) + tail.text();
+        if (end < 0) {
+            return new Window(tail.text(), head.length + tail.read(), headExpected + tail.expected());
+        }
+        var lineEnd = end + 1;
+        // A first line that runs into the tail window would be repeated. That needs a cap below the head bound and a
+        // window that kept no line beginning: its only line end is the file's last byte, so the window is untrimmed.
+        var tailText = tail.text();
+        if (lineEnd > size - cap && tailText.length() == cap) {
+            tailText = afterTheFirstLine(tailText);
+        }
+        var text = new String(head, 0, lineEnd, StandardCharsets.UTF_8) + tailText;
         return new Window(text, head.length + tail.read(), headExpected + tail.expected());
     }
 
+    /** @return the tail's text after its first line end, so a first line that runs into the window is not repeated */
+    private static String afterTheFirstLine(String tailText) {
+        var index = tailText.indexOf('\n');
+        return index < 0 ? "" : tailText.substring(index + 1);
+    }
+
     /**
-     * The last {@link #MAX_BYTES} bytes, starting at a line beginning: at the window's own start when the byte before
-     * it ends a line, else after the first line end inside it. A window with no line end is one long line and is kept.
+     * The last {@code cap} bytes, starting at a line beginning: at the window's own start when the byte before it ends
+     * a line, else after the first line end inside it. A window with no line end is one long line and is kept.
      */
-    private static Window tail(FileChannel channel, long size) throws IOException {
-        var from = size - MAX_BYTES;
+    private static Window tail(FileChannel channel, long size, int cap) throws IOException {
+        var from = size - cap;
         var bytes = read(channel, from, size);
         if (bytes.length == 0) {
             return new Window("", 0, size - from);

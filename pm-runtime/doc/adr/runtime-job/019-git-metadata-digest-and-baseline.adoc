@@ -32,7 +32,7 @@ is hand-written; no dependency is added.
 
 `GitMetadataGuard` keeps one baseline per project in memory: `record` takes it at the first worker spawn of a project in
 the runtime and keeps it, `verify` compares it after a worker's fate is recorded and in `start` before a `git` job's
-write-ahead record, and `rebaseline` is the operator's act. A later worker's spawn does not move the baseline, so two
+write-ahead record — a `git` job by its kind or a host-tool call of `git` —, and `rebaseline` is the operator's act. A later worker's spawn does not move the baseline, so two
 concurrent workers cannot erase each other's change and a detection is not cleared by the next spawn. A tree that is
 unreadable when the baseline would be taken takes none: the guard refuses with the fail-closed part `unreadable` until
 the operator's `rebaseline` accepts it, so a project whose metadata the runtime cannot read is never silently compared. A
@@ -44,7 +44,8 @@ the project is refused while the baseline differs. The runtime never repairs a f
 
 A digest in the worker's job record (option B of the plan's Q2) was weighed for durability: it would survive a runtime
 restart, but it adds a nullable member to the job record the schema and parity test pin, and the recovery ends a running
-worker at restart, so the next worker's spawn records a fresh baseline anyway. A file below the project's store (option C)
+worker at restart — which does not revert what that worker wrote, so the next spawn baselines whatever the tree then
+holds. A file below the project's store (option C)
 would add a new layout entry, schema and codec for the same effect. The in-memory baseline (option A) was taken because
 the guard's interface is the seam: a later plan changes only its storage.
 
@@ -56,8 +57,9 @@ directory such as `.husky/_` changes with every checkout and is covered by the p
 
 == Consequences
 
-A runtime restart loses the baseline; a change made by a worker that outlived a crash is not detected, which is accepted
-because the recovery ends such a worker. The baseline moves at the first spawn and on the operator's act only, so a
+A runtime restart loses the baseline; a change made by a worker that outlived a crash is not detected before the next
+spawn, which then baselines that tree — ending the worker does not revert its writes, so the restart is a window of
+undetected change until the operator rebaselines. The baseline moves at the first spawn and on the operator's act only, so a
 legitimate `build` job that changes `.git/config` (a `prepare` script) makes the next `git` job fail until the operator
 rebaselines — the sink is where the assembly reports that and the operator's act ends it. Keeping the baseline across
 spawns is what makes two concurrent workers safe: a spawn does not re-bless what another worker wrote in between. A

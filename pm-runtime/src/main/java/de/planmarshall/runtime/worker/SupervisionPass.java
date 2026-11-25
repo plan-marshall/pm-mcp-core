@@ -193,9 +193,10 @@ public final class SupervisionPass {
         try {
             pump.pump(task, generation.generationId(), facts.attempt(),
                     new JobLog(jobs.logPath(generation.jobId())));
-        } catch (IllegalStateException _) {
+        } catch (TaskNotOpenException _) {
             // The task closed between the read of its facts and the append: the recorder refuses an unknown or closed
-            // task, and that refusal is a benign race of the pass, not a defect of the worker.
+            // task, and that refusal is a benign race of the pass, not a defect of the worker. Any other failure is not
+            // a closed task and reaches the caller.
         }
     }
 
@@ -339,7 +340,7 @@ public final class SupervisionPass {
         if (task != null && pump != null && tasks.facts(task).isPresent()) {
             try {
                 pump.finish(task, generation.generationId(), attemptEnd(cause, loss, recorded));
-            } catch (IllegalStateException _) {
+            } catch (TaskNotOpenException _) {
                 // The same race as the pump's: a task that closed first has no journal entry to append.
             }
         }

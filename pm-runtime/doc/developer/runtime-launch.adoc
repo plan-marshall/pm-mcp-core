@@ -117,7 +117,8 @@ The check **parses the rendered vector back** against the template it was render
 into its literal fragments and its slot markers, requires every fragment at the position the previous one ended, and
 reads the text between two fragments as the value of the slot the template names. It never renders again: re-running
 `fill` would compare the composition with itself. The answer is the first violated rule and the position of the element,
-never the value, so the refusal can be recorded and shown without the vector in it.
+never the value, so the refusal can be recorded and shown without the vector in it. The correspondence pass decides (b)
+and (e) together, so the answer reports (a), then (b) and (e), then (c), then (d).
 
 [cols="1,2,3"]
 |===
@@ -145,6 +146,12 @@ The closed grammar of each typed slot:
 |`{{mcp_config}}` |a JSON object of the composed shape, `\{"mcpServers":\{"pm-job":\{…\}\}}`; exempt from rule (d)
 |`{{agent}}` |a JSON object of the composed shape, `\{"pm-job":\{…\}\}`; exempt from rule (d)
 |===
+
+`{{shim_dir}}` is a member of the profile schema's closed slot set
+(link:../../../pm-core/src/main/resources/de/planmarshall/core/profile/harness-profile-v1.schema.json[`harness-profile-v1.schema.json`]),
+but the runtime does not compose it yet: the shim wiring is owed (Implementation Watch `PM-WATCH-CLIENT-18`). The
+composition refuses a template that names it as an unknown slot before the vector check runs, so the launch fails as
+`prompt_composition_failed`.
 
 A gap in rule (b) is admitted for exactly one reason: a slot with no value removes its template element, and the flag
 element before it is removed with it (`--json-schema` and its value, `--mcp-config` and its value). The ephemeral flag a
@@ -256,11 +263,10 @@ the enrolment (<<_not_implemented_here>>).
   `VerificationRecord.stages` and `HarnessEnrolment.events` is the verification path's, which runs the profile
   verification and writes its record. The recorded outputs per shipped harness version are written where the shipped
   profiles live.
-* *A refused launch is not counted as a start failure*: a refused launch (a `HarnessVerification.Refused` from
-  `HarnessVerifier`, which `SubprocessJobRunner.refuseWorker` turns into a refused `JobId`) is a start failure the
-  supervisor counts per role and harness through `StartFailureGuard`, closing the tasks of the role `lost` with
-  `role_unavailable` after the compiled count; no production code calls `StartFailureGuard.startFailed`
-  (link:runtime-worker.adoc[`runtime.worker`] records the same). The warm offer, the re-delivery, the offer bound,
+* *A refused launch on the enrolment store is counted as a start failure*: a refusal the verifier makes because the
+  store is unreadable or tampered is counted per role and harness through `StartFailureGuard`, closing the tasks of the
+  role `lost` with `role_unavailable` after the compiled count; `WorkerSupervisor` makes that call. A refusal of any
+  other reason is a decision about that one start and is not counted. The warm offer, the re-delivery, the offer bound,
   harness activation and the `skills_not_loaded` submit refusal of Model Work § Skill Delivery Record & Re-Delivery are
   the task protocol's.
 * *Output and usage reading*: the mapping of the output stream to activity, the per-turn usage and the result parsing
