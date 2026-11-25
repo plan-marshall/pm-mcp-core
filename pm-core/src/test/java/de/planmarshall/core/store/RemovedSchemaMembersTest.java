@@ -29,7 +29,12 @@ import de.planmarshall.core.SchemaResource;
  * object that held each of them is still closed, so a stored document carrying the dropped member fails the schema
  * instead of being tolerated (PLAN-V2-188). Each negative control on a member or an enumeration value is matched with a
  * positive one beside it: a sibling member or value of the same enumeration stays, so the assertion cannot pass because
- * the reader lost the file. The deleted schema file has no such sibling; it is checked against the resource tree.
+ * the reader lost the file. The deleted schema file has no such sibling; it is checked against the resource tree with a
+ * surviving sibling resource as witness.
+ * <p>
+ * Six cases assert the corrected descriptions instead of a member: the {@code change_type} description of the status,
+ * the {@code decision_point} example, the outline's {@code change_type} description, the {@code scope_class} text, and
+ * the two descriptions of the message event. Each carries the statement it must keep beside the one it must lose.
  * <p>
  * Every schema file here is test input (R10): the members it declares are the contract this test pins.
  */
@@ -142,16 +147,22 @@ class RemovedSchemaMembersTest {
             var event = schema(STORE + "message-event.schema.json");
             var kind = object(properties(event).get("kind"));
             var payload = object(properties(event).get("payload"));
+            var kindDescription = String.valueOf(kind.get("description"));
+            var payloadDescription = String.valueOf(payload.get("description"));
 
             assertAll("The overlap message kind is gone",
                     () -> assertFalse(strings(kind, "enum").contains("overlap_found"),
                             "the overlap kind should be absent"),
                     () -> assertTrue(strings(kind, "enum").contains("advisory"),
                             "the advisory kind should stay declared"),
-                    () -> assertFalse(String.valueOf(kind.get("description")).contains("overlap_found"),
+                    () -> assertFalse(kindDescription.contains("overlap_found"),
                             "the kind description should not name overlap"),
-                    () -> assertFalse(String.valueOf(payload.get("description")).contains("other_plan_id"),
+                    () -> assertTrue(kindDescription.contains("advisory"),
+                            "the kind description should still name advisory"),
+                    () -> assertFalse(payloadDescription.contains("other_plan_id"),
                             "the payload description should not name the sibling"),
+                    () -> assertTrue(payloadDescription.contains("landing_notification"),
+                            "the payload description should stay described"),
                     () -> assertEquals(Boolean.FALSE, event.get("additionalProperties"),
                             "the message event should stay closed"));
         }
@@ -203,12 +214,11 @@ class RemovedSchemaMembersTest {
         @DisplayName("the assessment record schema is no longer a resource of the module")
         void assessmentRecordSchemaIsGone() {
             var resources = Path.of("src/main/resources");
-            var resource = resources.resolve(FINDINGS + "assessment-record.schema.json");
 
             assertAll("The assessment record schema is gone",
-                    () -> assertTrue(Files.isDirectory(resources),
-                            "the module resources root should be readable"),
-                    () -> assertFalse(Files.exists(resource),
+                    () -> assertTrue(Files.exists(resources.resolve(FINDINGS + "review-bot-registry.schema.json")),
+                            "the findings resources should stay readable"),
+                    () -> assertFalse(Files.exists(resources.resolve(FINDINGS + "assessment-record.schema.json")),
                             "the assessment record schema should be gone"));
         }
 
