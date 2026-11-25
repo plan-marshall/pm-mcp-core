@@ -19,6 +19,7 @@ import static org.easymock.EasyMock.verify;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
@@ -179,7 +180,7 @@ class WorkerGradingHarnessTest {
 
         assertAll(
                 () -> assertEquals(1, tasks.size(), "the zero-tool item is offered in its own directory"),
-                () -> assertTrue(tasks.getFirst().workdir() == null, "a zero-tool task carries no worktree"));
+                () -> assertNull(tasks.getFirst().workdir(), "a zero-tool task carries no worktree"));
         verify(worktrees);
     }
 

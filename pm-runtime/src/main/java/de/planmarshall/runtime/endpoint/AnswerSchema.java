@@ -10,10 +10,12 @@
 package de.planmarshall.runtime.endpoint;
 
 import java.math.BigDecimal;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import lombok.experimental.UtilityClass;
 
 import de.planmarshall.core.profile.CanonicalJson;
@@ -43,15 +45,21 @@ public final class AnswerSchema {
     private static final Set<String> ANNOTATIONS = Set.of("$schema", "$id", "title", "description", "$defs",
             "definitions");
 
-    private static final Set<String> KEYWORDS = Set.of("type", "const", "enum", "required", "properties",
-            "additionalProperties", "items", "minItems", "maxItems", "minLength", "maxLength", "minimum", "maximum",
-            "$ref");
+    private static final Set<String> KEYWORDS;
 
     /** The keywords whose value is an integer bound, which the guard refuses when it is not one the check can read. */
     private static final Set<String> INTEGER_BOUNDS = Set.of("minItems", "maxItems", "minLength", "maxLength");
 
     /** The keywords whose value is a decimal bound, which the guard refuses when it is not a number. */
     private static final Set<String> DECIMAL_BOUNDS = Set.of("minimum", "maximum");
+
+    static {
+        var keywords = new HashSet<>(Set.of("type", "const", "enum", "required", "properties",
+                "additionalProperties", "items", "$ref"));
+        keywords.addAll(INTEGER_BOUNDS);
+        keywords.addAll(DECIMAL_BOUNDS);
+        KEYWORDS = Set.copyOf(keywords);
+    }
 
     /**
      * @param schema the role's result schema
@@ -137,6 +145,13 @@ public final class AnswerSchema {
      *         silent skip that reads a schema as unbounded and lets an answer through
      */
     private static Optional<String> malformedValue(JsonNode schema) {
+        return malformedIntegerBound(schema)
+                .or(() -> malformedDecimalBound(schema))
+                .or(() -> malformedMemberShape(schema));
+    }
+
+    /** @return the refusal of an integer bound the check cannot read, or empty */
+    private static Optional<String> malformedIntegerBound(JsonNode schema) {
         for (var name : INTEGER_BOUNDS) {
             var value = schema.member(name);
             if (value.isEmpty()) {
@@ -149,6 +164,11 @@ public final class AnswerSchema {
                         "the result schema's '%s' is not an integer bound the check enforces".formatted(name));
             }
         }
+        return Optional.empty();
+    }
+
+    /** @return the refusal of a decimal bound the check cannot read, or empty */
+    private static Optional<String> malformedDecimalBound(JsonNode schema) {
         for (var name : DECIMAL_BOUNDS) {
             var value = schema.member(name);
             if (value.isPresent() && value.get().decimalValue().isEmpty()) {
@@ -156,19 +176,22 @@ public final class AnswerSchema {
                         "the result schema's '%s' is not a number the check enforces".formatted(name));
             }
         }
-        if (schema.member("required").isPresent() && !schema.member("required").get().isArray()) {
-            return Optional.of("the result schema's 'required' is not an array");
-        }
-        if (schema.member("properties").isPresent() && !schema.member("properties").get().isObject()) {
-            return Optional.of("the result schema's 'properties' is not an object");
-        }
-        if (schema.member("enum").isPresent() && !schema.member("enum").get().isArray()) {
-            return Optional.of("the result schema's 'enum' is not an array");
-        }
-        if (schema.member("items").isPresent() && !schema.member("items").get().isObject()) {
-            return Optional.of("the result schema's 'items' is not an object");
-        }
         return Optional.empty();
+    }
+
+    /** @return the refusal of a member of a kind the check would otherwise skip, or empty */
+    private static Optional<String> malformedMemberShape(JsonNode schema) {
+        return malformedKind(schema, "required", "an array", JsonNode::isArray)
+                .or(() -> malformedKind(schema, "properties", "an object", JsonNode::isObject))
+                .or(() -> malformedKind(schema, "enum", "an array", JsonNode::isArray))
+                .or(() -> malformedKind(schema, "items", "an object", JsonNode::isObject));
+    }
+
+    /** @return the refusal of a member whose kind is not the one the check reads, or empty */
+    private static Optional<String> malformedKind(JsonNode schema, String name, String expected,
+            Predicate<JsonNode> kind) {
+        return schema.member(name).filter(member -> !kind.test(member))
+                .map(_ -> "the result schema's '%s' is not %s".formatted(name, expected));
     }
 
     /**
