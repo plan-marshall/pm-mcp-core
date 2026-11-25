@@ -663,7 +663,28 @@ public class SecretRedactor {
         if (entry.egress() != null) {
             masked = masked.withEgress(new ActivityEntry.Egress(destination(entry.egress())));
         }
-        return masked;
+        return redactModels(masked);
+    }
+
+    /**
+     * Masks the two identifiers of a {@code model_differs} entry in one construction, so the entry never passes through
+     * a pair the record refuses.
+     */
+    private static ActivityEntry redactModels(ActivityEntry entry) {
+        if (entry.launchModel() == null && entry.servedModel() == null) {
+            return entry;
+        }
+        var launch = entry.launchModel() == null ? null : modelIdentifier(entry.launchModel());
+        var served = entry.servedModel() == null ? null : modelIdentifier(entry.servedModel());
+        if (launch != null && launch.equals(served)) {
+            // Masking is not injective: two identifiers can collapse onto one text. The journal states the one pair
+            // it can state and keeps the fact of the change.
+            launch = REDACTED;
+            served = REDACTED;
+        }
+        // One construction, both identifiers: a wither would rebuild the entry while the other identifier is still
+        // the raw text, and that intermediate pair can be refused.
+        return entry.toBuilder().launchModel(launch).servedModel(served).build();
     }
 
     /** Strips the terminal escape sequences of a journal value, then redacts it. */
@@ -680,6 +701,29 @@ public class SecretRedactor {
     private static String destination(ActivityEntry.Egress egress) {
         var masked = cutUtf16(stripAndRedact(egress.destination()), ActivityEntry.Egress.MAX_DESTINATION).value();
         return masked.length() < ActivityEntry.Egress.MIN_DESTINATION ? REDACTED : masked;
+    }
+
+    /**
+     * The masked identifier of a {@code model_differs} entry. Masking can empty a value (invisible characters removed),
+     * so an identifier that drops to nothing is masked whole instead of being rebuilt as an invalid one: the journal
+     * never refuses an entry it was handed.
+     */
+    private static String modelIdentifier(String identifier) {
+        var masked = cutUtf16(stripAndRedact(identifier), ActivityEntry.MODEL_BOUND).value();
+        return masked.isEmpty() ? REDACTED : masked;
+    }
+
+    /**
+     * Answers whether a value is the redaction marker itself. Two model identifiers that masking collapsed onto one
+     * text are written as that one pair, so {@code ActivityEntry} admits their equality only here: the journal keeps
+     * the fact of the change and states that both names are unreadable, instead of refusing an entry it was handed.
+     * A value that merely contains the marker is no such pair.
+     *
+     * @param value a value of a journal entry
+     * @return whether the value is exactly the redaction marker
+     */
+    public static boolean isRedactionOf(@Nullable String value) {
+        return REDACTED.equals(value);
     }
 
     /**

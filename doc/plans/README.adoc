@@ -280,9 +280,9 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 10
 
 |link:self-review-submission-shape.adoc[`self-review-submission-shape`]
-|The self-review's submission as specified: `criteria`, `unclaimed`, the optional `conflicts`, and `unexplained_coordinates[]` in its facts; outside the window: starts when its milestone is planned
+|The self-review's submission as specified: `criteria`, `unclaimed`, and the optional `conflicts`; outside the window: starts when its milestone is planned
 |`open`
-|`z3-deferred-code-removal`; `change-map` (the change map the facts read)
+|`z3-deferred-code-removal`
 |Milestone 10
 
 |link:initial-lane-router.adoc[`initial-lane-router`]

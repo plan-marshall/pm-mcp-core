@@ -4,8 +4,8 @@ sender_id=rb-v2-162-runtime-worker-and-job-residue
 epic=pm-mcp-core-m2-m4-v2
 kind=landing
 created=2026-11-22T20:23:56Z
-revision=23
-amended=2026-11-24T19:44:00Z
+revision=25
+amended=2026-11-25T14:23:53Z
 
 ```landing-facts
 schema=landing-facts/1
@@ -24,8 +24,8 @@ plugin_version=unknown
 executor_version=0.1.2184
 steps=setup:done,implement:done,build-gate:done,self-review:budget-exhausted,pr:done,reviews:done,merge:open
 unresolved_review_threads=0
-review_body_findings_total=0
-review_body_findings_handled=0
+review_body_findings_total=13
+review_body_findings_handled=13
 sonar_open_new_issues=unknown
 step.sonar-roundtrip.open_issue_rules=unknown
 ```
@@ -95,7 +95,7 @@ PR comments: no review thread (0) and no review (0); the only bot comments are r
 
 | Reviewer | Role | Result | Head | History |
 |---|---|---|---|---|
-| coderabbit | required | refused (rate limited) | 47b1cf31 | triggered 2026-11-22T22:14:09Z, 2026-11-23T20:18:30Z and again after the window at ~21:55Z; the bot's check stayed `NEUTRAL` on every head. No qualifying review exists, so the review gate is not met. |
+| coderabbit | required | **reviewed** | d9dd66b3, 30e01945 | Refused on quota on 2026-11-22/23; reviewed on 2026-11-24 (two COMMENTED reviews, 15 and 61 files). Its 11 inline threads and 13 body findings were all handled on 2026-11-25: 6 fixed in `d5c8da5d`, 4 answered with reasons (the two integral-decimal-bound findings, the `validateSubmit` wiring, one duplicate), 3 split off (the start-spacing ownership and the monitor-held wait, per the operator's cut). `review-gate`: 0 unresolved threads, 13 of 13 handled, `merge_allowed: true`. Re-triggered at 13:50Z on the cut head; refused on quota again (one included review per hour). |
 | sourcery | optional | refused (review budget) | e0e80dc1 | triggered 2026-11-22T22:14:18Z; "you've used your own review budget". |
 
 ## 6. Operator questions
@@ -121,9 +121,70 @@ Guard: none on this harness (unenforced). The run's own actions are counted belo
 - Setup preflight `ready`; every build `daemon_longpoll` (requested `auto`, resolved `routed`, no fallback): pm-core 65 s, pm-runtime 839 s (two re-attaches), mutation run 283 s, pm-core 71 s, pm-core 57 s, pm-runtime 830 s (two re-attaches).
 - No `killed` job; no `runtime_stamp_reason`.
 
-## 9. Residue
+## 9. Residue and the outcome of every carried item
 
-- The second pull request of this plan carries items 30(c)'s remaining latent limits; 41(a); 42(f)'s T-3 test gaps (the fixture work above), 42(h)'s `finishAttempt` point; 48(b)(c-release)(d)(e) and its nine minor points; 55(b)'s task naming (owed to the assembly port), 55(d)(e)(f); 75(b)-(f).
+**Operator decision of 2026-11-25: cut at this boundary.** The pull request closes at what is delivered at the head; everything
+else is split off (not dropped) and is named below with its reason. The assembly-visible changes are explicitly not made
+here: `48(b)` (a clock/pause seam in `WorkerGradingHarness`), the port release of `48(c)` (`ItemWorktrees`) and `55(b)`'s
+task naming (`WorkerCalls`) break `plan-marshall-mcp` until it is updated, so the orchestrator stages them as their own
+plan with the companion PR there.
+
+| Item | Outcome |
+|---|---|
+| 19 | **delivered**: the `ProbeBudget` seam, with the reason it is an override and not the clock seam recorded in its Javadoc |
+| 30 | (a) **delivered**; (b) **settled at the head** by `ShippedProfilesTest`; (c) **split off**: the parser-level limits of the composed-vector check — the earliest-occurrence match of the next literal (a value containing it refuses a conforming vector), the literal parts of an element carrying a JSON slot being exempt from the metacharacter rule, the stated membership-only tool rule and the presence check that copies the fill algorithm. These are parser changes with their own risk and test surface, not residue edits |
+| 41 | (b), (c), (d), (e), (f) and (g) **delivered**; (a) **split off**: the git-baseline choice is a design decision with three options found in the code: (1) persist the baseline outside the process (ADR 019 option C: a file below the project's store), (2) advance it after a `git` job that its pre-check read `Unchanged` (Q2-A, not built), or (3) refuse `git` jobs after a restart until the first record. Evidence: the baselines are an in-memory `ConcurrentHashMap` (`GitMetadataGuard`), a restart answers `Unchanged` with no baseline and the next spawn baselines the tree as it is (a window of undetected change), and a legitimate server `git worktree add` or `push -u` changes the digested config so the next `git` job is refused until the operator rebaselines |
+| 42 | (a) **analysed and recorded**, (c), (e) and (f)'s named points **delivered**, (d) **refuted at the head**, (h) in part; (f)'s four T-3 test gaps **split off**: the tail pump, the `START_FAILURE` branch, the requested-end branch and the retried completion. The reverted attempt showed that a fresh writer left settled only through the fate step is not enough: the fixture's `close()` then waits its 30 s bound, and both assertions fail, so the test needs a fixture that settles the generation the way the runner does (the `START_FAILURE` decision comes from `LossDetection.exit` on a settled record, not from the fate write). (h)'s `finishAttempt` throw-after-append point is split off with them. (g) **split off** to PLAN-V2-126 as the item states |
+| 44 | **delivered in full** (a, b, c, e; d recorded) |
+| 48 | (a) and (c)'s zero-tool worktree **delivered**; (b), (c)'s release, (d), (e) and the nine minor points **split off** per the operator's no-assembly rule above |
+| 49 | (a)(b)(c)(e)(f) **delivered**; (d) **split off** to PLAN-V2-147 and PLAN-V2-148, which name the `egress` stage's result carrier |
+| 50 | (a)(c) **delivered**; (b) needs no change; (e) is outside this repository |
+| 55 | (a) **delivered**, (b) in part (**split off**: the task naming needs a `WorkerCalls` port change owed to the assembly), (c) **delivered**; (d)(e)(f) **split off** (the `finally`-throws test needs a throwing-protocol seam; the idle-wake-up assertion the residue named is already pinned at the head) |
+| 56 | (a)-(g) **delivered** |
+| 58 | **delivered in full** (a, b, c, d) |
+| 61 | **delivered** |
+| 75 | (a) **delivered**; (b)-(f) stay with PLAN-V2-165's closeout as the spec says |
+| 81, 85 | **delivered** |
+
+**Build state at this cut.** The branch is merged up to `origin/main` (`3aea14c2`) at `13286001`, then the Sonar fixes at
+`6d6ea9a3`. `pm-runtime` is green (2 782 tests, log `5117bb809fc4440da085c52c2123a70b`). `pm-core` fails exactly the seven
+profile tests the operator predicted (5 749 pass): the new `pm-api` SNAPSHOT (-228) declares `headless.usage.model`, which
+main's `pm-core` validator refuses until PLAN-V2-135 (#594) merges — not a defect of this branch, and the old SNAPSHOT is
+not pinned. CI on `13286001` is red for the same cause (build 25; sonar-build skipped), so a fresh Sonar analysis has not
+run. The twelve issues measured at `e0e80dc1` were fixed in code at `6d6ea9a3`: `AnswerSchema`'s duplicate literals
+(ten S1192) and its `malformedValue` complexity, `GitMetadataDigest.of`'s complexity, and the test's S5785 assertion.
+After #594 merges, merge main in again and re-read Sonar on the new head.
+
+**Reviewer quota policy.** CodeRabbit was re-triggered after its window at 2026-11-25; if it refuses again on quota the
+policy applies (wait 90 minutes, re-trigger, escalate, new PR), and the review gate is not reported as met until a
+qualifying review exists.
+
+**The review of 2026-11-24 and its dispositions.** CodeRabbit reviewed `d9dd66b3` and `30e01945`: 11 inline threads and 13
+body findings, all handled on 2026-11-25; `review-gate` reports 0 unresolved threads and 13 of 13 handled.
+- **Fixed in `d5c8da5d` (6):** the false `pm_wait` clause of item 58(c) removed (the wait dispatch answers `wait_again`
+  with `no_task`, not `end` — the reviewer is right and the clause was mine); CR line ends kept in the unclosed-block
+  mask; `ProbeBudget.override` refuses a budget above the compiled one; a skipped worktree record now fails the git
+  digest closed in every case; ADR 070 names the pin that exists (`JobRecordCodecTest`); the `{{shim_dir}}` refusal is
+  attributed to composition (an unknown slot, `prompt_composition_failed`) before the vector check.
+- **Answered with reasons (4):** the two integral-decimal-bound findings (`{minItems: 2.0}`) are the carried item
+  56(b)'s decision — refuse a bound whose JSON spelling is not an integer; the class declares its subset. The
+  `05-consultation` finding is the most valuable of the review: `ConsultationService.validateSubmit` exists and
+  `TaskProtocol.submit` never calls it, so a submit after an answer can close the task with an empty or wrong
+  `consultation_ids`. That is a **production defect to stage** — wiring the validator is a `pm-workflow` behaviour change
+  beyond item 58's text correction and beyond this cut, so it is reported here for the orchestrator. The fourth is its
+  duplicate.
+- **Split off (3):** the start-spacing ownership and the monitor-held spacing wait (`HarnessStartSpacing` keyed by harness
+  with no owner; `WorkerSupervisor.start` waiting under its monitor so a first worker cannot release it) — a concurrency
+  redesign of the start path, one of the plan's own open self-review findings, beyond the cut. The landing names them for
+  the follow-up plan, with the review threads as evidence.
+
+**The merge gate at this cut.** `review-gate` is clear (0 threads, 13 of 13 handled, a qualifying review on record).
+CI is red on `6d6ea9a3`/`d5c8da5d` for the SNAPSHOT cause above, so `sonar-build` is skipped and Sonar has not analysed
+the head; the twelve issues of `e0e80dc1` are fixed in code. The pull request is left **open**, not merged: the operator's
+instruction is to merge main in again after PLAN-V2-135 (#594) lands and report a red build from that cause, which is
+what this section does.
+
+
 - Item 30(a)'s state-catalogue part reads as a miscitation at the head: the cited line 232 is the operator-side `precondition_unmet` list, which holds no launch refusals; the refusal list that does (Model Work § Launch Refusals) now names `argument_rejected`. No edit was made there.
 - Sonar on the final head `61942366` is **undecidable**: the analysis is stale (`e0e80dc1`), and `sonar-stale-delta` answers `carry_forward: false` (`delta_buildable`). The 12 open issues measured at `e0e80dc1` (S1192, S3776, S5785) are neither dismissed nor re-measured; the quality gate at `e0e80dc1` was OK. The PR is not reported ready.
 - CodeRabbit holds no qualifying review; the next trigger is not before 2026-11-22T23:44Z.

@@ -92,12 +92,14 @@ public class ActivityEntryCodec {
     private static final String FIELD_REL = "rel";
     private static final String FIELD_ACTION = "action";
     private static final String FIELD_DESTINATION = "destination";
+    private static final String FIELD_LAUNCH_MODEL = "launch_model";
+    private static final String FIELD_SERVED_MODEL = "served_model";
 
     /** The members of the entry in the order of the schema. */
     static final List<String> FIELDS = List.of(FIELD_FORMAT_VERSION, FIELD_SEQ, FIELD_ATTEMPT, FIELD_SOURCE,
             FIELD_KIND, FIELD_TEXT, FIELD_TRUNCATED, FIELD_TOOL, FIELD_RESULT, FIELD_PATH, FIELD_STOP_REASON,
-            FIELD_USAGE, FIELD_LINK, FIELD_QUESTION_ID, FIELD_SIGNAL, FIELD_EGRESS, FIELD_END, FIELD_UNMAPPED_LINES,
-            FIELD_AT);
+            FIELD_USAGE, FIELD_LINK, FIELD_QUESTION_ID, FIELD_SIGNAL, FIELD_EGRESS, FIELD_LAUNCH_MODEL,
+            FIELD_SERVED_MODEL, FIELD_END, FIELD_UNMAPPED_LINES, FIELD_AT);
 
     /** The members every entry requires, in the order of the schema; {@code format_version} is checked first. */
     static final List<String> REQUIRED = List.of(FIELD_FORMAT_VERSION, FIELD_SEQ, FIELD_ATTEMPT, FIELD_SOURCE,
@@ -188,6 +190,8 @@ public class ActivityEntryCodec {
             generator.writeStringField(FIELD_DESTINATION, entry.egress().destination());
             generator.writeEndObject();
         }
+        writeNullable(generator, FIELD_LAUNCH_MODEL, entry.launchModel());
+        writeNullable(generator, FIELD_SERVED_MODEL, entry.servedModel());
         writeNullable(generator, FIELD_END, entry.end());
         if (entry.unmappedLines() == null) {
             generator.writeNullField(FIELD_UNMAPPED_LINES);
@@ -237,6 +241,8 @@ public class ActivityEntryCodec {
                         : readSignal(parser));
                 case FIELD_EGRESS -> builder.egress(parser.currentToken() == JsonToken.VALUE_NULL ? null
                         : readEgress(parser));
+                case FIELD_LAUNCH_MODEL -> builder.launchModel(nullableString(parser, field).orElse(null));
+                case FIELD_SERVED_MODEL -> builder.servedModel(nullableString(parser, field).orElse(null));
                 case FIELD_END -> builder.end(nullableString(parser, field).orElse(null));
                 case FIELD_UNMAPPED_LINES -> builder.unmappedLines(parser.currentToken() == JsonToken.VALUE_NULL
                         ? null : Math.toIntExact(integer(parser, field)));

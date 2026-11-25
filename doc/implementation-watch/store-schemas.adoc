@@ -246,20 +246,6 @@ lines stay as history and are never rewritten. Matched control: a store whose ev
 current records as a replay of the appends in order.
 Source:: design review.
 
-== Component Assessment Record (`assessments.jsonl`)
-
-[#PM-WATCH-STORE-8]
-=== PM-WATCH-STORE-8: An assessment is graded against the scope it was written for
-
-Anchor:: link:../specification/store-schemas/03-findings-and-review-records.adoc#component-assessments[Store Schemas § Component Assessment Record]
-Hazard:: An assessment was never rewritten after its deliverable widened, which produced a false `exclude_violated`.
-Guard:: Grading test over the timeline below.
-Fixture:: 15:34:32Z 12 assessments (6 include, 6 exclude, 0 uncertain); 15:50:17Z quality gate fails; 16:00:16Z the
-deliverable widens from 3 to 5 files; the stale assessment yields `exclude_violated` for 1 of 6 on
-`platform-runtime/SKILL.md` (PLAN-TRUTH-102, PR #1384). A light-lane lessons step also revised deliverables without
-touching assessments.
-Source:: plan-marshall defect post-run-quality PLAN-PRQ-01 D5 (carrying PLAN-TRUTH-130 D1; origin PLAN-TRUTH-102 / PR #1384).
-
 == Epic Inbox & Plan Mailbox Records
 
 [#PM-WATCH-STORE-32]

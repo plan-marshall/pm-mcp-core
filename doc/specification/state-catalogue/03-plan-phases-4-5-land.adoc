@@ -35,7 +35,7 @@ link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[Sta
 |`phase-4-plan`
 |`job`
 |`plan.order-tasks` (`done`).
-|`job llm task-descriptions role plan`: the entity submits the enriched task descriptions (`description`, `steps`, `target_files`, `depends_on`) under declared-path discipline and in the order the method variant recorded; on submission the server sizes and packs the envelopes and composes the plan instance version of event `plan` (tasks and steps; provider and footprint prunes beside the posture prunes; budgets bound; in force from the transition into `plan.qgate`).
+|`job llm task-descriptions role plan`: the entity submits the enriched task descriptions (`description`, `steps`, `target_files`, `depends_on`) in the order the method variant recorded; on submission the server runs `derive-verification` for each task again over its declared paths plus its `target_files`, sizes and packs the envelopes and composes the plan instance version of event `plan` (tasks and steps; provider prunes beside the posture prunes; budgets bound; in force from the transition into `plan.qgate`).
 |`described` -> `plan.qgate` (every path; the Q-Gate is not configurable); `infeasible`, `lost` -> `plan.return`.
 |link:../phase-workflows/02-planning-lanes-phases-3-4.adoc#_deterministic_task_derivation_dag_cycle_detection[Phase Workflows Specification, Deterministic Task Derivation items 5 and 6]; link:../store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas Specification, Plan Instance]
 
@@ -43,7 +43,7 @@ link:../../Specification.adoc[Specification] » link:../state-catalogue.adoc[Sta
 |`phase-4-plan`
 |`job`
 |`plan.describe-tasks`; `plan.revise-tasks` (`revalidate`).
-|`job llm qgate role qgate` over the `TASK-*.json` bundle (entity `submit:qgate` of assessments and findings), whose return-evaluation primitive runs the compiled mechanical checks and decides from the persisted findings alone.
+|`job llm qgate role qgate` over the `TASK-*.json` bundle (entity `submit:qgate` of findings), whose return-evaluation primitive runs the compiled mechanical checks and decides from the persisted findings alone.
 |`clean` -> the phase's exit `ready`, on which the plan unit calls the phase `execute` at its entry `start` (`execute.worktree-init`); `blocking` -> `plan.remediate-qgate`; `infeasible`, `lost` (no verdict) -> `plan.return`.
 |link:../phase-workflows/03-q-gate-and-execute.adoc#_q_gate_validation_loop[Phase Workflows Specification, Q-Gate Validation Loop]
 

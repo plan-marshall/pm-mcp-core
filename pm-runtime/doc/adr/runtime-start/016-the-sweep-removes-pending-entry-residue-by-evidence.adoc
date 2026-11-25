@@ -58,7 +58,12 @@ Periodic Sweep]).
   `IllegalStateException` can carry no message — `InternalFaultException` and `StoreRefusal` compose a non-null one in
   their constructors): the release comes after another writer may have left the
   workspace's journal, so re-reading the journal after it would turn an undecided removal into one the report calls
-  owed. A test reaches the staged arm
+  owed. The naming is scoped to the fault of the removal, and `no message` means a `null` one: the kept and unreadable
+  entry texts are not fault texts it covers — the kept texts and the unreadable entry's I/O text print a message every
+  producer composes non-null (`PendingEntryStore` for the discard's two refusals, `JournalScope` for the symbolic-link
+  refusal, and `StoreSnapshot.read` for the `UncheckedIOException` that reaches the I/O text, read and stated by
+  `PLAN-V2-186`), while an unreadable record's `StoreRefusal` is named by its outcome code; a blank message is printed as
+  it is, and a cause beside a `null` message is not carried into the report. A test reaches the staged arm
   (`PendingEntryRecordsSweepTest.faultBeforeTheCommitRollsBackTheStagedRemovals`), the owed arm
   (`PendingEntryRecordsSweepTest.auditSinkFaultInsideTheCommitLeavesTheRemovalOwed`, an audit sink that throws inside
   the commit) and the undecided arm (`PendingEntryRecordsSweepTest.aCommitThatCannotWriteItsJournalLeavesTheReachUndecided`,
