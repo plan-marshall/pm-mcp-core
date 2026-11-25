@@ -8,7 +8,8 @@ Accepted
 == Date
 
 2026-11-07; amended 2026-11-25 (PLAN-V2-188: the assessment record is deleted with the assessment store, so the table
-lists 26 files and ten of them have no codec of their own; the decision is unchanged)
+lists 26 files and ten of them have no codec of their own; the Context's "27 blocks" and "Eleven blocks" are the
+numbers at the decision date, and the decision is unchanged)
 
 == Context
 

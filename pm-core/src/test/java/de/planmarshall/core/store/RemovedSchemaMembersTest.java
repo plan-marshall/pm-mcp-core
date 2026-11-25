@@ -27,8 +27,9 @@ import de.planmarshall.core.SchemaResource;
 /**
  * The members and enumeration values the merged specification dropped are absent from their schema files, and the
  * object that held each of them is still closed, so a stored document carrying the dropped member fails the schema
- * instead of being tolerated (PLAN-V2-188). Each negative control is matched with a positive one beside it: a sibling
- * member or value of the same enumeration stays, so the assertion cannot pass because the reader lost the file.
+ * instead of being tolerated (PLAN-V2-188). Each negative control on a member or an enumeration value is matched with a
+ * positive one beside it: a sibling member or value of the same enumeration stays, so the assertion cannot pass because
+ * the reader lost the file. The deleted schema file has no such sibling; it is checked against the resource tree.
  * <p>
  * Every schema file here is test input (R10): the members it declares are the contract this test pins.
  */
@@ -45,7 +46,7 @@ class RemovedSchemaMembersTest {
     class StatusSchema {
 
         @Test
-        @DisplayName("the assessment identify counter is gone and the counter object stays closed")
+        @DisplayName("the assessment identifier counter is gone and the counter object stays closed")
         void assessmentCounterIsGone() {
             var counters = object(properties(status()).get("counters"));
 
@@ -83,8 +84,8 @@ class RemovedSchemaMembersTest {
             assertAll("The change type names its single writer",
                     () -> assertTrue(description.contains("outline acceptance"),
                             "the description should name the outline acceptance"),
-                    () -> assertTrue(description.contains("Change-Type Derivation"),
-                            "the description should link the derivation anchor"),
+                    () -> assertTrue(description.contains("Server-Derived change_type"),
+                            "the description should name the derivation section"),
                     () -> assertFalse(description.contains("classify task"),
                             "the removed classify submit should be gone"));
         }
@@ -201,9 +202,14 @@ class RemovedSchemaMembersTest {
         @Test
         @DisplayName("the assessment record schema is no longer a resource of the module")
         void assessmentRecordSchemaIsGone() {
-            var resource = Path.of("src/main/resources").resolve(FINDINGS + "assessment-record.schema.json");
+            var resources = Path.of("src/main/resources");
+            var resource = resources.resolve(FINDINGS + "assessment-record.schema.json");
 
-            assertFalse(Files.exists(resource), "the assessment record schema should be gone");
+            assertAll("The assessment record schema is gone",
+                    () -> assertTrue(Files.isDirectory(resources),
+                            "the module resources root should be readable"),
+                    () -> assertFalse(Files.exists(resource),
+                            "the assessment record schema should be gone"));
         }
 
         @Test
