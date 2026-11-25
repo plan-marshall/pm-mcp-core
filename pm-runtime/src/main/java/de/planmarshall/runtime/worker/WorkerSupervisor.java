@@ -119,9 +119,11 @@ public final class WorkerSupervisor {
          * The supervisor did not start the requested worker.
          *
          * @param reason why the start was declined
+         * @param report the bounded, redacted report of a refusal this decline counted as a start failure, which the
+         *               assembly's clients show to the operator; {@code null} when the decline counted nothing
          * @since 0.1
          */
-        record Declined(WorkerStartRefusal reason) implements StartOutcome {
+        record Declined(WorkerStartRefusal reason, @Nullable StartFailureReport report) implements StartOutcome {
 
             /** @throws NullPointerException if the reason is {@code null} */
             public Declined {
@@ -169,6 +171,10 @@ public final class WorkerSupervisor {
             try {
                 for (var request : admitted(role, requests)) {
                     outcomes.add(startOne(request));
+                    if (environment.startGuard().holds(roleName, harness)) {
+                        // the guard filled mid-batch: the remaining requests are not attempted and count nothing
+                        break;
+                    }
                 }
                 return List.copyOf(outcomes);
             } finally {
@@ -286,35 +292,34 @@ public final class WorkerSupervisor {
             var slot = environment.slots().claim(generationId, role.artifact().name());
             if (slot.isEmpty()) {
                 environment.slots().withdraw(generationId);
-                return new StartOutcome.Declined(WorkerStartRefusal.NO_MODEL_SLOT);
+                return new StartOutcome.Declined(WorkerStartRefusal.NO_MODEL_SLOT, null);
             }
             lease = slot.get();
             var verification = environment.harnessVerifier().verify(harness, block);
             if (verification instanceof HarnessVerification.Refused refused) {
-                countStoreRefusal(role, refused);
-                refuse(role, generationId, refused);
-                environment.slots().release(lease);
-                return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
+                return declineRefused(role, generationId, refused, lease);
             }
             var enrolment = ((HarnessVerification.Accepted) verification).enrolment();
             try {
                 launch = environment.composer().compose(launchRequest(role, request, block, enrolment, generationId));
             } catch (LaunchComposer.CompositionException failure) {
-                refuse(role, generationId, new HarnessVerification.Refused(failure.refusal(), failure.getMessage()));
-                environment.slots().release(lease);
-                return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
+                return declineRefused(role, generationId,
+                        new HarnessVerification.Refused(failure.refusal(), failure.getMessage()), lease);
             }
         }
         awaitTurn(harness, generationId);
         synchronized (this) {
             var started = false;
             try {
-                var job = startWorker(role, block, launch, lease);
-                if (job.isEmpty()) {
+                var result = startWorker(role, block, launch, lease);
+                if (result instanceof JobRunner.StartResult.Refused refused) {
                     environment.slots().release(lease);
-                    return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED);
+                    var report = environment.startGuard().startFailed(role.artifact().name(), harness,
+                            refused.reason());
+                    return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED, report);
                 }
-                var generation = register(role, request, launch, job.get(), lease);
+                var job = ((JobRunner.StartResult.Started) result).jobId();
+                var generation = register(role, request, launch, job, lease);
                 started = true;
                 LOGGER.info(INFO.WORKER_GENERATION_STARTED, generation.generationId(), generation.role(),
                         generation.harness());
@@ -325,6 +330,29 @@ public final class WorkerSupervisor {
                 }
             }
         }
+    }
+
+    /**
+     * Records a launch the runtime refused before its spawn, releases its model slot and, where the specification
+     * counts the refusal, counts it into the role's start-failure guard. The refusal is recorded and the slot released
+     * FIRST, so a guard whose count throws — the audit sink or the protocol's close at the hold — neither loses the
+     * refusal nor leaks the slot; the count's bounded, redacted report travels on the declined outcome, which is where
+     * the assembly's clients read the operator-facing text.
+     *
+     * @param role         the role whose launch was refused
+     * @param generationId the refused launch's generation
+     * @param refused      the refusal of the launch
+     * @param lease        the model slot the refused launch held
+     * @return the declined outcome, carrying the report when the refusal was counted
+     */
+    private StartOutcome declineRefused(EffectiveRole role, String generationId, HarnessVerification.Refused refused,
+            ModelSlots.Lease lease) {
+        refuse(role, generationId, refused);
+        environment.slots().release(lease);
+        var report = countsAsStartFailure(refused.reason())
+                ? environment.startGuard().startFailed(role.artifact().name(), role.harness(), refused.detail())
+                : null;
+        return new StartOutcome.Declined(WorkerStartRefusal.LAUNCH_REFUSED, report);
     }
 
     /**
@@ -342,12 +370,13 @@ public final class WorkerSupervisor {
     }
 
     /**
-     * Starts the composed worker and returns its slot on every path that started none: a runner that throws has already
-     * settled or left no job, so the slot is released and the failure passes on. A start that returns, started or
-     * refused, leaves the slot to the caller: a started worker keeps it for the generation. The release runs in a
-     * {@code finally} guarded by whether the start returned, so no failure of the start needs to be caught.
+     * Starts the composed worker and answers the runner's result. A runner that throws has already settled or left no
+     * job, so the slot is released and the failure passes on; a runner that refuses releases nothing here — the caller
+     * releases the slot and the spacing turn, because no worker of the start is left. A started worker keeps the slot
+     * for the generation. The release runs in a {@code finally} guarded by whether the start returned, so no failure of
+     * the start needs to be caught.
      */
-    private Optional<JobId> startWorker(EffectiveRole role, HeadlessBlock block, WorkerLaunch launch,
+    private JobRunner.StartResult startWorker(EffectiveRole role, HeadlessBlock block, WorkerLaunch launch,
             ModelSlots.Lease lease) {
         var returned = false;
         try {
@@ -362,10 +391,7 @@ public final class WorkerSupervisor {
                     .egressProxy(null)
                     .build());
             returned = true;
-            return switch (result) {
-                case JobRunner.StartResult.Started(var jobId) -> Optional.of(jobId);
-                case JobRunner.StartResult.Refused _ -> Optional.empty();
-            };
+            return result;
         } finally {
             if (!returned) {
                 environment.slots().release(lease);
@@ -400,19 +426,18 @@ public final class WorkerSupervisor {
     }
 
     /**
-     * Counts a launch the runtime refused on the enrolment store into the role's start-failure guard: the store being
-     * unreadable or tampered means the launch of the role on that harness failed before its spawn, which the
-     * specification counts as a start failure. Every other refusal is a decision about this one start and is not
-     * counted.
+     * Counts a launch the runtime refused before its spawn into the role's start-failure guard where the specification
+     * counts it: the four enrolment-store refusals the Store Schemas part names — {@code harness_store_unreadable},
+     * {@code harness_tampered}, {@code harness_version_unsupported} and {@code harness_not_enrolled} — a launch the
+     * composer cannot compose, and a start the runner refuses. The update evidence is the one refusal the specification
+     * does not count: its act is the verification of the executable, not a new enrolment of a broken store, so it stays
+     * a decision about that one start. A refusal the supervisor declines before any launch is no launch refusal at all.
      *
-     * @param role    the role whose launch was refused
-     * @param refused the refusal of the launch
+     * @param reason the refusal reason of the launch
+     * @return whether the refusal counts as one start failure of the role on the harness
      */
-    private void countStoreRefusal(EffectiveRole role, HarnessVerification.Refused refused) {
-        if (refused.reason() == LaunchRefusal.HARNESS_STORE_UNREADABLE
-                || refused.reason() == LaunchRefusal.HARNESS_TAMPERED) {
-            environment.startGuard().startFailed(role.artifact().name(), role.harness(), refused.detail());
-        }
+    private static boolean countsAsStartFailure(LaunchRefusal reason) {
+        return reason != LaunchRefusal.HARNESS_UPDATE_UNVERIFIED;
     }
 
     private void refuse(EffectiveRole role, String generationId, HarnessVerification.Refused refused) {
@@ -507,7 +532,7 @@ public final class WorkerSupervisor {
     }
 
     private static List<StartOutcome> declineAll(List<WorkerStartRequest> requests, WorkerStartRefusal reason) {
-        return Collections.nCopies(requests.size(), new StartOutcome.Declined(reason));
+        return Collections.nCopies(requests.size(), new StartOutcome.Declined(reason, null));
     }
 
     private static void requireSameRole(EffectiveRole expected, EffectiveRole actual) {
