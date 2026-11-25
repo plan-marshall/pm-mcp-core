@@ -33,8 +33,9 @@ import de.planmarshall.core.SchemaResource;
  * surviving sibling resource as witness.
  * <p>
  * Six cases assert the corrected descriptions instead of a member: the {@code change_type} description of the status,
- * the {@code decision_point} example, the outline's {@code change_type} description, the {@code scope_class} text, and
- * the two descriptions of the message event. Each carries the statement it must keep beside the one it must lose.
+ * the {@code decision_point} example, the outline's {@code change_type} description, the {@code scope_class} text, the
+ * quality report's {@code footprint} description, and the two descriptions of the message event. Each carries the
+ * statement it must keep beside the one it must lose.
  * <p>
  * Every schema file here is test input (R10): the members it declares are the contract this test pins.
  */
