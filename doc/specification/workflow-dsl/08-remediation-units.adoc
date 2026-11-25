@@ -26,7 +26,7 @@ Every blocking failure of a plan gets a bounded self-remedy through a remediatio
 |Unit |Evidence (gather job) |Actions of `decide` (decision role) |Domain outcomes (waivable gate)
 
 |`remediation.ci-failure`
-|Failed checks of `HEAD` through the provider module, logs parsed by the domain `log_parser` (envelope kinds: the finding's `failure_kind` `compile`, `test`, `lint`, `policy`, or `unknown`, plus `infra` for a failed gather constituent; a timed-out check is a `failure_class` `timed_out`, no kind of its own), and the base's CI result of the same checks in the same job: a red that the base shows with the same fingerprints is recorded `baseline_red` and never reaches `decide`
+|Failed checks of `HEAD` through the provider module, logs parsed by the domain `log_parser` (envelope kinds: the finding's `failure_kind` `compile`, `test`, `lint`, `policy`, or `unknown`, plus `infra` for a failed gather constituent; a timed-out check is a `failure_class` `timed_out`, no kind of its own), and the base's CI result of the same checks in the same job: a red that the base shows with the same fingerprints is recorded `baseline_red` and never reaches `decide`; a required check so recorded hands the plan back at the pre-merge barrier (link:../phase-workflows/06-finalize-re-entry-and-merge.adoc#merge-path[Phase Workflows Specification, Merge Path], item 5)
 |`retry` (re-run the checks), `fix` (in-branch commit, push, await the checks of the new `HEAD`), `loop_back` (`triage-ci`)
 |`resolved`, `waived` (`ci_check:<name>`), `exhausted`, `fix_requested`
 
