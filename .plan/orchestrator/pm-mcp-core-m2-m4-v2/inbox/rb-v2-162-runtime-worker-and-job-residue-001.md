@@ -4,8 +4,8 @@ sender_id=rb-v2-162-runtime-worker-and-job-residue
 epic=pm-mcp-core-m2-m4-v2
 kind=landing
 created=2026-11-22T20:23:56Z
-revision=20
-amended=2026-11-24T16:18:37Z
+revision=23
+amended=2026-11-24T19:44:00Z
 
 ```landing-facts
 schema=landing-facts/1
@@ -47,12 +47,12 @@ Deliverable 1 is met. Deliverables 2 to 5 are not met as written; their remainin
 - 61 (this run): both refusal texts reworded to name what was refused, the pins updated in the same commit `8b196917`; the inverted `@throws` corrected in `61942366`. Order `none`: the texts are pinned contract literals, so no failing run was captured.
 
 **D2 — the hold and the worker (items 55, 19, 30).** Not met.
-- Met: 19 (the `ProbeBudget` seam, with the reason it is an override and not the clock seam item 19 named, recorded in its Javadoc), 55(a) (ADR runtime-worker/016 § Clarification and the guide), 55(b) in part (an answer leaves HOLDING; `holdOpened` re-decides the budget), 55(c), 30(a) (the worker-vector statements corrected in the guide, the ADR, the Model Work part and the Failure Modes rows), 30(c) in part (the enrolled executable is exempt from the metacharacter rule — an executable path with `&`, `$` or `<` no longer refuses every launch — and the dead empty-split branch is removed), 58(a)(b) (the start-failure rows settled with the wiring; the skill sentence narrowed to `PromptComposer`'s checks), 58(c) in part (the offer half of the writing-skill rule, the `pm_wait` answer after a spent re-offer budget and the server as the actor of the consultation-list check are restored; "which may differ from the asker's" is not, because no statement at the head verifies what it compared), 58(d) (the Acknowledge and Closed Task Outcomes sections carry a guide link again).
-- Open: 55(b)'s task-naming half (a `WorkerCalls` port change owed to the assembly), 55(d)(e)(f) (the `finally`-throws test needs a throwing-protocol seam; the idle-wake-up assertion the residue named is already pinned at the head), 30(c)'s remaining latent limits (the earliest-literal match, the JSON-slot literal exemption, the stated membership-only rule, the presence check), 58(c)'s one clause. Item 30(b) is settled at the head by `ShippedProfilesTest`.
+- Met: 19 (the `ProbeBudget` seam, with the reason it is an override and not the clock seam item 19 named, recorded in its Javadoc), 55(a) (ADR runtime-worker/016 § Clarification and the guide), 55(b) in part (an answer leaves HOLDING; `holdOpened` re-decides the budget), 55(c), 30(a) (the worker-vector statements corrected in the guide, the ADR, the Model Work part and the Failure Modes rows), 30(c) in part (the enrolled executable is exempt from the metacharacter rule — an executable path with `&`, `$` or `<` no longer refuses every launch — and the dead empty-split branch is removed), 58(a)(b) (the start-failure rows settled with the wiring; the skill sentence narrowed to `PromptComposer`'s checks), 58(c) (the offer half of the writing-skill rule, the `pm_wait` answer, the server as the actor and the delivered set's owner are restored), 58(d) (the Acknowledge and Closed Task Outcomes sections carry a guide link again).
+- Open: 55(b)'s task-naming half (a `WorkerCalls` port change owed to the assembly), 55(d)(e)(f) (the `finally`-throws test needs a throwing-protocol seam; the idle-wake-up assertion the residue named is already pinned at the head), 30(c)'s remaining latent limits (the earliest-literal match, the JSON-slot literal exemption, the stated membership-only rule, the presence check). Item 30(b) is settled at the head by `ShippedProfilesTest`.
 
 **D3 — the supervisor residue and the git-metadata guard (items 42, 41).** Not met.
-- Met: 42(e), 41(c), 41(e), 41(d) (both last-resort catches are listed under PLAN-V2-94), 42(a) (analysed, non-closure recorded), 42(c) (the named `TaskNotOpenException`), 42(f) (the hold-entry test hardened; the two "no generation" points are already covered at the head), 41(b) in full (the logging half with `PM_RUNTIME_WARN_153`, and `gitMetadataFor` refuses an `enforced` claim when no read-only path was sent, with a mutation proof), 42(d) (refuted at the head), 41(f) in full (the guard Javadoc, ADR 019's restart premise and pre-check, the guide's non-worker and host-tool-target rules, ADR 070's builder sentence), and 41(g) in part (the two outside-worktree cases are named apart).
-- Open: 42(f)'s remaining truncated repairs, 42(h); 41(a) the baseline persistence/advance decision, 41(g)'s remaining tests (sink-throws, `git_job`, `includeIf`, the `LaunchReportTest` unit).
+- Met: 42(e), 41(c), 41(e), 41(d), 42(a) (analysed, non-closure recorded), 42(c) (the named `TaskNotOpenException`), 42(f) (the hold-entry test hardened; the two "no generation" points and the terminal test are covered at the head), 42(h) in part (`lost()`'s Javadoc states the terminal/unknown skip; the stale Known-blocker and ADR 014 sentences are corrected at the head), 41(b) in full, 42(d) (refuted), 41(f) in full, and 41(g) in full.
+- Open: 42(f)'s T-3 test gaps (the tail pump, the `START_FAILURE` branch, the requested-end branch, the retried completion) — the `START_FAILURE` test was attempted and reverted: a fresh writer left unsettled in the fixture holds its `close()` for 30 s, so the test needs a fixture that settles the generation the way the runner does, not a small addition; 42(h)'s `finishAttempt` throw-after-append point; 41(a) the baseline persistence/advance decision.
 
 **D4 — the grading adapter (item 48).** Not met.
 - Met: 48(a) the supervisor's own end path, 48(c) the zero-tool worktree.
@@ -123,7 +123,7 @@ Guard: none on this harness (unenforced). The run's own actions are counted belo
 
 ## 9. Residue
 
-- The second pull request of this plan carries items 30(c)'s remaining latent limits; 41(a), 41(f)'s remaining statements, 41(g)'s remaining tests; 42(f)'s remaining truncated repairs, (h); 48(b)(c-release)(d)(e) and its nine minor points; 55(b)'s task naming (owed to the assembly port), 55(d)(e)(f); 58(c)'s remaining clause; 75(b)-(f).
+- The second pull request of this plan carries items 30(c)'s remaining latent limits; 41(a); 42(f)'s T-3 test gaps (the fixture work above), 42(h)'s `finishAttempt` point; 48(b)(c-release)(d)(e) and its nine minor points; 55(b)'s task naming (owed to the assembly port), 55(d)(e)(f); 75(b)-(f).
 - Item 30(a)'s state-catalogue part reads as a miscitation at the head: the cited line 232 is the operator-side `precondition_unmet` list, which holds no launch refusals; the refusal list that does (Model Work § Launch Refusals) now names `argument_rejected`. No edit was made there.
 - Sonar on the final head `61942366` is **undecidable**: the analysis is stale (`e0e80dc1`), and `sonar-stale-delta` answers `carry_forward: false` (`delta_buildable`). The 12 open issues measured at `e0e80dc1` (S1192, S3776, S5785) are neither dismissed nor re-measured; the quality gate at `e0e80dc1` was OK. The PR is not reported ready.
 - CodeRabbit holds no qualifying review; the next trigger is not before 2026-11-22T23:44Z.
