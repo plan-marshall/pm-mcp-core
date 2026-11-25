@@ -18,8 +18,8 @@ import lombok.Builder;
  * The stamp for a Phase 6 commit made after the latest successful build, the member {@code freshness_reconcile} of the
  * workflow state store (ADR 089). The rule it was introduced for is superseded: since the 2026-11-24 corpus review a
  * commit that a {@code mutates_source} step makes after the latest successful build records nothing of its own, and the
- * freshness gate derives the build-neutral delta from the build row's {@code head} (Phase Workflows § Finalize Commit
- * Instrumentation, item 3).
+ * freshness gate is specified to derive the build-neutral delta from the build row's {@code head} (Phase Workflows §
+ * Finalize Commit Instrumentation, item 3; the verb is not wired in this checkout).
  * <p>
  * The record is a retained typed carrier: a future writer will name the commit, the finalize step that made it, and the
  * working-tree digest of that build. The record enforces only that a digest is present; a writer must confirm a

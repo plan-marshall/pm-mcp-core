@@ -230,7 +230,7 @@ class GitStageAndCommitPrimitiveDeclarationsTest extends GitStageAndCommitPrimit
     @ParameterizedTest(name = "supplementary name \"{0}\"")
     @ValueSource(strings = {"refused \uD801\uDC00/x", "file \uD801\uDC01/spec.adoc is refused",
             "refused \uD801\uDC02/y"})
-    @DisplayName("a relative name that starts with a supplementary letter leaks as the outcome's code")
+    @DisplayName("a segment that is a supplementary letter leaks as the outcome's code")
     void relativeNameWithASupplementaryLetterIsACode(String message) {
         var result = GitStageAndCommitPrimitive.map(GitResult.of(GitOutcome.FAILED, message), repo);
 
