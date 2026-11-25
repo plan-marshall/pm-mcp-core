@@ -304,7 +304,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 10
 
 |link:commit-boundary.adoc[`commit-boundary`]
-|The commit boundary: the protected-path decision at the commit check, the main-checkout clause conditional on confinement, and the removal of the `declared_files` lift
+|The commit boundary: the protected-path decision at the commit check, the main-checkout clause made conditional on confinement, and the `declared_files` lift removal, as decisions (their code is the plans of the cut)
 |`open`
 |`job-confinement-and-environment` (the confinement level in the job record)
 |Milestone 10

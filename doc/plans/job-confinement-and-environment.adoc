@@ -5,7 +5,7 @@ link:README.adoc[Work packages of `pm-mcp-core`] » `job-confinement-and-environ
 
 [horizontal]
 Roadmap item:: job confinement and job environment in the daemon (link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
-Where:: pm-runtime package `runtime.job`
+Where:: pm-runtime package `runtime.job`; pm-core package `core.profile` (`CredentialLocations`, the compiled credential-location list)
 Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
 == Tasks
