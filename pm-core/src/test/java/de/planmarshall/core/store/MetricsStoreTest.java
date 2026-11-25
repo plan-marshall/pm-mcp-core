@@ -593,7 +593,7 @@ class MetricsStoreTest {
 
         @Test
         @DisplayName("a repeated or empty served model is refused (wire document)")
-        void servedModelsRefusals() throws Exception {
+        void servedModelsRefusals() {
             var repeated = """
                     {"format_version":1,"rows":[{"kind":"task","queue_task_id":"qt-0123456789abcdef","attempt":1,
                      "role":"writer","job_id":"l-0123456789abcdef","generation_id":"l-0123456789abcdef",

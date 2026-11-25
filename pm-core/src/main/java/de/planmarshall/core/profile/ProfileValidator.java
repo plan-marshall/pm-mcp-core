@@ -198,9 +198,6 @@ public class ProfileValidator {
     /** The one refusal detail that names a JSON Pointer, used wherever a pointer is read from the document. */
     private static final String MSG_NOT_A_POINTER = "not a JSON Pointer: '%s'";
 
-    /** An RFC 6901 JSON Pointer: a leading slash, and `~` only as the escapes `~0` and `~1`. */
-    private static final Pattern JSON_POINTER = Pattern.compile("/(?:[^~]|~[01])*");
-
     private static final Set<String> TOP_LEVEL = Set.of(NAME_SCHEMA_VERSION, NAME_DISPLAY_NAME, NAME_ICON,
             NAME_MIN_DAEMON_VERSION, NAME_TOOLS, NAME_SKILL_LOADING, NAME_HEADLESS, NAME_CONNECTION, NAME_WORKER, NAME_DETECTION,
             NAME_IDENTITY);
@@ -976,9 +973,26 @@ public class ProfileValidator {
          * and read as not reported for ever.
          */
         private void requirePointer(String value, String pointer) {
-            if (!JSON_POINTER.matcher(value).matches()) {
+            if (!isJsonPointer(value)) {
                 throw invalid(pointer, MSG_NOT_A_POINTER.formatted(value));
             }
+        }
+
+        /**
+         * Answers whether a value is an RFC 6901 JSON Pointer. The check is a scan rather than a regular expression: a
+         * repetition over an alternation can overflow the stack on a long input.
+         */
+        private static boolean isJsonPointer(String value) {
+            if (!value.startsWith("/")) {
+                return false;
+            }
+            for (var index = 0; index < value.length(); index++) {
+                if (value.charAt(index) == '~'
+                        && (index + 1 == value.length() || "01".indexOf(value.charAt(index + 1)) < 0)) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         private void events(JsonNode events, String pointer) {

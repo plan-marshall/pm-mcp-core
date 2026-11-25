@@ -165,7 +165,7 @@ public final class ProfileStages {
          */
         public StartContext {
             Objects.requireNonNull(workerClass, "workerClass");
-            Objects.requireNonNull(model, "model");
+            Objects.requireNonNull(model, MODEL);
             if (!CLASSES.contains(workerClass)) {
                 throw new IllegalArgumentException("Not a worker class: " + workerClass);
             }

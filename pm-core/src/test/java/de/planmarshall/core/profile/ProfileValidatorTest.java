@@ -137,9 +137,9 @@ class ProfileValidatorTest {
     @DisplayName("the usage figures stay the seven numeric names and the model is no figure")
     void usageFiguresStayNumeric() {
         // The seven names are the wire contract of the figures; the model is a pointer beside them.
-        assertEquals(List.of("input_tokens", "output_tokens", "cache_read", "cache_creation", "reasoning",
-                        "cost_usd", "tool_uses"), ProfileStages.USAGE_FIGURES,
-                "the usage figures are the seven numeric names");
+        var expectedNames = List.of("input_tokens", "output_tokens", "cache_read", "cache_creation", "reasoning",
+                "cost_usd", "tool_uses");
+        assertEquals(expectedNames, ProfileStages.USAGE_FIGURES, "the usage figures are the seven numeric names");
         assertFalse(ProfileStages.USAGE_FIGURES.contains("model"), "the model is no usage figure");
     }
 

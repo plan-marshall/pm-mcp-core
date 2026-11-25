@@ -663,20 +663,28 @@ public class SecretRedactor {
         if (entry.egress() != null) {
             masked = masked.withEgress(new ActivityEntry.Egress(destination(entry.egress())));
         }
-        if (entry.launchModel() != null || entry.servedModel() != null) {
-            var launch = entry.launchModel() == null ? null : modelIdentifier(entry.launchModel());
-            var served = entry.servedModel() == null ? null : modelIdentifier(entry.servedModel());
-            if (launch != null && launch.equals(served)) {
-                // Masking is not injective: two identifiers can collapse onto one text. The journal states the one pair
-                // it can state and keeps the fact of the change.
-                launch = REDACTED;
-                served = REDACTED;
-            }
-            // One construction, both identifiers: a wither would rebuild the entry while the other identifier is still
-            // the raw text, and that intermediate pair can be refused.
-            masked = masked.toBuilder().launchModel(launch).servedModel(served).build();
+        return redactModels(masked);
+    }
+
+    /**
+     * Masks the two identifiers of a {@code model_differs} entry in one construction, so the entry never passes through
+     * a pair the record refuses.
+     */
+    private static ActivityEntry redactModels(ActivityEntry entry) {
+        if (entry.launchModel() == null && entry.servedModel() == null) {
+            return entry;
         }
-        return masked;
+        var launch = entry.launchModel() == null ? null : modelIdentifier(entry.launchModel());
+        var served = entry.servedModel() == null ? null : modelIdentifier(entry.servedModel());
+        if (launch != null && launch.equals(served)) {
+            // Masking is not injective: two identifiers can collapse onto one text. The journal states the one pair
+            // it can state and keeps the fact of the change.
+            launch = REDACTED;
+            served = REDACTED;
+        }
+        // One construction, both identifiers: a wither would rebuild the entry while the other identifier is still
+        // the raw text, and that intermediate pair can be refused.
+        return entry.toBuilder().launchModel(launch).servedModel(served).build();
     }
 
     /** Strips the terminal escape sequences of a journal value, then redacts it. */

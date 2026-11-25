@@ -54,6 +54,9 @@ public record UsagePointers(@Nullable String inputTokens, @Nullable String outpu
     /** The declaration of a figure that does not exist for a harness by design. */
     public static final String NOT_APPLICABLE = "not_applicable";
 
+    /** The subject a refusal names when a pointer of this block does not resolve in a line. */
+    private static final String SUBJECT = "harness output";
+
     /**
      * @throws IllegalArgumentException if input or output tokens declare {@value #NOT_APPLICABLE}, or
      *                                  {@code tool_uses} does
@@ -101,7 +104,7 @@ public record UsagePointers(@Nullable String inputTokens, @Nullable String outpu
         }
         final JsonNode value;
         try {
-            value = JsonPointer.resolve(line, model, "harness output");
+            value = JsonPointer.resolve(line, model, SUBJECT);
         } catch (ProfileRefusal _) {
             return Optional.empty();
         }
@@ -163,7 +166,7 @@ public record UsagePointers(@Nullable String inputTokens, @Nullable String outpu
         }
         final JsonNode value;
         try {
-            value = JsonPointer.resolve(turn, pointer, "harness output");
+            value = JsonPointer.resolve(turn, pointer, SUBJECT);
         } catch (ProfileRefusal _) {
             return Measurement.unmeasured();
         }
@@ -180,7 +183,7 @@ public record UsagePointers(@Nullable String inputTokens, @Nullable String outpu
         }
         final JsonNode value;
         try {
-            value = JsonPointer.resolve(turn, costUsd, "harness output");
+            value = JsonPointer.resolve(turn, costUsd, SUBJECT);
         } catch (ProfileRefusal _) {
             return Optional.empty();
         }

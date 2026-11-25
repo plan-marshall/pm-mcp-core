@@ -73,13 +73,15 @@ class ServedModelsTest {
     void bounds() {
         var longest = Generators.letterStrings(128, 128).next();
         var tooLong = longest + longest.substring(0, 1);
+        var noIdentifier = List.of("");
+        var overLongIdentifier = List.of(tooLong);
 
         assertAll(
                 () -> assertThrows(IllegalArgumentException.class, () -> ServedModels.of(List.of()),
                         "an empty list is not a value of the column"),
-                () -> assertThrows(IllegalArgumentException.class, () -> ServedModels.of(List.of("")),
+                () -> assertThrows(IllegalArgumentException.class, () -> ServedModels.of(noIdentifier),
                         "an empty identifier is refused"),
-                () -> assertThrows(IllegalArgumentException.class, () -> ServedModels.of(List.of(tooLong)),
+                () -> assertThrows(IllegalArgumentException.class, () -> ServedModels.of(overLongIdentifier),
                         "a 129-character identifier is refused"),
                 () -> assertEquals(List.of(longest), ServedModels.of(List.of(longest)).measured().orElseThrow(),
                         "a 128-character identifier is accepted"));
