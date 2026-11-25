@@ -280,7 +280,7 @@ public record JobLog(Path path) {
      * @param read     the bytes the read returned
      * @param expected the bytes the length of the log promised
      */
-    private record Window(String text, long read, long expected) {
+    record Window(String text, long read, long expected) {
 
         boolean complete() {
             return read == expected;
@@ -331,22 +331,51 @@ public record JobLog(Path path) {
      * {@link #FIRST_LINE_MAX_BYTES} is not kept: the tail alone is answered.
      */
     private static Window capped(FileChannel channel, long size) throws IOException {
-        var headExpected = Math.min(FIRST_LINE_MAX_BYTES, size);
-        var head = read(channel, 0, headExpected);
-        var tail = tail(channel, size);
-        var end = firstLineEnd(head);
-        var text = end < 0
-                ? tail.text()
-                : new String(head, 0, end + 1, StandardCharsets.UTF_8) + tail.text();
-        return new Window(text, head.length + tail.read(), headExpected + tail.expected());
+        return capped(channel, size, MAX_BYTES);
     }
 
     /**
-     * The last {@link #MAX_BYTES} bytes, starting at a line beginning: at the window's own start when the byte before
-     * it ends a line, else after the first line end inside it. A window with no line end is one long line and is kept.
+     * The first line and the last {@code cap} bytes of a log longer than the cap. The cap is a parameter so a test can
+     * drive the no-overlap guarantee with a cap below {@link #FIRST_LINE_MAX_BYTES}, where the only way the two parts
+     * could overlap occurs; the shipped cap of {@link #MAX_BYTES} is above it and never reaches that state.
+     *
+     * @param channel the open job log
+     * @param size    the length the channel reported
+     * @param cap     the number of tail bytes to keep
+     * @return the first line and the tail, reading exactly the head bound and the cap
+     * @throws IOException if a read of the channel fails
      */
-    private static Window tail(FileChannel channel, long size) throws IOException {
-        var from = size - MAX_BYTES;
+    static Window capped(FileChannel channel, long size, int cap) throws IOException {
+        var headExpected = Math.min(FIRST_LINE_MAX_BYTES, size);
+        var head = read(channel, 0, headExpected);
+        var tail = tail(channel, size, cap);
+        var end = firstLineEnd(head);
+        if (end < 0) {
+            return new Window(tail.text(), head.length + tail.read(), headExpected + tail.expected());
+        }
+        var lineEnd = end + 1;
+        // A first line that runs into the tail window would be repeated. That needs a cap below the head bound and a
+        // window that kept no line beginning: its only line end is the file's last byte, so the window is untrimmed.
+        var tailText = tail.text();
+        if (lineEnd > size - cap && tailText.length() == cap) {
+            tailText = afterTheFirstLine(tailText);
+        }
+        var text = new String(head, 0, lineEnd, StandardCharsets.UTF_8) + tailText;
+        return new Window(text, head.length + tail.read(), headExpected + tail.expected());
+    }
+
+    /** @return the tail's text after its first line end, so a first line that runs into the window is not repeated */
+    private static String afterTheFirstLine(String tailText) {
+        var index = tailText.indexOf('\n');
+        return index < 0 ? "" : tailText.substring(index + 1);
+    }
+
+    /**
+     * The last {@code cap} bytes, starting at a line beginning: at the window's own start when the byte before it ends
+     * a line, else after the first line end inside it. A window with no line end is one long line and is kept.
+     */
+    private static Window tail(FileChannel channel, long size, int cap) throws IOException {
+        var from = size - cap;
         var bytes = read(channel, from, size);
         if (bytes.length == 0) {
             return new Window("", 0, size - from);

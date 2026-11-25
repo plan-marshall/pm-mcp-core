@@ -425,6 +425,35 @@ class JobLogTest {
         }
 
         @Test
+        @DisplayName("a cap below the head bound keeps one copy of a first line that ends the file")
+        void aCapBelowTheHeadBoundNeverRepeatsTheFirstLine() throws Exception {
+            // The cap is a parameter only so this state can be reached: the shipped cap is above the head bound. The
+            // window's only line end is the file's last byte, so the tail is untrimmed and would repeat the first line.
+            var line = "l".repeat(1028) + "\n";
+            Files.writeString(path, line, StandardCharsets.UTF_8);
+
+            try (var channel = FileChannel.open(path, StandardOpenOption.READ)) {
+                var window = JobLog.capped(channel, Files.size(path), 1024);
+
+                assertEquals(line, window.text(), "the first line appears once, the tail adds nothing");
+            }
+        }
+
+        @Test
+        @DisplayName("a cap below the head bound still keeps the tail after a finished first line")
+        void aCapBelowTheHeadBoundKeepsTheTailAfterTheFirstLine() throws Exception {
+            var first = "l".repeat(1028) + "\n";
+            var tail = "t".repeat(970) + "\n";
+            Files.writeString(path, first + "b\n" + tail, StandardCharsets.UTF_8);
+
+            try (var channel = FileChannel.open(path, StandardOpenOption.READ)) {
+                var window = JobLog.capped(channel, Files.size(path), 1024);
+
+                assertEquals(first + "b\n" + tail, window.text(), "the tail follows the first line without a gap");
+            }
+        }
+
+        @Test
         @DisplayName("over the cap by less than the report: the report is kept, the window follows it")
         void reportLongerThanTheOvershootIsKept() throws Exception {
             // the contract of the boundary: an overshoot of report.length - 2 bytes, shorter than the report itself
