@@ -692,6 +692,15 @@ class SecretRedactorTest {
                 "the masked text keeps its line ends");
     }
 
+    @Test
+    @DisplayName("an unclosed BEGIN keeps CR line endings too")
+    void unclosedBeginKeepsCarriageReturns() {
+        var log = "before\r-----BEGIN PRIVATE KEY-----\rsecret body\rmore body";
+
+        assertEquals("before\r" + SecretRedactor.REDACTED + "\r\r", redactValue(log),
+                "a CR-only log keeps its line structure");
+    }
+
     /** A wall-clock bound a left-to-right scan meets easily and the former lazy pattern exceeds. */
     private static final Duration REDACTION_BOUND = Duration.ofSeconds(20);
 

@@ -626,11 +626,12 @@ public class SecretRedactor {
         while (begin.find(position)) {
             out.append(value, position, begin.start()).append(REDACTED);
             if (!end.find(begin.end())) {
-                // an unclosed block masks the rest of the text; its line ends are kept, so a line-based reader — the
-                // OutputParser, the activity pump — still sees the text's line structure after the masked part
+                // an unclosed block masks the rest of the text; its line ends (\n, \r and a CRLF pair) are kept, so a
+                // line-based reader — the OutputParser, the activity pump — still sees the text's line structure
                 for (var index = begin.start(); index < value.length(); index++) {
-                    if (value.charAt(index) == '\n') {
-                        out.append('\n');
+                    var lineEnd = value.charAt(index);
+                    if (lineEnd == '\n' || lineEnd == '\r') {
+                        out.append(lineEnd);
                     }
                 }
                 return out.toString();

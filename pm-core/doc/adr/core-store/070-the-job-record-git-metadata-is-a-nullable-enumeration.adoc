@@ -41,8 +41,8 @@ or compare the value.
 schema-parity test pins the property, its place in `required` and the enumeration, and the codec test pins the round trip
 and the strict read. `JobRecord.builder()` call sites that build a worker record must name the member; a Lombok builder
 that omits it compiles and fails where the record is built (the constructor refuses a worker without it), which the
-`EgressJobTest` pin covers. The `FakePmExec` mode `REPORT_GIT_METADATA` is the fixture that proves a report's value is
-copied.
+`JobRecordCodecTest` pin "a worker record without git_metadata is refused" covers. The `FakePmExec` mode
+`REPORT_GIT_METADATA` is the fixture that proves a report's value is copied.
 
 == Source
 

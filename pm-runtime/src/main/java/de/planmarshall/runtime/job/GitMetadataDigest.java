@@ -99,13 +99,13 @@ public final class GitMetadataDigest {
         for (var refusal : paths.refused()) {
             failures.add(name(root, refusal.path()));
         }
+        // a skipped worktree record is no part of the digest: the tree it names goes unread, so the digest fails closed
+        // in every case rather than only when no git directory resolves
+        for (var skipped : paths.skipped()) {
+            failures.add(name(root, skipped.path()));
+        }
         var gitDirectory = paths.gitDirectory();
         if (gitDirectory == null) {
-            // a pointer file that was skipped is not a project without git: the tree could not be read, so it fails
-            // closed instead of baselining an empty digest
-            for (var skipped : paths.skipped()) {
-                failures.add(name(root, skipped.path()));
-            }
             return failed(parts, failures);
         }
         if (!Files.isDirectory(gitDirectory, LinkOption.NOFOLLOW_LINKS)) {

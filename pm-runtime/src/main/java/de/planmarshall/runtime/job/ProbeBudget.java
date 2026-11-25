@@ -72,14 +72,16 @@ public class ProbeBudget {
      * and {@link #clearOverrides()} restores them.
      *
      * @param kind    the kind of probe
-     * @param seconds the budget the test runs the probe with, positive
-     * @throws IllegalArgumentException if the budget is not positive
+     * @param seconds the budget the test runs the probe with, positive and at most the compiled budget
+     * @throws IllegalArgumentException if the budget is not positive or exceeds the compiled budget, because an override
+     *                                  only lowers it and never escalates it
      * @throws NullPointerException     if the kind is {@code null}
      */
     public static void override(ProbeCandidate.Kind kind, long seconds) {
         Objects.requireNonNull(kind, "kind");
-        if (seconds <= 0) {
-            throw new IllegalArgumentException("'seconds' must be positive: " + seconds);
+        if (seconds <= 0 || seconds > compiled(kind)) {
+            throw new IllegalArgumentException(
+                    "an override only lowers the compiled budget of " + kind + ": " + seconds);
         }
         OVERRIDES.put(kind, seconds);
     }

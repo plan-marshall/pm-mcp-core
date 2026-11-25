@@ -149,8 +149,9 @@ The closed grammar of each typed slot:
 
 `{{shim_dir}}` is a member of the profile schema's closed slot set
 (link:../../../pm-core/src/main/resources/de/planmarshall/core/profile/harness-profile-v1.schema.json[`harness-profile-v1.schema.json`]),
-but the runtime does not compose it yet: the shim wiring is owed (Implementation Watch `PM-WATCH-CLIENT-18`). A template
-that names it therefore has no grammar, and the check refuses it — the fail-closed direction the ADR's Consequences state.
+but the runtime does not compose it yet: the shim wiring is owed (Implementation Watch `PM-WATCH-CLIENT-18`). The
+composition refuses a template that names it as an unknown slot before the vector check runs, so the launch fails as
+`prompt_composition_failed`.
 
 A gap in rule (b) is admitted for exactly one reason: a slot with no value removes its template element, and the flag
 element before it is removed with it (`--json-schema` and its value, `--mcp-config` and its value). The ephemeral flag a

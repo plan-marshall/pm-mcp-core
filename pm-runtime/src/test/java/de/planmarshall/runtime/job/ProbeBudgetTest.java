@@ -12,6 +12,8 @@ package de.planmarshall.runtime.job;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.util.stream.Stream;
@@ -82,5 +84,20 @@ class ProbeBudgetTest {
                 () -> assertEquals(30L, otherKind.seconds(), "the seam leaves the other kinds alone"),
                 () -> assertEquals(ProbeBudget.LOGIN_SECONDS, restored.seconds(),
                         "the clear restores the compiled budget"));
+    }
+
+    @Test
+    @DisplayName("the seam refuses to raise a budget above the compiled value")
+    void theTestSeamNeverEscalates() {
+        var above = ProbeBudget.LOGIN_SECONDS + 1;
+
+        var refusal = assertThrows(IllegalArgumentException.class,
+                () -> ProbeBudget.override(ProbeCandidate.Kind.LOGIN, above), "an escalation is refused");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("only lowers"),
+                        "the refusal names the lowering rule"),
+                () -> assertEquals(ProbeBudget.LOGIN_SECONDS, ProbeBudget.of(ProbeCandidate.Kind.LOGIN).seconds(),
+                        "the compiled budget stays in force"));
     }
 }

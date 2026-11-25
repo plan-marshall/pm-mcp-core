@@ -161,6 +161,19 @@ class GitMetadataDigestTest {
     }
 
     @Test
+    @DisplayName("Should answer unreadable for a skipped worktree record beside a git directory")
+    void shouldFailClosedOnASkippedWorktreeRecord() throws Exception {
+        var root = repository();
+        var admin = Files.createDirectories(root.resolve(".git/worktrees/lost"));
+        Files.writeString(admin.resolve("gitdir"), root.resolve("missing/.git") + "\n");
+
+        var parts = GitMetadataDigest.of(root);
+
+        assertTrue(parts.containsKey(GitMetadataDigest.UNREADABLE),
+                "a skipped worktree record is the fail-closed part");
+    }
+
+    @Test
     @DisplayName("Should answer unreadable for an include cycle")
     void shouldAnswerUnreadableForCycle() throws Exception {
         var root = repository();

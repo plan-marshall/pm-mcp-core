@@ -111,7 +111,9 @@ Every new typed slot must reach three places: `HeadlessBlock`'s projection, `Lau
 grammar of `WorkerVectorCheck`. A slot the grammar does not name is refused, which is the fail-closed direction: a
 profile that declares a slot this runtime cannot check refuses the launch instead of shipping the value unchecked.
 `{{shim_dir}}` is that case today: the profile schema closes its slot set with it, and the shim wiring that would compose
-and check it is owed (Implementation Watch `PM-WATCH-CLIENT-18`). The
+and check it is owed (Implementation Watch `PM-WATCH-CLIENT-18`). The composition refuses a template that names it as an
+unknown slot before the vector check runs, so the launch fails as `prompt_composition_failed`; the grammar does not see
+the slot. The general rule still holds for a slot the composer fills but the grammar does not name. The
 three lists stay three: `ProfileValidator.SLOTS` is the profile schema's contract in `pm-core`, the composer's map is what
 that composition fills, and the check's grammar is the independent witness the decision above requires — deriving the
 last from the others would make the witness agree with the code it checks by construction. A shared registry of the slot
