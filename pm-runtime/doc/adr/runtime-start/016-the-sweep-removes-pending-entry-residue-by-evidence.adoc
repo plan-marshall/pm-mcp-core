@@ -63,7 +63,8 @@ Periodic Sweep]).
   producer composes non-null (`PendingEntryStore` for the discard's two refusals, `JournalScope` for the symbolic-link
   refusal, and `StoreSnapshot.read` for the `UncheckedIOException` that reaches the I/O text, read and stated by
   `PLAN-V2-186`), while an unreadable record's `StoreRefusal` is named by its outcome code; a blank message is printed as
-  it is, and a cause beside a `null` message is not carried into the report. A test reaches the staged arm
+  it is, and a cause beside a `null` message is not carried into the report (amended 2026-11-25 by `PLAN-V2-186`, which
+  scoped the naming to the fault of the removal and added these last two clauses). A test reaches the staged arm
   (`PendingEntryRecordsSweepTest.faultBeforeTheCommitRollsBackTheStagedRemovals`), the owed arm
   (`PendingEntryRecordsSweepTest.auditSinkFaultInsideTheCommitLeavesTheRemovalOwed`, an audit sink that throws inside
   the commit) and the undecided arm (`PendingEntryRecordsSweepTest.aCommitThatCannotWriteItsJournalLeavesTheReachUndecided`,
