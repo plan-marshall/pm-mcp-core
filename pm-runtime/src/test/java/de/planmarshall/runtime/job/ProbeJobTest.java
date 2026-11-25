@@ -121,7 +121,7 @@ class ProbeJobTest {
                 .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                 .termination(new TerminationProtocol(ProcessGroupSignals.system()))
                 .environment((job, jobId) -> environment).probeEnvironment((candidate, jobId) -> environment)
-                .parser((kind, output) -> {
+                .parser((kind, output, cut) -> {
                     throw new AssertionError("the output of a probe is left to the step that asked for it");
                 }).primitives(request -> Optional.empty()).build();
     }

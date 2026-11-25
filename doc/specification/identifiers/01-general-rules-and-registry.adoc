@@ -88,7 +88,7 @@ The following rules apply to every identifier in the registry; a table row state
 |[[id-source-id]]`source_id`
 |`^S[0-9]+$`, 2–64 (for example `S1`), a member of the entity identifier grammar (<<id-entity-id>>), since it is the entity of the operator link `remove:<source_id>`; it never holds a separator or a traversal (a resource read naming one is refused `path_traversal_rejected`).
 |server, minted per entry when it stores the source
-|One sources manifest (`sources.json`) of an entry, moved with it into the plan or the epic
+|One sources manifest (`sources.json`) of an entry, moved with it into the plan it creates (an epic's sources belong to its git-tracked ledger, so the store-level move refuses an epic target)
 |Fixed when the source is stored; the source it names is never changed. Never reused within its manifest, also after its source was removed (<<general-rules>>, rule 8)
 |Sources manifest link:../filesystem-layout/03-project-store.adoc#source-directory[Filesystem Layout, Source Directory]; `remove:<source_id>` link:../state-catalogue/09-bootstrap-and-lessons.adoc#state-start.sources[State Catalogue, `start.sources`]; `pm://entry/{entry_id}/sources/{source_id}` link:../../../../plan-marshall-documentation/doc/specification/mcp-tools/03-resource-uris.adoc#_normative_resource_uri_templates[MCP Tools, Resource URIs]
 
@@ -178,7 +178,7 @@ The following rules apply to every identifier in the registry; a table row state
 |link:../hypermedia-format/02-link-grammar.adoc#named-parameter-schemas[Hypermedia Format, Named Parameter Schemas]; `schema_ref` link:../workflow-dsl/01-grammar.adoc#_formal_ebnf_grammar_for_the_workflow_dsl[Workflow DSL, EBNF]
 
 |[[id-phase]]`phase`
-|Closed enum. Persisted (canonical) value: `phase-1-init`, `phase-2-refine`, `phase-3-outline`, `phase-4-plan`, `phase-5-execute`, `phase-6-finalize`, `completed`, `aborted`, `epic`, `workspace`, `machine`. Representation projection (1:1): `init`, `refine`, `outline`, `plan`, `execute`, `finalize`, `completed`, `aborted`, `epic`, `workspace`, `machine`. A plan's phase is the phase sub-workflow on its call stack (link:../store-schemas/03-findings-and-review-records.adoc#phase-sub-workflows[Store Schemas, Phases as Sub-Workflows]). Every persisted `phase` field (status, findings, metrics, amendments) uses the canonical value.
+|Closed enum. Persisted (canonical) value: `phase-1-init`, `phase-2-refine`, `phase-3-outline`, `phase-4-plan`, `phase-5-execute`, `phase-sanity-check`, `phase-6-finalize`, `completed`, `aborted`, `epic`, `workspace`, `machine`. Representation projection (1:1): `init`, `refine`, `outline`, `plan`, `execute`, `sanity-check`, `finalize`, `completed`, `aborted`, `epic`, `workspace`, `machine`. A plan's phase is the phase sub-workflow on its call stack (link:../store-schemas/03-findings-and-review-records.adoc#phase-sub-workflows[Store Schemas, Phases as Sub-Workflows]). Every persisted `phase` field (status, findings, metrics, amendments) uses the canonical value.
 |build
 |—
 |Closed; extended only with a schema version

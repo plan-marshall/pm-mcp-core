@@ -12,7 +12,7 @@ Accepted
 == Context
 
 The two states whose exits split the lanes — `refine.baseline-reconcile` for the `deep` lane and `init.light-gate` for
-the `light` lane (link:../../../../doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-init.light-gate[State
+the `light` lane (link:https://github.com/plan-marshall/pm-mcp-core/blob/d1ce3bf8/doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-init.light-gate[State
 Catalogue § Plan Phases 1-3]) — were named in three classes, each with its own constant: `InstancePruner` in
 `workflow.plan` declared both as the targets of the lane split, `InitInvariants` declared the light entry as its
 `LIGHT_GATE`, and `RefineInvariants` declared the deep entry as its `BASELINE_RECONCILE`. A rename of an entry in the
@@ -54,7 +54,7 @@ pruner has no other business with the invariants.
 
 == Source
 
-* link:../../../../doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-init.light-gate[State Catalogue § Plan Phases 1-3] (`init.light-gate`, `refine.baseline-reconcile`)
+* link:https://github.com/plan-marshall/pm-mcp-core/blob/d1ce3bf8/doc/specification/state-catalogue/02-plan-phases-1-3.adoc#state-init.light-gate[State Catalogue § Plan Phases 1-3] (`init.light-gate`, `refine.baseline-reconcile`)
 * link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Compiled Invariants] (`INV-INIT-2`, `INV-REFINE-1`)
 * link:../workflow-plan/012-per-lane-routes-and-other-lane-pruning.adoc[ADR workflow-plan 012]
 * link:../../developer/workflow-verify.adoc#_types[Workflow Verification Developer Guide § Types]

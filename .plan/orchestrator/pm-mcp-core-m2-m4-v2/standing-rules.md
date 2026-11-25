@@ -112,6 +112,8 @@ Plan ids with the prefix `PLAN-V2-` are plans of this epic; a bare `PLAN-NN` (wi
 
 *Scope: plans that run the links check.*
 
+**Amended 2026-11-23 (operator, `handle-open` Q10: "remove the requirement from CLAUDE.md"): the links check is NO LONGER A REQUIREMENT of any plan of this epic.** No Done-when asks for `BROKEN LINKS 0` or `INLINE SCHEMA BLOCKS 0`, no lane reports them as a gate, and a spec of this ledger that still names them reads the clause as void (the staged ones were corrected the same day; PLAN-V2-175 removes the sentence from `CLAUDE.md` and from `.opencode/rules/plan-marshall-standing-rules.md`). Running the check stays allowed; the paragraph below is how to run it from a plan worktree. Plans that started before this date (PLAN-V2-162, 172, 173, 174) keep the text they read.
+
 **Sibling checkouts from the plan worktree (found by PLAN-72, 2026-10-17).** The plan runs in `.plan/local/worktrees/{plan}/`, three directories deeper than the main checkout, so `../plan-marshall-documentation` (as `CLAUDE.md` and the links of the package file write it) does not resolve there. Run the links check with the absolute paths of the sibling checkout, `python3 /home/oliver/git/plan-marshall-documentation/.claude/skills/doc-review/scripts/trace.py /home/oliver/git/plan-marshall-documentation/doc .`, and record the run so the functional review finds it.
 
 ## R18 — SonarCloud: clear the open issues of your pull request before you report it ready

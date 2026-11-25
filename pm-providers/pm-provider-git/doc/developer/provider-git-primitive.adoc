@@ -41,6 +41,13 @@ the diff summary and the two footprint breaches the site observes (<<_the_commit
 |link:{src}/CommitMessages.java[`CommitMessages`]
 |The validation of a commit message and the one writer of the `Co-Authored-By:` line.
 
+|link:../../src/main/java/de/planmarshall/provider/git/CommitPaths.java[`CommitPaths`]
+|The textual rule a commit path must satisfy, shared by the commit and the staging set of a scope.
+
+|link:../../src/main/java/de/planmarshall/provider/git/CommitPathRefusals.java[`CommitPathRefusals`]
+|The one rule of a path a commit cannot stage — its text, its file location and the index and head tree — shared by the
+commit and the staging set of a scope.
+
 |link:{src}/StagingSets.java[`StagingSets`]
 |The staging set of a scope, every dirty path either staged or outside.
 
@@ -71,9 +78,14 @@ assembly resolves each answer per call from the scope id and one stateless insta
 `worktreeRoot`, `scopeType`, `archiving`:: The target checkout (the plan's worktree, the shared epic worktree or the main
 checkout), its `ScopeType` and the epic's archive flag.
 `dirtyPaths`:: The porcelain list of the checkout, repository-relative, with `.marshall/local/**` left out. The status is
-read with `--untracked-files=all`, so every untracked file is listed by its own path and no entry is a directory: the
-site expands an untracked directory to the files below it, where the plain porcelain status would collapse it to
-`newdir/`. The git contract has no `status` operation, so the site answers it.
+read with `--untracked-files=all`, so every untracked file is listed by its own path and an untracked directory is
+expanded to the files below it, where the plain porcelain status would collapse it to `newdir/`. Two entries are the
+exceptions: an embedded repository is listed by its directory (`newdir/`), which git does not descend into, and a
+modified submodule is listed by its name alone (`sub`), without a trailing slash. A rename is listed by both sides, the
+old path and the new one. The list is NUL-separated (`-z`), so a name
+outside ASCII, a name with a double quote, a backslash or a control character arrives verbatim and not as an escape;
+`core.quotePath=false` alone is not enough, because git keeps escaping those characters. The git contract has no `status`
+operation, so the site answers it.
 `localTrailer`, `machineTrailer`:: The stored `commit_trailer` of the project and of the machine, each a
 `CommitTrailer.Stored` whose halves may be absent or invalid; empty when the level stores none.
 `commitIdentity`, `agentIdentity`:: The operator's `commit_identity`, the author, and the agent identity resolved from the
@@ -111,7 +123,9 @@ of its half (a name of 1 to 128 characters without `<`, `>`, CR, LF or one of th
 U+2028 and U+2029, the same code points `CommitMessages` treats as line ends, checked against its one pattern
 `UNSPLIT_TERMINATORS`; an email of at most 254 characters of the form `local@domain` without `<`, `>` or white space,
 which already covers the three separators; neither with an unpaired surrogate, which has no UTF-8 encoding, while a
-surrogate pair, one supplementary character, is allowed; the lengths counted in code points) is passed over as absent. Each half reports its `TrailerSource`:
+surrogate pair, one supplementary character, is allowed; the lengths counted in code points) is passed over as absent.
+The store's schema is stricter: its patterns also refuse every C0 and C1 control, so a value that passes the schema
+check carries none (`CommitTrailerSchemaParityTest`); the code applies the textual rule alone. Each half reports its `TrailerSource`:
 `configured`, `default`, or `invalid_ignored` when a stored value was refused and none later was used. The source is for
 the commit's audit record and is never rendered in facts: `git.stage-and-commit` returns it on `committed` as the fact
 `trailer_source`, the map `{name, email}` of the two source wire names (`CommitTrailer.Resolution.sourceFact()`), which
@@ -122,18 +136,22 @@ holds no value of the trailer and which no state names in a `facts` clause
 == The Staging Set and the Footprint Check
 
 `StagingSets.derive(scope, worktree, dirtyPaths, archiving)` puts every dirty path into `staged` or `outside`
-(link:{adr}/003-the-staging-set-is-derived-from-the-scope.adoc[ADR 003]). A path is staged only when it is relative and
-in normal form (no `.` or `..` segment), `PathConfinement.confine` admits the directory that holds it with the checkout
-as the one root, and it belongs to its scope's set. The last name is not followed: git records a symbolic link as a
-link, so a dirty link to outside the checkout or a dangling link is staged like any other file and never blocks the
-commit of the rest of the scope, while a path that runs through a link to outside stays outside. A directory entry is no
-legal entry of the dirty paths: the commit refuses a directory
-(link:../adr/provider-git/004-a-directory-is-refused-and-emptiness-is-typed.adoc[ADR provider-git 004]), so a
-`newdir/` in the staging set would fail the commit with `commit_failed` and hide the files below it, `newdir/.env`
-among them, from a review that matches paths by name. A derived path that begins with `:`, for which `derive` has no
-rule, is refused by the git contract at the commit as `PATH_REFUSED`, before anything is staged, and
-`git.stage-and-commit` returns it as `failed` with the reason `commit_failed` and the `git_outcome` `PATH_REFUSED`. The
-site is the one that expands an untracked directory to its files (<<_the_commit_site>>); this package expands none:
+(link:{adr}/003-the-staging-set-is-derived-from-the-scope.adoc[ADR 003]). A path is staged only when it satisfies the rule
+of a commit path, which is one helper for the commit and the staging set
+(`CommitPathRefusals`, link:{adr}/008-the-staging-set-and-the-commit-share-the-path-rule.adoc[ADR 008]): the textual rule
+(`CommitPaths.isRefusedText`: no pathspec magic, no backslash, no control character, no empty segment), the file-system
+rule (no directory, no absolute name, nothing outside the root, no parent that a symbolic link carries outside the real
+root) and the tracked-tree rule (no name that is a directory of the index or of the head tree although the worktree no
+longer holds it as one). The path is also relative and in normal form (no `.` or `..` segment),
+`PathConfinement.confine` admits the directory that holds it with the checkout as the one root, and it belongs to its
+scope's set. A name the commit cannot stage is `outside`, where the footprint check refuses it with
+`footprint_violation` and names it instead of letting the whole commit fail on it: a colon-led name, a backslash, a
+control character or a newline, the `newdir/` directory entry of an embedded repository, the name of a modified
+submodule, which the worktree holds as a directory, and a tracked directory that a file replaced. The last name is not
+followed: git records a symbolic link as a link, so a dirty link to outside the checkout or a dangling link is staged
+like any other file and never blocks the commit of the rest of the scope, while a path that runs through a link to
+outside stays outside. The site is the one that expands an untracked directory to its files
+(<<_the_commit_site>>); this package expands none:
 
 [cols="1,3",options="header"]
 |===
@@ -165,7 +183,9 @@ sorted offending files, at most `OFFENDING_FILES_LIMIT` (50), and the count of a
 the fixed message of the input `callSite` (below), else, with no call site bound, `chore(finalize): apply <step_id>
 changes`, or `chore(finalize): settle changes` for a caller that is no step; `interactive` is always
 `needs_interactive`; `none_assert_clean` is `ready` without a message on a clean checkout and `needs_interactive` with
-dirty files. A bound `message` and `callSite` are read only under `step_or_fallback`. A message
+dirty files; the `ready` reaches `git.stage-and-commit`, which runs its footprint check first and answers an empty
+staging set as `nothing_to_commit` before a message is read. A bound `message` and `callSite` are read only under
+`step_or_fallback`. A message
 `CommitMessages.validate` refuses, or a call site without an input its message names, goes to `needs_interactive`.
 
 `GitResolveMessagePrimitive.CallSite` is the closed set of the call sites of Stage 3, bound by the assembly with the
@@ -199,9 +219,15 @@ message without the trailer and the optional `files`. The order of work is fixed
 
 . The footprint check over the staging set of the scope and the site's breaches. A breach is `failed` with the reason
   `footprint_violation` before anything is staged and before the message is read.
-. The staging set narrowed by `files`; an empty set is `nothing_to_commit` without a git call.
+. The staging set narrowed by `files`; an empty set is `nothing_to_commit` without a git call. The narrowing refuses
+  nothing: the bind owns the rule that a `files` entry names a path of the staging set (`input_refused`,
+  `path.staging`), so an entry outside the set is dropped and the rest is committed
+  (link:{adr}/003-the-staging-set-is-derived-from-the-scope.adoc[ADR 003]).
 . The message given the resolved trailer by `withTrailer`, which refuses a message that already holds a trailer line,
-  and checked by `CommitMessages.validate`; a refusal is `failed` with the reason `message_refused`.
+  and checked by `CommitMessages.validate`; a refusal is `failed` with the reason `message_refused`. An absent message
+  is the clean-tree route of `none_assert_clean`: the empty staging set above is `nothing_to_commit` before the message
+  is read, and a non-empty one is `failed` with the reason `commit_failed` and a `detail` naming the absent message
+  (link:{adr}/009-an-absent-message-is-the-primitives-clean-tree-route.adoc[ADR 009]).
 . One call of `GitOperations.commit` with `CommitInput.paths` set to exactly the files to commit
   (link:../adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR provider-git 003]), the operator's
   `commit_identity` as the author and the agent identity, else the compiled `plan-marshall-mcp <noreply@cuioss.de>`, as
@@ -234,7 +260,9 @@ The reasons of `failed` are the closed enum `GitStageAndCommitPrimitive.Reason`
 
 |`footprint_violation` |`footprint_violation` |`offending_files` (at most 50), `offending_count`
 |`message_refused` |none |`rule`, `line` (0 for the whole message)
-|`commit_failed` |none |`git_outcome`, `detail`; or `detail` alone when no `commit_identity` is configured
+|`commit_failed` |none |`git_outcome`, `detail`, where the detail is the contract's with the checkout's absolute root
+made repository-relative, or the code of the git outcome where the contract states no detail or a detail that still
+names an absolute path; or `detail` alone when no `commit_identity` is configured or no message is resolved
 |===
 
 Every `GitOutcome` maps to exactly one outcome: `OK` to `committed`, `NOTHING_TO_COMMIT` to `nothing_to_commit`, every
@@ -253,9 +281,10 @@ other, `CAPABILITY_MISSING` of the native variant among them, to `failed` with `
   `Violated` with an empty or oversized list).
 * *Nothing reaches a command line.* The message and the paths reach the repository through the API of the git contract.
 
-What is not in this package: the mapping of `footprint_violation` to the engine condition, the commit attempt counters,
-the `change-ledger.jsonl` row, the `head_at_completion` stamp, `freshness_reconcile`, and the CLI variant of the contract
-(`git commit -F -`), the only one that runs repository hooks.
+What is not in this package: the commit attempt caps (`CommitAttemptCaps` with the `CommitAttemptCounter`), the
+`change-ledger.jsonl` row, the `head_at_completion` stamp and the `freshness_reconcile` stamp, which live in `pm-core`,
+and the CLI variant of the contract (`git commit -F -`), the only one that runs repository hooks. The mapping of
+`footprint_violation` to the engine condition is declared here on the primitive's reason and raised by the engine.
 
 == Extending
 
@@ -275,20 +304,35 @@ module's generator artifact.
 link:{test}/CommitMessagesTest.java[`CommitMessagesTest`]:: A message without type, a blank one, one of 2001 characters, a
 lone surrogate, a control character and a trailer line in any case and position, also one ended by U+0085, U+2028 or
 U+2029, are refused naming the line; the result holds exactly one trailer.
-link:{test}/CommitTrailerTest.java[`CommitTrailerTest`]:: The three trailer sources per half and `invalid_ignored` for an
-angle bracket, a line break and an empty value; an unpaired high or low surrogate in a name or an email is invalid, a
-surrogate pair stays valid, and a stored value with an unpaired surrogate is passed over: a valid machine value is used
-as `configured`, and without one the compiled default is used as `invalid_ignored`; a name with U+0085, U+2028 or
-U+2029 is invalid while a plain name and one with a supplementary character stay valid, an email with one is refused as
-white space, and a stored name with one is passed over in the same way while the email half stays `configured`.
+link:{test}/CommitTrailerTest.java[`CommitTrailerTest`]:: The constraints of the two halves and the three trailer sources
+per half with `invalid_ignored` for an angle bracket, a line break and an empty value, the local-over-machine order and
+the per-half resolution.
+link:{test}/CommitTrailerUnicodeTest.java[`CommitTrailerUnicodeTest`]:: An unpaired high or low surrogate in a name or an
+email is invalid, a surrogate pair stays valid, and a stored value with an unpaired surrogate is passed over: a valid
+machine value is used as `configured`, and without one the compiled default is used as `invalid_ignored`; a name with
+U+0085, U+2028 or U+2029 is invalid while a plain name and one with a supplementary character stay valid, an email with
+one is refused as white space, and a stored name with one is passed over in the same way while the email half stays
+`configured`.
+link:{test}/CommitTrailerSchemaParityTest.java[`CommitTrailerSchemaParityTest`]:: The stored identity patterns of
+`local-config.schema.json` — `commit_trailer` and `commit_identity` — refuse, code point by code point, every C0 and C1
+control, the line separators of the name half and the white-space class of the email half, while a plain name, a
+supplementary character and a plain address stay admitted; U+FEFF is named as the one white-space code point ECMA-262's
+`\s` covers and the JVM's does not, and the pattern admits it as the code does.
 link:{test}/StagingSetsTest.java[`StagingSetsTest`]:: The staging set per scope with a path outside, `..`, an absolute
-path, a non-normal name, on Linux and macOS a path through a symbolic link that leads out of the worktree (outside), a
-dirty link to outside and a dangling link (both staged with the rest of the scope), a name shaped like a link target,
-which is staged as a plain name, and `.marshall/archived-epics/x` with and without archiving.
+path, a non-normal name, the names the commit refuses (a colon-led name, a backslash, a control character, a newline and
+a directory entry, an embedded repository among them) as `outside`, on Linux and macOS a path through a symbolic link
+that leads out of the worktree (outside), a dirty link to outside and a dangling link (both staged with the rest of the
+scope), a name shaped like a link target, which is staged as a plain name, and `.marshall/archived-epics/x` with and
+without archiving. The file-system and tracked-tree refusals are proved on real repositories beside the commit that
+shares them, in `JGitOperationsPathTest`.
+link:../../src/test/java/de/planmarshall/provider/git/CommitPathsTest.java[`CommitPathsTest`]:: The textual rule the commit and the staging set share: a
+pathspec magic, a backslash, a control character, a non-normal segment and a directory entry are refused, while a glob
+character, an option-shaped name and a plain relative name are literal commit paths.
 link:{test}/FootprintBoundaryTest.java[`FootprintBoundaryTest`]:: The three checks and the bound of the offending files.
 link:{test}/GitResolveMessagePrimitiveTest.java[`GitResolveMessagePrimitiveTest`]:: A case per mode and per presence of
-`message`, the fixed message of every call site and its variants, and a call site without its input; every `ready`
-message passes `CommitMessages.validate`.
+`message` and the clean-tree route; every `ready` message passes `CommitMessages.validate`.
+link:{test}/GitResolveMessagePrimitiveCallSiteTest.java[`GitResolveMessagePrimitiveCallSiteTest`]:: The fixed message of
+every call site, its variants, a call site without its input and the name of the state it carries.
 link:{test}/GitTemplateMessagePrimitiveTest.java[`GitTemplateMessagePrimitiveTest`]:: The type priority over a
 generator-driven set of summaries.
 link:{test}/CommitMessageEvaluatePrimitiveTest.java[`CommitMessageEvaluatePrimitiveTest`]:: The outcome `valid` with the
@@ -296,11 +340,17 @@ submitted message.
 link:{test}/GitStageAndCommitPrimitiveTest.java[`GitStageAndCommitPrimitiveTest`]:: Against the real `JGitOperations` on a
 temporary repository: a plan commits exactly the listed files and leaves an unrelated dirty file, a path outside the
 worktree is a footprint violation before any staging, an epic stages `.marshall/archived-epics/**` only while it
-archives, exactly one trailer with author and committer read back through `GitOperations.log`, a trailer line and a
-header without type are `message_refused`, nothing staged is `nothing_to_commit`, `committed` carries `trailer_source`
-for a local, a machine and no stored trailer and for a refused name (`invalid_ignored`), without a value of the trailer,
-and no other outcome carries it, and every `GitOutcome` is mapped with
-its facts by a test derived from `GitOutcome.values()` at run time, `CAPABILITY_MISSING` to `commit_failed`.
+archives, a bound path outside the staging set is dropped, a clean tree is `nothing_to_commit` before a message is read
+and a non-empty set without one is `commit_failed`.
+link:{test}/GitStageAndCommitPrimitiveMessageTest.java[`GitStageAndCommitPrimitiveMessageTest`]:: Exactly one trailer with
+author and committer read back through `GitOperations.log`, a trailer line and a header without type are
+`message_refused`, and a missing commit identity is `commit_failed`.
+link:{test}/GitStageAndCommitPrimitiveTrailerSourceTest.java[`GitStageAndCommitPrimitiveTrailerSourceTest`]:: `committed`
+carries `trailer_source` for a local, a machine and no stored trailer and for a refused name (`invalid_ignored`), without
+a value of the trailer, and no other outcome carries it.
+link:{test}/GitStageAndCommitPrimitiveDeclarationsTest.java[`GitStageAndCommitPrimitiveDeclarationsTest`]:: Every
+`GitOutcome` is mapped with its facts by a test derived from `GitOutcome.values()` at run time, `CAPABILITY_MISSING` to
+`commit_failed`, and the registration with the attempt cap and the conditions of the reason set.
 link:{test}/CoAuthoredBySourceScanTest.java[`CoAuthoredBySourceScanTest`]:: The trailer key in no production source but
 `CommitMessages.java`, with the control that the scan sees the one occurrence there.
 
@@ -321,4 +371,8 @@ link:{adr}/004-the-trailer-is-appended-by-commit-messages-alone.adoc[ADR 004],
 link:{adr}/005-one-failed-outcome-with-a-closed-reason.adoc[ADR 005],
 link:{adr}/006-the-primitive-checks-the-boundary-half.adoc[ADR 006],
 link:{adr}/007-the-template-message-renders-from-facts.adoc[ADR 007],
+link:{adr}/008-the-staging-set-and-the-commit-share-the-path-rule.adoc[ADR 008],
+link:{adr}/009-an-absent-message-is-the-primitives-clean-tree-route.adoc[ADR 009],
+link:{adr}/010-the-specification-follows-the-closed-reason-of-the-missing-identity.adoc[ADR 010],
+link:{adr}/011-the-host-path-introducer-is-the-complement-of-the-path-name-characters.adoc[ADR 011],
 link:../../../../pm-workflow/doc/adr/workflow-verify/043-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify 043]

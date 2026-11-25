@@ -95,6 +95,19 @@ public class WorkflowStatusCodec {
     private static final String CALL_STACK = "call_stack";
     private static final String LOOP_BACK_ITERATION = "loop_back_iteration";
     private static final String RETRY_COUNTERS = "retry_counters";
+    private static final String COMMIT_ATTEMPT_CAPS = "commit_attempt_caps";
+    private static final String CHANGE_SET = "change_set";
+    private static final String STAGED_TREE = "staged_tree";
+    private static final String MESSAGE_DIGEST = "message_digest";
+    private static final String FRAME = "frame";
+    private static final String FRAME_ID = "frame_id";
+    private static final String TASKS = "tasks";
+    private static final String FRESHNESS_RECONCILE = "freshness_reconcile";
+    private static final String COMMIT_SHA = "commit_sha";
+    private static final String STEP_ID = "step_id";
+    private static final String PRIOR_BUILD_WORKTREE_SHA = "prior_build_worktree_sha";
+    private static final String WORKTREE_SHA_VERSION = "worktree_sha_version";
+    private static final String RECORDED_AT = "recorded_at";
     private static final String OUTLINE_LOOP_BACKS = "outline_loop_backs";
     private static final String INSTANCE_VERSION = "instance_version";
     private static final String POLICY_COUNTERS = "policy_counters";
@@ -159,9 +172,9 @@ public class WorkflowStatusCodec {
     static final List<String> MEMBERS = List.of(FIELD_FORMAT_VERSION, SCOPE_TYPE, SCOPE_ID, "main_sha", "origin",
             PHASE, OUTCOME, INSTANCE_VERSION, "setup_run", "onboard_run", "onboard_steps", STATE, CALL_STACK, SLOTS,
             "worktree_path", "entry_baseline", "merge_outcome", "owed", "branch_name", "branch_pushed_at",
-            LOOP_BACK_ITERATION, "counters", RETRY_COUNTERS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS, WAIVER_REQUESTS,
+            LOOP_BACK_ITERATION, "counters", RETRY_COUNTERS, COMMIT_ATTEMPT_CAPS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS, WAIVER_REQUESTS,
             "gaps", "replan_pending", "replans", "follow_ups", "settle_trigger", "watch_restarts", "loop_backs",
-            "remediation_cause", "refine_relaunch_count", "outline_relaunch_count", "metadata", "freshness_reconcile",
+            "remediation_cause", "refine_relaunch_count", "outline_relaunch_count", "metadata", FRESHNESS_RECONCILE,
             "amendments", "steps", ACTIVE_JOBS, ACTIVE_JOB, ACTIVE_TASKS, PENDING_CONDITION, FACTS, UPDATED_AT);
 
     /** The members that only the status of a plan scope carries. */
@@ -169,8 +182,9 @@ public class WorkflowStatusCodec {
 
     /** The members this codec types. */
     static final Set<String> TYPED_MEMBERS = Set.of(FIELD_FORMAT_VERSION, SCOPE_TYPE, SCOPE_ID, PHASE, STATE,
-            CALL_STACK, SLOTS, INSTANCE_VERSION, LOOP_BACK_ITERATION, RETRY_COUNTERS, OUTLINE_LOOP_BACKS, POLICY_COUNTERS,
-            WAIVER_REQUESTS, ACTIVE_JOBS, ACTIVE_JOB, ACTIVE_TASKS, PENDING_CONDITION, UPDATED_AT);
+            CALL_STACK, SLOTS, INSTANCE_VERSION, LOOP_BACK_ITERATION, RETRY_COUNTERS, COMMIT_ATTEMPT_CAPS,
+            OUTLINE_LOOP_BACKS, POLICY_COUNTERS,
+            WAIVER_REQUESTS, ACTIVE_JOBS, ACTIVE_JOB, ACTIVE_TASKS, PENDING_CONDITION, FRESHNESS_RECONCILE, UPDATED_AT);
 
     /** The members of the schema that are kept as raw JSON text. */
     static final Set<String> RETAINED_MEMBERS = MEMBERS.stream().filter(member -> !TYPED_MEMBERS.contains(member))
@@ -248,6 +262,7 @@ public class WorkflowStatusCodec {
                 }
             }
             case RETRY_COUNTERS -> writeRetryCounters(generator, status.retryCounters());
+            case COMMIT_ATTEMPT_CAPS -> writeCommitAttemptCaps(generator, status.commitAttemptCaps());
             case OUTLINE_LOOP_BACKS -> generator.writeNumberField(member, status.outlineLoopBacks());
             case POLICY_COUNTERS -> writePolicyCounters(generator, status.policyCounters());
             case WAIVER_REQUESTS -> writeWaiverRequests(generator, status.waiverRequests());
@@ -255,6 +270,7 @@ public class WorkflowStatusCodec {
             case ACTIVE_JOB -> writeActiveJob(generator, status.activeJob());
             case ACTIVE_TASKS -> writeTasks(generator, status.activeTasks());
             case PENDING_CONDITION -> writeCondition(generator, status.pendingCondition());
+            case FRESHNESS_RECONCILE -> writeFreshnessReconcile(generator, status.freshnessReconcile());
             case UPDATED_AT -> writeInstant(generator, member, status.updatedAt());
             default -> {
                 var raw = status.retained().get(member);
@@ -341,6 +357,35 @@ public class WorkflowStatusCodec {
             generator.writeObjectFieldStart(entry.getKey().wireName());
             generator.writeStringField(STATE_ID, entry.getValue().stateId());
             generator.writeNumberField(ATTEMPTS, entry.getValue().attempts());
+            generator.writeEndObject();
+        }
+        generator.writeEndObject();
+    }
+
+    private static void writeCommitAttemptCaps(JsonGenerator generator, @Nullable CommitAttemptCaps caps)
+            throws IOException {
+        if (caps == null) {
+            generator.writeNullField(COMMIT_ATTEMPT_CAPS);
+            return;
+        }
+        generator.writeObjectFieldStart(COMMIT_ATTEMPT_CAPS);
+        var changeSet = caps.changeSet();
+        if (changeSet == null) {
+            generator.writeNullField(CHANGE_SET);
+        } else {
+            generator.writeObjectFieldStart(CHANGE_SET);
+            generator.writeStringField(STAGED_TREE, changeSet.stagedTree());
+            generator.writeStringField(MESSAGE_DIGEST, changeSet.messageDigest());
+            generator.writeNumberField(ATTEMPTS, changeSet.attempts());
+            generator.writeEndObject();
+        }
+        var frame = caps.frame();
+        if (frame == null) {
+            generator.writeNullField(FRAME);
+        } else {
+            generator.writeObjectFieldStart(FRAME);
+            generator.writeStringField(FRAME_ID, frame.frameId());
+            generator.writeNumberField(TASKS, frame.tasks());
             generator.writeEndObject();
         }
         generator.writeEndObject();
@@ -476,6 +521,21 @@ public class WorkflowStatusCodec {
         generator.writeEndObject();
     }
 
+    private static void writeFreshnessReconcile(JsonGenerator generator, @Nullable FreshnessReconcile stamp)
+            throws IOException {
+        if (stamp == null) {
+            generator.writeNullField(FRESHNESS_RECONCILE);
+            return;
+        }
+        generator.writeObjectFieldStart(FRESHNESS_RECONCILE);
+        generator.writeStringField(COMMIT_SHA, stamp.commitSha());
+        generator.writeStringField(STEP_ID, stamp.stepId());
+        generator.writeStringField(PRIOR_BUILD_WORKTREE_SHA, stamp.priorBuildWorktreeSha());
+        generator.writeNumberField(WORKTREE_SHA_VERSION, stamp.worktreeShaVersion());
+        writeInstant(generator, RECORDED_AT, stamp.recordedAt());
+        generator.writeEndObject();
+    }
+
     private static void writeNullableString(JsonGenerator generator, String field, @Nullable String value) throws IOException {
         if (value == null) {
             generator.writeNullField(field);
@@ -484,6 +544,8 @@ public class WorkflowStatusCodec {
         }
     }
 
+    // one case per schema member, in schema order, by design (the pattern of the sibling codecs)
+    @SuppressWarnings("java:S3776")
     private static WorkflowStatus readDocument(JsonParser parser, byte[] document) throws IOException {
         var status = WorkflowStatus.builder().callStack(List.of()).policyCounters(Map.of()).waiverRequests(List.of())
                 .retryCounters(RetryCounters.empty()).activeJobs(Map.of()).activeTasks(Map.of()).slots(Map.of());
@@ -503,6 +565,8 @@ public class WorkflowStatusCodec {
                 case INSTANCE_VERSION -> status.instanceVersion(
                         isNull(parser) ? null : intOf(integer(parser, field), field));
                 case RETRY_COUNTERS -> status.retryCounters(readRetryCounters(parser));
+                case COMMIT_ATTEMPT_CAPS -> status.commitAttemptCaps(
+                        isNull(parser) ? null : readCommitAttemptCaps(parser));
                 case OUTLINE_LOOP_BACKS -> status.outlineLoopBacks(integer(parser, field));
                 case POLICY_COUNTERS -> status.policyCounters(
                         StrictJson.map(parser, field, WorkflowStatusCodec::readPolicyCounter));
@@ -513,6 +577,8 @@ public class WorkflowStatusCodec {
                 case ACTIVE_TASKS -> status.activeTasks(StrictJson.map(parser, field, WorkflowStatusCodec::readTask));
                 case PENDING_CONDITION -> status.pendingCondition(
                         isNull(parser) ? null : readCondition(parser, document));
+                case FRESHNESS_RECONCILE -> status.freshnessReconcile(
+                        isNull(parser) ? null : readFreshnessReconcile(parser));
                 case UPDATED_AT -> status.updatedAt(instant(parser, field));
                 default -> {
                     if (!RETAINED_MEMBERS.contains(field)) {
@@ -663,6 +729,59 @@ public class WorkflowStatusCodec {
         }
         requireFields(seen, "retry counter '%s'".formatted(name), STATE_ID, ATTEMPTS);
         return new RetryCounters.Entry(stateId, attempts);
+    }
+
+    private static CommitAttemptCaps readCommitAttemptCaps(JsonParser parser) throws IOException {
+        requireObject(parser, COMMIT_ATTEMPT_CAPS);
+        CommitAttemptCaps.ChangeSet changeSet = null;
+        CommitAttemptCaps.Frame frame = null;
+        var seen = new HashSet<String>();
+        while (parser.nextToken() == JsonToken.FIELD_NAME) {
+            var field = nextField(parser, seen);
+            switch (field) {
+                case CHANGE_SET -> changeSet = isNull(parser) ? null : readChangeSetAttempts(parser);
+                case FRAME -> frame = isNull(parser) ? null : readAttemptFrame(parser);
+                default -> throw undeclared(field);
+            }
+        }
+        requireFields(seen, COMMIT_ATTEMPT_CAPS, CHANGE_SET, FRAME);
+        return new CommitAttemptCaps(changeSet, frame);
+    }
+
+    private static CommitAttemptCaps.ChangeSet readChangeSetAttempts(JsonParser parser) throws IOException {
+        requireObject(parser, CHANGE_SET);
+        @Nullable String stagedTree = null;
+        @Nullable String messageDigest = null;
+        int attempts = 0;
+        var seen = new HashSet<String>();
+        while (parser.nextToken() == JsonToken.FIELD_NAME) {
+            var field = nextField(parser, seen);
+            switch (field) {
+                case STAGED_TREE -> stagedTree = string(parser, field);
+                case MESSAGE_DIGEST -> messageDigest = string(parser, field);
+                case ATTEMPTS -> attempts = intOf(integer(parser, field), field);
+                default -> throw undeclared(field);
+            }
+        }
+        requireFields(seen, "change set of 'commit_attempt_caps'", STAGED_TREE, MESSAGE_DIGEST, ATTEMPTS);
+        return new CommitAttemptCaps.ChangeSet(stagedTree, messageDigest, attempts);
+    }
+
+    private static CommitAttemptCaps.Frame readAttemptFrame(JsonParser parser) throws IOException {
+        requireObject(parser, FRAME);
+        @Nullable String frameId = null;
+        int tasks = 0;
+        var seen = new HashSet<String>();
+        while (parser.nextToken() == JsonToken.FIELD_NAME) {
+            var field = nextField(parser, seen);
+            switch (field) {
+                case FRAME_ID -> frameId = string(parser, field);
+                case TASKS -> tasks = intOf(integer(parser, field), field);
+                default -> throw undeclared(field);
+            }
+        }
+        requireFields(seen, "frame of 'commit_attempt_caps'", FRAME_ID, TASKS);
+        return new CommitAttemptCaps.Frame(frameId, tasks);
     }
 
     private static PolicyCounter readPolicyCounter(JsonParser parser, String name) throws IOException {
@@ -856,6 +975,32 @@ public class WorkflowStatusCodec {
         }
         requireFields(seen, PENDING_CONDITION, KIND, FACTS, RAISED_AT);
         return new PendingCondition(kind, remedyAttempts, integrity, facts, raisedAt);
+    }
+
+    private static FreshnessReconcile readFreshnessReconcile(JsonParser parser) throws IOException {
+        requireObject(parser, FRESHNESS_RECONCILE);
+        @Nullable String commitSha = null;
+        @Nullable String stepId = null;
+        @Nullable String priorBuildWorktreeSha = null;
+        int worktreeShaVersion = 0;
+        @Nullable Instant recordedAt = null;
+        var seen = new HashSet<String>();
+        while (parser.nextToken() == JsonToken.FIELD_NAME) {
+            var field = nextField(parser, seen);
+            switch (field) {
+                case COMMIT_SHA -> commitSha = string(parser, field);
+                case STEP_ID -> stepId = string(parser, field);
+                case PRIOR_BUILD_WORKTREE_SHA -> priorBuildWorktreeSha = string(parser, field);
+                case WORKTREE_SHA_VERSION -> worktreeShaVersion = intOf(integer(parser, field), field);
+                case RECORDED_AT -> recordedAt = instant(parser, field);
+                default -> throw undeclared(field);
+            }
+        }
+        requireFields(seen, FRESHNESS_RECONCILE, COMMIT_SHA, STEP_ID, PRIOR_BUILD_WORKTREE_SHA, WORKTREE_SHA_VERSION,
+                RECORDED_AT);
+        return FreshnessReconcile.builder().commitSha(commitSha).stepId(stepId)
+                .priorBuildWorktreeSha(priorBuildWorktreeSha).worktreeShaVersion(worktreeShaVersion)
+                .recordedAt(recordedAt).build();
     }
 
     private static Integrity readIntegrity(JsonParser parser) throws IOException {

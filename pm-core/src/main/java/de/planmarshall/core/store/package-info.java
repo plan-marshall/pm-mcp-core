@@ -48,9 +48,13 @@
  * <li><em>The workflow state store</em> (PM-ARCH-6, PM-WF-16): the status document {@code mcp/status.json} of a
  * plan, epic or workspace scope ({@link de.planmarshall.core.store.WorkflowStatus}), read and written by
  * {@link de.planmarshall.core.store.WorkflowStatusCodec}: the members the engine owns are typed (position, call
- * stack, loop-back accounting, bindings, condition overlay), every other member of the closed schema is kept as raw
+ * stack, loop-back accounting, bindings, condition overlay, the two caps of the commit sub-process, the freshness
+ * reconcile stamp), every other member of the closed schema is kept as raw
  * JSON and written back unchanged. The retry counts of the server-rule retries are typed as
- * {@link de.planmarshall.core.store.RetryCounters} and never reset by a restart (PM-WF-7). The waiver requests of a
+ * {@link de.planmarshall.core.store.RetryCounters} and never reset by a restart (PM-WF-7). The two caps of
+ * {@code git.commit-fix} are typed as {@link de.planmarshall.core.store.CommitAttemptCaps} and counted by
+ * {@link de.planmarshall.core.store.CommitAttemptCounter}, and the stamp of a finalize commit after the latest build as
+ * {@link de.planmarshall.core.store.FreshnessReconcile}. The waiver requests of a
  * plan are typed as its member {@code waiver_requests[]} ({@link de.planmarshall.core.store.WaiverRequest} with the
  * closed {@link de.planmarshall.core.store.WaiverRequestOutcome}), without a time limit (PM-SEC-3).
  * {@link de.planmarshall.core.store.WorkflowStatusStore} reads the store without a lock and writes it only as a

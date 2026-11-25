@@ -122,7 +122,7 @@ link:../pm-workflow/doc/developer/workflow-engine.adoc[Workflow Engine Developer
 
 link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7]
 
-Implementation (as far as the library module `pm-runtime` carries it, and, apart from the start steps, not yet wired into the runtime `pm-mcpd`: the start at login through the per-user OS service manager, with the unit file rendered, written, replaced and removed, the unit in force kept beside it and restored when a new unit does not load, and loaded and unloaded through `launchctl` and `systemctl --user`; the start steps from the singleton lock to the runtime token, which `pm-mcpd` runs before its bind, with the bounded verification of the audit chain through a seam (the verification is the one of `PM-SEC-6`, which `pm-mcpd` does not pass yet: it runs the start with `AuditChainVerification.NONE`); the drain in its order, with the drain timeout, the removal of the runtime record, the token and the socket, and the release of the singleton lock, where workers, the LSP pool and the web listener join through a seam and the jobs through their participant (below); the runtime side of the version comparison on relay connection; the per-project recovery after bind with its two triggers, the bounded wait answered `runtime_recovering`, the step order, the orphan marking of leases with release on positive evidence only, the roll-forward of interrupted journals, and the cross-scope reconciliation, and the periodic sweep with its residue-removal step, which removes the directory of a pending entry whose removal a stop cut off, by the evidence of its absent record and never by its age, where the settlement of workers and the other recovery steps are named seams and the settlement of jobs is the step below. Not implemented yet: the API request and the operator verbs `pm-operator runtime install|uninstall`, the bind and the ready step, the version notice of `pm-operator status` and of the clients, the verification of workflow definitions at start, the first four bullets apart from the start at login, and the operator's lifecycle acts of the last bullet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java[ServiceUnitFile],
+Implementation (as far as the library module `pm-runtime` carries it, and, apart from the start steps, not yet wired into the runtime `pm-mcpd`: the start at login through the per-user OS service manager, with the unit file rendered, written, replaced and removed, the unit in force kept beside it and restored when a new unit does not load, and loaded and unloaded through `launchctl` and `systemctl --user`; the start steps from the singleton lock to the runtime token, which `pm-mcpd` runs before its bind, with the bounded verification of the audit chain through a seam (the verification is the one of `PM-SEC-6`, which `pm-mcpd` does not pass yet: it runs the start with `AuditChainVerification.NONE`); the drain in its order, with the drain timeout, the removal of the runtime record, the token and the socket, and the release of the singleton lock, where workers, the LSP pool and the web listener join through a seam and the jobs through their participant (below); the runtime side of the version comparison on relay connection; the per-project recovery after bind with its two triggers, the bounded wait answered `runtime_recovering`, the step order, the orphan marking of leases with release on positive evidence only, the roll-forward of interrupted journals, and the cross-scope reconciliation, and the periodic sweep with its residue-removal step, which removes the directory of a pending entry whose removal a stop cut off, by the evidence of its four stores absent from the workspace's digest sidecar and from the filesystem, and never by its age, where the settlement of workers and the other recovery steps are named seams and the settlement of jobs is the step below. Not implemented yet: the API request and the operator verbs `pm-operator runtime install|uninstall`, the bind and the ready step, the version notice of `pm-operator status` and of the clients, the verification of workflow definitions at start, the first four bullets apart from the start at login, and the operator's lifecycle acts of the last bullet): link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitFile.java[ServiceUnitFile],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceManager.java[ServiceManager],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/ServiceUnitInstaller.java[ServiceUnitInstaller],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/start/StartupSequence.java[StartupSequence],
@@ -721,7 +721,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/InstancePrunerTe
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/plan/PlanInstanceComposerTest.java[PlanInstanceComposerTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusSchemaParityTest.java[WorkflowStatusSchemaParityTest],
-link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitOperationsTest.java[JGitOperationsTest]
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitOperationsPathTest.java[JGitOperationsPathTest]
 
 Implementation (the planning phases' records and their checks: the plan's intent record `intent.json` with its `intent-record` schema, its true deciders, the epic's required claims, the non-goal a `submit:refine` record carries (check 7) and its revision history in `history[]`; the outline record `outline.json` with its `outline-record` schema and the `outline.md` rendered from it; the outline's `satisfies` coverage and the refusal of an `unchanged` guard downstream of the change it guards; the builder check's submission and its conversation-free facts; the self-review's constraint, non-goal and decision results; and the read-only simplify step with the clone candidates the server computes and the apply of the accepted subset): link:../pm-core/src/main/java/de/planmarshall/core/store/IntentRecord.java[IntentRecord],
 link:../pm-core/src/main/java/de/planmarshall/core/store/IntentStore.java[IntentStore],
@@ -824,7 +824,7 @@ link:../pm-workflow/src/test/java/de/planmarshall/workflow/dsl/WorkflowPrinterTe
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/WorkflowValidatorTest.java[WorkflowValidatorTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/SlotDominanceCostTest.java[SlotDominanceCostTest],
 link:../pm-core/src/test/java/de/planmarshall/core/store/WorkflowStatusCodecTest.java[WorkflowStatusCodecTest],
-link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitOperationsTest.java[JGitOperationsTest]
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitOperationsPathTest.java[JGitOperationsPathTest]
 
 Documentation (the call-time channel): link:../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide],
 link:../pm-workflow/doc/developer/workflow-dsl.adoc#slots-and-fills[Workflow DSL Developer Guide § Slots, `fills` and the Typed Inputs],
@@ -848,7 +848,7 @@ link:../pm-core/doc/adr/core-store/077-a-slot-is-scope-level-and-consumed-by-its
 link:../pm-core/doc/adr/core-store/078-a-call-frame-is-a-command-and-carries-its-identity.adoc[ADR core-store/078],
 link:../pm-providers/pm-provider-git/doc/adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR provider-git/003]
 
-Implementation (the commit stages 3 and 4 of `git.commit_and_push`, as far as the provider module carries them and not yet wired into the runtime `pm-mcpd`: the primitives `git.resolve-message`, `git.template-message` and `git.stage-and-commit` and the return evaluation `commit-message.evaluate` over the port `CommitSite`; the Conventional Commit validation with the bound of 2000 characters and the refusal of a lone surrogate; the trailer resolved per half from the local, the machine and the compiled value with its `trailer_source`, appended exactly once by the one writer, a supplied trailer line refused; the staging set derived from the scope with every path confined; check 1 of the footprint check before anything is staged, with checks 2 and 3 as the site's answers; the commit through `GitOperations.commit` with the listed paths, the operator's identity as author and the agent or compiled identity as committer; the outcome `failed` with its closed reason; and the default entity kind `commit-message`. Not implemented yet: the implementation of `CommitSite` and the `PrimitiveRegistry` of the assembly, the shipped unit and its product verification, the engine's mapping of `footprint_violation` to the condition, the commit attempt counters, the `change-ledger.jsonl` row, `head_at_completion`, `freshness_reconcile` and the CLI variant):
+Implementation (the commit stages 3 and 4 of `git.commit_and_push`, as far as the provider module carries them and not yet wired into the runtime `pm-mcpd`: the primitives `git.resolve-message`, `git.template-message` and `git.stage-and-commit` and the return evaluation `commit-message.evaluate` over the port `CommitSite`; the Conventional Commit validation with the bound of 2000 characters and the refusal of a lone surrogate; the trailer resolved per half from the local, the machine and the compiled value with its `trailer_source`, appended exactly once by the one writer, a supplied trailer line refused; the staging set derived from the scope, where the directory of every name is confined and a name the commit cannot stage by its text, by its file location or by the index and head tree — the `dir/` entry of an embedded repository, the name of a modified submodule, a tracked directory that a file replaced — is `outside`, the commit applying the same one rule; check 1 of the footprint check before anything is staged, with checks 2 and 3 as the site's answers; the commit through `GitOperations.commit` with the listed paths, the operator's identity as author and the agent or compiled identity as committer, the index restored on both routes when the commit turns out empty and a conflicted index refused; the outcome `failed` with its closed reason; and the default entity kind `commit-message`. Also implemented here: the two caps of the `git.commit-fix` loop as the typed member `commit_attempt_caps` with the pure `CommitAttemptCounter`, the `commit` row of `change-ledger.jsonl`, and the typed `freshness_reconcile` stamp the status codec reads and writes. Settled before this plan, not built here: the engine's raise of a primitive's `footprint_violation` reason as the condition (#531 `1ada535b`, PLAN-V2-19) over the reason declared with the primitive (#545 `c0d14b96`, closed out by #564 and #568 `f1db02cd`). Not implemented yet: the implementation of `CommitSite` and the `PrimitiveRegistry` of the assembly, the shipped unit and its product verification, `head_at_completion` and the CLI variant):
 link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitSite.java[CommitSite],
 link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitTrailer.java[CommitTrailer],
 link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitMessages.java[CommitMessages],
@@ -858,6 +858,10 @@ link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/
 link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/GitTemplateMessagePrimitive.java[GitTemplateMessagePrimitive],
 link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitive.java[GitStageAndCommitPrimitive],
 link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitMessageEvaluatePrimitive.java[CommitMessageEvaluatePrimitive],
+link:../pm-core/src/main/java/de/planmarshall/core/store/CommitAttemptCounter.java[CommitAttemptCounter],
+link:../pm-core/src/main/java/de/planmarshall/core/store/CommitAttemptCaps.java[CommitAttemptCaps],
+link:../pm-core/src/main/java/de/planmarshall/core/store/ChangeLedgerRecord.java[ChangeLedgerRecord],
+link:../pm-core/src/main/java/de/planmarshall/core/store/FreshnessReconcile.java[FreshnessReconcile],
 link:../pm-workflow/src/main/java/de/planmarshall/workflow/verify/EntityKindRegistry.java[EntityKindRegistry]
 
 Verified by (the commit stages 3 and 4):
@@ -869,7 +873,11 @@ link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/
 link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitResolveMessagePrimitiveTest.java[GitResolveMessagePrimitiveTest],
 link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitTemplateMessagePrimitiveTest.java[GitTemplateMessagePrimitiveTest],
 link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/CommitMessageEvaluatePrimitiveTest.java[CommitMessageEvaluatePrimitiveTest],
-link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitiveTest.java[GitStageAndCommitPrimitiveTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitiveMessageTest.java[GitStageAndCommitPrimitiveMessageTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/CommitAttemptCounterTest.java[CommitAttemptCounterTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/CommitAttemptCapsTest.java[CommitAttemptCapsTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/ChangeLedgerCommitRowTest.java[ChangeLedgerCommitRowTest],
+link:../pm-core/src/test/java/de/planmarshall/core/store/FreshnessReconcileTest.java[FreshnessReconcileTest],
 link:../pm-workflow/src/test/java/de/planmarshall/workflow/verify/RegistriesAndRecordsTest.java[RegistriesAndRecordsTest]
 
 Documentation (the commit stages 3 and 4):
@@ -882,6 +890,9 @@ link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/004-the-trai
 link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/005-one-failed-outcome-with-a-closed-reason.adoc[ADR provider-git-primitive/005],
 link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/006-the-primitive-checks-the-boundary-half.adoc[ADR provider-git-primitive/006],
 link:../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/007-the-template-message-renders-from-facts.adoc[ADR provider-git-primitive/007],
+link:../pm-core/doc/adr/core-store/087-the-commit-attempt-caps-are-a-member-of-the-workflow-state.adoc[ADR core-store/087],
+link:../pm-core/doc/adr/core-store/088-a-commit-is-a-kind-of-the-change-ledger.adoc[ADR core-store/088],
+link:../pm-core/doc/adr/core-store/089-the-freshness-reconcile-stamp-is-typed-through-the-status-codec.adoc[ADR core-store/089],
 link:../pm-workflow/doc/adr/workflow-verify/043-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify/043]
 
 [#PM-WF-17]
@@ -1434,12 +1445,12 @@ link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/009-the-pull-request-spl
 link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/010-the-github-issue-comment-reads-the-issue.adoc[ADR provider-ci/010],
 link:../pm-providers/pm-provider-ci/doc/adr/provider-ci/011-the-github-comment-guard-reads-only-the-pull-request-flag.adoc[ADR provider-ci/011]
 
-Implementation (the commit message over no file and no command line, on the native variant: `git.stage-and-commit` passes the validated message with its trailer and the confined paths to `GitOperations.commit` in memory, so no value of a call reaches a process argument and no `.plan/temp/` file is written; the CLI variant, `git commit -F -` over stdin, is not in this repository):
+Implementation (the commit message over no file and no command line, on the native variant: `git.stage-and-commit` passes the validated message with its trailer and the paths of its staging set to `GitOperations.commit` in memory, so no value of a call reaches a process argument and no `.plan/temp/` file is written; the staging set confines the directory of each name and `JGitOperations` refuses every name the commit cannot stage; the CLI variant, `git commit -F -` over stdin, is not in this repository):
 link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitive.java[GitStageAndCommitPrimitive],
 link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/primitive/CommitMessages.java[CommitMessages]
 
 Verified by (the commit message in memory):
-link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitiveTest.java[GitStageAndCommitPrimitiveTest]
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/primitive/GitStageAndCommitPrimitiveMessageTest.java[GitStageAndCommitPrimitiveMessageTest]
 (the commit through the real `JGitOperations`, its message, trailer, author and committer read back from the history)
 
 Documentation (the commit message in memory):
@@ -1648,7 +1659,7 @@ record are not implemented yet): link:../pm-providers/pm-provider-git/src/main/j
 link:../pm-providers/pm-provider-git/src/main/java/de/planmarshall/provider/git/JGitOperations.java[JGitOperations]
 
 Verified by: link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/RemotePolicyTest.java[RemotePolicyTest],
-link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitOperationsTest.java[JGitOperationsTest],
+link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitOperationsTransportTest.java[JGitOperationsTransportTest],
 link:../pm-providers/pm-provider-git/src/test/java/de/planmarshall/provider/git/JGitCacheRepositoryTest.java[JGitCacheRepositoryTest]
 
 Implementation (the fifth bullet in part: output masked by the shape of a credential in the activity journal, the
@@ -2960,8 +2971,9 @@ Implementation (in part: the result model of a parsed build — the located diag
 unmeasured test counts, the status with the positive success marker and the `no_tests_ran` verdict — the compiled category
 table of the JVM tools, and the parsers for Maven, Gradle, the OpenRewrite finding log, npm errors, TypeScript, ESLint,
 Jest, TAP and the pyproject log of pytest, ruff and mypy, each a pure function of the log text with no Python and no
-external script; the `failed_unparsed` fallback with its bounded, redacted log tail and the log URI of a build of a
-plan. Not implemented yet: the failure envelope of class `build` and kind `unparsed` that wraps the tail and the
+external script; a cut Maven tail's per-execution failing count, keyed by the whole line and saturated at
+`Long.MAX_VALUE` (ADR `core-build/013`); the `failed_unparsed` fallback with its bounded, redacted log tail and the log
+URI of a build of a plan. Not implemented yet: the failure envelope of class `build` and kind `unparsed` that wraps the tail and the
 gathering of the other failure classes, the forwarded and total sizes of a truncated payload, and the log URI
 `pm://workspace/builds/{job_id}/log` of a plan-less build, which `UnparsedEvidence` refuses for want of a plan id): link:../pm-core/src/main/java/de/planmarshall/core/build/ParsedBuild.java[ParsedBuild],
 link:../pm-core/src/main/java/de/planmarshall/core/build/Diagnostic.java[Diagnostic],
@@ -2979,6 +2991,7 @@ link:../pm-core/src/main/java/de/planmarshall/core/build/PyprojectOutputParser.j
 link:../pm-core/src/main/java/de/planmarshall/core/build/UnparsedEvidence.java[UnparsedEvidence]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/build/MavenOutputParserTest.java[MavenOutputParserTest],
+link:../pm-core/src/test/java/de/planmarshall/core/build/BuildLogTextTest.java[BuildLogTextTest],
 link:../pm-core/src/test/java/de/planmarshall/core/build/GradleOutputParserTest.java[GradleOutputParserTest],
 link:../pm-core/src/test/java/de/planmarshall/core/build/OpenRewriteLogParserTest.java[OpenRewriteLogParserTest],
 link:../pm-core/src/test/java/de/planmarshall/core/build/JvmCategoryPatternsTest.java[JvmCategoryPatternsTest],

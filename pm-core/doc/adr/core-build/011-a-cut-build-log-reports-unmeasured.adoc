@@ -5,8 +5,12 @@
 
 Accepted; amended 2026-11-22 (PLAN-V2-166): a cut log reports `TestCounts.Unmeasured`, not a tail-only `Measured`. The
 operator reversed the 2026-11-21 choice after the landing analysis found the flag read by no code of this repository
-(`landings/PLAN-V2-163.md`, C5). The file name keeps the first decision's slug, because ADR identity is the number and
-every link to this record names the file.
+(`landings/PLAN-V2-163.md`, C5). Amended again 2026-11-22 (PLAN-V2-170): the cut reaches the daemon path through the
+job-log read, the failing count of a cut tail is counted from the summary lines whose `Results:` marker was cut, and the
+file is renamed to the slug this decision carries. Amended 2026-11-23 (PLAN-V2-173): the counting rule of the tail's
+visible failing count is ADR link:012-the-cut-tails-failing-count-is-taken-per-execution.adoc[`core-build/012`]; this
+decision keeps the `Unmeasured` state and the evidence rule, and its decision bullet now states the rule the code
+implements.
 
 == Date
 
@@ -34,7 +38,26 @@ answers to the operator (2026-11-22), who chose the explicit absence.
   parsers whose result the cut cannot falsify.
 * `MavenOutputParser.parse(Path)` reads through `readLog` and passes the flag to its count scan. A cut log reports
   `TestCounts.Unmeasured`, whatever the tail carries: the summary blocks of the modules in the lost head are not in it,
-  so no number of the tail is a count of the whole run. The `String` overload, which receives no file, is never cut.
+  so no number of the tail is a count of the whole run. The `String` overload takes the flag in a second form
+  (`parse(String, boolean cut)`), so a caller that read the text elsewhere passes the fact it knows; `parse(String)`
+  passes `false` and is never cut. The daemon path uses the flag: `JobLog.Complete` states whether its read cut the log
+  (`length > JobLog.MAX_BYTES`), and `SubprocessJobRunner` hands that fact to its `OutputParser`, whose
+  `BuildOutputParser` passes it to the Maven parser. A job log over the cap therefore reports `Unmeasured` on the daemon
+  path, not a tail-only figure.
+* A cut tail can still show a failing count whose `Results:` marker lies in the lost head: the line carries `[WARNING]`
+  or `[INFO]` (a `testFailureIgnore` build that ended `BUILD SUCCESS`), and the count scan files it as ambiguous. For a
+  cut log the failing tests of those ambiguous summary lines count too, so the tail's visible failure is filed as a
+  `TEST_FAILURE` diagnostic at error severity instead of a passing run. The tail's visible count is taken per execution
+  — the one the nearest preceding plugin header opens — as the larger of that execution's summary side (its summary and
+  ambiguous lines) and its per-class lines — and
+  is then reduced by the failing tests the error-level count lines already filed report, counted after the collector's
+  deduplication. The remainder is filed once, so a failure is never filed twice, and an error-level `Tests run:` line of
+  the tail stays its own diagnostic beside the synthetic one. A tail whose cut removed every execution header is one
+  execution: its two sides cannot be told apart by the log, the larger side is that execution's figure, and the figure of
+  a mix of the two sides is then too low, never a sum of two executions. ADR link:012-the-cut-tails-failing-count-is-taken-per-execution.adoc[`core-build/012`]
+  records the counting rule and its bounded error, amended by
+  link:013-the-cut-tails-failing-count-reduces-per-execution.adoc[ADR `core-build/013`] for the per-execution reduction,
+  the count key and the saturation of an overflowing digit count.
 * `TestCounts.Measured` carries the four counts and the per-runner map, and `TestCounts.from` takes them; the state that
   says "no measurement" is `TestCounts.Unmeasured`, which has no count accessor, so the cut cannot be read as a zero.
 
@@ -55,9 +78,15 @@ answers to the operator (2026-11-22), who chose the explicit absence.
   parser changes, because the flag is passed to the Maven count scan alone.
 * A cut log never reads as `noTestsRan`: `ParsedBuild.noTestsRanFrom` needs a null count, and the cut reports the
   explicit absence instead, so a lost head cannot turn into a "no tests" verdict.
-* A cut log keeps the failing count its tail reports as one `TEST_FAILURE` diagnostic at error severity, so a visible
-  failure still contradicts a success banner even though the total is no measurement (the finding codereview raised
-  against the first form of this change). The diagnostic is evidence, not a count: `testCounts()` stays `Unmeasured`.
+* A cut log keeps the failing tests its tail shows that no filed diagnostic reports as one further `TEST_FAILURE`
+  diagnostic at error severity, so a visible failure still contradicts a success banner even though the total is no
+  measurement (the finding codereview raised against the first form of this change, extended by PLAN-V2-170 to the summary
+  line whose `Results:` marker was cut, and reduced to the unfiled remainder by ADR `core-build/012`). An error-level
+  `Tests run:` line of the tail is each its own diagnostic beside that synthetic one. The diagnostic is evidence, not a
+  count: `testCounts()` stays `Unmeasured`. A consumer tells absent from unmeasured by
+  the two states of `TestCounts`: a log with no count line carries no `TestCounts` (`null`), and a cut log carries
+  `Unmeasured`, which has no count accessor; neither is `Measured(0, …)`, so no consumer reads a lost head as a passing
+  run.
 * The other parsers read the text alone and do not carry the flag. A parser whose figure a cut can falsify takes the
   flag through `readLog` in the same way when a plan touches it.
 * The contradiction check of a consumer still sees only the tail: a failing module in the lost head is not in the
@@ -68,4 +97,6 @@ answers to the operator (2026-11-22), who chose the explicit absence.
 * Specification: link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc[Job Runtime § Native Build Output Parsers]
 * Developer guide: link:../../developer/core-build.adoc[`core.build`]
 * Origin: the landing of PLAN-V2-131 (M1), carried as item 11(b) of PLAN-V2-163; the operator's answer at refine
-  (2026-11-21, adopt the recommendation)
+  (2026-11-21, adopt the recommendation); the landing of PLAN-V2-166 (carried item 88a of
+  link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-170-cut-log-and-statement-closeout.md[PLAN-V2-170]),
+  whose operator answered at refine 2026-11-22 to pass the cut fact to the daemon path.

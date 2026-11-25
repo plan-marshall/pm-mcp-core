@@ -9,11 +9,19 @@
  */
 package de.planmarshall.runtime.start;
 
+import static org.easymock.EasyMock.anyObject;
+import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expect;
+import static org.easymock.EasyMock.expectLastCall;
+import static org.easymock.EasyMock.getCurrentArguments;
 import static org.easymock.EasyMock.newCapture;
+import static org.easymock.EasyMock.replay;
+import static org.easymock.EasyMock.verify;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
@@ -23,9 +31,11 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermission;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -33,9 +43,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.easymock.Capture;
 import org.easymock.CaptureType;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,13 +57,18 @@ import org.junit.jupiter.api.io.TempDir;
 
 import de.planmarshall.core.service.AuditEvent;
 import de.planmarshall.core.service.AuditSink;
+import de.planmarshall.core.service.LockManager;
+import de.planmarshall.core.service.LockTransaction;
 import de.planmarshall.core.store.EntryId;
 import de.planmarshall.core.store.JournalScope;
+import de.planmarshall.core.store.LockKey;
 import de.planmarshall.core.store.PendingEntryCodec;
 import de.planmarshall.core.store.PendingEntryCreation;
 import de.planmarshall.core.store.PendingEntryRecord;
 import de.planmarshall.core.store.PendingEntryStore;
 import de.planmarshall.core.store.ScopeTransaction;
+import de.planmarshall.core.store.SourceManifest;
+import de.planmarshall.core.store.StoreDigest;
 import de.planmarshall.runtime.lock.FileLockManager;
 import de.planmarshall.runtime.start.RecoveryStep.Outcome;
 import de.planmarshall.runtime.test.AuditSinkDoubles;
@@ -63,6 +80,20 @@ import de.planmarshall.runtime.test.AuditSinkDoubles;
  * record, a name that is no entry id is never touched, and what cannot be done is reported as a failure. The reports,
  * the audit record name and its detail keys are the specified contract; the project, the instants and the entry ids are
  * generated.
+ * <p>
+ * Three of the four reaches a faulted removal reports are reached here:
+ * {@link #faultBeforeTheCommitRollsBackTheStagedRemovals} reaches the staged arm, because the verification fails before
+ * the commit is called; {@link #auditSinkFaultInsideTheCommitLeavesTheRemovalOwed} reaches the owed arm, because the
+ * sink throws inside the commit while its journal is durable; and
+ * {@link #aCommitThatCannotWriteItsJournalLeavesTheReachUndecided} and
+ * {@link #aFaultedLockReleaseKeepsTheFirstFaultsReach} reach the undecided arm, because a workspace journal directory
+ * without write permission refuses the journal before it exists — once with the attempt's own fault, once with a
+ * fault of the lock's release beside a journal another writer left, and once with a release fault that carries no
+ * message ({@link #aReleaseFaultWithoutAMessageIsNamedByItsType}).
+ * {@link #aFirstFaultWithoutAMessageIsNamedByItsType} reaches none of them: the acquisition faults before anything is
+ * staged, so its report prints no reach text, and what it proves is the naming of a first fault that carries no
+ * message. The committed arm stays untested: the
+ * discard's two refusals are caught per entry, so nothing in this test base faults after the commit returned.
  */
 @EnableGeneratorController
 @DisplayName("Pending entry records sweep")
@@ -70,6 +101,11 @@ class PendingEntryRecordsSweepTest {
 
     /** Contract literal: the name of the audit record of a removal. */
     private static final String PENDING_ENTRY_REMOVED = "pending_entry_removed";
+
+    /** Fixture: the refusal of the audit sink that stops a run after its removal transaction. */
+    private static final String AUDIT_FAULT = "the audit record cannot be appended";
+
+    private final String releaseFault = Generators.letterStrings(10, 40).next();
 
     @TempDir
     Path base;
@@ -176,8 +212,8 @@ class PendingEntryRecordsSweepTest {
 
         var removals = auditEvents.getValues().subList(before, auditEvents.getValues().size());
         assertAll(
-                () -> assertEquals(new Outcome.Done("removed 1 pending entry directories"), outcome,
-                        "the step must report one removed directory"),
+                () -> assertEquals(new Outcome.Done("removed 1 pending entry directories: [" + residue.value() + "]"),
+                        outcome, "the step must name the one removed directory"),
                 () -> assertFalse(Files.exists(store.entryDirectory(residue)), "the residue directory must be gone"),
                 () -> assertEquals(1, removals.size(), "one audit record must be owed by the removal"),
                 () -> assertEquals(PENDING_ENTRY_REMOVED, removals.getFirst().event(),
@@ -204,9 +240,10 @@ class PendingEntryRecordsSweepTest {
 
         var removals = auditEvents.getValues().subList(before, auditEvents.getValues().size());
         var transactionIds = removals.stream().map(removal -> removal.details().get("transaction_id")).toList();
+        var expected = List.of(residue.value(), second.value()).stream().sorted().toList();
         assertAll(
-                () -> assertEquals(new Outcome.Done("removed 2 pending entry directories"), outcome,
-                        "the step must report two removed directories"),
+                () -> assertEquals(new Outcome.Done("removed 2 pending entry directories: " + expected), outcome,
+                        "the step must count and name the two removed directories"),
                 () -> assertEquals(List.of(PENDING_ENTRY_REMOVED, PENDING_ENTRY_REMOVED),
                         removals.stream().map(AuditEvent::event).toList(), "two removal records must be owed"),
                 () -> assertEquals(2, transactionIds.size(), "each removal record carries a transaction id"),
@@ -219,7 +256,7 @@ class PendingEntryRecordsSweepTest {
     }
 
     @Test
-    @DisplayName("the directory of a creation cut after both its commits is removed by the evidence of its absent record")
+    @DisplayName("the directory of a creation cut after both its commits is removed by four absent stores")
     void creationCutAfterBothCommits() throws Exception {
         create(entry(residue, now));
         var plan = JournalScope.plan(base, projectId, "plan-" + Generators.letterStrings(3, 12).next()
@@ -242,13 +279,60 @@ class PendingEntryRecordsSweepTest {
         var removals = auditEvents.getValues().subList(before, auditEvents.getValues().size());
         assertAll(
                 () -> assertEquals(Optional.empty(), store.read(residue), "the move must delete the record"),
-                () -> assertEquals(new Outcome.Done("removed 1 pending entry directories"), outcome,
-                        "the sweep must remove the cut creation's directory"),
+                () -> assertEquals(new Outcome.Done("removed 1 pending entry directories: [" + residue.value() + "]"),
+                        outcome, "the sweep must name the cut creation's removed directory"),
                 () -> assertFalse(Files.exists(store.entryDirectory(residue)),
                         "the directory of the cut creation must be gone"),
                 () -> assertTrue(Files.exists(plan.pathBase().resolve("request.md")),
                         "the created scope must stay"),
                 () -> assertEquals(1, removals.size(), "one audit record must be owed for the removal"));
+    }
+
+    @Test
+    @DisplayName("a populated creation cut after both commits keeps its sources and transcript, and is swept")
+    void populatedCreationCutAfterBothCommits() throws Exception {
+        var plan = JournalScope.plan(base, projectId, "plan-" + Generators.letterStrings(3, 12).next()
+                .toLowerCase(Locale.ROOT));
+        Files.createDirectories(plan.journalFile().getParent());
+        var description = Generators.letterStrings(10, 40).next();
+        var content = description.getBytes(StandardCharsets.UTF_8);
+        var sourceId = "source_" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+        var manifest = new SourceManifest(1, List.of(new SourceManifest.Source(sourceId,
+                SourceManifest.Kind.DESCRIPTION, "the operator", "operator", SourceManifest.Trust.TRUSTED,
+                List.of(new SourceManifest.SourceFile("description.md", content.length, StoreDigest.of(content).sha256())),
+                now, null, null)));
+        create(entry(residue, now));
+        inWorkspace(transaction -> store.replaceSources(transaction, residue, manifest));
+        Files.write(store.sourcesDirectory(residue).resolve("description.md"), content);
+        var transcript = Generators.letterStrings(10, 40).next();
+        Files.writeString(store.chatDirectory(residue).resolve("session.md"), transcript, StandardCharsets.UTF_8);
+        var creation = new PendingEntryCreation(workspace);
+        try (var lock = lockManager.openTransaction()) {
+            lock.acquire(workspace.lockKey());
+            lock.acquire(plan.lockKey());
+            var workspaceWrite = ScopeTransaction.open(lock, workspace, auditSink, clock);
+            var target = ScopeTransaction.open(lock, plan, auditSink, clock);
+            creation.move(workspaceWrite, target, residue);
+            target.commit();
+            workspaceWrite.commit();
+        }
+        var before = auditEvents.getValues().size();
+
+        var outcome = sweep.run(projectId, now);
+
+        var removals = auditEvents.getValues().subList(before, auditEvents.getValues().size());
+        assertAll(
+                () -> assertEquals(description,
+                        Files.readString(plan.pathBase().resolve("sources/description.md")),
+                        "the created scope must keep the carried source"),
+                () -> assertEquals(transcript, Files.readString(plan.pathBase().resolve("chat/session.md")),
+                        "the created scope must keep the carried transcript"),
+                () -> assertEquals(new Outcome.Done("removed 1 pending entry directories: [" + residue.value() + "]"),
+                        outcome, "the sweep must name the populated removed directory"),
+                () -> assertFalse(Files.exists(store.entryDirectory(residue)),
+                        "the populated directory of the cut creation must be gone"),
+                () -> assertEquals(1, removals.size(),
+                        "one audit record must be owed for the populated removal"));
     }
 
     @Test
@@ -309,12 +393,95 @@ class PendingEntryRecordsSweepTest {
 
         var reason = assertInstanceOf(Outcome.Failed.class, outcome, "an unreadable record fails the step").reason();
         assertAll(
-                () -> assertTrue(reason.startsWith("removed 1 pending entry directories; kept unreadable entries"),
-                        "the report must count the removed directory"),
+                () -> assertTrue(reason.startsWith("removed 1 pending entry directories: [" + residue.value()
+                                + "]; kept unreadable entries"),
+                        "the report must name the removed directory"),
                 () -> assertTrue(reason.contains(broken.value() + " (unreadable)"),
                         "the report must name the unreadable record"),
                 () -> assertFalse(Files.exists(store.entryDirectory(residue)), "the readable residue is removed"),
                 () -> assertTrue(Files.exists(store.store(broken)), "the unreadable record is kept"));
+    }
+
+    @Test
+    @DisplayName("an unreadable entry and a held entry are both reported, and the readable residue is removed")
+    void unreadableAndHeldBothReported() throws Exception {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        var broken = entryId();
+        Files.createDirectories(store.entryDirectory(broken));
+        // Fixture: a truncated record that does not parse
+        Files.writeString(store.entryDirectory(broken).resolve(PendingEntryStore.RECORD), "{\"format_version\":1,");
+        var linked = entryId();
+        create(entry(linked, now));
+        cutOffRemoval(linked);
+        var sources = store.sourcesDirectory(linked);
+        var elsewhere = Files.createDirectory(base.resolve("elsewhere"));
+        Files.delete(sources);
+        Files.createSymbolicLink(sources, elsewhere);
+
+        var outcome = sweep.run(projectId, now);
+
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "two failed entries fail the step").reason();
+        assertAll(
+                () -> assertTrue(reason.startsWith("removed 1 pending entry directories: [" + residue.value() + "]"),
+                        "the report must name the removed directory"),
+                () -> assertTrue(reason.contains("kept unreadable entries"),
+                        "the report must name the unreadable entries"),
+                () -> assertTrue(reason.contains(broken.value()), "the report must name the unreadable record"),
+                () -> assertTrue(reason.contains("kept or failed entries"),
+                        "the report must name the held entry too"),
+                () -> assertTrue(reason.contains(linked.value() + " (held: "),
+                        "the report must name the held entry"),
+                () -> assertFalse(Files.exists(store.entryDirectory(residue)), "the readable residue is removed"));
+    }
+
+    @Test
+    @DisplayName("a directory the discard cannot remove is named as kept, and the count is the directories gone")
+    void discardRefusedAfterCommitCountsTheDirectoriesGone() {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        var recreated = new AtomicBoolean();
+        AuditSink sink = createMock(AuditSink.class);
+        sink.append(anyObject(AuditEvent.class));
+        expectLastCall().andAnswer(() -> {
+            var event = (AuditEvent) getCurrentArguments()[0];
+            if (PENDING_ENTRY_REMOVED.equals(event.event()) && recreated.compareAndSet(false, true)) {
+                Files.write(store.store(residue), PendingEntryCodec.write(entry(residue, now)));
+            }
+            return null;
+        }).anyTimes();
+        replay(sink);
+        var own = new PendingEntryRecordsSweep(base, new FileLockManager(sink), sink, clock);
+
+        var outcome = own.run(projectId, now);
+
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a refused discard fails the step").reason();
+        assertAll(
+                () -> assertTrue(reason.startsWith("removed 0 pending entry directories; kept or failed entries:"),
+                        "the report must count only the directories gone"),
+                () -> assertTrue(reason.contains(residue.value()), "the report must name the kept directory"),
+                () -> assertTrue(reason.contains("record again"), "the report must name the refused discard"),
+                () -> assertTrue(Files.exists(store.entryDirectory(residue)), "the directory must still be there"));
+        verify(sink);
+    }
+
+    @Test
+    @DisplayName("only the symbolic-link refusal holds an entry; any other refusal is rethrown as its fault")
+    void secondCauseIsNoHeldEntry() {
+        var held = new ArrayList<String>();
+        var entry = entryId();
+        var link = new JournalScope.SymbolicLinkRefusal("Store path 'x' passes through a symbolic link below base");
+        var other = new IllegalArgumentException("the recovery of the workspace broke");
+
+        PendingEntryRecordsSweep.holdOrRethrow(link, entry, held);
+
+        assertAll(
+                () -> assertEquals(List.of(entry.value() + " (held: " + link.getMessage() + ")"), held,
+                        "the link refusal should hold its entry"),
+                () -> assertThrows(IllegalArgumentException.class,
+                        () -> PendingEntryRecordsSweep.holdOrRethrow(other, entry, held),
+                        "another refusal should be rethrown, not held"),
+                () -> assertEquals(1, held.size(), "another refusal should add no held entry"));
     }
 
     @Test
@@ -353,8 +520,9 @@ class PendingEntryRecordsSweepTest {
 
         var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a linked store path fails the step").reason();
         assertAll(
-                () -> assertTrue(reason.startsWith("removed 1 pending entry directories; kept or failed entries:"),
-                        "the report must count the removed directory"),
+                () -> assertTrue(reason.startsWith("removed 1 pending entry directories: [" + residue.value()
+                                + "]; kept or failed entries:"),
+                        "the report must name the removed directory"),
                 () -> assertTrue(reason.contains(linked.value() + " (held: "),
                         "the report must name the held entry"),
                 () -> assertFalse(Files.exists(store.entryDirectory(residue)), "the readable residue is removed"),
@@ -377,8 +545,9 @@ class PendingEntryRecordsSweepTest {
 
         var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a mismatching record fails the step").reason();
         assertAll(
-                () -> assertTrue(reason.startsWith("removed 1 pending entry directories; kept unreadable entries"),
-                        "the report must count the removed directory"),
+                () -> assertTrue(reason.startsWith("removed 1 pending entry directories: [" + residue.value()
+                                + "]; kept unreadable entries"),
+                        "the report must name the removed directory"),
                 () -> assertTrue(reason.contains(named.value() + " (unreadable)"),
                         "the report must name the directory of the record"),
                 () -> assertFalse(reason.contains(stated.value()), "the report must not name the stated id"),
@@ -402,8 +571,9 @@ class PendingEntryRecordsSweepTest {
 
         var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a record not readable fails the step").reason();
         assertAll(
-                () -> assertTrue(reason.startsWith("removed 1 pending entry directories; kept unreadable entries"),
-                        "the report must count the removed directory"),
+                () -> assertTrue(reason.startsWith("removed 1 pending entry directories: [" + residue.value()
+                                + "]; kept unreadable entries"),
+                        "the report must name the removed directory"),
                 () -> assertTrue(reason.contains(locked.value() + " (io: "),
                         "the report must name the I/O failure of the record"),
                 () -> assertFalse(Files.exists(store.entryDirectory(residue)), "the readable residue is removed"),
@@ -411,21 +581,322 @@ class PendingEntryRecordsSweepTest {
     }
 
     @Test
-    @DisplayName("a workspace journal still to recover is reported as a failure, and nothing is removed")
+    @DisplayName("a workspace journal still to recover fails the step, and the report keeps the unreadable entries")
     void journalToRecoverFails() throws Exception {
         create(entry(residue, now));
         cutOffRemoval(residue);
+        var broken = entryId();
+        Files.createDirectories(store.entryDirectory(broken));
+        // Fixture: a truncated record that does not parse
+        Files.writeString(store.entryDirectory(broken).resolve(PendingEntryStore.RECORD), "{\"format_version\":1,");
         Files.writeString(workspace.journalFile(), "{}", StandardCharsets.UTF_8);
 
         var outcome = sweep.run(projectId, now);
 
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a journal to recover fails the step").reason();
         assertAll(
-                () -> assertTrue(assertInstanceOf(Outcome.Failed.class, outcome,
-                                "a journal to recover fails the step").reason()
-                                .startsWith("pending entry directories not swept: "),
+                () -> assertTrue(reason.startsWith("pending entry directories not swept: "),
                         "the report must say that nothing was swept"),
+                () -> assertTrue(reason.contains("kept unreadable entries"),
+                        "the report must name the unreadable entries of the listing"),
+                () -> assertTrue(reason.contains(broken.value()), "the report must name the unreadable record"),
                 () -> assertTrue(Files.exists(store.entryDirectory(residue)),
                         "the residue directory must stay in the store"));
+    }
+
+    @Test
+    @DisplayName("an audit-sink fault inside the commit leaves the removal owed, and the next run completes it")
+    void auditSinkFaultInsideTheCommitLeavesTheRemovalOwed() {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        AuditSink refusing = createMock(AuditSink.class);
+        refusing.append(anyObject(AuditEvent.class));
+        expectLastCall().andThrow(new IllegalStateException(AUDIT_FAULT));
+        replay(refusing);
+
+        var outcome = new PendingEntryRecordsSweep(base, lockManager, refusing, clock).run(projectId, now);
+
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a sink fault fails the step").reason();
+        assertAll(
+                () -> assertTrue(reason.startsWith("pending entry directories not swept: " + AUDIT_FAULT),
+                        "the report must name the fault"),
+                () -> assertTrue(reason.contains("the removals of [" + residue.value() + "]"),
+                        "the report must name the removal it staged"),
+                () -> assertTrue(reason.contains("completed by the recovery"),
+                        "the report must say the journal completes it"),
+                () -> assertFalse(store.read(residue).isPresent(), "the commit must delete the record"),
+                () -> assertTrue(Files.isDirectory(store.entryDirectory(residue)),
+                        "the directory must stay for the next run"),
+                () -> assertTrue(Files.exists(workspace.journalFile()), "the journal must keep the owed record"));
+
+        var next = sweep.run(projectId, now);
+
+        var removals = auditEvents.getValues().stream()
+                .filter(event -> PENDING_ENTRY_REMOVED.equals(event.event())).toList();
+        assertAll(
+                () -> assertEquals(new Outcome.Done("removed 1 pending entry directories: [" + residue.value() + "]"),
+                        next, "the next run must remove the directory"),
+                () -> assertFalse(Files.exists(store.entryDirectory(residue)), "the directory must be gone"),
+                () -> assertFalse(Files.exists(workspace.journalFile()), "the journal must be closed"),
+                () -> assertEquals(2, removals.size(),
+                        "the replayed record and the next run's must both be owed"));
+    }
+
+    /**
+     * The undecided arm: the commit is entered and the journal directory refuses its write, so no journal of it is
+     * present. A root runner is not refused by the permission and the test skips there; no test can provoke the
+     * undecided report text as root then, so a non-root runner is what covers it. The directory's permission is
+     * restored in a {@code finally}, so an abort or an uncaught throw after the change cannot leave it unwritable.
+     */
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a commit whose journal cannot be written may have been committed, and the next run re-judges the directory")
+    void aCommitThatCannotWriteItsJournalLeavesTheReachUndecided() throws Exception {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        var journalDirectory = workspace.journalFile().getParent();
+        try {
+            Files.setPosixFilePermissions(journalDirectory,
+                    Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
+            assumeFalse(Files.isWritable(journalDirectory), "a journal directory without write permission");
+
+            var outcome = sweep.run(projectId, now);
+
+            var reason = assertInstanceOf(Outcome.Failed.class, outcome, "an unwritable journal fails the step").reason();
+            assertAll(
+                    () -> assertTrue(reason.startsWith("pending entry directories not swept: "),
+                            "the report must say that nothing was swept"),
+                    () -> assertTrue(reason.contains("Store cannot be written: " + workspace.journalFile()),
+                            "the refused journal write names its path"),
+                    () -> assertTrue(reason.contains("the removals of [" + residue.value() + "]"),
+                            "the report must name the removal it staged"),
+                    () -> assertTrue(reason.contains("may have been committed"),
+                            "the report must say the commit may have applied"),
+                    () -> assertTrue(reason.contains("no journal of it is present"),
+                            "the report must name the absent journal"),
+                    () -> assertTrue(reason.contains("re-judges their directories"),
+                            "the report must say the next run re-judges the directory"),
+                    () -> assertFalse(Files.exists(workspace.journalFile()), "no journal may be written"),
+                    () -> assertTrue(Files.isDirectory(store.entryDirectory(residue)),
+                            "the directory must stay for the next run"));
+        } finally {
+            Files.setPosixFilePermissions(journalDirectory, Set.of(PosixFilePermission.OWNER_READ,
+                    PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
+        }
+    }
+
+    /**
+     * A fault of the lock's own release beside a fault the attempt had already built: the attempt's reach and message
+     * stay, and the release fault is reported beside them — the release comes after another writer may have left a
+     * journal of its own, so reading the reach again there would turn an undecided removal into an owed one. A root
+     * runner is not refused by the permission and the test skips there.
+     */
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a faulted lock release keeps the first fault's undecided reach and reports itself beside it")
+    void aFaultedLockReleaseKeepsTheFirstFaultsReach() throws Exception {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        var journalDirectory = workspace.journalFile().getParent();
+        try {
+            Files.setPosixFilePermissions(journalDirectory,
+                    Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
+            assumeFalse(Files.isWritable(journalDirectory), "a journal directory without write permission");
+
+            var delegate = lockManager.openTransaction();
+            try {
+                var guarded = guardedLock(delegate, null, d -> {
+                    anotherWriterLeavesAJournal(d, journalDirectory);
+                    throw new IllegalStateException(releaseFault);
+                });
+
+                var outcome = new PendingEntryRecordsSweep(base, guarded.manager(), auditSink, clock).run(projectId, now);
+
+                var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a release fault fails the step").reason();
+                assertAll(
+                        () -> assertTrue(reason.startsWith(
+                                        "pending entry directories not swept: Store cannot be written: "),
+                                "the first fault's message must survive the release"),
+                        () -> assertTrue(reason.contains(workspace.journalFile() + "; the lock's release failed: "
+                                        + releaseFault),
+                                "the release fault is reported beside it"),
+                        () -> assertTrue(reason.contains("may have been committed"),
+                                "the undecided reach must survive the release"),
+                        () -> assertFalse(reason.contains("completed by the recovery"),
+                                "another writer's journal must not turn it owed"));
+                verify(guarded.transaction());
+                verify(guarded.manager());
+            } finally {
+                delegate.close();
+            }
+        } finally {
+            Files.setPosixFilePermissions(journalDirectory, Set.of(PosixFilePermission.OWNER_READ,
+                    PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
+        }
+    }
+
+    /**
+     * A release fault with no message: the report names its exception type, so the release path never prints the word
+     * {@code null} in place of a message. The delegate is opened after the assumption and closed in a {@code finally},
+     * like the sibling release-fault test.
+     */
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a lock release that throws without a message is named by its type, never printed as null")
+    void aReleaseFaultWithoutAMessageIsNamedByItsType() throws Exception {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        var journalDirectory = workspace.journalFile().getParent();
+        try {
+            Files.setPosixFilePermissions(journalDirectory,
+                    Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE));
+            assumeFalse(Files.isWritable(journalDirectory), "a journal directory without write permission");
+
+            var delegate = lockManager.openTransaction();
+            try {
+                var guarded = guardedLock(delegate, null, d -> {
+                    throw new IllegalStateException();
+                });
+
+                var outcome = new PendingEntryRecordsSweep(base, guarded.manager(), auditSink, clock).run(projectId, now);
+
+                var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a release fault fails the step").reason();
+                assertAll(
+                        () -> assertTrue(
+                                reason.contains("; the lock's release failed: IllegalStateException with no message"),
+                                "the release fault is named by its type"),
+                        () -> assertTrue(reason.contains("may have been committed"),
+                                "the undecided reach must survive the release"));
+                verify(guarded.transaction());
+                verify(guarded.manager());
+            } finally {
+                delegate.close();
+            }
+        } finally {
+            Files.setPosixFilePermissions(journalDirectory, Set.of(PosixFilePermission.OWNER_READ,
+                    PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
+        }
+    }
+
+    /**
+     * A first fault with no message: the report names its exception type, so the acquisition path never prints the
+     * word {@code null} in place of a message. The acquisition faults before anything is staged, so the report carries
+     * no reach text, and the delegate is closed in a {@code finally} like the sibling release-fault test.
+     */
+    @Test
+    @DisplayName("a first fault that throws without a message is named by its type, never printed as null")
+    void aFirstFaultWithoutAMessageIsNamedByItsType() {
+        create(entry(residue, now));
+        cutOffRemoval(residue);
+        var delegate = lockManager.openTransaction();
+        try {
+            var guarded = guardedLock(delegate, new IllegalStateException(), null);
+
+            var outcome = new PendingEntryRecordsSweep(base, guarded.manager(), auditSink, clock).run(projectId, now);
+
+            var reason = assertInstanceOf(Outcome.Failed.class, outcome, "a fault without message fails the step")
+                    .reason();
+            assertAll(
+                    () -> assertTrue(reason.startsWith(
+                                    "pending entry directories not swept: IllegalStateException with no message"),
+                            "the first fault is named by its type"),
+                    () -> assertTrue(Files.isDirectory(store.entryDirectory(residue)),
+                            "the residue directory must stay for the next run"));
+            verify(guarded.transaction());
+            verify(guarded.manager());
+        } finally {
+            delegate.close();
+        }
+    }
+
+    /** A writer outside the run leaves its journal between the attempt and the release of the lock. */
+    private void anotherWriterLeavesAJournal(LockTransaction delegate, Path journalDirectory) throws IOException {
+        Files.setPosixFilePermissions(journalDirectory, Set.of(PosixFilePermission.OWNER_READ,
+                PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE));
+        Files.writeString(workspace.journalFile(), "{}", StandardCharsets.UTF_8);
+        delegate.close();
+    }
+
+    /**
+     * A lock stand-in over the real manager: its transaction is a mock that reaches {@code delegate} for every
+     * acquisition and probe, so the real file lock is held, and runs the given release instead of the delegate's own
+     * close. A test injects the fault of the acquisition where it needs a first fault that strikes before the commit.
+     *
+     * @param delegate     the transaction of the real manager, which every acquisition and probe reaches
+     * @param acquireFault the fault the guarded acquisition throws; {@code null} to reach the delegate
+     * @param release      what the guarded close runs instead of the delegate's close; {@code null} is a no-op
+     * @return the transaction mock a test verifies and the manager the sweep is built on
+     */
+    private GuardedLock guardedLock(LockTransaction delegate, @Nullable RuntimeException acquireFault,
+            @Nullable Release release) {
+        LockTransaction guarded = createMock(LockTransaction.class);
+        guarded.acquire(anyObject(LockKey.class));
+        expectLastCall().andAnswer(() -> {
+            if (acquireFault != null) {
+                throw acquireFault;
+            }
+            delegate.acquire((LockKey) getCurrentArguments()[0]);
+            return null;
+        }).anyTimes();
+        expect(guarded.holds(anyObject(LockKey.class)))
+                .andAnswer(() -> delegate.holds((LockKey) getCurrentArguments()[0])).anyTimes();
+        guarded.close();
+        expectLastCall().andAnswer(() -> {
+            if (release != null) {
+                release.run(delegate);
+            }
+            return null;
+        });
+        replay(guarded);
+        LockManager manager = createMock(LockManager.class);
+        expect(manager.openTransaction()).andReturn(guarded);
+        replay(manager);
+        return new GuardedLock(guarded, manager);
+    }
+
+    /** The guarded lock of {@link #guardedLock}: the transaction mock a test verifies and the manager that hands it out. */
+    private record GuardedLock(LockTransaction transaction, LockManager manager) {
+    }
+
+    /** What a guarded close runs instead of the delegate's close; it may raise the release fault. */
+    @FunctionalInterface
+    private interface Release {
+
+        /**
+         * @param delegate the transaction of the real manager the release runs on
+         * @throws IOException if the journal another writer leaves cannot be written
+         */
+        void run(LockTransaction delegate) throws IOException;
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a fault in the verification rolls back the removals the run staged, and reports them")
+    void faultBeforeTheCommitRollsBackTheStagedRemovals() throws Exception {
+        var one = entryId();
+        var other = entryId();
+        var swept = one.value().compareTo(other.value()) < 0 ? one : other;
+        var unreadable = one.value().compareTo(other.value()) < 0 ? other : one;
+        create(entry(swept, now), entry(unreadable, now));
+        cutOffRemoval(swept);
+        inWorkspace(transaction -> transaction.delete(PendingEntryStore.storePath(unreadable)));
+        var manifest = store.sourcesStore(unreadable);
+        Files.setPosixFilePermissions(manifest, Set.of());
+        assumeFalse(Files.isReadable(manifest), "a file without permissions is unreadable for this user");
+        var before = auditEvents.getValues().size();
+
+        var outcome = sweep.run(projectId, now);
+
+        var reason = assertInstanceOf(Outcome.Failed.class, outcome, "an unreadable store fails the step").reason();
+        assertAll(
+                () -> assertTrue(reason.startsWith("pending entry directories not swept: "),
+                        "the report must say that nothing was swept"),
+                () -> assertTrue(reason.contains("the removals of [" + swept.value() + "] were staged and not committed"),
+                        "the report must name the rolled-back removal"),
+                () -> assertFalse(Files.exists(workspace.journalFile()), "no transaction may be committed"),
+                () -> assertTrue(Files.isDirectory(store.entryDirectory(swept)),
+                        "the staged removal must be rolled back"),
+                () -> assertEquals(before, auditEvents.getValues().size(), "no audit record may be owed"));
     }
 
     private static Map<String, Object> withoutTransaction(Map<String, ?> details) {

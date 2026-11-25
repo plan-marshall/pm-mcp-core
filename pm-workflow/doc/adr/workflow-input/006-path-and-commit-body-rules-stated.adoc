@@ -18,7 +18,7 @@ contradiction of the specification:
   refused them a second time. The specification already said the opposite: Stage 4 of `git.commit_and_push` states that
   the staging names every path literally and "refuses no path for the characters `*`, `?` or `[`". The plan's hypothesis
   was that JGit does no glob expansion, so the refusal made a file such as `pages/[id].tsx` unbindable for nothing. The
-  hypothesis was measured (`JGitOperationsTest`, `TheGlobRefusalPremise`): JGit stages the literal name for all three
+  hypothesis was measured (`JGitOperationsPathTest`, the literal-name premise): JGit stages the literal name for all three
   characters. The code was therefore the defect, and the refusal is removed.
 * `InputValidator` refused a tab in a commit message body (`input.commit-control`), because a tab is a control character
   below U+0020, refused beside ESC and NUL. The specification states the Conventional Commit rule and the trailer refusal,
@@ -34,7 +34,7 @@ because a filesystem strips it the same way.
 
 * *The glob characters are admitted.* Both staging variants name a path literally: the CLI variant stages with
   `--literal-pathspecs add --pathspec-from-file=- --pathspec-file-nul`, and the native variant's `AddCommand` was measured
-  to stage the literal name (`JGitOperationsTest`, `TheGlobRefusalPremise`), for `[`, `*` and `?` alike. `path.glob` and
+  to stage the literal name (`JGitOperationsPathTest`, the literal-name premise), for `[`, `*` and `?` alike. `path.glob` and
   the provider's glob refusal are removed, so `pages/[id].tsx` is bindable and committable under that name.
 * *A tab stays refused in a commit message body.* A commit body carries no control character; the line break is the one
   control character the type admits. The tab is refused as `input.commit-control`, uniform with ESC and NUL, so the rule
@@ -56,8 +56,8 @@ because a filesystem strips it the same way.
 == Consequences
 
 * `PathRulesTest` pins the two new refusals and accepts `pages/[id].tsx`, `notes*.md` and `what?.md`;
-  `InputValidatorTest` pins the tab refusal and its matched control; `JGitOperationsTest` pins the premise and the literal
-  commit of a glob-named path.
+  `InputValidatorTest` pins the tab refusal and its matched control; `JGitOperationsPathTest` pins the premise and the
+  literal commit of a glob-named path.
 * The rule table of the Workflow Input developer guide names `path.edge-space` and `path.trailing-dot` and records the glob
   admission; the Workflow DSL specification states both in the `files` input of Stage 4 and in the `commit_message`
   control-character rule of Stage 3.

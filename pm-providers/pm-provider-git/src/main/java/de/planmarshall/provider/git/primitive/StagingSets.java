@@ -25,15 +25,23 @@ import de.planmarshall.core.store.ConfinementOutcome;
 import de.planmarshall.core.store.PathConfinement;
 import de.planmarshall.core.store.ScopeType;
 import de.planmarshall.core.store.WorkspaceRoots;
+import de.planmarshall.provider.git.CommitPathRefusals;
 
 /**
  * Derives the staging set of a commit from its scope, never from whatever the checkout holds (PM-WF-16, Stage 4).
  * <p>
- * Each dirty path is a repository-relative name of the target checkout. It is staged only when it is a relative name
- * in normal form (no {@code .} or {@code ..} segment), the directory that holds it lies inside the checkout
- * ({@link PathConfinement} with the checkout as the one root) and it belongs to the set of its scope. Its last name is
- * not followed: a symbolic link is committed as a link, so a link to outside or a dangling link is staged, while a
- * path through a link to outside is not. The sets of the scopes:
+ * Each dirty path is a repository-relative name of the target checkout. It is staged only when it satisfies the rule of
+ * a commit path ({@link CommitPathRefusals}), is a relative name in normal form (no {@code .} or {@code ..} segment), the
+ * directory that holds it lies inside the checkout ({@link PathConfinement} with the checkout as the one root) and it
+ * belongs to the set of its scope. The rule has three parts: the textual one
+ * ({@link CommitPathRefusals#isRefusedText(String)}:
+ * no pathspec magic, no backslash, no control character, no empty segment, which the {@code dir/} entry of an embedded
+ * repository fails), the file-system one (a directory, an absolute name, a name outside the root, a parent that a
+ * symbolic link carries outside it) and the tracked-tree one (a name that is a directory of the index or the head tree
+ * although the worktree no longer holds it as one, such as a tracked directory replaced by a file). A modified submodule
+ * is listed by its name, not by its directory, and is refused by the file-system rule because the worktree holds it as a
+ * directory. Its last name is not followed: a symbolic link is committed as a link, so a link to outside or a dangling
+ * link is staged, while a path through a link to outside is not. The sets of the scopes:
  * <ul>
  * <li>{@link ScopeType#PLAN}: every such path of the plan's worktree;</li>
  * <li>{@link ScopeType#EPIC}: {@code .marshall/epics/**}, and {@code .marshall/archived-epics/**} only while the epic
@@ -42,7 +50,9 @@ import de.planmarshall.core.store.WorkspaceRoots;
  * {@code .marshall/project-architecture/**};</li>
  * <li>{@link ScopeType#PROJECT}: no staging set, every dirty path is outside.</li>
  * </ul>
- * Every other dirty path is {@code outside}; a refused path is a value, never an exception.
+ * Every other dirty path is {@code outside}; a refused path is a value, never an exception. The tracked-tree rule stays
+ * silent when it cannot read the repository, so the staging set then decides by the textual and file-system rules alone
+ * and the commit reports the condition.
  *
  * @since 0.1
  */
@@ -75,10 +85,21 @@ public final class StagingSets {
         Objects.requireNonNull(dirtyPaths, "dirtyPaths");
         var member = member(scope, archiving);
         var roots = new WorkspaceRoots(worktree, Set.of());
+        // only a name the file-system rule admits converts to a path, so the tracked-tree read runs on those alone: a
+        // name no encoding of this JVM can represent must never reach Path.resolve
+        var confined = new TreeSet<String>();
+        for (var path : dirtyPaths) {
+            if (isConfinedName(roots, worktree, path)) {
+                confined.add(path);
+            }
+        }
+        var trackedTrees = scope == ScopeType.PROJECT || confined.isEmpty()
+                ? Collections.<String>emptySortedSet()
+                : CommitPathRefusals.refusedTrackedTrees(worktree, confined);
         var staged = new TreeSet<String>();
         var outside = new TreeSet<String>();
         for (var path : dirtyPaths) {
-            if (isConfinedName(roots, path) && member.test(path)) {
+            if (confined.contains(path) && !trackedTrees.contains(path) && member.test(path)) {
                 staged.add(path);
             } else {
                 outside.add(path);
@@ -98,12 +119,17 @@ public final class StagingSets {
     }
 
     /**
-     * The last name of a dirty path is the entry git records, and a symbolic link is recorded as a link, never
-     * followed: only the directory that holds it is confined. A link to outside or a dangling link is therefore a
-     * name of the checkout like any other, while a path that runs through a link to outside stays outside.
+     * The rule of the commit comes first ({@link CommitPathRefusals}): the textual one, the file-system one (a
+     * directory, an absolute name, a name outside the root, a parent a symbolic link carries outside it) and, outside
+     * this method, the tracked-tree one. A name the commit would refuse is never staged: a colon-led name, a backslash, a
+     * control character, a newline, the {@code dir/} entry of an embedded repository and the name of a modified
+     * submodule, which the worktree holds as a directory, go to {@code outside}, where the footprint check names them.
+     * The last name of a dirty path is the entry git records, and a symbolic link is recorded as a link, never followed:
+     * only the directory that holds it is confined. A link to outside or a dangling link is therefore a name of the
+     * checkout like any other, while a path that runs through a link to outside stays outside.
      */
-    private static boolean isConfinedName(WorkspaceRoots roots, String path) {
-        if (path.isEmpty() || path.indexOf('\0') >= 0) {
+    private static boolean isConfinedName(WorkspaceRoots roots, Path worktree, String path) {
+        if (CommitPathRefusals.isRefusedText(path) || CommitPathRefusals.isRefusedLocation(worktree, path)) {
             return false;
         }
         Path name;

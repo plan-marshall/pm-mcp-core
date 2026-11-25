@@ -28,10 +28,14 @@ constructed over the project's `QueueStore` and holds no state of its own beyond
 The consultation id is the consultation task's `queue_task_id`, and the service draws it from an id seam, a
 `Supplier<QueueTaskId>` (link:../adr/workflow-consult/005-the-consultation-id-comes-from-a-seam.adoc[ADR 005]). The
 one-argument constructor draws from `QueueTaskId.random()`; a caller that must know the ids in advance, as the scenario
-replay harness does, passes its own supplier to the two-argument constructor. A drawn id the queue already holds is
-skipped and the next one drawn, so a supplier yields a free id after finitely many taken ones; a supplier that keeps
-handing out taken ids is refused `consultation_ids_exhausted` after
-`ConsultationService.MAX_ID_DRAWS` (`64`) draws in a row instead of looping.
+replay harness does, passes its own supplier to the two-argument constructor. The draw runs inside the transaction that
+records the consultation, against the records it sees: a task's id and every consultation id an asking task records count
+as taken, also while the consultation task of that entry does not exist yet, so two opens that draw the same id cannot
+both record it. A creation that fails leaves no second reservation: the id stays taken by the recorded entry, and
+`reconcile` settles that entry `unavailable` and keeps its id taken. A drawn id the records already hold is skipped and
+the next one drawn, so a supplier yields a free id after finitely many taken ones; a supplier that keeps handing out
+taken ids is refused `consultation_ids_exhausted` after `ConsultationService.MAX_ID_DRAWS` (`64`) draws in a row instead
+of looping.
 
 `ConsultationRequest`::
 The ask: the asking task and generation, the consulted role and its class, the roles the state declares, the question,
@@ -130,8 +134,10 @@ No rule is kept in a second store, and the service reads no clock: every call ta
 * The consultation count is the length of `consultations[]` and only grows; an answered, unavailable or open
   consultation counts the same toward the bound.
 * An answer or a loss is recorded once. The second answer is `stale_entity`, not a second result.
-* The asking task records the consultation before the consultation task exists. If the task cannot be created, the
-  failure propagates and `reconcile` settles the open entry `unavailable` after the creation grace the server passes; a
-  crash between the two writes leaves the same state, repaired the same way.
+* The asking task records the consultation and moves to `consulting` in one `updateAll` transaction; the consultation
+  task is created in a second, after it. If that create fails, the failure propagates and the asking task stays
+  `consulting` with the entry open until `reconcile` settles it `unavailable` after the creation grace the server passes; a
+  crash between the two writes leaves the same state, repaired the same way. The asker is therefore blocked from a second
+  consultation during the grace, by the open entry rather than by a lock.
 * A delivery is effective once: to the asking generation's wait, else to the successor's facts
   (link:../adr/workflow-consult/001-delivery-is-decided-from-the-askers-lease.adoc[ADR 001]).

@@ -18,14 +18,18 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
@@ -158,17 +162,6 @@ class PendingEntryCreationTest {
         }
     }
 
-    /** Runs the move into another scope, without committing: the call under test refuses or throws. */
-    private void moveTo(JournalScope target) {
-        try (var transaction = locks.openTransaction()) {
-            transaction.acquire(workspace.lockKey());
-            transaction.acquire(target.lockKey());
-            var workspaceWrite = ScopeTransaction.open(transaction, workspace, audit, clock);
-            var write = ScopeTransaction.open(transaction, target, audit, clock);
-            creation.move(workspaceWrite, write, entryId);
-        }
-    }
-
     @Test
     @DisplayName("the sources, transcript, questions and decisions move into the new scope, the directory last")
     void movesIntoTheNewScope() throws Exception {
@@ -217,6 +210,18 @@ class PendingEntryCreationTest {
     }
 
     @Test
+    @DisplayName("a source directory that is not normalized still composes the request of every valid file")
+    void composesFromANonNormalizedDirectory() throws Exception {
+        var manifest = prepareEntry();
+        var notNormalized = store.sourcesDirectory(entryId).resolve("..").resolve("sources");
+
+        var document = PendingEntryCreation.composeRequest(notNormalized, manifest);
+
+        assertTrue(document.startsWith("# Request\n\n" + description),
+                "an unnormalized source directory still composes");
+    }
+
+    @Test
     @DisplayName("a stored file that differs from its manifest entry refuses the move")
     void refusesADifferingSource() throws Exception {
         prepareEntry();
@@ -234,17 +239,42 @@ class PendingEntryCreationTest {
         var epic = JournalScope.epic(base, PROJECT, "epic-" + Generators.letterStrings(3, 12).next()
                 .toLowerCase(Locale.ROOT));
         Files.createDirectories(epic.journalFile().getParent());
+        var probe = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT) + ".json";
 
-        var refusal = assertThrows(IllegalArgumentException.class, () -> moveTo(epic),
-                "an epic's machine store takes no source");
+        IllegalArgumentException refusal;
+        try (var transaction = locks.openTransaction()) {
+            transaction.acquire(workspace.lockKey());
+            transaction.acquire(epic.lockKey());
+            var workspaceWrite = ScopeTransaction.open(transaction, workspace, audit, clock);
+            var epicWrite = ScopeTransaction.open(transaction, epic, audit, clock);
+            workspaceWrite.create(PendingEntryStore.entryPath(entryId, probe), new byte[0]);
+            epicWrite.create(probe, new byte[0]);
+            refusal = assertThrows(IllegalArgumentException.class,
+                    () -> creation.move(workspaceWrite, epicWrite, entryId),
+                    "an epic's machine store takes no source");
+            epicWrite.commit();
+            workspaceWrite.commit();
+        }
 
         assertAll(
                 () -> assertTrue(refusal.getMessage().contains("ledger"),
                         "the reason should name the epic's ledger"),
-                () -> assertTrue(refusal.getMessage().contains("PLAN-V2-133"),
-                        "the reason should name what the ledger copy waits for"),
+                () -> assertTrue(refusal.getMessage().contains("ledger copy"),
+                        "the reason should name the ledger copy that is owed"),
+                () -> assertFalse(refusal.getMessage().contains("PLAN-V2-133"),
+                        "the reason should name the capability, not a plan id"),
+                () -> assertTrue(Files.exists(epic.pathBase().resolve(probe)),
+                        "the epic's own store commits, so no move wrote"),
                 () -> assertFalse(Files.exists(epic.pathBase().resolve("sources")),
-                        "nothing should be written into the epic"));
+                        "no source directory should be written into the epic"),
+                () -> assertFalse(Files.exists(epic.pathBase().resolve("sources/sources.json")),
+                        "no manifest should be written into the epic"),
+                () -> assertFalse(Files.exists(epic.pathBase().resolve("chat")),
+                        "no transcript should be written into the epic"),
+                () -> assertFalse(Files.exists(new QuestionLog(epic).store()),
+                        "no question log should be written into the epic"),
+                () -> assertFalse(Files.exists(epic.pathBase().resolve("request.md")),
+                        "no request should be written into the epic"));
     }
 
     @Test
@@ -306,6 +336,168 @@ class PendingEntryCreationTest {
                         "the refusal should name the source directory"),
                 () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
                         "nothing should be written into the new scope"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a transcript that is a symbolic link refuses the move, never dropped with the directory")
+    void refusesALinkedTranscript() throws Exception {
+        prepareEntry();
+        var transcript = store.chatDirectory(entryId);
+        var elsewhere = Files.createDirectory(base.resolve("elsewhere-chat"));
+        Files.delete(transcript.resolve("session.md"));
+        Files.delete(transcript);
+        Files.createSymbolicLink(transcript, elsewhere);
+
+        var refusal = assertThrows(StoreRefusal.class, this::move,
+                "a linked transcript should refuse the move");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("transcript"),
+                        "the refusal should name the transcript"),
+                () -> assertTrue(refusal.getMessage().contains("symbolic link"),
+                        "the refusal should name the link it found"),
+                () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
+                        "nothing should be written into the new scope"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a link inside the transcript refuses the move, where it would be dropped and deleted")
+    void refusesALinkInsideTheTranscript() throws Exception {
+        prepareEntry();
+        var outside = Files.writeString(base.resolve("outside-chat.md"), chat, UTF_8);
+        Files.createSymbolicLink(store.chatDirectory(entryId).resolve("linked.md"), outside);
+
+        var refusal = assertThrows(StoreRefusal.class, this::move,
+                "a link inside the transcript should refuse the move");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("linked.md"),
+                        "the refusal should name the linked transcript file"),
+                () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
+                        "nothing should be written into the new scope"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("the walk refuses an unnamed link below the source directory before a stored file is read")
+    void refusesAPathBelowALinkedParent() throws Exception {
+        var parent = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+        var stored = new SourceFile(parent + "/" + SourceManifestCodec.FILE_NAME + ".md", 2,
+                StoreDigest.of("{}".getBytes(UTF_8)).sha256());
+        var manifest = new SourceManifest(1, List.of(new Source(sourceIdFor("parent"), SourceManifest.Kind.DESCRIPTION,
+                "ref", "operator", Trust.TRUSTED, List.of(stored), at, null, null)));
+        Files.createDirectories(plan.pathBase().resolve("sources"));
+        inWorkspace(transaction -> store.create(transaction, entry()));
+        inWorkspace(transaction -> store.replaceSources(transaction, entryId, manifest));
+        var elsewhere = Files.createDirectory(base.resolve("elsewhere-sources"));
+        Files.writeString(elsewhere.resolve(SourceManifestCodec.FILE_NAME + ".md"), "{}", UTF_8);
+        Files.createSymbolicLink(store.sourcesDirectory(entryId).resolve(parent), elsewhere);
+
+        var refusal = assertThrows(StoreRefusal.class, this::move,
+                "an unnamed link below sources should refuse the move");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains(parent),
+                        "the refusal should name the linked directory"),
+                () -> assertTrue(refusal.getMessage().contains("symbolic link"),
+                        "the refusal should name the link it found"),
+                () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
+                        "nothing should be written into the new scope"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a stored path below a linked parent refuses the composition through the read guard")
+    void refusesAPathBelowALinkedParentInTheComposition() throws Exception {
+        var parent = Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
+        var content = Generators.letterStrings(5, 20).next().getBytes(UTF_8);
+        // Fixture path: the stored file name the manifest names below the linked directory
+        var stored = new SourceFile(parent + "/description.md", content.length, StoreDigest.of(content).sha256());
+        var manifest = new SourceManifest(1, List.of(new Source(sourceIdFor("parent"), SourceManifest.Kind.DESCRIPTION,
+                "ref", "operator", Trust.TRUSTED, List.of(stored), at, null, null)));
+        var sources = Files.createDirectories(base.resolve("composition-sources"));
+        var elsewhere = Files.createDirectory(base.resolve("elsewhere-composition"));
+        Files.write(elsewhere.resolve("description.md"), content);
+        Files.createSymbolicLink(sources.resolve(parent), elsewhere);
+
+        var refusal = assertThrows(StoreRefusal.class,
+                () -> PendingEntryCreation.composeRequest(sources, manifest),
+                "a linked parent should refuse the composition");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("description.md"),
+                        "the refusal should name the stored file"),
+                () -> assertTrue(refusal.getMessage().contains("symbolic link"),
+                        "the refusal should name the link it found"));
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a FIFO the manifest names is refused before it is opened, so the read never blocks under the lock")
+    void refusesASpecialFileTheManifestNames() throws Exception {
+        var content = Generators.letterStrings(5, 20).next().getBytes(UTF_8);
+        // Fixture path: one short name in the base, which is both the stored file's name and the FIFO's
+        var fifo = base.resolve("f.md");
+        assumeTrue(createFifo(fifo), "the platform must offer mkfifo for the fixture");
+        var stored = new SourceFile("f.md", content.length, StoreDigest.of(content).sha256());
+        var manifest = new SourceManifest(1, List.of(new Source(sourceIdFor("special"), SourceManifest.Kind.DESCRIPTION,
+                "ref", "operator", Trust.TRUSTED, List.of(stored), at, null, null)));
+
+        // A guard that regressed would block in open(2); the pre-empted thread stays blocked for the JVM, which is the
+        // cost of proving that the file is never opened
+        var refusal = assertTimeoutPreemptively(Duration.ofSeconds(5),
+                () -> assertThrows(StoreRefusal.class,
+                        () -> PendingEntryCreation.composeRequest(base, manifest),
+                        "a special file the manifest names should refuse the read"),
+                "the read must refuse the FIFO without opening it");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("f.md"),
+                        "the refusal should name the special file"),
+                () -> assertTrue(refusal.getMessage().contains("no regular file"),
+                        "the refusal should say the file is no regular file"));
+    }
+
+    /**
+     * Makes a FIFO with the platform's {@code mkfifo}. Plain Java has no API that creates one, and the FIFO is the
+     * special file whose open blocks: a socket, which {@code open(2)} refuses at once, cannot show that the file is
+     * never opened.
+     *
+     * @return whether the command made the FIFO; false when it is absent or fails, so the caller skips the test
+     */
+    private static boolean createFifo(Path fifo) throws InterruptedException {
+        try {
+            var process = new ProcessBuilder("mkfifo", fifo.toString()).redirectErrorStream(true).start();
+            return process.waitFor() == 0 && Files.exists(fifo, LinkOption.NOFOLLOW_LINKS);
+        } catch (IOException _) {
+            return false;
+        }
+    }
+
+    @Test
+    @EnabledOnOs({OS.LINUX, OS.MAC})
+    @DisplayName("a transcript that is no directory refuses the move with its own reason")
+    void refusesATranscriptThatIsNoDirectory() throws Exception {
+        prepareEntry();
+        var transcript = store.chatDirectory(entryId);
+        Files.delete(transcript.resolve("session.md"));
+        Files.delete(transcript);
+        Files.writeString(transcript, chat, UTF_8);
+
+        var refusal = assertThrows(StoreRefusal.class, this::move,
+                "a transcript that is a file should refuse the move");
+
+        assertAll(
+                () -> assertTrue(refusal.getMessage().contains("no directory"),
+                        "the refusal should say the transcript is no directory"),
+                () -> assertFalse(Files.exists(plan.pathBase().resolve("sources/sources.json")),
+                        "nothing should be written into the new scope"));
+    }
+
+    private String sourceIdFor(String prefix) {
+        return prefix + "_" + Generators.letterStrings(3, 12).next().toLowerCase(Locale.ROOT);
     }
 
     @Test

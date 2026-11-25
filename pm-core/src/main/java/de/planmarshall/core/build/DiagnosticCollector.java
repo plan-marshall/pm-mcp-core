@@ -68,7 +68,20 @@ class DiagnosticCollector {
      */
     static String key(Diagnostic diagnostic) {
         return diagnostic.category().name() + ":" + diagnostic.file() + ":" + diagnostic.line() + ":"
-                + truncate(diagnostic.message(), DEDUP_MESSAGE_LENGTH);
+                + messageKey(diagnostic.message());
+    }
+
+    /**
+     * The message part of a deduplication key: the first 100 characters of a stored message. The cut tail's count path
+     * deliberately keeps its own key — the execution ordinal plus the whole stored message — because the first 100
+     * characters collide on two failing classes under one long package prefix; where the count path mirrors the
+     * collector's identity it calls {@link #key(Diagnostic)}, never this reader alone (ADR {@code core-build/013}).
+     *
+     * @param message the stored message
+     * @return the first {@value #DEDUP_MESSAGE_LENGTH} characters of the message
+     */
+    static String messageKey(String message) {
+        return truncate(message, DEDUP_MESSAGE_LENGTH);
     }
 
     /**

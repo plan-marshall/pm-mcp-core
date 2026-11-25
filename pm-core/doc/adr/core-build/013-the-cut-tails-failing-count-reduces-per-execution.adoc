@@ -1,0 +1,99 @@
+= ADR 013: The Cut Tail's Failing Count Is Reduced per Execution and Keyed by the Whole Line
+:nofooter:
+
+== Status
+
+Accepted (2026-11-23, PLAN-V2-177). Amends the counting rule of ADR
+link:012-the-cut-tails-failing-count-is-taken-per-execution.adoc[`core-build/012`]: the unit and the evidence rule stay,
+the subtraction unit, the count-line key and the overflowing digit count change. ADR
+link:011-a-cut-build-log-reports-unmeasured.adoc[`core-build/011`] keeps its `TestCounts.Unmeasured` decision.
+
+== Date
+
+2026-11-23
+
+== Context
+
+ADR `core-build/012` took the cut tail's visible failing count per execution — the one the nearest preceding plugin
+header opens — and reduced it by the failing tests the diagnostic collector filed at error level. The landing analysis of PLAN-V2-173 read four residues in that
+rule:
+
+* The subtraction was global while the visible figure was per execution. An execution whose per-class line and summary
+  both filed (two collector identities, one failure) over-subtracted, and the surplus was spent on another execution's
+  figure: execution B's warning-only failure was never filed.
+* The count lines were deduplicated by `DiagnosticCollector.messageKey` — the first 100 characters of the stored
+  message. A per-class line spends about 90 characters on its prefix, so two failing classes with equal counts and
+  equal elapsed time under one package prefix were one figure; `distinct()` then ran over all executions, so two
+  modules' identical summary lines were one figure too.
+* `filedFailures` added the identity of every count line, including a line the collector never filed (no `[ERROR]` or
+  `[WARNING]` marker). An unmarked `Tests run: 1, Failures: 1, …` followed by an identical `[ERROR]` line registered
+  the identity first, so the error line the collector did file was never subtracted and the synthetic finding repeated
+  it.
+* `CountScan.parse` returned `0L` on `NumberFormatException`, so a count of 20 digits or more gave `failed = 0` and no
+  remainder, and `Failures + Errors` was added without saturation. The cut path ignored the `unrepresentable` flag,
+  which only makes the uncut result `Unmeasured`.
+
+R07 put the three choices to the operator at refine (2026-11-23); each answer is the decision below.
+
+== Decision
+
+* The reduction is taken per execution: an execution's visible figure minus the failing tests its filed
+  error-level count lines report, floored at zero, and the executions' remainders are added (saturating). A surplus of
+  one execution cannot spend itself on another execution's failure.
+* The filed figure mirrors the collector exactly: only a line the collector retained is counted, under the collector's
+  own identity (`DiagnosticCollector.key`), with the retained occurrence's severity. A count line with no printed
+  severity carries no identity into the reduction, so the identical error line after it still counts as filed. A line
+  the collector dropped as a duplicate of a warning is not at error level.
+* The count path keys its visible-side lines by the execution ordinal and the whole line message — the line minus its
+  level prefix, untruncated — not by the collector's first 100 characters or its stored 500. Two failing classes whose
+  messages differ only past the 100th or the 500th character are two figures, and two executions' identical summary
+  lines are two figures.
+* A digit count outside the `long` range saturates at `Long.MAX_VALUE` instead of parsing as zero, and
+  `Failures + Errors` is added with the same saturated addition. That sum's saturation is belt-and-braces: a wrapped
+  sum would be negative, and the downstream saturated addition recovers `Long.MAX_VALUE` from it anyway, so the guard is
+  kept because it states the invariant where the sum is taken instead of relying on that downstream quirk. The
+  `unrepresentable` flag keeps its own bound:
+  a count above `Integer.MAX_VALUE` makes the *uncut* result `Unmeasured`; the cut result is `Unmeasured` anyway, so
+  the flag never suppresses the tail's failing evidence.
+
+The bounds this decision keeps or adds:
+
+* The count key differs from the collector's identity. Two lines the key tells apart but the collector's first 100
+  characters do not are still one diagnostic, so the count can exceed the filed figure by their difference and that
+  difference is filed as the remainder. The key costs at most one per-line-bound message beside the ordinal (the read
+  cuts every line at `BuildLogText.MAX_LINE_LENGTH`, 8192 characters, before the scan sees it).
+* The execution ordinal is the nearest preceding plugin header, and every plugin header increments it, so only the
+  runner attribution is test-plugin-scoped. Under `-T` the modules' lines interleave, so an ordinal is one execution in
+  the log's order, never a module.
+* The cut path never consults `PARALLEL_BUILD_BANNER`; the banner governs `byRunner` of the uncut result alone.
+
+== Alternatives Considered
+
+* *Keep the global subtraction and state the bound.* Leaves execution B's failure unfiled whenever execution A
+  over-subtracts. The operator chose the per-execution fix.
+* *Keep the first-100-character key and state the collision.* Leaves two failing classes under one long package prefix
+  as one figure and two modules' identical summaries as one. The operator chose the whole-message key with the
+  execution ordinal.
+* *Parse an overflowing digit count as zero and refuse to measure.* Reads a count the log printed as no evidence and
+  leaves a hostile or truncated figure able to hide a failure. The operator chose saturation.
+* *Count an unmarked line's identity.* The collector never filed the line, so no error diagnostic reports its
+  failures; subtracting it loses the failure the error twin files.
+
+== Consequences
+
+* A cut tail's remainder is the sum of its executions' unfiled failures; one execution's duplicate identities no
+  longer hide another execution's failure.
+* The count can exceed what the collector filed where the two identity rules diverge; the difference is exactly the
+  remainder the synthetic `TEST_FAILURE` diagnostic reports, so the failure is still visible.
+* A count of any digit length files a failure when the log shows one; no overflowing figure reads as zero.
+* ADR `core-build/012`'s statements that the identity is "byte-identical" and that the subtraction mirrors the
+  collector are corrected beside this decision, and the developer guide states the per-execution reduction, the count
+  key and the saturation.
+
+== Source
+
+* Plan: link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-177-cut-log-second-residue-closeout.md[PLAN-V2-177]
+* Landing: the analysis of PLAN-V2-173 (`landings/PLAN-V2-173.md`, carried item 96 a to d)
+* Specification: link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime § Native Build Output Parsers]
+* Developer guide: link:../../developer/core-build.adoc[`core.build`]
+* Predecessor: link:012-the-cut-tails-failing-count-is-taken-per-execution.adoc[ADR `core-build/012`]

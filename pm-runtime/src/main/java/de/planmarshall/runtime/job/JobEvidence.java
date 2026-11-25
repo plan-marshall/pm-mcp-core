@@ -14,6 +14,7 @@ import java.util.Set;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.build.TestCounts;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecord.SelfReportContradiction;
 
@@ -164,14 +165,19 @@ public sealed interface JobEvidence permits JobEvidence.RefusedBeforeSpawn, JobE
      *                                failing test counts
      * @param selfReportContradiction the contradiction between the status a project script reported and the evidence;
      *                                {@code null} when there is none
+     * @param testCounts              the test population the parser aggregated, in the three states of
+     *                                {@link TestCounts}: absent ({@code null}, the log carried no count line),
+     *                                {@code Unmeasured} (the parser could not aggregate it, a cut Maven log included) or
+     *                                {@code Measured}; it travels beside the contradiction so a consumer can tell an
+     *                                absent figure from an unmeasured one
      * @since 0.1
      */
     @Builder
     record ParseResult(boolean successMarker, int diagnostics, boolean contradictingEvidence,
-    @Nullable SelfReportContradiction selfReportContradiction) {
+    @Nullable SelfReportContradiction selfReportContradiction, @Nullable TestCounts testCounts) {
 
         /** What the parser found in a log it could not read: nothing. */
-        public static final ParseResult NOTHING = new ParseResult(false, 0, false, null);
+        public static final ParseResult NOTHING = new ParseResult(false, 0, false, null, null);
 
         /**
          * @throws IllegalArgumentException if the number of diagnostics is negative

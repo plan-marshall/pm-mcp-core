@@ -78,7 +78,9 @@ the same pattern and `setUpdate(true)`) and passes `CommitCommand.setOnly(path)`
 other process staged earlier is not carried into the commit. A directory never arrives twice over: the caller's bind admits
 only files of its staging set (link:../../../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer
 Guide]), and the provider refuses a directory and a git pathspec magic (a path that begins with `:`) before it stages
-anything, because a JGit pathspec is prefix-based and would expand a directory to everything below it. A directory is refused in the worktree, in the index and in the head tree; the
+anything, because a JGit pathspec is prefix-based and would expand a directory to everything below it. The path rule is
+one helper the commit shares with the staging set of a scope (`CommitPathRefusals`): the textual rule, the file-system
+rule and the tracked-tree rule. A directory is refused in the worktree, in the index and in the head tree; the
 index is checked whether or not `HEAD` resolves, so a directory staged in a repository without commits and then removed
 from the worktree is refused too, and only the head-tree check needs `HEAD`. The directory checks do not follow a final
 symbolic link, so a link, also one to a directory, one to a target outside the root or a dangling one, is committed as the
@@ -91,17 +93,28 @@ workflow-input/006]). Besides a directory and a magic, the provider refuses a pa
 normal form (an empty, `.` or `..` segment), or carries a backslash or a control character, and a path whose parent
 directory a symbolic link carries outside the real root: the parent, or its nearest existing ancestor when it does not
 exist, is resolved with `toRealPath` against the real root, so `alias/private.txt` below a link `alias` to an outside
-directory is refused before any listed path is staged. The empty commit is read from
-the typed index and head tree, never from the translated JGit message, which a locale would change
-(link:../adr/provider-git/004-a-directory-is-refused-and-emptiness-is-typed.adoc[ADR 004]). The commit set stays a subset
-of the staging set (link:../adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR 003]).
+directory is refused before any listed path is staged. A commit with nothing to commit is recognised before anything is
+staged, from the worktree and the index through git's status, never from the translated JGit message, which a locale
+would change (link:../adr/provider-git/004-a-directory-is-refused-and-emptiness-is-typed.adoc[ADR 004]), and the index is
+put back as it was: a listed path whose staged change the worktree reverted is restored from the snapshot taken before
+staging, and for an empty path list — every change of the worktree — the whole index is snapshotted and restored, so the
+`NOTHING_TO_COMMIT` of that pre-check leaves the index untouched on both routes. An index that holds unresolved conflict entries under the
+listed paths is refused as `FAILED` with a detail naming the path before anything is staged, before even the emptiness
+read: the restore keeps one entry per path, so it would write the base entry back at stage 0 and the conflict would
+disappear. JGit's own empty-commit refusal after staging is a defensive path behind the pre-check and restores nothing.
+The commit set stays a subset of the staging set (link:../adr/provider-git/003-the-commit-is-the-listed-paths.adoc[ADR
+003]).
 
-Tested by `JGitOperationsTest`: a subset with an unrelated pre-staged file and an unrelated dirty file left out, a
+Tested by the `JGitOperations*Test` classes: a subset with an unrelated pre-staged file and an unrelated dirty file left
+out, a
 deletion, a commit with an empty `paths` that still takes every change, a refused directory and a refused pathspec magic,
 a commit of a glob-named path under its literal name and a name with a bracket, a star and a question mark committed
 literally beside the files their glob reading would match, a name of the option form committed literally, a link to a directory and a dangling link committed as links, a link that replaces a tracked
 directory committed as that link, a path below a link to an outside directory refused with nothing staged although a valid
-path is listed beside it, a directory staged in a repository without commits refused once it is removed, the refused
+path is listed beside it, a directory staged in a repository without commits refused once it is removed, a modified
+submodule and a tracked directory replaced by a file refused by the commit and reported `outside` by the staging set of
+the same name, a staged change the worktree reverted kept in the index for a listed and for an empty path list, a
+conflicted index refused, the refused
 absolute, parent, outside and non-normal paths, and a builder that omits `paths` and commits every change.
 
 [#_the_consumer_of_the_commit_set]
@@ -184,13 +197,23 @@ The tests need no network.
 A fixture repository is created by the test on disk with `JGitOperations` itself (`init`, `commit`) and configured with `uploadpack.allowAnySHA1InWant` so it serves a commit by its id, as public hosts do; the test fetches from its `file://` URL under `RemotePolicy.localOnly()`.
 
 [horizontal]
-link:{test}/JGitCacheRepositoryTest.java[`JGitCacheRepositoryTest`]:: `initCache` creates and reopens a bare repository, refuses anything else, and is `FAILED` for a cache that cannot be created; the pinned commit is fetched, a plain file and an LFS pointer are read raw; a commit already in the cache is served without the remote; an unknown or abbreviated commit is `UNKNOWN_REVISION`; a remote that does not answer is `FAILED`; a missing path or a directory is `PATH_NOT_FOUND`; a file whose object the cache lost is `FAILED` to `readFile`; a remote the policy does not admit is `REMOTE_ORIGIN_MISMATCH` with nothing sent. `CAPABILITY_MISSING` of `fetchCommit` has no test of its own: the in-process transport of a `file://` remote runs neither a hook nor a process, so no fixture reaches it; the refusal itself is the `RefusingFS` that `JGitOperationsTest` proves for `commit` and the worktree operations.
+link:{test}/JGitCacheRepositoryTest.java[`JGitCacheRepositoryTest`]:: `initCache` creates and reopens a bare repository, refuses anything else, and is `FAILED` for a cache that cannot be created; the pinned commit is fetched, a plain file and an LFS pointer are read raw; a commit already in the cache is served without the remote; an unknown or abbreviated commit is `UNKNOWN_REVISION`; a remote that does not answer is `FAILED`; a missing path or a directory is `PATH_NOT_FOUND`; a file whose object the cache lost is `FAILED` to `readFile`; a remote the policy does not admit is `REMOTE_ORIGIN_MISMATCH` with nothing sent. `CAPABILITY_MISSING` of `fetchCommit` has no test of its own: the in-process transport of a `file://` remote runs neither a hook nor a process, so no fixture reaches it; the refusal itself is the `RefusingFS` that `JGitOperationsCapabilityTest` proves for `commit` and the worktree operations.
 link:{test}/JGitSourceRepositoryTest.java[`JGitSourceRepositoryTest`]:: `CorpusImport` of `pm-core` end to end with this adapter over two fixture repositories and an in-test `LfsObjectSource`: the pinned sources are fetched, verified and generated into items that `CorpusValidator` accepts; a changed file fails its hash and the run; a removed fixture repository is missed by name while the other source's items remain; a pinned commit the repository does not serve and a path that is no file at the pin are `pin_missing`; the default constructor fetches through `Remote.of`, whose policy admits the manifest's https origin with its port and nothing else.
 link:{test}/UnservedWantTest.java[`UnservedWantTest`]:: Each recognised refusal wording is `UNKNOWN_REVISION`; a connection, status or timeout failure, and a message that only resembles one, are not.
 link:{test}/GitIdentityTest.java[`GitIdentityTest`]:: A branch named like the pinned commit and a name that resolves as two refs are `GIT_IDENTITY_AMBIGUOUS`; an abbreviated commit id is `UNKNOWN_REVISION` naming it; a branch that is not at its pin is `GIT_IDENTITY_MISMATCH` with both ids; `log` refuses an ambiguous revision; the ref spellings.
-link:{test}/JGitOperationsTest.java[`JGitOperationsTest`]:: the project operations through JGit: open, commit, log, fetch
-and push with their outcomes, the linked worktrees created, listed and removed natively, the dirty and locked worktree
-refusals, and `RefusingFS` proving that a hook or a filter driver is `capability_missing`.
+link:{test}/JGitOperationsTest.java[`JGitOperationsTest`]:: the project operations through JGit: open, commit, log, the
+commit that leaves the index untouched when it has nothing to commit, the staged change the worktree reverted kept in the
+index for a listed path and for an empty path list, and a conflicted index refused with its path.
+link:{test}/JGitOperationsPathTest.java[`JGitOperationsPathTest`]:: the literal path rule: a glob and an option-shaped
+name committed literally, a link to a directory and a dangling link committed as links, a link that replaces a tracked
+directory, and the refusals of a magic, a directory, an absolute, a parent, an outside and a non-normal path, of a path
+below a link to outside and of a path whose nearest existing ancestor is a dangling link.
+link:{test}/JGitOperationsWorktreeTest.java[`JGitOperationsWorktreeTest`]:: the version-1 digest framing and the linked
+worktrees created, listed and removed natively, with the dirty and locked refusals and the git CLI's own view.
+link:{test}/JGitOperationsTransportTest.java[`JGitOperationsTransportTest`]:: fetch and push over `file://` with their
+outcomes, the remote policy and the credential's equality.
+link:{test}/JGitOperationsCapabilityTest.java[`JGitOperationsCapabilityTest`]:: `RefusingFS` proving that a hook or a
+filter driver is `capability_missing`.
 link:{test}/RefusingFSTest.java[`RefusingFSTest`]:: every process entry point refused with `capability_missing`, an
 absent hook reported as absent, and the `git` executable discovery answering none.
 link:{test}/WorktreeShaDigestTest.java[`WorktreeShaDigestTest`]:: the framing of the digest input — file, link and deleted

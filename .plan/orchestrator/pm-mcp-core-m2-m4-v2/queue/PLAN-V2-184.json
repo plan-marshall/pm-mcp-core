@@ -1,0 +1,11 @@
+{
+  "id": "PLAN-V2-184",
+  "slug": "sweep-first-fault-message-and-statement-closeout",
+  "workstream": "WS-03",
+  "status": "shipped",
+  "lane": "runbook",
+  "plan_marshall_plan_id": "rb-v2-184-sweep-first-fault-message-and-statement-closeout",
+  "pr": "#606",
+  "landing": "landings/PLAN-V2-184.md",
+  "seq": 172
+}

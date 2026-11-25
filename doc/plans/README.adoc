@@ -73,12 +73,12 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |The six phases as sub-workflows of the plan unit (the land lane's `land.*` states within `execute`), and the plan's history
 |`open`
 |nothing
-|Milestone 3; the client work of `pm-mcp-clients`
+|Milestones 3, 7, 8, 9 and 10, per task; the client work of `pm-mcp-clients`
 
 |link:process-and-overview.adoc[`process-and-overview`]
 |The plan's process, what needs the operator, running work and the overview, the events per scope, and ended work as resources
 |`open`
-|`phase-sub-workflows`; `plan-and-epic-control` (the activity, the holds)
+|`phase-sub-workflows` (the plan's history); `plan-and-epic-control` (the activity, the holds)
 |Milestones 7 and 10; the client work of `pm-mcp-clients`
 
 |link:project-onboarding-unit.adoc[`project-onboarding-unit`]
@@ -108,13 +108,13 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:recipe-workflows.adoc[`recipe-workflows`]
 |A recipe is a workflow
 |`open`
-|`phase-sub-workflows`; `start-from-clients`
+|`phase-sub-workflows` (the default units as phase sub-workflows); `start-from-clients`
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:chat.adoc[`chat`]
 |Chatting with the planning role: one sub-workflow for a plan, an epic, a decision, a start, and ended work, routed to its role, every change through read-back
 |`open`
-|`phase-sub-workflows`; `decision-engine`; `start-from-clients` (chat while starting); `start-source-intake` (the entry's `chat/` and its move); `process-and-overview` (ended work)
+|`phase-sub-workflows` (the default units as phase sub-workflows); `decision-engine`; `start-from-clients` (chat while starting); `start-source-intake` (the entry's `chat/` and its move); `process-and-overview` (ended work)
 |Milestone 8; the client work of `pm-mcp-clients`
 
 |link:chat-plan-revision.adoc[`chat-plan-revision`]
@@ -204,7 +204,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:process-designer.adoc[`process-designer`]
 |Designing a plan's process: the machine level of workflow units and its precedence, the validation with its composition dry-run, placing and removing at machine and project level (the project's as a short landing) with their audit, the catalogue of building blocks
 |`open`
-|`phase-sub-workflows`; `recipe-workflows`; `start-source-intake` (the short landings)
+|`phase-sub-workflows` (the default units as phase sub-workflows); `recipe-workflows`; `start-source-intake` (the short landings)
 |Milestone 11; the client work of `pm-mcp-clients`
 
 |link:cleanup.adoc[`cleanup`]
@@ -216,13 +216,13 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:own-calls.adoc[`own-calls`]
 |Own calls of a writer: the choices a task settled that the plan left open, submitted with the task, checked by the server, and recorded as decisions
 |`blocked`
-|`decision-engine` (the decision-log records); `phase-sub-workflows`; the task envelope with its `submit` link and the Task Diff Record (no work package)
+|`decision-engine` (the decision-log records); `phase-sub-workflows` (the Q-Gate and execute parts); the task envelope with its `submit` link and the Task Diff Record (no work package)
 |Milestone 9
 
 |link:change-map.adoc[`change-map`]
 |The change map: which modules a change adds or removes, which dependencies between modules it adds or removes, and which third-party dependencies it adds, removes, or replaces
 |`blocked`
-|`own-calls`; `phase-sub-workflows`; `domain-extensions-and-architecture` (the module discovery and the build-file dependency parser); `finalize-pipeline-and-merge` (the Dependency Delta Check and the finalize pipeline of Milestone 10)
+|`own-calls`; `phase-sub-workflows` (the self-review results per constraint, non-goal and decision); `domain-extensions-and-architecture` (the module discovery); `finalize-pipeline-and-merge` (the `dependencies` step of the phase `sanity-check`, and the finalize pipeline of Milestone 10)
 |Milestone 10
 
 |link:domain-extensions-and-architecture.adoc[`domain-extensions-and-architecture`]
@@ -252,13 +252,13 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:remediation-units.adoc[`remediation-units`]
 |The six remediation policy units with their evidence, their closed action set, the shared template and the call-site budgets, and the compiled invariants
 |`open`
-|`decision-engine`; `phase-sub-workflows`
+|`decision-engine`; `phase-sub-workflows` (the Q-Gate and execute parts)
 |Milestones 8 and 10
 
 |link:re-planning.adoc[`re-planning`]
 |The re-planning of a running plan: the record, the server-detected triggers (without `capability_conflict` and `intent_amended`, link:../../../plan-marshall-documentation/doc/later-improvements.adoc#L-36[L-36]), the unit `replan` with its actions and guards, and the budgets and fallback
 |`open`
-|`phase-sub-workflows`
+|`phase-sub-workflows` (the Q-Gate and execute parts)
 |Milestones 9 and 10
 
 |link:access-grants.adoc[`access-grants`]
@@ -268,9 +268,9 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 9
 
 |link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]
-|The finalize pipeline from re-entry to merge: verdict currency and the step records of a firing, the merge path's states, the Pre-Merge Review Barrier and its waivable gates, the composite wait, and the pre-merge Dependency Delta Check
+|The finalize pipeline from re-entry to merge: verdict currency and the step records of a firing, the merge path's states, the Pre-Merge Review Barrier and its waivable gates, the composite wait, and the phase `sanity-check`
 |`open`
-|`phase-sub-workflows`; `domain-extensions-and-architecture`; `re-planning` (the `finalize.replan` call and the triggers it consumes)
+|`phase-sub-workflows` (the default units as phase sub-workflows, the simplify step); `domain-extensions-and-architecture`; `re-planning` (the `finalize.replan` call and the triggers it consumes)
 |Milestone 10
 
 |link:security-audit-and-code-scanning.adoc[`security-audit-and-code-scanning`]
@@ -288,7 +288,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:initial-lane-router.adoc[`initial-lane-router`]
 |The initial planning-lane router with its `lane_route` record, the bound of the clarification batch, the builder check's overflow, and the outline review's revisions of a light plan; outside the window: starts when its milestone is planned
 |`open`
-|`z3-deferred-code-removal`; `phase-sub-workflows`
+|`z3-deferred-code-removal`; `phase-sub-workflows` (the default units as phase sub-workflows, the outline record)
 |Milestone 8
 
 |link:finalize-prune-and-land-files.adoc[`finalize-prune-and-land-files`]

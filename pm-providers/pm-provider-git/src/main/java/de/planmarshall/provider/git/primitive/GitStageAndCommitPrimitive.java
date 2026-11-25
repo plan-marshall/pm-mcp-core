@@ -9,6 +9,7 @@
  */
 package de.planmarshall.provider.git.primitive;
 
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.spi.AwaitedEvent;
@@ -30,6 +32,7 @@ import de.planmarshall.core.spi.validation.ContentViolation;
 import de.planmarshall.provider.git.GitOperations;
 import de.planmarshall.provider.git.GitOperations.CommitInput;
 import de.planmarshall.provider.git.GitOperations.Identity;
+import de.planmarshall.provider.git.GitOutcome;
 import de.planmarshall.provider.git.GitResult;
 import de.planmarshall.provider.git.primitive.CommitMessages.Appended;
 import de.planmarshall.provider.git.primitive.CommitMessages.Refused;
@@ -47,10 +50,15 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
  * breaches the {@link CommitSite} observes; a breach is {@code failed} with the reason {@code footprint_violation}
  * before anything is staged;</li>
  * <li>the staging set narrowed by the bound {@code files}; an empty set is {@code nothing_to_commit} without a git
- * call;</li>
+ * call. The narrowing never refuses: a bound entry inside the staging set is committed and one outside it is dropped,
+ * because the bind owns the rule that a {@code files} entry names a path of the staging set
+ * ({@code input_refused}, the rule {@code path.staging});</li>
  * <li>the message given the resolved trailer by {@link CommitMessages#withTrailer(String, CommitTrailer)}, which
  * refuses a message that already holds a trailer line, and checked by {@link CommitMessages#validate(String)}; a
- * refusal is {@code failed} with the reason {@code message_refused};</li>
+ * refusal is {@code failed} with the reason {@code message_refused}. The message may be absent: the clean-tree route of
+ * {@code none_assert_clean} resolves {@code ready} without one, so the empty staging set above is
+ * {@code nothing_to_commit} before the message is read; with a non-empty staging set an absent message is
+ * {@code failed} with the reason {@code commit_failed} and the {@value #DETAIL_FACT} {@value #NO_MESSAGE_DETAIL};</li>
  * <li>one call of {@link GitOperations#commit(CommitInput)} with exactly the files to commit, the operator's
  * {@code commit_identity} as the author and the agent identity, else the compiled
  * {@code plan-marshall-mcp <noreply@cuioss.de>}, as the committer; the operator's git {@code user.*} settings are never
@@ -59,10 +67,14 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
  * The message reaches the repository in memory through the contract; no command line is built from a value. The
  * outcome of the contract maps to exactly one outcome: {@code OK} to {@code committed}, {@code NOTHING_TO_COMMIT} to
  * {@code nothing_to_commit}, every other, {@code CAPABILITY_MISSING} of the native variant among them, to
- * {@code failed} with the reason {@code commit_failed}. Hooks run only in the CLI variant, so only its hook refusal
- * returns {@code hook_failed}; the native variant never does. A {@code committed} result also carries the provenance of
- * the resolved trailer as the fact {@value #TRAILER_SOURCE_FACT}, for the commit's audit record; no other outcome
- * carries it.
+ * {@code failed} with the reason {@code commit_failed}. The {@value #DETAIL_FACT} of that failure is the contract's
+ * detail with the checkout's absolute root made repository-relative, or the code of the git outcome where the contract
+ * states no detail or a detail that still names an absolute path: no absolute path of the server behind an introducer
+ * reaches a fact, while a path glued behind a path-name character stays as the text states it, the residual
+ * {@link #modelDetail} names.
+ * Hooks run only in the CLI variant, so only its hook refusal returns {@code hook_failed}; the native variant never does.
+ * A {@code committed} result also carries the provenance of the resolved trailer as the fact
+ * {@value #TRAILER_SOURCE_FACT}, for the commit's audit record; no other outcome carries it.
  * <p>
  * The primitive ends a cycle through its state by an attempt cap ({@link CycleMeasure#ATTEMPT_CAP}) whose exhaustion
  * outcome is {@code attempts_exhausted}; the engine is to count the attempts and return that outcome at the cap, the
@@ -106,8 +118,62 @@ public final class GitStageAndCommitPrimitive
     /** The fact of {@code commit_failed}: the outcome of the contract. */
     public static final String GIT_OUTCOME_FACT = "git_outcome";
 
-    /** The fact of {@code commit_failed}: the detail of the contract's outcome. */
+    /**
+     * The fact of {@code commit_failed}: the detail of the failure — the contract's outcome made repository-relative,
+     * the code of the git outcome for a host path outside the checkout, or the primitive's own detail.
+     */
     public static final String DETAIL_FACT = "detail";
+
+    /** The detail of a call whose staging set is not empty but whose message was never resolved. */
+    static final String NO_MESSAGE_DETAIL = "no commit message is resolved";
+
+    /**
+     * The characters a relative name legitimately precedes a separator with: the segment characters of a path name and
+     * the closing brackets. A path starts at every position that follows anything else, so the pattern fails closed on
+     * an introducer no list can enumerate — an opening brace, a non-ASCII quote, a no-break space, punctuation, a
+     * control character — instead of naming the introducers it knows. A closing bracket is admitted here because a
+     * relative name carries one before a separator ({@code app/[slug]/page.tsx}); {@link #BRACKET_PATH} covers the host
+     * path that follows a stray closing bracket. The punctuation a name may carry but a separator rarely follows —
+     * {@code +}, {@code @}, {@code ~} — is no segment character here, so a separator after it is read as absolute: the
+     * fail-closed direction, chosen so that {@code ~/srv/private/key} stays a code.
+     */
+    private static final String NAME_CHARACTER = "[\\p{L}\\p{N}._\\-\\]})]";
+
+    /** The introducer-anchored prefix every host-path pattern starts with: anything but a path-name character. */
+    private static final String HOST_PREFIX = "(?<!" + NAME_CHARACTER + ")";
+
+    /**
+     * A token that starts an absolute path inside a detail text: a {@code /} that no path-name character precedes. A
+     * closing bracket is a path-name character, so a relative name such as {@code app/[slug]/page.tsx} or
+     * {@code (group)/x} stays a name and {@link #BRACKET_PATH} covers the host path after a stray closing bracket; a
+     * separator that follows any other punctuation is read as absolute, the fail-closed direction.
+     */
+    private static final Pattern ABSOLUTE_PATH = Pattern.compile(HOST_PREFIX + "/[^\\s)\"']*");
+
+    /**
+     * A token that starts a drive-qualified absolute path inside a detail text: the same introducers before a drive
+     * letter and a separator, so a Windows path {@code C:\...} or {@code C:/...} is refused whatever the host.
+     */
+    private static final Pattern DRIVE_PATH =
+            Pattern.compile(HOST_PREFIX + "[A-Za-z]:[\\\\/][^\\s)\"']*");
+
+    /**
+     * A token that starts a UNC path inside a detail text: the same introducers before two backslashes, a server and a
+     * share, so {@code \\server\share\...} is refused whatever the host.
+     */
+    private static final Pattern UNC_PATH =
+            Pattern.compile(HOST_PREFIX + "\\x5c\\x5c[^\\s)\"']+\\x5c[^\\s)\"']*");
+
+    /**
+     * A closing bracket that follows an introducer and is followed by a {@code /} of a token of at least two segments:
+     * a host path after a stray closing bracket holds further separators ({@code ]/srv/git/worktrees/plan}), while a
+     * relative name with a closing bracket before a one-segment tail ({@code app/[slug]/page.tsx}, {@code (group)/x})
+     * stays a name. A closing bracket that sits after a path character is no introducer, so the name survives; a
+     * two-segment relative name after a stray closing bracket ({@code refused ]/a/b.txt}) is read as absolute, the
+     * fail-closed direction.
+     */
+    private static final Pattern BRACKET_PATH =
+            Pattern.compile(HOST_PREFIX + "[\\])}]/[^\\s)\"'/]*/[^\\s)\"']*");
 
     /** The committer while no agent identity resolves. */
     static final Identity COMPILED_COMMITTER = new Identity("plan-marshall-mcp", "noreply@cuioss.de");
@@ -171,7 +237,8 @@ public final class GitStageAndCommitPrimitive
     }
 
     /**
-     * Runs once the footprint check passed: narrows the staging set, checks the message and commits.
+     * Runs once the footprint check passed: narrows the staging set by the bound files, never refusing an entry outside
+     * it, checks the message and commits.
      */
     private PrimitiveResult<Outcome> stageAndCommit(WorkflowExecutionContext context, Params parameters, Path worktree,
             StagingSet stagingSet) {
@@ -183,11 +250,15 @@ public final class GitStageAndCommitPrimitive
         if (toCommit.isEmpty()) {
             return result(Outcome.NOTHING_TO_COMMIT, Map.of());
         }
+        var message = parameters.message();
+        if (message == null) {
+            return failed(Reason.COMMIT_FAILED, Map.of(DETAIL_FACT, NO_MESSAGE_DETAIL));
+        }
         var resolution = CommitTrailer.resolve(site.localTrailer(context).orElse(null),
                 site.machineTrailer(context).orElse(null));
-        return switch (CommitMessages.withTrailer(parameters.message(), resolution.trailer())) {
+        return switch (CommitMessages.withTrailer(message, resolution.trailer())) {
             case Refused(var violation) -> messageRefused(violation);
-            case Appended(var withTrailer) -> validated(context, worktree, parameters.message(), withTrailer,
+            case Appended(var withTrailer) -> validated(context, worktree, message, withTrailer,
                     List.copyOf(toCommit), resolution);
         };
     }
@@ -214,7 +285,7 @@ public final class GitStageAndCommitPrimitive
         var committer = site.agentIdentity(context).orElse(COMPILED_COMMITTER);
         var input = CommitInput.builder().root(worktree).message(message).author(author.get()).committer(committer)
                 .paths(paths).build();
-        return map(git.commit(input));
+        return map(git.commit(input), worktree);
     }
 
     /**
@@ -232,15 +303,84 @@ public final class GitStageAndCommitPrimitive
 
     /**
      * Maps an outcome of the contract to exactly one outcome of the primitive.
+     *
+     * @param result   the outcome of the contract
+     * @param worktree the root of the checkout, against which the detail of a failure is made repository-relative
      */
-    static PrimitiveResult<Outcome> map(GitResult<GitOperations.CommitInfo> result) {
+    static PrimitiveResult<Outcome> map(GitResult<GitOperations.CommitInfo> result, Path worktree) {
         return switch (result.outcome()) {
             case OK -> result(Outcome.COMMITTED,
                     Map.of(COMMIT_FACT, Objects.requireNonNull(result.value(), "the commit of OK").id()));
             case NOTHING_TO_COMMIT -> result(Outcome.NOTHING_TO_COMMIT, Map.of());
             default -> failed(Reason.COMMIT_FAILED,
-                    Map.of(GIT_OUTCOME_FACT, result.outcome().name(), DETAIL_FACT, result.detail()));
+                    Map.of(GIT_OUTCOME_FACT, result.outcome().name(), DETAIL_FACT,
+                            modelDetail(result.outcome(), result.detail(), worktree)));
         };
+    }
+
+    /**
+     * The detail of a failed commit as the model-facing fact carries it. The contract's detail names the checkout in
+     * some of its outcomes, so every occurrence of the absolute root is made the repository-relative root {@code .}; an
+     * absolute path outside the checkout — a {@code /}, a drive-qualified token or a UNC token that follows an
+     * introducer, which is every position a path-name character does not precede — a text that still names one after
+     * that replacement, and a text that carries a traversal segment are replaced by the code of the git outcome, because
+     * the primitive cannot tell whether a host path of the server is safe to render; and a contract that states no
+     * detail is carried as that code. The introducer is the complement of the path-name characters, not a list of the
+     * characters a host path may follow, so an opening brace, a non-ASCII quote and a no-break space introduce a host
+     * path as white space does: no multi-segment absolute path, no drive-qualified path and no UNC path behind such a
+     * character reaches a fact. A closing bracket that follows an introducer and is followed by at least one further
+     * separator is such an introducer too ({@code refused ]/a/b.txt} becomes the code), while
+     * {@code app/[slug]/page.tsx} and {@code (group)/x} stay names; a single-segment fragment after a stray closing
+     * bracket ({@code ]/srv}) and a path glued to a preceding path-name character stay as the text states them
+     * ({@code refused -/srv/git/worktrees/plan}, {@code refused 1/srv/git/worktrees/plan} and
+     * {@code refused (x)/srv/git/worktrees/plan} carry a multi-segment host path through), and a name whose segment ends
+     * in {@code +}, {@code @} or {@code ~} ({@code c++/src/main.cpp}) becomes the code because that punctuation is no
+     * path-name character here: these are the pattern's stated residual cost. The same reading refuses a relative name
+     * whose segment ends in a character that is no path-name character — an opening brace, a backslash, a combining
+     * mark, a symbol such as {@code +} or {@code $}, or an emoji — because its separator is then read as absolute.
+     */
+    static String modelDetail(GitOutcome outcome, @Nullable String detail, Path worktree) {
+        if (detail == null || detail.isBlank()) {
+            return outcome.name();
+        }
+        var root = worktree.toAbsolutePath().normalize();
+        Path named;
+        try {
+            named = Path.of(detail);
+        } catch (InvalidPathException _) {
+            return outcome.name();
+        }
+        if (named.isAbsolute()) {
+            var normal = named.normalize();
+            if (normal.equals(root)) {
+                return ".";
+            }
+            if (normal.startsWith(root)) {
+                var relative = root.relativize(normal).toString();
+                return carriesAbsolutePath(relative) ? outcome.name() : relative;
+            }
+            return outcome.name();
+        }
+        var absoluteRoot = root.toString();
+        var rootWithSeparator = absoluteRoot + "/";
+        var scrubbed = detail.contains(rootWithSeparator) ? detail.replace(rootWithSeparator, "./") : detail;
+        if (scrubbed.contains("../") || scrubbed.contains("..\\")) {
+            return outcome.name();
+        }
+        if (carriesAbsolutePath(scrubbed)) {
+            return outcome.name();
+        }
+        return scrubbed;
+    }
+
+    /**
+     * @param text a detail text
+     * @return whether it still names a POSIX absolute path, a drive-qualified path, a UNC path or a host path after a
+     *         stray closing bracket
+     */
+    private static boolean carriesAbsolutePath(String text) {
+        return ABSOLUTE_PATH.matcher(text).find() || DRIVE_PATH.matcher(text).find()
+                || UNC_PATH.matcher(text).find() || BRACKET_PATH.matcher(text).find();
     }
 
     private static PrimitiveResult<Outcome> messageRefused(ContentViolation violation) {
@@ -258,19 +398,21 @@ public final class GitStageAndCommitPrimitive
     /**
      * The bound inputs of the call.
      *
-     * @param message the final message, without the trailer
+     * @param message the final message, without the trailer; {@code null} when the call resolved none, which a clean
+     *                staging set answers as {@code nothing_to_commit} and which a non-empty set refuses as
+     *                {@code failed} with the reason {@code commit_failed}
      * @param files   the files that narrow the commit to a subset of the staging set, {@code null} for the whole
-     *                staging set
+     *                staging set; an entry outside the staging set is dropped, because the bind refuses such an entry
+     *                ({@code path.staging}) and this primitive narrows only
      * @since 0.1
      */
-    public record Params(String message, @Nullable List<String> files) {
+    public record Params(@Nullable String message, @Nullable List<String> files) {
 
         /**
          * @param message the message
          * @param files   the files, copied
          */
         public Params {
-            Objects.requireNonNull(message, "message");
             files = files == null ? null : List.copyOf(files);
         }
     }

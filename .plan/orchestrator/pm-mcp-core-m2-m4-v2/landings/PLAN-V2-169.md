@@ -1,0 +1,41 @@
+# Landing Analysis: PLAN-V2-169 — git-commit-primitives-closeout
+
+epic: pm-mcp-core-m2-m4-v2
+workstream: WS-01
+pr: #568 (merge `f1db02cdeebe3258b5f1a7c61a65126b5b039cb5`, 45 files, +3448/-2130)
+
+> Landing record, runbook-lane form (`rb-v2-169-git-commit-primitives-closeout`, harness opencode, model `deepseek-v4.1-flash/high`, effort high, executor 0.1.2184, standing rules r7, 5 of 5 deliverables by the lane's count). Landing message `-001` (2026-11-23T02:49:42Z, `merge_state=merged`). `landing-check`: incomplete on `total_tokens` and `plugin_version` (the standing opencode Open Defect). Re-read at the provider: #568 merged at `f1db02cd` on `origin/main`. Read by a read-only three-layer leaf at `f1db02cd`; the orchestrator re-read F1 (the staging set has no directory test where the commit has `Files.isDirectory`, `StagingSets.java:111-132`, `JGitOperations.java:582-584`) and F3 (the index restore runs only for `!paths.isEmpty()`, `JGitOperations.java:386-405`). Stated by the lane, not re-verified: every mutation and failing-run log id, the test counts (721, 12 730, 12 731), Sonar 0 open, CodeRabbit dispositions, the "pure move" of the four split test classes (`d1627d80` adds 2426 lines and removes 2088).
+
+## Deliverable Fidelity vs Spec
+
+| Deliverable (spec) | L1 specified | L2 implemented | L3 correct | Verdict |
+|--------------------|--------------|----------------|------------|---------|
+| D1 the staging set against the path refusals | matches; the operator's two answers (a refused name goes to `outside`, a rename lists both sides) | `CommitPaths.java:35-42` shared by `StagingSets.java:111-113` and `JGitOperations.java:564-567`; `modelDetail` `GitStageAndCommitPrimitive.java:282-311`; `StagingSetsTest` `CommitRefusedNames`, `CommitPathsTest`, 12 `modelDetail` tests | only the TEXT rule is shared: the commit's file-system and tree refusals have no counterpart in the staging set (F1 a modified submodule, F2 a directory replaced by a file): the whole commit still fails as `commit_failed`, the failure D1 was to remove; no submodule test | partial |
+| D2 bound `files` outside the set | matches ("keep the narrowing, document it") | `GitStageAndCommitPrimitive.java:198-205`, Javadoc `:52-55`, ADR 003; `boundPathOutsideTheSetIsDropped` | correct | met |
+| D3 clean-tree route, missing identity | matches (the primitive handles the clean tree; the spec follows the code) | `Params(@Nullable String message, ...)` `:336`; `nothing_to_commit` before the message `:203-209`; `workflow-dsl/06`, `state-catalogue/05`, `store-schemas/08`; ADRs 009 and 010; `cleanTreeCommitsNothing`, `missingMessageFails` | code correct; ADR 009 still misstates how the message reaches the primitive (F4); the spec texts omit that the footprint check runs first (F6) | met (statements partial) |
+| D4 missing tests, budget | matches ("stage after `hasChanges`"; the lane went further: a restore of the index) | `JGitOperations.java:386-405,421-492`; `refusesAPathBelowADanglingAncestor`, `stagedDriftKeepsTheIndex`, `nothingToCommitLeavesTheIndexUntouched`; split commit `d1627d80`, test classes at most 391 lines | correct for listed paths; an empty path list still overwrites a staged change (F3); a conflicted index restores stage 1 as stage 0 (F7) | met |
+| D5 statements and the schema | the operator chose "change the schema pattern" over the recommended waiver | `local-config.schema.json:161-162`, `CommitTrailerSchemaParityTest`, Traceability `:846,:1432`, ADR workflow-verify/043 | the patterns are right (the e-mail list equals Unicode White_Space outside ASCII); the parity test checks a sample of about 20 characters, not the set (F5); `commit_identity` (`:130-131`) keeps the wider patterns (the lane's own residue, confirmed) | met |
+
+Scope outside the Expected Surface (`CommitPaths`, the `GitOperations` Javadoc, the ADR provider-git/004 amendment, the rename-only edits of ADR 025, `workflow-input/006`, `implementation-watch/workflow-dsl.adoc`, `provider-git-ported.adoc`, two `pm-runtime` gate rewrites in `c0c23581`) is justified.
+
+## Findings
+
+| id | severity | where | fact | in the lane's report |
+|----|----------|-------|------|----------------------|
+| F1 | major | `StagingSets.java:111-132`, `JGitOperations.java:582-584` | `git status --porcelain` lists a modified submodule as ` M sub` (no slash); the staging set stages it, the commit refuses a directory: the whole commit fails `commit_failed`. ADR 008 `:16` and `workflow-dsl/06`, `state-catalogue/05` state that git lists a submodule by `dir/`: false for a modified submodule | no (only implicit in the assembly Watch) |
+| F2 | minor | `JGitOperations.java:633-662` (`refusedTrackedTree`) | a tracked directory replaced by a file is staged by `StagingSets` and refused by the commit; ADR 008's title and Traceability `:851` claim more | no |
+| F3 | minor | `JGitOperations.java:390-392,400` | with an empty path list a staged-then-reverted change is overwritten and `NOTHING_TO_COMMIT` changes the index; `provider-git.adoc` `:287-290` is false for this route (the primitive never sends an empty list) | no |
+| F4 | minor | ADR provider-git-primitive/009 `:16-19,:44` | says `WorkflowEngine.resolve` binds the message "as an absent optional input"; `resolve` binds a sub-workflow call's inputs, the primitive's parameters come from the assembly's `ParameterBinder` (`:241-268`) | the lane said it corrected the premise; still conflated |
+| F5 | minor | `CommitTrailerSchemaParityTest.java:53-56,108-109,146-152` | a sample, compiled with `java.util.regex`; the schema validator is a test dependency, no production code here enforces the schema; the comment about "a JSON-schema validator on the JVM" is unchecked | partly (the Watch) |
+| F6 | nit | `workflow-dsl/06` Stage 3, `state-catalogue/05` row | "a `ready` ends `nothing_to_commit`" omits that the footprint check runs first (`:184-188`) | no |
+| F7 | nit | `JGitOperations.java:448-492` | `DirCache.getEntry` returns the first stage: a conflicted index restores stage 1 as stage 0 | no |
+| F8 | nit | `GitStageAndCommitPrimitive.java:129,280` | `ABSOLUTE_PATH` matches a `/` only after a fixed character list; a path after `{`, a pipe, a backtick or `>` passes: "no absolute path reaches a fact" over-claims | no |
+| F9 | nit | ADR provider-git/004 amendment, `GitOperations.java:83-86` | neither names the index restore of the CodeRabbit major fix | no |
+
+## Public API changes (the assembly `plan-marshall-mcp` follows)
+
+New `public final class CommitPaths` with `static boolean isRefusedText(String)`. `GitStageAndCommitPrimitive.Params(@Nullable String message, @Nullable List<String> files)`: a null message with an empty staging set gives `nothing_to_commit`, with a non-empty set `failed` / `commit_failed` with the detail "no commit message is resolved"; the assembly's `ParameterBinder` must bind null when the message fact is absent (nothing here enforces it). `commit_failed.detail` is repository-relative or the `GitOutcome` code. `CommitSite.dirtyPaths` (`CommitSite.java:53-69`) is read with `-z`, an embedded repository by `dir/`, a rename by both sides: see F1, a modified submodule has no slash. `GitOperations.commit` returns `NOTHING_TO_COMMIT` without staging and restores the index for listed paths. `local-config.schema.json` `commit_trailer` patterns refuse C0/C1 controls (a stored name with a TAB now fails). `store-schemas/08`: a missing `commit_identity` is `failed` / `commit_failed` with a detail, not `identity_missing`.
+
+## Residue and its placement
+
+No staged plan owns `pm-provider-git` code (PLAN-V2-20 and PLAN-V2-169 were the plans). A new regular cleanup plan, **PLAN-V2-172** `commit-primitives-residue-closeout` (WS-01, runbook), carries item 90: F1 and F2 (the staging set against the commit's file-system refusals), F3 and F7 (the index restore), F4 to F6, F8 and F9 (the statements), F5 and the `commit_identity` patterns. **Recorded, not fixed:** the assembly Watch (`CommitSite.dirtyPaths` by directory, `-z`, rename sides; the binder's null message; where the assembly enforces the trailer schema). The `BROKEN LINKS` clause: the lane reports 3252 on this host (the count differs from the 97 of 164 to 167: a different tool root; the operator's clause, see `epic.md`).

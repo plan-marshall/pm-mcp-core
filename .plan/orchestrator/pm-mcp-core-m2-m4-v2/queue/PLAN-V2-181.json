@@ -1,0 +1,11 @@
+{
+  "id": "PLAN-V2-181",
+  "slug": "cut-log-and-sweep-third-residue-closeout",
+  "workstream": "WS-03",
+  "status": "shipped",
+  "lane": "runbook",
+  "plan_marshall_plan_id": "rb-v2-181-cut-log-and-sweep-third-residue-closeout",
+  "pr": "#599",
+  "landing": "landings/PLAN-V2-181.md",
+  "seq": 169
+}

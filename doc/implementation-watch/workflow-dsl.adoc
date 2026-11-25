@@ -252,11 +252,14 @@ Anchor:: link:../specification/workflow-dsl/09-plan-instance.adoc#_versions_comp
 Hazard:: A fallback or outline version that takes effect only from the next transition lets the chain that follows its
 composition still run steps the new version pruned (a post-run-only fallback still entering a finalize step below
 order `900`).
-Guard:: Scenario per server event (`outline`, `plan`, `fallback`, `empty_harvest`, `replan`): the
+Guard:: Scenario per server event (`outline`, `plan`, `realized`, `fallback`, `empty_harvest`, `replan`): the
 transition that enters the composing target state records the new `instance_version`, and every state that chains on
 reads it (`finalize.next-step` after `plan.return` and after `finalize.hand-back` selects only post-run steps, one
 fixture per route); an operator or configuration event composed mid-chain takes effect only from the next transition;
-the history keeps the version in force per firing.
+the history keeps the version in force per firing. The `realized` version evaluates `no_code_delta` and
+`no_production_delta` against the realized footprint (the diff against the plan's base), keeps the steps when the
+footprint cannot be read, and is composed again when a loop-back added tasks; a `replan` version prunes nothing that
+reads the plan's change.
 Guarded: `InstanceVersionEngineTest` (the version is recorded in the entering transaction, the chain selects from it,
 its `instance` history line is written, and an operator event takes force from the next transition). Open: the
 `finalize.next-step` half, which needs a fixture plan whose composed version prunes a finalize step below order `900`.
@@ -447,8 +450,10 @@ Guard:: The trailer is the server's alone. The input side is guarded: `commit_me
 in any case and at any position, through `ConventionalCommitValidator` (`InputValidatorTest`,
 link:../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide]). The native half of the commit
 side is guarded in `pm-provider-git`: `CommitMessagesTest` refuses a trailer line in any case and position, naming the
-line, whichever channel supplied the message, and leaves exactly one trailer in the result; `CommitTrailerTest` covers the three trailer sources per half and `invalid_ignored`;
-`GitStageAndCommitPrimitiveTest` commits on the native variant with exactly one trailer, the operator's
+line, whichever channel supplied the message, and leaves exactly one trailer in the result; `CommitTrailerTest` and
+`CommitTrailerUnicodeTest` cover the three trailer sources per half, `invalid_ignored`, the surrogates and the Unicode
+line separators;
+`GitStageAndCommitPrimitiveMessageTest` commits on the native variant with exactly one trailer, the operator's
 `commit_identity` as author and the resolved agent identity (or the compiled fallback identity) as committer, read back
 from the history, and refuses a message with a trailer line as `failed` with the reason `message_refused`
 (link:../../pm-providers/pm-provider-git/doc/developer/provider-git-primitive.adoc[Commit Primitives Developer Guide]).
@@ -630,14 +635,17 @@ pathspecs (`--literal-pathspecs add --pathspec-from-file=- --pathspec-file-nul`)
 `PathRules` refuses a leading `:` and `-` and every control character before the value is bound
 (link:../../pm-workflow/doc/developer/workflow-input.adoc[Workflow Input Developer Guide]).
 Tests: `PathRulesTest` refuses a leading `:` and `-` and a control character before a value is bound. The glob half is
-settled: `PathRules` and the provider admit `*`, `?` and `[`, and `JGitOperationsTest` (`TheGlobRefusalPremise`, the commit
-of `pages/[id].tsx`) shows the native variant stages such a name literally (link:../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR
-workflow-input/006]). The native half is built: `JGitOperations.commit` reads no character of a path as a glob and
-refuses a pathspec magic (a path that begins with `:`) and a path that is no literal file path of the root (empty,
-absolute, outside the root, not in normal form, a backslash, a control character, a directory;
-link:../../pm-providers/pm-provider-git/doc/adr/provider-git/004-a-directory-is-refused-and-emptiness-is-typed.adoc[ADR provider-git 004], amendment), and `JGitOperationsTest` commits files named
-`app/[<name>]/page.tsx`, `<name>*.txt` and `<name>?.md` as exactly those files beside the files their glob reading would
-match (the matched control: those stay uncommitted), and a file named `-rf<name>` as that file.
+settled: `PathRules` and the provider admit `*`, `?` and `[`, and `JGitOperationsPathTest` (the literal-name premise, the
+commit of `pages/[id].tsx`) shows the native variant stages such a name literally
+(link:../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR workflow-input/006]). The
+native half is built: `JGitOperations.commit` reads no character of a path as a glob and refuses a pathspec magic (a path
+that begins with `:`) and a path that is no literal file path of the root (empty, absolute, outside the root, not in
+normal form, a backslash, a control character, a directory; link:../../pm-providers/pm-provider-git/doc/adr/provider-git/004-a-directory-is-refused-and-emptiness-is-typed.adoc[ADR
+provider-git 004], amendment), and `JGitOperationsPathTest` commits files named `app/[<name>]/page.tsx`, `<name>*.txt` and
+`<name>?.md` as exactly those files beside the files their glob reading would match (the matched control: those stay
+uncommitted), and a file named `-rf<name>` as that file. A derived name that begins with `:` is outside the staging set
+of `StagingSets`, so the footprint check names it as a violation before the commit is called; the commit's own refusal
+stays for a bound path that reaches it (`commit paths`, `StagingSetsTest`, link:../../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/008-the-staging-set-and-the-commit-share-the-path-rule.adoc[ADR provider-git-primitive 008]).
 Owed: the CLI half, the same fixture staged through `--literal-pathspecs add --pathspec-from-file=- --pathspec-file-nul`,
 belongs to the assembly that ships the CLI variant. A refusal of the glob characters `*`, `?` and `[` in either variant
 or in `PathRules` fails the fixture.
@@ -687,6 +695,42 @@ key there, so an empty scan cannot pass
 (link:../../pm-providers/pm-provider-git/doc/developer/provider-git-primitive.adoc#_the_commit_message_and_the_trailer[Commit
 Primitives Developer Guide § The Commit Message and the Trailer]).
 Source:: design review (PLAN-V2-20).
+
+[#PM-WATCH-DSL-47]
+=== PM-WATCH-DSL-47: The clean-tree message binding is the assembly's
+
+Anchor:: link:../specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 3),
+link:../specification/state-catalogue/05-git-commit-and-push.adoc#state-catalogue-git[State Catalogue § `git.commit_and_push`],
+link:../../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/009-an-absent-message-is-the-primitives-clean-tree-route.adoc[ADR provider-git-primitive 009]
+Hazard:: The clean-tree route of `none_assert_clean` is safe only while the assembly's `ParameterBinder` binds
+`message = null` on it and nowhere else. The engine's `WorkflowEngine.resolve` resolves the inputs of a sub-workflow
+call; the primitive's parameters are the binder's, and a binder that supplies a message on the clean-tree route, or none
+on a dirty one, turns the route into an empty commit or a spurious `commit_failed`. Nothing in this repository observes
+the binder.
+Guard:: The primitive's own branch is tested (`GitStageAndCommitPrimitiveTest`: a clean tree is `nothing_to_commit`
+before the message is read, and a non-empty set without one is `failed` with the detail
+`no commit message is resolved`). The binding half is owed to the assembly: a call of
+`git.stage-and-commit` from a clean checkout with no resolved message, and one from a dirty checkout with one, are that
+package's tests.
+Source:: landing of `PLAN-V2-169` (`git-commit-primitives-closeout`), carried item 90c; `PLAN-V2-172` deliverable 3.
+
+[#PM-WATCH-DSL-48]
+=== PM-WATCH-DSL-48: A modified submodule is listed by its name
+
+Anchor:: link:../specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 1 and Stage 4),
+link:../specification/state-catalogue/05-git-commit-and-push.adoc#state-catalogue-git[State Catalogue § `git.commit_and_push`]
+Hazard:: `CommitSite.dirtyPaths` is the assembly's answer, and the staging set judges what it is given. Git lists an
+embedded repository as `newdir/` and a modified submodule by its name alone (`sub`), without a trailing slash; a site
+that lists a submodule by its directory (`sub/`) makes the staging set report the violation under a name git never
+reports — the trailing segment is empty. Both spellings are already outside (the worktree holds `sub` as a directory,
+which the file-system rule refuses), so the incorrect spelling changes the reported path, not whether the commit is
+blocked; the assembly's porcelain read is what must be checked.
+Guard:: The staging set and the commit are proved to answer the same for a modified submodule and for a tracked
+directory a file replaced, on real repositories (`JGitOperationsPathTest`,
+`modifiedSubmoduleIsRefusedByBoth` and `trackedDirectoryReplacedByAFileIsRefusedByBoth`). The site's own porcelain read
+is not in this repository: the assembly tests it, and `CommitPathRefusals` refuses both shapes whatever the site lists.
+Source:: landing of `PLAN-V2-169` (`git-commit-primitives-closeout`), carried items 90a and 90d; `PLAN-V2-172`
+deliverable 1.
 
 == Positioned Layout
 

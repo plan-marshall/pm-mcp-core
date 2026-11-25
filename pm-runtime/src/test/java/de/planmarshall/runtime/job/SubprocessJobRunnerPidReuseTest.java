@@ -76,7 +76,7 @@ class SubprocessJobRunnerPidReuseTest {
         return SubprocessJobRunner.builder().base(base).lockManager(fixture.locks)
                 .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(base.resolve("home")))
                 .termination(new TerminationProtocol(signalling))
-                .parser((kind, output) -> {
+                .parser((kind, output, cut) -> {
                     throw new AssertionError("the PID reuse decision parses no job log");
                 })
                 .primitives(request -> Optional.empty()).build();

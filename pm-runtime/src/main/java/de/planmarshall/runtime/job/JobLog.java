@@ -134,6 +134,18 @@ public record JobLog(Path path) {
         public Complete {
             Objects.requireNonNull(reading, "reading");
         }
+
+        /**
+         * Whether the read cut the log: the log was longer than {@link JobLog#MAX_BYTES}, so {@link #reading()} holds
+         * its first line — when that line ends inside the head the read keeps — and its tail. The parser that reads the
+         * output of a build job receives this fact, because a figure the lost middle can falsify — the test count — is
+         * no measurement of the run (ADR {@code core-build/011}).
+         *
+         * @return true when the log was cut
+         */
+        public boolean cut() {
+            return length > MAX_BYTES;
+        }
     }
 
     /**
@@ -207,8 +219,10 @@ public record JobLog(Path path) {
      * at most {@link #FIRST_LINE_MAX_BYTES} bytes read from the file start, so a report longer than the overshoot is
      * kept; a first line longer than that head is not kept and the tail alone is answered, so a cut read never takes
      * more than that head and the cap. A log that shrinks between the size read and the read of its content is
-     * {@link LogState#TRUNCATED} too: a short read is never reported as a complete log. A log that grows instead loses
-     * nothing and is answered as the content read, with the length read before.
+     * {@link LogState#TRUNCATED} too: the bytes the read returned are compared with the length the channel reported, so
+     * a short read is never reported as a complete log, and a log that shrank and regrew between two size reads is
+     * caught by the same comparison. A log that grows instead loses nothing and is answered as the content read, with the
+     * length read before.
      *
      * @param observedLength the number of bytes the runtime already read from the log while the job ran; {@code 0} when
      *                       it read nothing
@@ -221,19 +235,7 @@ public record JobLog(Path path) {
             throw new IllegalArgumentException("observedLength must not be negative: " + observedLength);
         }
         try (var channel = FileChannel.open(path, StandardOpenOption.READ)) {
-            var size = channel.size();
-            if (size < observedLength) {
-                return truncated(size, observedLength);
-            }
-            var text = size <= MAX_BYTES ? whole(channel, size) : capped(channel, size);
-            var remaining = channel.size();
-            if (remaining < size) {
-                return truncated(remaining, size);
-            }
-            // the tail rule of a key block belongs to a read that starts inside the log; an over-cap read is still a
-            // capped window, so the rule applies to its whole text and a lone END in its tail masks what precedes it,
-            // while a read under the cap from the file start keeps its text
-            return new Complete(redacted(LaunchReport.read(text), size > MAX_BYTES), size);
+            return readWhole(channel, observedLength);
         } catch (NoSuchFileException _) {
             return missing();
         } catch (IOException e) {
@@ -241,8 +243,64 @@ public record JobLog(Path path) {
         }
     }
 
-    private static String whole(FileChannel channel, long size) throws IOException {
-        return new String(read(channel, 0, size), StandardCharsets.UTF_8);
+    /**
+     * The whole read over an open channel. Two comparisons guard the answer: the bytes the reads returned against the
+     * length the channel reported, and a second {@code size()} after the reads against the first. The first catches a
+     * log that shrank under a read, a log that shrank and regrew included; the second catches a shrink that lands after
+     * the last read, when every requested byte still came back. A log that only grows loses nothing and is answered with
+     * the length read before.
+     *
+     * @param channel        the open job log
+     * @param observedLength the number of bytes the runtime already read from the log while the job ran
+     * @return the launch report and the job's output, or why the log cannot be read
+     * @throws IOException if a read of the channel fails
+     */
+    Whole readWhole(FileChannel channel, long observedLength) throws IOException {
+        var size = channel.size();
+        if (size < observedLength) {
+            return truncated(size, observedLength);
+        }
+        var content = size <= MAX_BYTES ? whole(channel, size) : capped(channel, size);
+        var remaining = channel.size();
+        if (remaining < size) {
+            return truncated(remaining, size);
+        }
+        if (!content.complete()) {
+            return shortRead(content);
+        }
+        return new Complete(redacted(LaunchReport.read(content.text()), size > MAX_BYTES), size);
+    }
+
+    /**
+     * The text of one whole read and whether every byte of the length the channel reported came back. The bytes of the
+     * read are local to the method that read them; a record never carries the array, whose identity equality and hash
+     * would hide the two equal reads behind different segment values.
+     *
+     * @param text     the launch report and the job's output after it
+     * @param read     the bytes the read returned
+     * @param expected the bytes the length of the log promised
+     */
+    private record Window(String text, long read, long expected) {
+
+        boolean complete() {
+            return read == expected;
+        }
+    }
+
+    /**
+     * The truncation of a read whose windows did not return the bytes the length they asked for promised.
+     *
+     * @param window the read whose windows came back short
+     * @return the {@code TRUNCATED} value with the bytes read and asked for
+     */
+    private Unavailable shortRead(Window window) {
+        return new Unavailable(LogState.TRUNCATED, "the job log %s returned %d of the %d bytes it asked for"
+                .formatted(path, window.read(), window.expected()));
+    }
+
+    private static Window whole(FileChannel channel, long size) throws IOException {
+        var bytes = read(channel, 0, size);
+        return new Window(new String(bytes, StandardCharsets.UTF_8), bytes.length, size);
     }
 
     /** Redacts a read-out before the text leaves this class; the whole read reaches it after its size cap. */
@@ -272,28 +330,31 @@ public record JobLog(Path path) {
      * the next line beginning, so the two parts never overlap. A first line longer than
      * {@link #FIRST_LINE_MAX_BYTES} is not kept: the tail alone is answered.
      */
-    private static String capped(FileChannel channel, long size) throws IOException {
-        var head = read(channel, 0, Math.min(FIRST_LINE_MAX_BYTES, size));
-        var tail = new String(tail(channel, size), StandardCharsets.UTF_8);
+    private static Window capped(FileChannel channel, long size) throws IOException {
+        var headExpected = Math.min(FIRST_LINE_MAX_BYTES, size);
+        var head = read(channel, 0, headExpected);
+        var tail = tail(channel, size);
         var end = firstLineEnd(head);
-        if (end < 0) {
-            return tail;
-        }
-        return new String(head, 0, end + 1, StandardCharsets.UTF_8) + tail;
+        var text = end < 0
+                ? tail.text()
+                : new String(head, 0, end + 1, StandardCharsets.UTF_8) + tail.text();
+        return new Window(text, head.length + tail.read(), headExpected + tail.expected());
     }
 
     /**
      * The last {@link #MAX_BYTES} bytes, starting at a line beginning: at the window's own start when the byte before
      * it ends a line, else after the first line end inside it. A window with no line end is one long line and is kept.
      */
-    private static byte[] tail(FileChannel channel, long size) throws IOException {
+    private static Window tail(FileChannel channel, long size) throws IOException {
         var from = size - MAX_BYTES;
         var bytes = read(channel, from, size);
         if (bytes.length == 0) {
-            return bytes;
+            return new Window("", 0, size - from);
         }
         var previous = read(channel, from - 1, from);
-        return previous.length > 0 && previous[0] == '\n' ? bytes : fromLineStart(bytes);
+        var kept = previous.length > 0 && previous[0] == '\n' ? bytes : fromLineStart(bytes);
+        return new Window(new String(kept, StandardCharsets.UTF_8), (long) bytes.length + previous.length,
+                size - from + 1);
     }
 
     /**

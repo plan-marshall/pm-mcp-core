@@ -295,7 +295,9 @@ public final class PendingEntryStore {
      * transaction target: it is called after the transaction that deleted the entry's stores, so the record is gone and
      * the workspace sidecar no longer covers them; a directory whose record still exists is refused, because deleting
      * it would leave the four stores in the sidecar without their files. A symbolic link below the entry's directory is
-     * removed as a link and never followed; a link that IS the entry directory is removed as a link too.
+     * removed as a link and never followed; a link that IS the entry directory is removed as a link too. A link in a
+     * parent directory is followed by the path resolution, so the caller's {@link #verify} under the lock is the guard
+     * of the path (ADR core-store/084).
      * <p>
      * A directory a concurrent sweep removed first is no error: the deletion began after that removal, so it reports
      * that the directory did not exist and leaves the sweep's work as it is.
@@ -332,6 +334,10 @@ public final class PendingEntryStore {
      * Reads a record without a lock. A record is readable only if the {@code entry_id} it states is the id its
      * directory carries: a record that states another id is refused as unreadable, so no caller judges or removes it
      * under an identity it does not state.
+     * <p>
+     * The read resolves the path through {@link JournalScope#resolve}, which follows a link in a parent directory; a
+     * caller that acts on what it read verifies the entry under the workspace lock first ({@link #verify}), and the
+     * verification refuses a store path that passes through a link below the path base (ADR core-store/084).
      *
      * @param entryId the entry
      * @return the record; empty if it does not exist
@@ -353,7 +359,8 @@ public final class PendingEntryStore {
     }
 
     /**
-     * Reads the manifest of an entry's source directory without a lock.
+     * Reads the manifest of an entry's source directory without a lock. The read follows a link as {@link #read} does,
+     * and the same duty applies: a caller that acts on the manifest verifies the entry under the workspace lock first.
      *
      * @param entryId the entry
      * @return the manifest; empty if the entry or its manifest does not exist
@@ -396,10 +403,10 @@ public final class PendingEntryStore {
      * @param entryId     the entry
      * @param auditSink   where the record of a roll-forward of the recovery is handed over
      * @return whether the entry is verified, absent, or tampered
-     * @throws IllegalArgumentException if the transaction does not hold the key of the scope, or a store path passes
-     *                                  through a symbolic link below the path base
-     * @throws StoreRefusal             if the journal or the sidecar is unreadable or of another format version
-     * @throws UncheckedIOException     if a file of the entry cannot be read
+     * @throws IllegalArgumentException         if the transaction does not hold the key of the scope
+     * @throws JournalScope.SymbolicLinkRefusal if a store path passes through a symbolic link below the path base
+     * @throws StoreRefusal                     if the journal or the sidecar is unreadable or of another format version
+     * @throws UncheckedIOException             if a file of the entry cannot be read
      */
     public Integrity verify(LockTransaction transaction, EntryId entryId, AuditSink auditSink) {
         Objects.requireNonNull(transaction, "transaction");
@@ -439,7 +446,11 @@ public final class PendingEntryStore {
         }
     }
 
-    /** The four stores of an entry, in the order its removal writes them: the record first, the record-most years. */
+    /**
+     * The four stores of an entry, in the order its removal deletes them: the record first. {@link #remove} deletes all
+     * four in one transaction the journal completes, whereas {@link PendingEntryCreation#move} deletes the record last,
+     * where it is the durable evidence that the creation passed and must survive until the workspace commits.
+     */
     private static List<String> stores(EntryId entryId) {
         return List.of(storePath(entryId), entryPath(entryId, SOURCE_MANIFEST), entryPath(entryId, QUESTIONS),
                 entryPath(entryId, DECISION_LOG));

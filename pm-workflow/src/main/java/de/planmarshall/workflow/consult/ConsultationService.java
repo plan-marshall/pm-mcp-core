@@ -179,14 +179,9 @@ public final class ConsultationService {
         if (early.isPresent()) {
             return early.get();
         }
-        var consultationId = freeId();
-        if (consultationId.isEmpty()) {
-            return refused(ConsultationRefusal.CONSULTATION_IDS_EXHAUSTED,
-                    "the id seam handed out %d taken ids in a row".formatted(MAX_ID_DRAWS));
-        }
-        var id = consultationId.get();
         var recorded = new AtomicReference<QueueTaskRecord>();
         var outcome = new AtomicReference<ConsultationOutcome>();
+        var id = new AtomicReference<String>();
         queue.updateAll(records -> {
             var askerFound = find(records, request.askingTaskId());
             if (askerFound.isEmpty()) {
@@ -198,10 +193,17 @@ public final class ConsultationService {
                 outcome.set(refusal.get());
                 return records;
             }
+            var consultationId = freeId(records);
+            if (consultationId.isEmpty()) {
+                outcome.set(refused(ConsultationRefusal.CONSULTATION_IDS_EXHAUSTED,
+                        "the id seam handed out %d taken ids in a row".formatted(MAX_ID_DRAWS)));
+                return records;
+            }
+            id.set(consultationId.get());
             var asker = askerFound.get();
             var consultations = new ArrayList<>(asker.consultations());
             consultations.add(Consultation.builder()
-                    .consultationId(id)
+                    .consultationId(id.get())
                     .role(request.role())
                     .askedBy(request.generationId())
                     .askedAt(request.at())
@@ -213,13 +215,13 @@ public final class ConsultationService {
                     .build());
             var updated = asker.withConsultations(consultations).withStatus(Status.CONSULTING);
             recorded.set(updated);
-            outcome.set(new ConsultationOutcome.Opened(id, updated));
+            outcome.set(new ConsultationOutcome.Opened(id.get(), updated));
             return replace(records, updated);
         });
         if (outcome.get() instanceof ConsultationOutcome.Refused) {
             return outcome.get();
         }
-        queue.create(consultationTask(recorded.get(), request, id));
+        queue.create(consultationTask(recorded.get(), request, id.get()));
         return outcome.get();
     }
 
@@ -579,10 +581,25 @@ public final class ConsultationService {
                 .build();
     }
 
-    private Optional<String> freeId() {
+    /**
+     * Draws the first id from the seam that the records of the transaction do not already hold: a task's own id, and
+     * every consultation id recorded on a task, whether or not the consultation task was created yet. The check runs
+     * inside the transaction that records the consultation, so two opens that draw the same id cannot both pass it: the
+     * second sees the first one's recorded entry and draws on, and a seam that cannot yield a free id is refused after
+     * {@value #MAX_ID_DRAWS} taken draws.
+     *
+     * @param records the records of the transaction
+     * @return the first free id, or empty when the seam handed out {@value #MAX_ID_DRAWS} taken ids in a row
+     */
+    private Optional<String> freeId(List<QueueTaskRecord> records) {
+        var taken = new LinkedHashSet<String>();
+        for (var task : records) {
+            taken.add(task.queueTaskId());
+            task.consultations().forEach(consultation -> taken.add(consultation.consultationId()));
+        }
         for (var drawn = 0; drawn < MAX_ID_DRAWS; drawn++) {
             var candidate = consultationIds.get().value();
-            if (queue.read(candidate).isEmpty()) {
+            if (!taken.contains(candidate)) {
                 return Optional.of(candidate);
             }
         }

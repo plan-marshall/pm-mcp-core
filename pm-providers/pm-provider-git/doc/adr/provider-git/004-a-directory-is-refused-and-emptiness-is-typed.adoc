@@ -24,9 +24,10 @@ it stood:
 * Before anything is staged, `commit` refuses a path that is empty, starts with `:` (git pathspec magic), carries a glob
   (`*`, `?`, `[`, `\`) or resolves to a directory below the root. The refusal is `GitOutcome.PATH_REFUSED` with the path
   as its detail.
-* Whether the commit would be empty is read from the typed state after staging: the index entry of each listed path is
-  compared with the path's blob in the head tree; for an empty path list the index tree is compared with the head tree. No
-  change is `GitOutcome.NOTHING_TO_COMMIT` with the detail `no changes`.
+* Whether the commit would be empty is read from the worktree and the index before anything is staged: git's status over
+  the listed paths (or over the whole worktree for an empty path list) decides whether staging them would change
+  `HEAD`. No change is `GitOutcome.NOTHING_TO_COMMIT` with the detail `no changes`, and a call the status finds unchanged
+  stages nothing.
 * `CommitInput` fills an empty path list when its builder omits `paths`, so a caller that never sets the member keeps the
   "every change" semantics instead of a `NullPointerException`.
 
@@ -35,13 +36,15 @@ it stood:
 * *Keep the message match.* Refused: the text is translatable, so the same condition is a failure in another locale.
 * *Let the caller guarantee a file path.* Refused as the only guard: the provider is a public contract of the assembly,
   and the bind that refuses a directory is one caller of it.
-* *Recompute JGit's own emptiness decision per path with `setOnly`.* Not taken: the index-and-head comparison decides the
-  same question for the listed paths the provider itself staged, with the typed objects JGit exposes.
+* *Recompute JGit's own emptiness decision per path with `setOnly`.* Not taken: git's status over the listed paths decides
+  the same question before the index is written, with the typed objects JGit exposes.
 
 == Consequences
 
-* A directory, a magic pathspec and a glob are refused before the index is touched, so a refused commit leaves the
-  worktree as it was.
+* A directory and a magic pathspec are refused before the index is touched, so a refused commit leaves the worktree as
+  it was; a name carrying `*`, `?` or `[` is admitted since the amendment below, and the emptiness read that precedes
+  staging stages nothing when the status finds no change (`JGitOperationsTest`,
+  `nothingToCommitLeavesTheIndexUntouched`).
 * The three construction sites that build a `CommitInput` without `paths` keep their expectation and no longer can fail
   with a `NullPointerException`.
 
@@ -70,12 +73,44 @@ link as well. A real directory is still refused. Three further rules close the g
 
 The first bullet of the decision and the first consequence above are read with this amendment.
 
+== Amendment (2026-11-22): The Emptiness Read Precedes Staging
+
+`PLAN-V2-169` moved the emptiness read before the staging step. The status over the listed paths, or over the whole
+worktree for an empty path list, decides whether staging would change `HEAD`; a call the status finds unchanged stages
+nothing and the listed entries keep the stat data they had. `JGitOperationsTest`
+(`nothingToCommitLeavesTheIndexUntouched`) pins it, and a path whose nearest existing ancestor is a dangling link has its
+own refusal test (`JGitOperationsPathTest`, `refusesAPathBelowADanglingAncestor`). The second bullet of the decision and
+the first consequence above are read with this amendment — and with the one of 2026-11-23, which restores the index on
+both routes.
+
+== Amendment (2026-11-23): The Index Is Restored on Both Routes and a Conflict Is Refused
+
+The emptiness read of the amendment above runs for every call, but the restore of the index behind it ran only for a
+listed path list: a call with an empty list — every change of the worktree — staged `add .` over the index and, when the
+resulting commit was empty, returned `NOTHING_TO_COMMIT` with the index overwritten. The restore now covers both routes:
+the listed entries for a listed path list and the whole index, snapshotted before staging, for an empty one, so the
+`NOTHING_TO_COMMIT` of that pre-check leaves the index untouched either way (`JGitOperationsTest`,
+`emptyPathListRestoresTheWholeIndex` beside `nothingToCommitLeavesTheIndexUntouched`). JGit's own empty-commit refusal
+after staging is a defensive path behind the pre-check and restores nothing.
+
+The snapshot keeps one entry per path, taken with `DirCache.getEntry(path)`, which answers the first stage. In a
+conflicted index that first stage is the base entry (stage 1), so a restore would write it back at stage 0 and the
+conflict would silently disappear. The call therefore refuses an index that holds unresolved conflict entries under the
+listed paths — the whole index for an empty list — as `FAILED` with a detail naming the path, before anything is staged
+and before the emptiness read
+(`JGitOperationsTest`, `conflictedIndexIsRefused`). Restoring every stage was the alternative; the refusal keeps the
+conflict exactly as the merge left it and needs no second writer of the index.
+
+The commit path rule the decision above lists is the shared `CommitPathRefusals`, which the staging set of a scope
+applies as well (`PLAN-V2-172`, deliverable 1; link:../provider-git-primitive/008-the-staging-set-and-the-commit-share-the-path-rule.adoc[ADR
+provider-git-primitive 008]).
+
 == Source
 
 * link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow
   DSL § Six-Stage Execution Contract], Stage 4
 * link:../../../../../pm-workflow/doc/adr/workflow-input/006-path-and-commit-body-rules-stated.adoc[ADR workflow-input/006]
   (the glob characters admitted, the pathspec magic refused)
-* `PLAN-V2-15` Deliverable 4; `PLAN-V2-157` Deliverable 4
+* `PLAN-V2-15` Deliverable 4; `PLAN-V2-157` Deliverable 4; `PLAN-V2-172` Deliverable 2
 * Pull request of `PLAN-V2-20` (`git-commit-primitives`), the CodeRabbit findings `17cc88` and `9cfd5c` (the amendment)
   and `619d7c`, `e4cd2a` and `7f67ca` (the three further rules of the amendment)

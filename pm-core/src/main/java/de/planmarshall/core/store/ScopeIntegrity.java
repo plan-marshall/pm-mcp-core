@@ -131,11 +131,12 @@ public class ScopeIntegrity {
      * @param auditSink    where the record of a roll-forward of the recovery is handed over
      * @return the answer for the store; the {@link InvariantViolation} of the recovery if it could not roll the
      *         journal forward, and then nothing was compared
-     * @throws InternalFaultException   if the transaction does not hold the key of the scope; nothing was touched then
-     * @throws IllegalArgumentException if the path does not lie below the path base of the scope, or passes through
-     *                                  a symbolic link below it
-     * @throws StoreRefusal             if the journal or the sidecar is unreadable or of another format version
-     * @throws UncheckedIOException     if a file of the scope cannot be read or written
+     * @throws InternalFaultException           if the transaction does not hold the key of the scope; nothing was
+     *                                          touched then
+     * @throws JournalScope.SymbolicLinkRefusal if the path passes through a symbolic link below the path base
+     * @throws IllegalArgumentException         if the path does not lie below the path base of the scope
+     * @throws StoreRefusal                     if the journal or the sidecar is unreadable or of another format version
+     * @throws UncheckedIOException             if a file of the scope cannot be read or written
      */
     public static Verification verify(LockTransaction transaction, JournalScope scope, String relativePath,
             AuditSink auditSink) {

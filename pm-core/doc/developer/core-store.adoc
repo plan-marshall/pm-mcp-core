@@ -50,12 +50,17 @@ _Requirements: link:{docs}/Requirements.adoc#PM-ARCH-6[PM-ARCH-6], link:{docs}/R
 `WorkflowStatus`:: The immutable record of one scope's status document. The members the engine owns are typed: the
 position (`scope_type`, `scope_id`, `phase`, `state`, `call_stack` with its `CallFrame` records and `BoundArg` values),
 the loop-back accounting (`loop_back_iteration`, `outline_loop_backs`, `policy_counters`), the retry counts
-(`retry_counters`), the bindings of the current state (`active_job`, `active_jobs`, `active_tasks`), the condition
-overlay (`pending_condition`), the waiver requests of a plan (`waiver_requests`, see <<_waiver_requests>>), the instance
+(`retry_counters`), the two caps of the commit sub-process (`commit_attempt_caps`, see <<_commit_attempt_caps>>), the
+bindings of the current state (`active_job`, `active_jobs`, `active_tasks`), the condition
+overlay (`pending_condition`), the stamp of a finalize commit after the latest build (`freshness_reconcile`, see
+<<_freshness_reconcile>>), the waiver requests of a plan (`waiver_requests`, see <<_waiver_requests>>), the instance
 version in force of a plan (`instance_version`, see <<_the_instance_version_in_force>>) and
 `updated_at`. Every other member of the closed schema is kept in `retained()` as the raw JSON text it was read with. The engine updates the record through its `with…` and `toBuilder()` copies; the
 constructor checks every closed value, so a copy with a value outside the schema cannot be built.
 `RetryCounters`:: The typed value of the member `retry_counters` (see <<_retry_counters>>).
+`CommitAttemptCaps`:: The typed value of the member `commit_attempt_caps` (see <<_commit_attempt_caps>>).
+`CommitAttemptCounter`:: The pure counter of the two caps over a `CommitAttemptCaps`; both the engine and the assembly may count through it, because it lives here and not in the provider (see <<_commit_attempt_caps>>).
+`FreshnessReconcile`:: The typed value of the member `freshness_reconcile` (see <<_freshness_reconcile>>).
 `WorkflowStatusCodec`:: Reads and writes the document over `StrictJson`. It checks `format_version` first
 (`FORMAT_VERSION` 1), reads the typed members strictly, each with its one JSON type and its closed values, and
 captures every other declared member verbatim. It writes every member in the order the schema declares it: the typed
@@ -302,6 +307,69 @@ of a sub-workflow when it pops or unwinds that sub-workflow's call frame. Nothin
 leaving states within a frame keeps them, and a restart reads the same values from the store
 (link:../adr/core-store/005-retry-count-clearing-rule.adoc[ADR 005]). The engine counts no retry itself; the retrying
 primitives of later packages count through `RetryCounters`.
+
+[#_commit_attempt_caps]
+== Commit Attempt Caps
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
+
+`commit_attempt_caps` persists the two caps of the `git.commit-fix` loop, so a runtime restart never resets either
+budget (Timeouts & Budgets § Commit Sub-Process Attempt Caps; State Catalogue § `git.stage-and-commit`; ADR 087):
+
+[cols="2,3,3"]
+|===
+|Counter |Counted by |Reset by
+
+|`change_set` (`staged_tree`, `message_digest`, `attempts`)|a failed `git.stage-and-commit` attempt|a changed staged
+tree or a changed message, either half starting the count at one
+|`frame` (`frame_id`, `tasks`)|a `git.commit-fix` task|a new call frame
+|===
+
+Both counters are capped at `3` (`CommitAttemptCaps.CAP`); whichever is spent first ends the loop. A fix that changes
+the staged tree resets the change-set counter, which is the specification's own rule, so the frame counter is what
+bounds the loop in that case (link:../../../doc/implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-28[PM-WATCH-DSL-28]).
+The member is `null` before the first counted event.
+
+The persisted value is data only, `CommitAttemptCaps` in this package; the transitions live in the pure class
+`CommitAttemptCounter` of this package, beside the value, so the engine may reach them without depending on the
+provider that runs the commit:
+`failedCommitAttempt(stagedTree, messageDigest)` and `fixTask(frameId)` each answer a new counter, and
+`changeSetCapSpent()` and `frameCapSpent()` answer whether their cap is spent. The value holds no combined predicate, so
+the caller's rule is explicit: after the `hook_failed` outcome of `git.stage-and-commit` it reads both caps and writes
+their disjunction, `changeSetCapSpent() || frameCapSpent()`, as the `attempts_exhausted` outcome; each counting event
+reads its own cap. The frame cap is spent after the third `git.commit-fix` task, but the loop ends at the next failed
+commit attempt, never between a task and the attempt that follows it. Counting above a spent cap keeps it spent. The
+state catalogue's `git.stage-and-commit` row pins the guard, and `CommitAttemptCounterTest.Hazard` pins both arms of the
+disjunction.
+
+Tested by `CommitAttemptCapsTest` (the empty value, the cap, the grammar of both counters) and
+`CommitAttemptCounterTest` (three attempts spend the change set, a changed tree — alone or beside a changed message — or
+a changed message resets it, three tasks spend the frame, and the PM-WATCH-DSL-28 hazard: a changed tree still ends the
+loop through the frame cap).
+
+[#_freshness_reconcile]
+== The Freshness Reconcile Stamp
+_Requirements: link:{docs}/Requirements.adoc#PM-WF-16[PM-WF-16]_
+
+`freshness_reconcile` is the stamp of a Phase 6 commit made after the latest successful build (Phase Workflows §
+Finalize Commit Instrumentation, item 3; ADR 089). It is `null` when no such stamp is recorded and otherwise an object:
+
+[cols="2,4"]
+|===
+|Member |Meaning
+
+|`commit_sha` |the commit the finalized step made, a 40-digit digest
+|`step_id` |the finalize step that made it, `default:` or `project:` with a lower-case slug
+|`prior_build_worktree_sha` |the working-tree digest of the latest successful build, a 64-digit digest
+|`worktree_sha_version` |the hash version of that digest, `1`
+|`recorded_at` |the instant the stamp was recorded
+|===
+
+`FreshnessReconcile` is the typed value. The record enforces the grammar of the five members and only that a digest is
+present: a constructor cannot see a build, so the writer `git.commit_and_push` must confirm a successful build exists
+before it writes the stamp (ADR 089). `WorkflowStatusCodec` reads and writes it like the other typed members: a malformed
+digest or step id is a `StoreRefusal` naming the member. The reader side, the `git.pre-commit-verify-freshness` verb,
+consumes the stamp when the engine wires it. Tested by `FreshnessReconcileTest` (the grammar of every member and its hash
+version) and `WorkflowStatusCodecTest` (the round trip, and the byte-for-byte write of a document that carries the stamp).
 
 [#_delete_mode]
 == The Delete Mode of the Transaction Journal
@@ -1059,12 +1127,13 @@ caller: transaction.commit()
   refusal value.
 
 *The move of an entry's questions.* A client opens an entry for a scope that does not exist yet, and its questions go
-into the entry's log. When the bootstrap creates the plan or the epic, `QuestionLog.moveEntryQuestions(workspace,
+into the entry's log. When the bootstrap creates the plan, `QuestionLog.moveEntryQuestions(workspace,
 entryId, target)` adds the complete lines of the entry's log unchanged as a create target of `questions.jsonl` to the
 transaction of the new scope, and the delete of the entry's log to the transaction of the workspace. A scope's
 transaction writes only the stores of its scope, so the move is two transactions held by one caller: the new scope is
 committed first, then the workspace. A stop between the two commits leaves the entry's log in place, and repeating the
-move is refused by the create target instead of appending the lines twice; a torn tail is not moved
+move is refused by the create target instead of appending the lines twice; a torn tail is not moved, and an epic target
+is refused with the creation's own reason
 (link:../adr/core-store/036-entry-question-file-moved-by-the-store.adoc[ADR 036]). The record is the entry's
 `entry.json` in the same directory (link:../adr/core-store/082-the-pending-entry-is-a-directory.adoc[ADR 082]).
 
@@ -1251,7 +1320,15 @@ clears the escalation; `escalate` sets `E = max(t, min(2 * t, C))` for a timed-o
 learned value scaled by `1.25`, else the role floor — never below the role's `budget_floor_seconds`, whose compiled
 minimum is `60`. The fixed probe budgets are unchanged (`runtime.job.ProbeBudget`).
 `ChangeLedgerRecord`, `ChangeLedgerCodec`, `ChangeLedger`:: One line of a `change-ledger.jsonl`: a
-`worktree_sha`-stamped build, change, job, task-diff or baseline-red row. The ledger takes the `JournalScope` of its
+`worktree_sha`-stamped build, change, commit, job, task-diff or baseline-red row. A `commit` row names the commit
+(`commit_sha`, required for that kind alone), the paths it carried and the digest of the tree it was made on, taken
+before the commit: a commit moves `HEAD` and the status path set the digest has as inputs, so only a digest taken before
+it names the tree the commit was made on. When the tree is the one the latest successful
+build ran on, that digest equals the build row's; otherwise a build row need not carry it — a later step may have left
+the tree other than it built — and the `freshness_reconcile` stamp holds the build's digest beside this commit, which is
+the pair that licensed the push (ADR 088). The
+freshness gate itself reads `build` and `baseline_red` rows and the stamp, never a `commit` row (State
+Catalogue § `git.verify-freshness`). The ledger takes the `JournalScope` of its
 scope and appends through `ScopeTransaction.append`, which repairs a torn tail and draws the digest entry of the scope,
 so a line is journaled with the other stores of the same decision and never rewritten; a digest of `unavailable`
 carries how the git invocation failed and never satisfies a freshness gate (ADR 044).
@@ -1311,6 +1388,9 @@ link:../adr/core-store/043-qualification-settings-replaced-in-place.adoc[ADR 043
 |`StoreRefusal` with outcome `conflict` naming the file; nothing is written.
 
 |An unavailable digest without its failure, or a `baseline` on another kind
+|`ChangeLedgerRecord` throws `IllegalArgumentException`; the line is not appended.
+
+|A `commit` row without its `commit_sha`
 |`ChangeLedgerRecord` throws `IllegalArgumentException`; the line is not appended.
 |===
 
@@ -2722,6 +2802,12 @@ read and the aggregate carries its coverage.
   keeps `format_version` 1 across its in-place shape change, and a flat `pending/<entry_id>.json` is no entry.
 * link:../adr/core-store/086-the-cross-commit-window-belongs-to-the-assembly.adoc[ADR 086]: the recovery of a creation
   cut between the new scope's commit and the workspace's is owed to the assembly's `start.create-scope`.
+* link:../adr/core-store/087-the-commit-attempt-caps-are-a-member-of-the-workflow-state.adoc[ADR 087]: the two caps of
+  `git.commit-fix` are a typed member of the workflow state, with the value and its transitions in `pm-core`.
+* link:../adr/core-store/088-a-commit-is-a-kind-of-the-change-ledger.adoc[ADR 088]: a `commit` row records the commit
+  and the paths it carried, at the format version `1` in place.
+* link:../adr/core-store/089-the-freshness-reconcile-stamp-is-typed-through-the-status-codec.adoc[ADR 089]: the
+  `freshness_reconcile` stamp is a typed status member with its schema members.
 
 == The Intent Record
 
@@ -2911,19 +2997,36 @@ entry deletes its directory. Neither another entry nor the workspace workflow is
 
 *Creation*: `PendingEntryCreation.move` is the store-level part of `start.create-scope`. It carries a plan's sources
 alone: an epic target is refused with a named reason, because an epic's sources belong to its git-tracked ledger and
-its machine store keeps none, and the ledger copy is owed to `PLAN-V2-133` D5
+its machine store keeps none, and the ledger copy is owed
 (link:../adr/core-store/083-the-store-level-creation-carries-a-plans-sources-alone.adoc[ADR 083]). The caller holds the
 workspace lock and has verified the entry under it before the move; the move itself reads the record, the manifest and
-the stores without a verification.
+the stores without a verification. That verification is the guard of every path the entry's operations use: `move`,
+`discard`, `read` and `readSources` resolve the entry's paths through `JournalScope.resolve`, which follows a link in a
+parent directory, whereas `verify` reaches every store through `JournalScope.resolveWithoutLinks` and refuses a link
+below the path base. A caller that acts on an entry therefore verifies it under the lock first, and the periodic sweep
+does (link:../adr/core-store/084-the-move-carries-the-manifests-files-and-no-other.adoc[ADR 084]).
 
 The move copies the source files and the manifest into the new scope's `sources/`, the transcript into its `chat/`,
 copies the decision store and deletes the entry's, moves the question log through `QuestionLog.moveEntryQuestions`, and
 composes `request.md` from the description texts and a reference to every other source; it creates the directories of
 the new scope first, because a transaction writes stores and not directories, and it refuses an entry that does not
-exist. The file set is exactly the manifest: a file or link of `sources/` that no manifest entry names refuses the move
-instead of being deleted with the directory, a stored file that is a symbolic link or whose canonical path leaves the
-source directory is refused, and the file is read with `NOFOLLOW_LINKS`. The manifest itself refuses a path two sources
-name and a path that is its own `sources.json`
+exist. The question move refuses an epic target as the move does. The transcript is refused as a whole: a transcript
+that is a symbolic link or no directory, and a link or a file that is no regular file inside it, refuse the move
+instead of being dropped while `finish` deletes the directory with them. The file set is exactly the manifest: a
+file or link of `sources/` that no manifest entry names refuses the move instead of being deleted with the directory, a
+stored file that is a symbolic link or whose canonical path leaves the source directory is refused, and only a regular
+file is read with `NOFOLLOW_LINKS` — a FIFO or another special file the manifest names is refused instead of opened,
+because its open would block under the workspace lock. That refusal is a check of the file's type and then an open, and
+the two are not atomic: a file replaced by a FIFO between them is opened, and the move blocks under the workspace lock.
+Plain Java has no open that does not wait for a FIFO's peer, so the check narrows the window and the platform's own open
+is the bound (link:../adr/core-store/084-the-move-carries-the-manifests-files-and-no-other.adoc[ADR 084]).
+The manifest itself refuses a path two sources name, a path that repeats another in case or in another Unicode
+normalisation form — a case-insensitive or normalisation-insensitive filesystem addresses one file in either form — a
+path that is the directory of another, and a path that is its own `sources.json` in any case; each of those rules names
+itself in its refusal, and the case rule's message states the fold's width, so the message says which rule the two paths
+break. The operator kept the full width of that fold on 2026-11-23 after `PLAN-V2-171` deferred it: it also refuses `ß`
+against `ss`, `ı` against `i`, a ligature against its letters and a composed against a decomposed name, and a manifest
+stored before it whose paths collide reads as a `StoreRefusal` with `format_version` still 1
 (link:../adr/core-store/084-the-move-carries-the-manifests-files-and-no-other.adoc[ADR 084]).
 
 The workspace transaction deletes the entry's record last; the caller commits the new scope first and the workspace
@@ -2933,7 +3036,10 @@ the assembly's `start.create-scope`, link:../adr/core-store/086-the-cross-commit
 086]), a stop after both commits leaves the record gone and the directory behind, the sweep removes that directory, and
 `finish` deletes the entry's directory as the last act. A directory a concurrent sweep removed first is no error: the
 `discard` the finish calls reports that nothing was there, and a recursive delete that finds a directory gone stops
-there instead of failing.
+there instead of failing. The record is deleted last here and first by `remove`, and the orders differ on purpose:
+`remove` deletes all four stores in one transaction the journal completes, while in the move the record is the durable
+evidence that the creation passed, so a stop before the workspace's commit must leave it in place
+(`PendingEntryStore.stores`).
 
 *Compatibility*: the record's `format_version` stays 1 — its shape changed in place (`recipe` and `requested_id`
 instead of the raw `source`, `hint` required, `from_epic` added) with no bump and no reader of an earlier shape — and a
@@ -2948,13 +3054,18 @@ entry's specification does not ask for (`PLAN-V2-167` reports it).
 
 *Failure modes*: a record of another `format_version`, an unreadable record, or a record that states another
 `entry_id` than its directory is a `StoreRefusal` naming the file; a stored file whose size or digest differs from its
-manifest entry, a file of `sources/` with no manifest entry, and a symbolic link in the source directory refuse the
-move; an entry of another scope's transaction is refused; removing an entry that does not exist is no error.
+manifest entry, a file of `sources/` with no manifest entry, a symbolic link in the source directory, and a link or a
+special file in the transcript refuse the move; an entry of another scope's transaction is refused; a store path
+through a symbolic link is a `JournalScope.SymbolicLinkRefusal`; removing an entry that does not exist is no error.
 
 Tested by `PendingEntryStoreTest` (creation in one transaction and its roll-forward after a stop, replacement, the
 manifest, removal and discard, the abandon end, the per-entry integrity verdict per store and its re-baseline, the
-listing, the id grammar), `PendingEntryCodecTest` and `PendingEntrySchemaParityTest` (the record and its schema),
-`SourceManifestCodecTest` (the manifest, the shared path, the reserved name and its refusals), and
-`PendingEntryCreationTest` (the move, the composed request, the refused epic target, the refused differing and unlisted
-source, the refused link and the refused repeated move).
+refused linked store path, the listing, the id grammar), `PendingEntryCodecTest` and `PendingEntrySchemaParityTest` (the
+record and its schema), `SourceManifestCodecTest` (the manifest, the shared path, the case variant, the Unicode case
+variant, the normalisation variant, the case fold's re-normalisation, the nesting, each with its own refusal and the
+stored manifest that carries it, the file and its directory, the reserved name and its refusals),
+`EntryQuestionMoveTest` (the moved log, the refused epic target) and `PendingEntryCreationTest` (the move, the composed
+request and its non-normalized directory, the refused epic target, the refused differing and unlisted source, the
+refused link and link below a parent, the composed request below such a link, the refused FIFO under a deadline that
+fails if the read opens it, the refused transcript link and the refused repeated move).
 

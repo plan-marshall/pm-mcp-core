@@ -18,6 +18,7 @@ import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.build.TestCounts;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.JobRecord;
 
@@ -40,14 +41,16 @@ class JobEvidenceRecordsTest {
         var selfReportContradiction = new JobRecord.SelfReportContradiction(
                 Generators.letterStrings(1, 20).next(), Generators.longs(0, 255).next(),
                 Generators.letterStrings(1, 20).next());
+        var testCounts = TestCounts.unmeasured();
 
         var constructed = new JobEvidence.ParseResult(successMarker, diagnostics, contradictingEvidence,
-                selfReportContradiction);
+                selfReportContradiction, testCounts);
         var built = JobEvidence.ParseResult.builder()
                 .successMarker(successMarker)
                 .diagnostics(diagnostics)
                 .contradictingEvidence(contradictingEvidence)
                 .selfReportContradiction(selfReportContradiction)
+                .testCounts(testCounts)
                 .build();
 
         assertEquals(constructed, built, "the builder builds the same parse result");
@@ -61,7 +64,7 @@ class JobEvidenceRecordsTest {
         var waitStatus = new JobEvidence.Exited(Generators.integers(0, 255).next());
         var log = Generators.enumValues(JobEvidence.LogState.class).next();
         var parse = new JobEvidence.ParseResult(Generators.booleans().next(),
-                Generators.integers(0, 1000).next(), Generators.booleans().next(), null);
+                Generators.integers(0, 1000).next(), Generators.booleans().next(), null, null);
         var declaredExitCodes = Set.<Integer>of();
         var exitReliable = true;
 
@@ -90,7 +93,7 @@ class JobEvidenceRecordsTest {
                 .waitStatus(waitStatus)
                 .log(log)
                 .parse(new JobEvidence.ParseResult(Generators.booleans().next(),
-                        Generators.integers(0, 1000).next(), Generators.booleans().next(), null))
+                        Generators.integers(0, 1000).next(), Generators.booleans().next(), null, null))
                 .declaredExitCodes(Set.<Integer>of())
                 .exitReliable(true);
         var refusal = assertThrows(NullPointerException.class, builder::build,

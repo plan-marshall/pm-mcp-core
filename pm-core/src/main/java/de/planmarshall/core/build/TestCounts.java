@@ -95,9 +95,10 @@ public sealed interface TestCounts {
     /**
      * The explicit absence of a test count: the parser could not aggregate the summaries of the run.
      * <p>
-     * The state carries no number by construction. A run whose log the read cut is unmeasured too: the summary
-     * blocks of the modules in the lost head are not in it, so the tail's figure is no count of the whole run (ADR
-     * {@code core-build/011}).
+     * The state carries no number by construction. A run whose log the read cut is unmeasured when the parser receives
+     * the cut fact — today the Maven parser alone: the summary blocks of the modules in the lost head are not in it, so
+     * the tail's figure is no count of the whole run (ADR {@code core-build/011}). A parser that takes no cut fact keeps
+     * the figure it derives from the tail, measured or unmeasured by its own rules (ADR {@code runtime-job/015}).
      *
      * @since 0.1
      */

@@ -95,9 +95,15 @@ class WorkflowStatusCodecTest {
             + "\"pushed_at\":\"2026-10-12T10:00:00Z\"}],\"slots\":{},"
             + "\"loop_back_iteration\":2," + COUNTERS + ","
             + "\"retry_counters\":{\"sync_failed\":{\"state_id\":\"finalize.merge-sync\",\"attempts\":1}},"
+            + "\"commit_attempt_caps\":{\"change_set\":{\"staged_tree\":\"0123456789abcdef0123456789abcdef01234567\","
+            + "\"message_digest\":\"" + "a".repeat(64) + "\",\"attempts\":2},"
+            + "\"frame\":{\"frame_id\":\"finalize.settle-commit\",\"tasks\":1}},"
             + "\"outline_loop_backs\":1,\"policy_counters\":{\"ci-failure\":{\"retry_used\":1,\"renewed_from\":"
             + "{\"retry_used\":0,\"fix_used\":1,\"replan_id\":\"RP-1\"},\"fix_used\":2,\"last_retry\":{\"reason\":"
             + "\"flaky\",\"fingerprints\":[\"" + "a".repeat(64) + "\"]}}},\"waiver_requests\":[]," + METADATA + ","
+            + "\"freshness_reconcile\":{\"commit_sha\":\"" + "c".repeat(40) + "\","
+            + "\"step_id\":\"default:architecture-refresh\",\"prior_build_worktree_sha\":\"" + "d".repeat(64)
+            + "\",\"worktree_sha_version\":1,\"recorded_at\":\"2026-10-12T10:05:00Z\"},"
             + STEPS + ","
             + "\"active_jobs\":{\"sync\":{\"job_id\":\"g-0123456789abcdef\",\"kind\":\"git\",\"status\":\"running\","
             + "\"started_at\":\"2026-10-12T10:01:00Z\"}},\"active_job\":{\"state_id\":\"finalize.merge-sync\","
@@ -111,7 +117,7 @@ class WorkflowStatusCodecTest {
     static final String WORKSPACE = "{\"format_version\":1,\"scope_type\":\"workspace\",\"scope_id\":null,"
             + "\"phase\":\"workspace\",\"instance_version\":null,"
             + "\"state\":\"setup.entry\",\"call_stack\":[],\"slots\":{},\"loop_back_iteration\":0,"
-            + "\"retry_counters\":{},\"active_jobs\":{},\"active_job\":null,\"active_tasks\":{},"
+            + "\"retry_counters\":{},\"commit_attempt_caps\":null,\"freshness_reconcile\":null,\"active_jobs\":{},\"active_job\":null,\"active_tasks\":{},"
             + "\"pending_condition\":null,\"updated_at\":\"2026-10-12T10:04:00Z\"}";
 
     private static final int REQUEST_NUMBER = Generators.integers(1, 99_000).next();
@@ -327,6 +333,47 @@ class WorkflowStatusCodecTest {
             var status = read(WORKSPACE).withRetryCounters(counters);
 
             assertEquals(counters, read(written(status)).retryCounters(), "every retry rule should round-trip");
+        }
+
+        @Test
+        @DisplayName("the commit attempt caps round-trip by both of their counters")
+        void commitAttemptCapsRoundTrip() {
+            var caps = new CommitAttemptCaps(new CommitAttemptCaps.ChangeSet("b".repeat(40), "c".repeat(64), 2),
+                    new CommitAttemptCaps.Frame("finalize.settle-commit", 1));
+
+            var status = read(WORKSPACE).withCommitAttemptCaps(caps);
+
+            assertAll(
+                    () -> assertEquals(caps, read(written(status)).commitAttemptCaps(),
+                            "both caps should round-trip"),
+                    () -> assertTrue(written(status).contains(
+                                    "\"retry_counters\":{},\"commit_attempt_caps\":{\"change_set\":"),
+                            "the caps should follow the retry counters"));
+        }
+
+        @Test
+        @DisplayName("absent commit attempt caps read as null and are written as null")
+        void absentCommitAttemptCaps() {
+            var status = read(WORKSPACE.replace("\"commit_attempt_caps\":null,", ""));
+
+            assertAll(
+                    () -> assertNull(status.commitAttemptCaps(), "the absent caps should read as null"),
+                    () -> assertArrayEquals(bytes(WORKSPACE), WorkflowStatusCodec.write(status),
+                            "the absent caps should be written as null"));
+        }
+
+        @Test
+        @DisplayName("the freshness reconcile stamp round-trips with its prior build digest")
+        void freshnessReconcileRoundTrip() {
+            var stamp = FreshnessReconcile.builder().commitSha("e".repeat(40))
+                    .stepId("default:architecture-refresh").priorBuildWorktreeSha("f".repeat(64))
+                    .worktreeShaVersion(FreshnessReconcile.WORKTREE_SHA_VERSION)
+                    .recordedAt(Instant.parse("2026-11-23T10:00:00Z")).build();
+
+            var status = read(WORKSPACE).withFreshnessReconcile(stamp);
+
+            assertEquals(stamp, read(written(status)).freshnessReconcile(),
+                    "the freshness stamp should round-trip");
         }
     }
 

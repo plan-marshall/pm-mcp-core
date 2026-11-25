@@ -1,0 +1,11 @@
+{
+  "id": "PLAN-V2-177",
+  "slug": "cut-log-second-residue-closeout",
+  "workstream": "WS-11",
+  "status": "shipped",
+  "lane": "runbook",
+  "plan_marshall_plan_id": "rb-v2-177-cut-log-second-residue-closeout",
+  "pr": "#585",
+  "landing": "landings/PLAN-V2-177.md",
+  "seq": 165
+}

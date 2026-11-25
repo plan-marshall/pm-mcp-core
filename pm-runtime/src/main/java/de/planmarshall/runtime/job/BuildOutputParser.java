@@ -43,8 +43,9 @@ import de.planmarshall.core.store.ProjectEnrolment.BuildSystem;
  * {@code build} all yield {@link JobEvidence.ParseResult#NOTHING}.
  * <p>
  * The parsed build becomes the {@link JobEvidence.ParseResult}: the positive success marker the tool printed, the
- * number of diagnostics the parser located, and the contradicting evidence — an error-severity diagnostic or a
- * measured failing test count. A warning beside a green build contradicts nothing. A green {@code status} alone is not
+ * number of diagnostics the parser located, the contradicting evidence — an error-severity diagnostic or a
+ * measured failing test count — and the parser's {@link TestCounts}, so the population leaves the dispatcher instead of
+ * staying in the parse. A warning beside a green build contradicts nothing. A green {@code status} alone is not
  * a success marker: a tool that prints no positive marker keeps a zero exit {@code indeterminate} by row 8 of the
  * outcome derivation rather than guessing a success from the absence of diagnostics. The npm family prints three kinds
  * of marker and each is dispatched: Jest's and TAP's passing summary, and the install family's completion line
@@ -103,20 +104,37 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
     private static final String CLEAN_INSTALL_VERB = "clean-install";
 
     /**
-     * Parses the log of an ended job.
+     * Parses the log of an ended job whose read may have cut it.
+     * <p>
+     * A cut Maven log reports {@link TestCounts.Unmeasured} instead of a tail-only count, because the cut fact reaches
+     * the Maven count scan alone: ADR {@code core-build/011} passes the flag to that scan and to no other parser — the
+     * other parsers read the text alone — and a parser whose figure a cut can falsify takes it in the same way when a
+     * plan touches it.
+     * The other parsers read their count lines from the tail too — Gradle, pyproject, Jest and TAP each build a
+     * {@link TestCounts} — and the population they derive from the tail is the one carried: measured, or unmeasured by
+     * the rule of the parser that derived it. Each parser owns its rule and states it beside its count scan; no rule is
+     * shared between the parsers, so none is named here as the one they all apply.
+     * The carried population is deliberate: no production code branches on the result's {@code testCounts()} yet, and
+     * ADR {@code core-build/011} rejected a tail-only figure no consumer branches on, so the fact is stated rather than
+     * added as a field (ADR {@code runtime-job/015}).
+     * <p>
+     * The population travels beside the contradiction: the result carries the parser's {@link TestCounts} in its three
+     * states, so a consumer tells a log with no count line ({@code null}) from one the parser could not aggregate
+     * ({@code Unmeasured}) and from a measured figure (ADR {@code runtime-job/015}).
      *
-     * @param job    the job record, whose kind and budget key select the parser
-     * @param output the job's output after its launch report
+     * @param job       the job record, whose kind and budget key select the parser
+     * @param output    the job's output after its launch report
+     * @param outputCut whether the job log was longer than {@code JobLog.MAX_BYTES}
      * @return what the selected parser found, or {@link JobEvidence.ParseResult#NOTHING}
      */
     @Override
-    public JobEvidence.ParseResult parse(JobRecord job, String output) {
+    public JobEvidence.ParseResult parse(JobRecord job, String output, boolean outputCut) {
         if (job.kind() != JobId.Kind.BUILD) {
             return JobEvidence.ParseResult.NOTHING;
         }
         var text = BuildLogText.boundLines(BuildLogText.stripAnsi(output));
         var verb = verb(job.budgetKey());
-        return system(job).flatMap(buildSystem -> parse(buildSystem, verb, text))
+        return system(job).flatMap(buildSystem -> parse(buildSystem, verb, text, outputCut))
                 .orElse(JobEvidence.ParseResult.NOTHING);
     }
 
@@ -136,9 +154,10 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
         return module < 0 ? key.substring(separator + 1) : key.substring(separator + 1, module);
     }
 
-    private static Optional<JobEvidence.ParseResult> parse(BuildSystem buildSystem, String verb, String output) {
+    private static Optional<JobEvidence.ParseResult> parse(BuildSystem buildSystem, String verb, String output,
+            boolean outputCut) {
         return switch (buildSystem) {
-            case MAVEN -> Optional.of(result(MavenOutputParser.parse(output)));
+            case MAVEN -> Optional.of(result(MavenOutputParser.parse(output, outputCut)));
             case GRADLE -> Optional.of(result(GradleOutputParser.parse(output)));
             case NPM -> npm(verb, output);
             case PYPROJECT -> Optional.of(result(PyprojectOutputParser.parse(output)));
@@ -183,7 +202,7 @@ public final class BuildOutputParser implements SubprocessJobRunner.OutputParser
                 .anyMatch(diagnostic -> diagnostic.severity() == Severity.ERROR)
                 || unplacedErrors || failingTests(build.testCounts());
         return new JobEvidence.ParseResult(markerAdmitted && build.successMarker(), build.diagnostics().size(),
-                contradicting, null);
+                contradicting, null, build.testCounts());
     }
 
     private static boolean failingTests(@Nullable TestCounts counts) {

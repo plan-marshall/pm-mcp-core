@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -23,9 +24,13 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import de.planmarshall.core.config.LimitProperties;
 
@@ -265,6 +270,577 @@ class BuildLogTextTest {
                                 diagnostic -> diagnostic.severity() == Severity.ERROR
                                         && diagnostic.message().contains("2 failing tests")),
                         "the visible failing count is still an error"));
+    }
+
+    @Test
+    @DisplayName("a cut log counts the failing tests of a summary whose Results marker was cut")
+    void cutMavenLogCountsAnAmbiguousFailingSummary(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // no Results marker: it lies in the lost head, the failing summary line is in the tail
+        var failingTail = """
+                [WARNING] Tests run: 5, Failures: 2, Errors: 0, Skipped: 0
+                [INFO] BUILD SUCCESS
+                """;
+        Path log = directory.resolve("cut-ambiguous-failing.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                                diagnostic.severity() == Severity.ERROR
+                                        && diagnostic.message().contains("2 failing tests")),
+                        "the ambiguous failing count is still an error"));
+    }
+
+    @Test
+    @DisplayName("a cut log files the failing count once, beside the count line it already filed")
+    void cutMavenLogFilesTheFailingCountOnce(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        var failingTail = """
+                [ERROR] Results:
+                [ERROR] Tests run: 5, Failures: 2, Errors: 0, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-filed-failing.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertEquals(1, build.diagnostics().stream()
+                                .filter(diagnostic -> diagnostic.category() == Category.TEST_FAILURE).count(),
+                        "the failing count is one test-failure diagnostic"));
+    }
+
+    @Test
+    @DisplayName("a cut log counts a per-class line and its summary line once")
+    void cutMavenLogCountsAPerClassLineAndItsSummaryOnce(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // a testFailureIgnore run: the per-class line carries Time elapsed, the summary's Results marker was cut
+        var failingTail = """
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %s
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                [INFO] BUILD SUCCESS
+                """.formatted(Generators.letterStrings(3, 12).next() + "Test");
+        Path log = directory.resolve("cut-per-class-failing.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                                diagnostic.message().contains("1 failing test")
+                                        && !diagnostic.message().contains("2 failing tests")),
+                        "the failing test is counted once, not twice"));
+    }
+
+    @Test
+    @DisplayName("a cut log files no second finding for its own error count line")
+    void cutMavenLogFilesNoSecondFindingForItsErrorCountLine(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        var failingTail = """
+                [ERROR] Tests run: 2, Failures: 1, Errors: 0, Skipped: 0
+                [INFO] BUILD SUCCESS
+                """;
+        Path log = directory.resolve("cut-error-count.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertEquals(1, build.diagnostics().stream()
+                                .filter(diagnostic -> diagnostic.category() == Category.TEST_FAILURE).count(),
+                        "the error count line is the only test failure"));
+    }
+
+    @Test
+    @DisplayName("a cut log files the failing tests its own error line does not report")
+    void cutMavenLogFilesTheFailuresItsErrorLineDoesNotReport(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        var failingTail = """
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                [ERROR] Results:
+                [ERROR] Tests run: 2, Failures: 1, Errors: 0, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-mixed-failing.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertEquals(2, build.diagnostics().stream()
+                                .filter(diagnostic -> diagnostic.severity() == Severity.ERROR
+                                        && diagnostic.category() == Category.TEST_FAILURE).count(),
+                        "each failing block is an error once"),
+                () -> assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                                diagnostic.message().contains("1 further failing test")),
+                        "the unfiled block is named as the remainder"));
+    }
+
+    @Test
+    @DisplayName("a cut log keeps a failure whose execution reports only a passing summary")
+    void cutMavenLogKeepsAFailureWhoseSummaryIsPassing(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the failing execution's own summary lies in the lost head; the visible summary belongs to a later module
+        var failingTail = """
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %s
+                [INFO] Results:
+                [INFO] Tests run: 2, Failures: 0, Errors: 0, Skipped: 0
+                [INFO] BUILD SUCCESS
+                """.formatted(Generators.letterStrings(3, 12).next() + "Test");
+        Path log = directory.resolve("cut-passing-summary-failing-class.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                                diagnostic.severity() == Severity.ERROR
+                                        && diagnostic.message().contains("1 failing test")),
+                        "the per-class failure stays an error"));
+    }
+
+    @Test
+    @DisplayName("a cut log files no second failure for a per-class line already filed")
+    void cutMavenLogFilesNoSecondFailureForAFiledPerClassLine(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        var failingTail = """
+                [ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %s
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                [INFO] BUILD SUCCESS
+                """.formatted(Generators.letterStrings(3, 12).next() + "Test");
+        Path log = directory.resolve("cut-filed-per-class-failing.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertEquals(1, build.diagnostics().stream()
+                                .filter(diagnostic -> diagnostic.severity() == Severity.ERROR
+                                        && diagnostic.category() == Category.TEST_FAILURE).count(),
+                        "the filed per-class failure is the only one"));
+    }
+
+    @Test
+    @DisplayName("a cut log files no second failure for the per-class line its filed summary repeats")
+    void cutMavenLogFilesNoSecondFailureForThePerClassLineItsSummaryRepeats(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // one failure, printed per class and again in the summary whose Results marker is in the tail
+        var failingTail = """
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %s
+                [ERROR] Results:
+                [ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                """.formatted(Generators.letterStrings(3, 12).next() + "Test");
+        Path log = directory.resolve("cut-per-class-and-filed-summary.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertEquals(1, errorTestFailures(build),
+                        "the filed summary is the only error of one failure"));
+    }
+
+    @Test
+    @DisplayName("a cut log keeps each execution's failures when one reports only per-class lines")
+    void cutMavenLogKeepsTheFailuresOfAnExecutionWithoutSummary(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // execution A's summary lies in an ambiguous block, execution B reports its failures per class only
+        var failingTail = """
+                --- surefire:3.5.0:test @ module-a ---
+                [WARNING] Tests run: 2, Failures: 2, Errors: 0, Skipped: 0
+                --- surefire:3.5.0:test @ module-b ---
+                [ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %s
+                [ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %s
+                """.formatted(Generators.letterStrings(3, 12).next() + "Test",
+                Generators.letterStrings(3, 12).next() + "Test");
+        Path log = directory.resolve("cut-two-executions.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                                diagnostic.severity() == Severity.ERROR
+                                        && diagnostic.category() == Category.TEST_FAILURE
+                                        && diagnostic.message().contains("2 further failing tests")),
+                        "the summary's two failures are still filed"));
+    }
+
+    @Test
+    @DisplayName("a cut log subtracts a duplicated error count line once, as the collector files it")
+    void cutMavenLogSubtractsADuplicatedErrorCountLineOnce(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the same count line twice at error level: the collector files one diagnostic, so one failure is filed
+        var failingTail = """
+                [ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                [ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-duplicated-error-count.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertEquals(1, errorTestFailures(build),
+                        "the deduplicated count line is the only error"),
+                () -> assertFalse(build.diagnostics().stream().anyMatch(diagnostic ->
+                                diagnostic.message().contains("the cut log's tail reports")),
+                        "the filed failure leaves no remainder"));
+    }
+
+    @Test
+    @DisplayName("a cut log names one remaining failing test in the singular")
+    void cutMavenLogNamesOneRemainingFailureInTheSingular(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        var failingTail = """
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                [ERROR] Results:
+                [ERROR] Tests run: 2, Failures: 1, Errors: 0, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-singular-remainder.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertEquals("the cut log's tail reports 1 further failing test",
+                build.diagnostics().stream()
+                        .filter(diagnostic -> diagnostic.message().contains("the cut log's tail reports"))
+                        .findFirst().orElseThrow().message(),
+                "one remainder is named in the singular");
+    }
+
+    @Test
+    @DisplayName("a cut log keeps an error for a failure whose identical line was filed as a warning first")
+    void cutMavenLogKeepsAnErrorForAWarningFirstDuplicate(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the same count line at WARNING before the marker and at ERROR after it: the collector retains the warning
+        var failingTail = """
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                [ERROR] Results:
+                [ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-warning-first-duplicate.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertEquals(1, errorTestFailures(build),
+                        "no error diagnostic would leave the failure unseen"),
+                () -> assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                                "the cut log's tail reports 1 failing test".equals(diagnostic.message())),
+                        "the collector filed no error count line"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("saturatingCutLogs")
+    @DisplayName("a cut log's failing count saturates at the long bound instead of wrapping or parsing as zero")
+    void cutMavenLogSaturatesAnOverflowingFailingCount(String fixture, String failingTail, @TempDir Path directory)
+            throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        Path log = directory.resolve(fixture + ".log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.severity() == Severity.ERROR
+                                && diagnostic.category() == Category.TEST_FAILURE
+                                && ("the cut log's tail reports " + Long.MAX_VALUE + " failing tests")
+                                .equals(diagnostic.message())),
+                "an overflowing count saturates and files the failure");
+    }
+
+    /**
+     * The four fixtures of a saturated failing figure, each a different path to the same bound. The Maven log-format
+     * lines are the parser's contract fixture.
+     * <ul>
+     * <li>{@code two-executions} sums two in-range counts past the long range at the addition of the executions'
+     * figures, where a wrapping sum would report no failure;</li>
+     * <li>{@code line-sum} is one line whose two counts are each in the long range while their sum is not, so the figure
+     * the report reads is the saturated bound. The line stands at warning level, so the collector files no error-level
+     * count and {@code hasFiledFailingCount} answers false whichever value the addition produced, and the wrapped
+     * negative is saturated a second time when it is added into its execution's visible side, so this fixture pins the
+     * observed figure and not that addition;
+     * {@link #cutMavenLogSeparatesTheLineSumMutantByItsFiledCount} separates it instead: its error-level line is filed,
+     * {@code filedFailures} stores an execution's first value raw — its {@code saturatedAdd} runs only on a second line
+     * of the same execution — so a wrapped sum turns {@code hasFiledFailingCount} false while the saturated one answers
+     * true, and the subtraction of that raw value from the saturated visible figure overflows past the long range into
+     * {@code -1}, which the floor at zero turns into {@code 0};</li>
+     * <li>{@code nineteen-digits} is 9223372036854775808, one past the long range and still nineteen digits, which the
+     * parse refuses: a count the parse read as zero would leave the failure unfiled;</li>
+     * <li>{@code twenty-digits} is 99999999999999999999, far outside the range, and reaches the same branch.</li>
+     * </ul>
+     *
+     * @return the fixtures, named by what each one pins
+     */
+    private static Stream<Arguments> saturatingCutLogs() {
+        return Stream.of(
+                arguments("two-executions", """
+                        --- surefire:3.5.0:test @ module-a ---
+                        [WARNING] Tests run: 1, Failures: 9223372036854775807, Errors: 0, Skipped: 0
+                        --- surefire:3.5.0:test @ module-b ---
+                        [WARNING] Tests run: 2, Failures: 9223372036854775807, Errors: 0, Skipped: 0
+                        """),
+                arguments("line-sum", """
+                        [WARNING] Tests run: 2, Failures: 9223372036854775807, Errors: 1, Skipped: 0
+                        """),
+                arguments("nineteen-digits", """
+                        [WARNING] Tests run: 1, Failures: 9223372036854775808, Errors: 0, Skipped: 0
+                        """),
+                arguments("twenty-digits", """
+                        [WARNING] Tests run: 1, Failures: 99999999999999999999, Errors: 0, Skipped: 0
+                        """));
+    }
+
+    @Test
+    @DisplayName("a filed error-level count line separates the line-sum mutant from the saturated bound")
+    void cutMavenLogSeparatesTheLineSumMutantByItsFiledCount(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
+        // execution A's line is filed as an error, so a mutant back to + stores the wrapped sum raw and
+        // hasFiledFailingCount answers false where the saturated count answers true; execution B's warning line
+        // carries the one remainder both answer, so only the message tells the mutant apart
+        var failingTail = """
+                --- surefire:3.5.0:test @ module-a ---
+                [ERROR] Tests run: 2, Failures: 9223372036854775807, Errors: 1, Skipped: 0
+                --- surefire:3.5.0:test @ module-b ---
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-filed-line-sum.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                                diagnostic.severity() == Severity.ERROR
+                                        && diagnostic.category() == Category.TEST_FAILURE
+                                        && "the cut log's tail reports 1 further failing test"
+                                        .equals(diagnostic.message())),
+                        "the filed count names the remainder beside it"),
+                () -> assertFalse(build.diagnostics().stream().anyMatch(diagnostic ->
+                                "the cut log's tail reports 1 failing test".equals(diagnostic.message())),
+                        "the wrapped filed count must not hide the remainder"));
+    }
+
+    @Test
+    @DisplayName("a second execution's failure is not swallowed by the first execution's filed lines")
+    void cutMavenLogKeepsASecondExecutionsFailureBesideAnOverSubtractingFirst(@TempDir Path directory)
+            throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
+        // execution A files a per-class line and its summary: 2 filed against 1 visible, so a global subtraction
+        // spends A's over-subtraction on B and B's warning-only failure is never filed
+        var failingTail = """
+                --- surefire:3.5.0:test @ module-a ---
+                [ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %s
+                [ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                --- surefire:3.5.0:test @ module-b ---
+                [WARNING] Tests run: 3, Failures: 1, Errors: 0, Skipped: 0
+                """.formatted(Generators.letterStrings(3, 12).next() + "Test");
+        Path log = directory.resolve("cut-second-execution-failure.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.severity() == Severity.ERROR
+                                && "the cut log's tail reports 1 further failing test".equals(diagnostic.message())),
+                "the second execution's failure is filed");
+    }
+
+    @Test
+    @DisplayName("a winning summary side does not hide another execution's failure")
+    void cutMavenLogKeepsAnotherExecutionsFailureWhenTheSummarySideWins(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
+        // execution A's summary side exceeds its per-class side, while the filed figure counts the per-class line too;
+        // the assertion is execution B's remainder, which every side answers, so this fixture guards the per-execution
+        // subtraction and not the side the visible figure takes — a per-class side or a minimum answers 1 as well
+        var failingTail = """
+                --- surefire:3.5.0:test @ module-a ---
+                [ERROR] Tests run: 2, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %s
+                [ERROR] Results:
+                [ERROR] Tests run: 2, Failures: 2, Errors: 0, Skipped: 0
+                --- surefire:3.5.0:test @ module-b ---
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                """.formatted(Generators.letterStrings(3, 12).next() + "Test");
+        Path log = directory.resolve("cut-winning-summary-side.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.severity() == Severity.ERROR
+                                && "the cut log's tail reports 1 further failing test".equals(diagnostic.message())),
+                "the other execution's failure is filed");
+    }
+
+    @Test
+    @DisplayName("two failing classes that differ after the key's hundredth character are two failures")
+    void cutMavenLogCountsTwoClassesThatDifferAfterTheHundredthCharacter(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
+        // the stored message spends 90 characters on its prefix, so the two class names differ past the 100th one
+        var packagePrefix = "com.example." + "a".repeat(80) + ".";
+        var failingTail = """
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %sFooTest
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %sBarTest
+                """.formatted(packagePrefix, packagePrefix);
+        Path log = directory.resolve("cut-two-classes-past-the-key.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.severity() == Severity.ERROR
+                                && "the cut log's tail reports 2 failing tests".equals(diagnostic.message())),
+                "two classes past the key's cut are two failures");
+    }
+
+    @Test
+    @DisplayName("two failing classes that differ after the stored bound are two failures")
+    void cutMavenLogCountsTwoClassesThatDifferAfterTheStoredBound(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
+        // the stored message is cut at 500 characters, so the two class names differ past that bound
+        var packagePrefix = "com.example." + "a".repeat(500) + ".";
+        var failingTail = """
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %sFooTest
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.01 s <<< FAILURE! -- in %sBarTest
+                """.formatted(packagePrefix, packagePrefix);
+        Path log = directory.resolve("cut-two-classes-past-the-stored-bound.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.severity() == Severity.ERROR
+                                && "the cut log's tail reports 2 failing tests".equals(diagnostic.message())),
+                "two classes past the stored bound are two failures");
+    }
+
+    @Test
+    @DisplayName("two modules' identical summary lines are two executions' failures")
+    void cutMavenLogCountsIdenticalSummaryLinesOfTwoExecutions(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
+        var failingTail = """
+                --- surefire:3.5.0:test @ module-a ---
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                --- surefire:3.5.0:test @ module-b ---
+                [WARNING] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-identical-summaries.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertTrue(build.diagnostics().stream().anyMatch(diagnostic ->
+                        diagnostic.severity() == Severity.ERROR
+                                && "the cut log's tail reports 2 failing tests".equals(diagnostic.message())),
+                "the two modules' failures are both counted");
+    }
+
+    @Test
+    @DisplayName("an unmarked count line does not hide the failure its error duplicate files")
+    void cutMavenLogCountsTheErrorLineAnUnmarkedDuplicatePrecedes(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the Maven log-format lines are the parser's contract fixture
+        // the unmarked line is no diagnostic, so the collector files the later identical error line
+        var failingTail = """
+                Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                [ERROR] Tests run: 1, Failures: 1, Errors: 0, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-unmarked-count-before-error.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertEquals(1, errorTestFailures(build),
+                        "only the filed error count line is an error"),
+                () -> assertFalse(build.diagnostics().stream().anyMatch(diagnostic ->
+                                diagnostic.message().startsWith("the cut log's tail reports")),
+                        "the filed error line leaves no remainder"));
+    }
+
+    private static long errorTestFailures(ParsedBuild build) {
+        return build.diagnostics().stream()
+                .filter(diagnostic -> diagnostic.severity() == Severity.ERROR
+                        && diagnostic.category() == Category.TEST_FAILURE)
+                .count();
+    }
+
+    @Test
+    @DisplayName("a cut log counts one failure once when the same line stands on both sides of the marker")
+    void cutMavenLogCountsTheSameLineOnceAcrossTheMarker(@TempDir Path directory) throws Exception {
+        var filler = "[INFO] " + Generators.letterStrings(4, 12).next() + "\n";
+        // the read cut between one module's Results marker and its summary line; both print the same count line
+        var failingTail = """
+                [ERROR] Tests run: 2, Failures: 1, Errors: 0, Skipped: 0
+                [ERROR] Results:
+                [ERROR] Tests run: 2, Failures: 1, Errors: 0, Skipped: 0
+                """;
+        Path log = directory.resolve("cut-across-the-marker.log");
+        Files.writeString(log, filler.repeat(BuildLogText.MAX_BYTES / filler.length() + 1) + failingTail,
+                StandardCharsets.UTF_8);
+
+        var build = MavenOutputParser.parse(log);
+
+        assertAll(
+                () -> assertSame(TestCounts.Unmeasured.INSTANCE, build.testCounts(),
+                        "a cut log's count is unmeasured"),
+                () -> assertEquals(1, errorTestFailures(build),
+                        "the collector files the two lines as one error"),
+                () -> assertFalse(build.diagnostics().stream().anyMatch(diagnostic ->
+                                diagnostic.message().contains("the cut log's tail reports")),
+                        "the filed failure leaves no remainder"));
     }
 
     @Test

@@ -40,20 +40,37 @@ import de.planmarshall.core.store.SourceManifest.SourceFile;
  * {@link #finish}, which deletes the entry's directory. Two crash windows follow. A stop after the new scope's commit
  * and before the workspace's leaves the entry's record in place; the new scope already holds the stores, so a repeated
  * move is refused by their create targets and the operator ends the entry by abandoning it. A stop after both commits
- * and before {@link #finish} leaves the record gone and the directory behind, which the sweep removes by the evidence
- * of the absent record; a second move then refuses as an entry that does not exist. The directories of the new scope
+ * and before {@link #finish} leaves the record gone and the directory behind, which the sweep removes by the evidence of
+ * the four stores absent from the workspace's sidecar and from the filesystem; a second move then refuses as an entry
+ * that does not exist. The directories of the new scope
  * ({@code sources/}, {@code chat/} and the parents of the stored files) are created before the stores are staged,
  * because a transaction writes stores and never directories.
  * <p>
  * The sources are copied, never moved file by file: every file is verified against the size and SHA-256 of the
  * manifest before it is written, a file that differs is refused, and the entry's directory goes whole in
- * {@link #finish}. The transcript is copied file by file; the question log is moved by
- * {@link QuestionLog#moveEntryQuestions}; the decision store is copied and deleted with the entry.
+ * {@link #finish}. The transcript is copied file by file, and a link or a special file in it refuses the move where the
+ * sources refuse one; the question log is moved by {@link QuestionLog#moveEntryQuestions}; the decision store is copied
+ * and deleted with the entry.
+ * <p>
+ * A special file the manifest names is refused rather than opened, because its open would block under the workspace
+ * lock: the file is checked to be a regular file without following a link, and then opened without following one. The
+ * two are not atomic, so a file replaced by a FIFO between the check and the open blocks the move all the same; plain
+ * Java offers no open that does not wait for a FIFO's peer, and the check narrows the window without closing it. The
+ * transcript is guarded the same way, file by file. The decision store is not: {@code copyDecision} checks only that
+ * the file exists before it reads, so a FIFO there blocks under the lock as well.
  * <p>
  * The move targets a plan's scope alone: an epic's sources belong to its git-tracked ledger and its machine store keeps
  * none, so an epic target is refused until the ledger copy of the sources exists. The caller holds the workspace lock
  * and verifies the entry under it ({@link PendingEntryStore#verify}) before the move, and the source directory is the
  * whole of what is carried: a file no manifest entry names refuses the move instead of being dropped.
+ * <p>
+ * The move and {@link PendingEntryStore#discard} resolve the entry's paths through {@link JournalScope#resolve}, which
+ * follows a link in a parent directory, whereas {@link PendingEntryStore#verify} reaches every store through
+ * {@link JournalScope#resolveWithoutLinks} and refuses a link below the path base. The verification under the caller's
+ * lock is therefore the guard of every path this move and the discard use: the sweep verifies a candidate before it
+ * removes or discards it, and a caller that skips the verification carries what the links point at. The same holds for
+ * {@link PendingEntryStore#read} and {@link PendingEntryStore#readSources}, which read the record and the manifest
+ * through the link (ADR core-store/084).
  *
  * @since 0.1
  */
@@ -93,8 +110,12 @@ public final class PendingEntryCreation {
      *                                  sources belong to its ledger, which this move does not write), the entry does
      *                                  not exist, or a store is a target of its transaction already
      * @throws IllegalStateException    if a transaction was committed
-     * @throws StoreRefusal             if the manifest is unreadable, a stored file differs from its manifest entry, or
-     *                                  the source directory holds a file no manifest entry names
+     * @throws StoreRefusal             if the manifest is unreadable, a stored file differs from its manifest entry, a
+     *                                  stored file the manifest names is a symbolic link, leaves the source directory,
+     *                                  or is no regular file (a FIFO or another special file is refused instead of
+     *                                  being opened), the source directory holds a file no manifest entry names or a
+     *                                  link, or the transcript is a link, holds one, or holds a file that is no regular
+     *                                  file
      * @throws UncheckedIOException     if the entry's files cannot be read
      */
     public Moved move(ScopeTransaction workspaceTransaction, ScopeTransaction target, EntryId entryId) {
@@ -106,7 +127,7 @@ public final class PendingEntryCreation {
         if (type == JournalScopeType.EPIC) {
             throw new IllegalArgumentException(("The pending entry %s creates no epic: an epic's sources belong to its "
                     + "git-tracked ledger, and this move writes a plan's scope alone until the ledger copy of the "
-                    + "sources exists (PLAN-V2-133 D5)").formatted(entryId));
+                    + "entry's sources exists").formatted(entryId));
         }
         if (type != JournalScopeType.PLAN) {
             throw new IllegalArgumentException("An entry creates a plan, not a " + type.wireName());
@@ -192,19 +213,27 @@ public final class PendingEntryCreation {
      * <p>
      * The file is read through {@link LinkOption#NOFOLLOW_LINKS} and only after its canonical path was checked to lie
      * in the source directory: a link is refused, and so is a path whose canonical form leaves the directory through
-     * one, so a stored source cannot redirect the read out of the entry.
+     * one, so a stored source cannot redirect the read out of the entry. Only a regular file is read: a FIFO or another
+     * special file the manifest names is refused instead of being opened, because its open would block under the
+     * workspace lock. The check and the open are two calls, so a file replaced by a FIFO between them is opened; the
+     * window is narrowed to that order alone, because plain Java has no open that waits for no peer (ADR core-store/084).
      */
     private static byte[] verified(Path sourceDirectory, SourceFile stored) {
-        var file = sourceDirectory.resolve(stored.path()).normalize();
-        if (!file.startsWith(sourceDirectory)) {
-            throw StoreRefusal.unreadable(sourceDirectory.resolve(stored.path()), SourceManifest.FORMAT_VERSION,
+        var directory = sourceDirectory.normalize();
+        var file = directory.resolve(stored.path()).normalize();
+        if (!file.startsWith(directory)) {
+            throw StoreRefusal.unreadable(directory.resolve(stored.path()), SourceManifest.FORMAT_VERSION,
                     "the source path '%s' leaves the source directory".formatted(stored.path()), null);
         }
         byte[] content;
         try {
-            if (Files.isSymbolicLink(file) || !file.toRealPath().startsWith(sourceDirectory.toRealPath())) {
+            if (Files.isSymbolicLink(file) || !file.toRealPath().startsWith(directory.toRealPath())) {
                 throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
                         "the source file '%s' is or passes through a symbolic link".formatted(stored.path()), null);
+            }
+            if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+                throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
+                        "the source file '%s' is no regular file".formatted(stored.path()), null);
             }
             try (var in = Files.newInputStream(file, LinkOption.NOFOLLOW_LINKS)) {
                 content = in.readAllBytes();
@@ -224,9 +253,11 @@ public final class PendingEntryCreation {
     /**
      * Refuses the move when the source directory holds a file no manifest entry names, so a file of the entry is never
      * dropped silently: what the sources are is the manifest (Filesystem Layout § The Source Directory), and the
-     * directory itself is deleted with the entry after the move.
+     * directory itself is deleted with the entry after the move. A symbolic link below the directory is refused as the
+     * link it is, whether or not the manifest names it, because the walk never follows it and the directory is deleted
+     * whole.
      *
-     * @throws StoreRefusal         if a file of the directory has no manifest entry
+     * @throws StoreRefusal         if a file of the directory has no manifest entry, or an entry of it is a link
      * @throws UncheckedIOException if the directory cannot be listed
      */
     private static void requireOnlyManifestFiles(Path sourceDirectory, SourceManifest manifest) {
@@ -244,12 +275,18 @@ public final class PendingEntryCreation {
         try (var walk = Files.walk(sourceDirectory)) {
             for (var file : walk.toList()) {
                 var relative = slashPath(sourceDirectory, file);
-                if (relative.isEmpty() || Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS)
-                        || SourceManifestCodec.FILE_NAME.equals(relative) || stored.contains(relative)) {
+                if (relative.isEmpty()) {
                     continue;
                 }
-                throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
-                        "the source file '%s' has no manifest entry".formatted(relative), null);
+                if (Files.isSymbolicLink(file)) {
+                    throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
+                            "the source directory entry '%s' is a symbolic link".formatted(relative), null);
+                }
+                var named = SourceManifestCodec.FILE_NAME.equals(relative) || stored.contains(relative);
+                if (!Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS) && !named) {
+                    throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
+                            "the source file '%s' has no manifest entry".formatted(relative), null);
+                }
             }
         } catch (IOException e) {
             throw new UncheckedIOException("The source directory of the entry cannot be listed", e);
@@ -264,17 +301,43 @@ public final class PendingEntryCreation {
         }
     }
 
-    /** Copies the regular files of the entry's transcript into the target's {@code chat/}, in name order. */
+    /**
+     * Copies the regular files of the entry's transcript into the target's {@code chat/}, in name order. The transcript
+     * is refused as a whole, as a source directory's files are: a transcript that is a symbolic link or no directory,
+     * and a link or a special file inside it, refuse the move instead of being dropped while {@link #finish} deletes
+     * the directory with it.
+     *
+     * @throws StoreRefusal         if the transcript is a symbolic link or no directory, or holds one or a file that is
+     *                              no regular file
+     * @throws UncheckedIOException if the transcript cannot be read
+     */
     private int copyChat(ScopeTransaction target, EntryId entryId) {
         var directory = entries.chatDirectory(entryId);
-        if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+        if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) {
             return 0;
+        }
+        if (Files.isSymbolicLink(directory)) {
+            throw StoreRefusal.unreadable(directory, SourceManifest.FORMAT_VERSION,
+                    "the transcript is a symbolic link", null);
+        }
+        if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+            throw StoreRefusal.unreadable(directory, SourceManifest.FORMAT_VERSION,
+                    "the transcript is no directory", null);
         }
         var files = new ArrayList<Path>();
         try (var walk = Files.walk(directory)) {
-            walk.filter(file -> Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS))
-                    .sorted(Comparator.comparing(file -> directory.relativize(file).toString()))
-                    .forEach(files::add);
+            for (var file : walk.toList()) {
+                if (file.equals(directory) || Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS)) {
+                    continue;
+                }
+                if (Files.isSymbolicLink(file) || !Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
+                    throw StoreRefusal.unreadable(file, SourceManifest.FORMAT_VERSION,
+                            "the transcript file '%s' is a symbolic link or no regular file"
+                                    .formatted(slashPath(directory, file)), null);
+                }
+                files.add(file);
+            }
+            files.sort(Comparator.comparing(file -> directory.relativize(file).toString()));
         } catch (IOException e) {
             throw new UncheckedIOException("The transcript of %s cannot be read".formatted(entryId), e);
         }

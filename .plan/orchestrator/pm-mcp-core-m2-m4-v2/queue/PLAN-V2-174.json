@@ -1,0 +1,11 @@
+{
+  "id": "PLAN-V2-174",
+  "slug": "pending-entry-second-residue-closeout",
+  "workstream": "WS-03",
+  "status": "shipped",
+  "lane": "runbook",
+  "plan_marshall_plan_id": "rb-v2-174-pending-entry-second-residue-closeout",
+  "pr": "#578",
+  "landing": "landings/PLAN-V2-174.md",
+  "seq": 162
+}

@@ -9,14 +9,19 @@
  */
 package de.planmarshall.core.store;
 
+import java.nio.file.InvalidPathException;
+import java.nio.file.Path;
+import java.text.Normalizer;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.regex.Pattern;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
@@ -55,8 +60,9 @@ public record SourceManifest(long revision, List<Source> sources) {
     /**
      * @throws NullPointerException     if the sources are {@code null}
      * @throws IllegalArgumentException if the revision is negative, a source id is used twice, a file path is stored
-     *                                  by more than one source, the file name of the manifest is used as a stored
-     *                                  path, or a source breaks its rules
+     *                                  by more than one source or repeats another in case or in another Unicode
+     *                                  normalisation form, one stored path is the directory of another, the file name
+     *                                  of the manifest is used as a stored path, or a source breaks its rules
      */
     public SourceManifest {
         Objects.requireNonNull(sources, "sources");
@@ -65,7 +71,7 @@ public record SourceManifest(long revision, List<Source> sources) {
         }
         sources = List.copyOf(sources);
         var ids = new HashSet<String>();
-        var paths = new HashSet<String>();
+        var paths = new HashMap<String, String>();
         for (var source : sources) {
             if (!ids.add(source.sourceId())) {
                 throw new IllegalArgumentException("The source id '%s' is used twice".formatted(source.sourceId()));
@@ -78,15 +84,76 @@ public record SourceManifest(long revision, List<Source> sources) {
 
     /**
      * The sources are one set of files of one directory, so a path is stored once: the second source that names it is
-     * refused here, where the manifest is built, instead of the move writing one file twice.
+     * refused here, where the manifest is built, instead of the move writing one file twice. The comparison folds the
+     * case and unifies the Unicode normalisation form, because a case-insensitive or normalisation-insensitive
+     * filesystem addresses one file either way and the paths are the operator's file names; a path that is the
+     * directory of another is refused too, because one create target cannot be a file and a directory at once. Each
+     * rule answers with its own message, so a refusal names what the two paths have in common and not a text four
+     * rules share.
      */
-    private static void requireDistinctPath(String sourceId, String path, Set<String> paths) {
-        if (SourceManifestCodec.FILE_NAME.equals(path) || path.startsWith(SourceManifestCodec.FILE_NAME + "/")) {
+    private static void requireDistinctPath(String sourceId, String path, Map<String, String> paths) {
+        var folded = fold(path);
+        var reserved = fold(SourceManifestCodec.FILE_NAME);
+        if (reserved.equals(folded) || folded.startsWith(reserved + "/")) {
             throw new IllegalArgumentException("The source '%s' stores the reserved path '%s'".formatted(sourceId, path));
         }
-        if (!paths.add(path)) {
-            throw new IllegalArgumentException("The source file '%s' is stored by more than one source".formatted(path));
+        for (var stored : paths.entrySet()) {
+            if (folded.equals(stored.getKey())) {
+                throw new IllegalArgumentException(collision(path, stored.getValue()));
+            }
+            if (nests(folded, stored.getKey())) {
+                throw new IllegalArgumentException(("The source file '%s' and '%s' are one file and its directory, "
+                        + "which one create target cannot be").formatted(path, stored.getValue()));
+            }
         }
+        paths.put(folded, path);
+    }
+
+    /**
+     * The refusal of one collision, by the rule that makes the two names address one file: the same path stored twice,
+     * two names in one Unicode normalisation form, or two names whose case the fold unifies. A pair whose names differ
+     * in case and whose normalisation forms differ is the case rule: the fold's case mapping unifies what the
+     * normalisation comparison did not. The case rule states the fold's width, because the fold maps the full case of a
+     * name and so unifies more than case: {@code ß} and {@code ss}, {@code ı} and {@code i}, and a ligature and its
+     * letters.
+     */
+    private static String collision(String path, String stored) {
+        if (path.equals(stored)) {
+            return "The source file '%s' is stored twice".formatted(path);
+        }
+        if (normalised(path).equals(normalised(stored))) {
+            return ("The source file '%s' and '%s' differ only in their Unicode normalisation form, which a "
+                    + "normalisation-insensitive filesystem addresses as one file").formatted(path, stored);
+        }
+        return ("The source file '%s' and '%s' differ only in case: the case fold maps the full case of a name, so it "
+                + "also unifies 'ß' with 'ss', 'ı' with 'i' and a ligature with its letters").formatted(path, stored);
+    }
+
+    /** @return the path in the Unicode normalisation form the fold compares, NFC */
+    private static String normalised(String path) {
+        return Normalizer.normalize(path, Normalizer.Form.NFC);
+    }
+
+    /**
+     * @return the case-folded, normalisation-unified form of a stored path, the form a case-insensitive or
+     *         normalisation-insensitive filesystem addresses. The path is normalized to NFC before AND after the case
+     *         fold: before, because a macOS filesystem is normalisation-insensitive and an operator's typed name and a
+     *         directory listing can spell one file in two forms; after, because the case mapping can itself produce a
+     *         non-NFC string, so a pair that differs only in the order of a combining mark would otherwise be admitted.
+     *         The fold is then upper case then lower case, because the lower case of a capital sigma is otherwise a
+     *         final sigma and the two forms would not meet. It errs toward a collision, never toward a missed one: a
+     *         pair the fold makes equal — {@code ß} and {@code ss}, {@code ı} and {@code i}, a ligature and its
+     *         letters, and a composed and a decomposed name — is refused even where a case-sensitive filesystem keeps
+     *         the two files apart. The operator kept that width on 2026-11-23 (ADR core-store/084 rule 1).
+     */
+    private static String fold(String path) {
+        var cased = normalised(path).toUpperCase(Locale.ROOT).toLowerCase(Locale.ROOT);
+        return normalised(cased);
+    }
+
+    /** @return whether one of two case-folded paths lies below the other */
+    private static boolean nests(String first, String second) {
+        return first.startsWith(second + "/") || second.startsWith(first + "/");
     }
 
     /**
@@ -319,14 +386,20 @@ public record SourceManifest(long revision, List<Source> sources) {
 
         /**
          * @throws NullPointerException     if a component is {@code null}
-         * @throws IllegalArgumentException if the path is not relative and normalized, the size is negative, or the
-         *                                  digest is not a SHA-256
+         * @throws IllegalArgumentException if the path is not relative and normalized, is no path of this platform (a
+         *                                  NUL among its characters), the size is negative, or the digest is not a
+         *                                  SHA-256
          */
         public SourceFile {
             Objects.requireNonNull(path, "path");
             if (path.isBlank() || path.startsWith("/") || Arrays.stream(path.split("/", -1))
                     .anyMatch(segment -> segment.isEmpty() || ".".equals(segment) || "..".equals(segment))) {
                 throw new IllegalArgumentException("'path' is not a relative, normalized source path: " + path);
+            }
+            try {
+                Path.of(path);
+            } catch (InvalidPathException e) {
+                throw new IllegalArgumentException("'path' is no path of this platform: " + path, e);
             }
             if (size < 0) {
                 throw new IllegalArgumentException("'size' must not be negative: " + size);

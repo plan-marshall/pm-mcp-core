@@ -1,0 +1,119 @@
+= ADR 012: The Cut Tail's Visible Failing Count Is Taken per Execution
+:nofooter:
+
+== Status
+
+Accepted (2026-11-23, PLAN-V2-173). Amends the counting of the visible failing count that ADR
+link:011-a-cut-build-log-reports-unmeasured.adoc[`core-build/011`] introduced; its `TestCounts.Unmeasured` decision and its
+evidence rule stay in force. Amended 2026-11-23 (PLAN-V2-177): the unit and the evidence rule stay; the subtraction is
+taken per execution, the count path keys a line by its execution ordinal and its whole line message, an unmarked line
+carries no identity, and an overflowing digit count saturates instead of reading as zero (ADR
+link:013-the-cut-tails-failing-count-reduces-per-execution.adoc[`core-build/013`]).
+
+== Date
+
+2026-11-23
+
+== Context
+
+A cut Maven log reports `TestCounts.Unmeasured`, and the failing tests its tail still shows are filed as a `TEST_FAILURE`
+diagnostic at error severity, so a visible failure contradicts a success banner (ADR `core-build/011`). The rule that
+computed that visible count took the larger of two whole-tail figures — the summary side (summary and ambiguous count
+lines) and the per-class lines — and subtracted the `[ERROR]` count lines of the side it had chosen. The landing analysis
+of PLAN-V2-170 read three defects in it:
+
+* A single failure printed per class at `[WARNING]` and again in an `[ERROR]` summary gave `1 - 0 = 1`: a synthetic
+  "1 further failing test" for a failure the summary line had already filed.
+* Two executions' figures were mixed: execution A's `[WARNING]` summary with 2 failures beside execution B's per-class
+  `[ERROR]` lines with 2 gave `2 - 2 = 0`, so A's failures were never filed; and where the summary side won, the filed
+  per-class `[ERROR]` lines of another execution were counted a second time.
+* `filed()` counted every `[ERROR]` line while `DiagnosticCollector.collect` drops a line whose text equals one already
+  filed, so a duplicated count line was subtracted twice and a failure it did not report was lost from the remainder.
+
+The three defects were one question of design: which figure a cut tail may report at all, and in what unit. R07 put it to
+the operator at refine, with the recommendation ADR `core-build/011` now cites.
+
+== Decision
+
+The visible failing count of a cut tail is taken in the unit the log itself prints — the execution the nearest
+preceding plugin header opens — and the figure of an execution is the larger of its two sides:
+
+* Every count line is attributed to the execution of the nearest preceding execution header. Within one execution, the
+  summary side (the summary lines after the `Results:` marker and the ambiguous lines before it) and the per-class lines
+  (`Time elapsed`) describe the same failures, so the larger of the two sides is that execution's figure: a per-class line
+  and its summary are never added together.
+* Each side was first counted after the collector's deduplication: two count lines whose stored message has the same
+  first 100 characters were one figure, because the diagnostic collector files them as one diagnostic. The message part
+  of that identity is `DiagnosticCollector.messageKey(String)`, so the parser's count and the collector's key could not
+  drift apart. PLAN-V2-177 corrected this rule: two lines that share only those first 100 characters are not
+  byte-identical, the key collided on two failing classes under one long package prefix, and a duplicated line of
+  another execution counted once. The count path now keys by the execution ordinal and the whole line message; the
+  collector's identity stays the authority for what it files, and the difference is the remainder (ADR
+  `core-build/013`).
+* The figures of the executions are added. A failure of an execution that printed no summary, or whose summary lies in the
+  lost head, is therefore not lost. Two executions whose stored messages share their first 100 characters are one
+  diagnostic to the collector; the count path tells them apart by their execution ordinal and whole message, so the
+  added figure is no longer too low for them (ADR `core-build/013`).
+* A tail whose cut removed every execution header is one execution. Its two sides cannot be told apart by the log, the
+  larger side is that execution's figure, and that side drops the smaller side's failures: the figure of such a mix is too
+  low, never a sum of two executions. Where both sides belong to one execution, the summary side can be too high: it sums
+  every summary and ambiguous line of the execution, so a count line of that execution which does not carry `Time elapsed`
+  (another plugin's per-class form) is counted beside its summary. Either way the figure is evidence with a bounded error,
+  not a measurement, which is why the population stays `Unmeasured`.
+* The figure was reduced by the failing tests the count lines the collector retained at error level report, each identity
+  counted once: the collector keeps the first occurrence of an identity and drops the later ones with their severity, so
+  a failure whose identical line was retained as a warning is not reduced and reaches the contradiction check as the
+  remainder. The remainder was floored at zero once for the whole tail. PLAN-V2-177 corrected two things: the reduction
+  is taken per execution, because one execution's over-subtraction could spend itself on another execution's failure;
+  and a count line the collector never filed carries no identity, because an unmarked line could shadow the error twin
+  the collector did file. A remainder above zero is filed once as a `TEST_FAILURE` diagnostic at error severity; an
+  error-level `Tests run:` line stays its own diagnostic beside it. The synthetic message says "1 further failing test"
+  in the singular and "N further failing tests" in the plural, and says "further" only beside a filed error count line
+  (ADR `core-build/013`).
+* Every sum on this path saturates at `Long.MAX_VALUE` instead of wrapping. A count line of a tail can carry a value
+  above `Integer.MAX_VALUE`, which the `unrepresentable` flag only makes irrelevant to the uncut result. Before
+  PLAN-V2-177 the guarantee stopped at the `long` range: a digit count of 20 digits or more threw and parsed as zero, so
+  the remainder could be emptied. That rule now saturates a digit count outside the `long` range at `Long.MAX_VALUE`,
+  and `Failures + Errors` is added with the same saturated addition (ADR `core-build/013`).
+
+`DiagnosticCollector.messageKey(String)` is the message part of the collector's identity; `DiagnosticCollector.key(Diagnostic)`
+builds the full key — category, file, line and that message part — from it. For a count line the category and the
+location are fixed, so the message part decides alone. The count path uses its own key, the execution ordinal plus the
+whole line message, because the first 100 characters — and the stored 500 — collide on two failing classes under one
+long package prefix; the collector's identity stays the authority for what it filed (ADR `core-build/013`).
+
+== Alternatives Considered
+
+* *Keep the two-whole-tail figures and only deduplicate the subtraction.* Fixes the first and third defects; leaves the
+  second, because execution A's failures stay unfiled when B's per-class lines were filed.
+* *Take the two whole-tail figures with no deduplication.* The state before this decision: the three defects above.
+* *Report the tail's figure as `Measured` with a "tail only" flag.* Rejected in ADR `core-build/011`: no consumer branches
+  on the flag, so the tail's figure reads as the run's.
+
+== Consequences
+
+* A cut tail reports the failing tests its blocks show once per execution; the error of the arithmetic is bounded and
+  stated in the decision: too low for a header-less mix, possibly too high for one execution's summary side beside a
+  count line without `Time elapsed`. Two executions' identical lines are no longer one figure (ADR `core-build/013`),
+  and the key collision of two failing classes past the 100th character is gone. The bound stays one-sided: the figure
+  never wraps to zero or to a negative number, and a failure whose identical line was retained as a warning is still
+  filed as the remainder.
+* The count never goes negative: each execution's subtraction is floored at zero, where the previous rule could
+  over-subtract across the two sides and across executions.
+* The `filed` figure mirrors the collector for the lines it filed, with the retained occurrence's severity; a line it
+  never filed carries no identity (ADR `core-build/013`). A change to the collector's deduplication key therefore
+  changes what is reduced, and a change to the count path's own key changes what is counted.
+* A tail that carries execution headers is counted per execution; the ordinal is the nearest preceding plugin header,
+  and every plugin header increments it, so only the runner attribution is test-plugin-scoped. Under `-T` the modules'
+  lines interleave and an ordinal is one execution in the log's order, never a module. The cut path never consults
+  `PARALLEL_BUILD_BANNER`; the banner governs `byRunner` of the uncut result alone.
+  A future change that adds another source of count lines has to attribute it to an execution too, or state the
+  approximation it adds.
+
+== Source
+
+* Plan: link:../../../../.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-173-cut-log-residue-closeout.md[PLAN-V2-173]
+* Landing: the analysis of PLAN-V2-170 (`landings/PLAN-V2-170.md`, carried item 91a)
+* Specification: link:../../../../doc/specification/job-runtime/03-parsers-and-gates.adoc#_native_build_output_parsers[Job Runtime § Native Build Output Parsers]
+* Developer guide: link:../../developer/core-build.adoc[`core.build`]
+* Predecessor: link:011-a-cut-build-log-reports-unmeasured.adoc[ADR `core-build/011`]

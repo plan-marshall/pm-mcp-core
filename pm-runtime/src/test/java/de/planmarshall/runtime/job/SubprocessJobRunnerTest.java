@@ -36,9 +36,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
+import java.nio.ByteBuffer;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.StandardWatchEventKinds;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
@@ -130,7 +132,7 @@ class SubprocessJobRunnerTest {
     private static final String BUDGET_KEY = "git:status";
     private static final BudgetDerivation FLOOR = new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null);
     private static final Map<String, String> ENVIRONMENT = Map.of("PATH", "/usr/bin:/bin");
-    private static final ParseResult SUCCESS = new ParseResult(true, 0, false, null);
+    private static final ParseResult SUCCESS = new ParseResult(true, 0, false, null, null);
 
     /** The enrolled {@code git} of the fixture: its first argument selects what the job does. */
     private static final String GIT_SCRIPT = """
@@ -191,7 +193,7 @@ class SubprocessJobRunnerTest {
     private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.PrimitiveJobs primitives,
             SubprocessJobRunner.Environment environment) {
         return runner(termination, environment,
-                (job, output) -> output.contains("done") ? SUCCESS : ParseResult.NOTHING, primitives);
+                (job, output, cut) -> output.contains("done") ? SUCCESS : ParseResult.NOTHING, primitives);
     }
 
     private SubprocessJobRunner runner(TerminationProtocol termination, SubprocessJobRunner.Environment environment,
@@ -445,7 +447,7 @@ class SubprocessJobRunnerTest {
                     .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                     .termination(new TerminationProtocol(ProcessGroupSignals.system()))
                     .environment((job, ignoredJobId) -> ENVIRONMENT).probeEnvironment((candidate, jobId) -> ENVIRONMENT)
-                    .parser((job, output) -> SUCCESS).primitives(request -> Optional.empty())
+                    .parser((job, output, cut) -> SUCCESS).primitives(request -> Optional.empty())
                     .settledRecordsKept(1).build();
             var first = started(runner.start(git(30, "ok")));
             settled(first);
@@ -762,7 +764,7 @@ class SubprocessJobRunnerTest {
             // every reading of the clock is one second later, so the bound passes after a few polls, not after 10 s
             InstantSource clock = () -> origin.plusSeconds(ticks.getAndIncrement());
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
-                    (job, output) -> ParseResult.NOTHING, request -> Optional.empty(), clock);
+                    (job, output, cut) -> ParseResult.NOTHING, request -> Optional.empty(), clock);
 
             var result = assertTimeoutPreemptively(Duration.ofSeconds(5),
                     () -> runner.start(git(3600, "sleep", "3600")), "the start returns before the bound");
@@ -1156,7 +1158,7 @@ class SubprocessJobRunnerTest {
         void parserThrows() throws Exception {
             var failure = new IllegalStateException(Generators.nonEmptyStrings().next());
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
-                    (job, output) -> {
+                    (job, output, cut) -> {
                         throw failure;
                     }, request -> Optional.empty());
 
@@ -1170,7 +1172,7 @@ class SubprocessJobRunnerTest {
         void parserFailsWithError() throws Exception {
             var failure = new StackOverflowError(Generators.nonEmptyStrings().next());
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
-                    (job, output) -> {
+                    (job, output, cut) -> {
                         throw failure;
                     }, request -> Optional.empty());
 
@@ -1242,7 +1244,7 @@ class SubprocessJobRunnerTest {
             var failure = new IllegalStateException(Generators.nonEmptyStrings().next());
             var lockFailure = new IllegalStateException(Generators.nonEmptyStrings().next());
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
-                    (job, output) -> {
+                    (job, output, cut) -> {
                         locks.failNextTransaction(lockFailure);
                         throw failure;
                     }, request -> Optional.empty());
@@ -1270,7 +1272,7 @@ class SubprocessJobRunnerTest {
             var fallbackLockFailure = new IllegalStateException(Generators.nonEmptyStrings().next());
             var lastResortLockFailure = new IllegalStateException(Generators.nonEmptyStrings().next());
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), (job, ignoredJobId) -> ENVIRONMENT,
-                    (job, output) -> {
+                    (job, output, cut) -> {
                         // the fallback's record write opens the next transaction, the last-resort retry the one after
                         locks.beforeNextTransaction(() -> {
                             locks.failNextTransaction(fallbackLockFailure);
@@ -1300,7 +1302,7 @@ class SubprocessJobRunnerTest {
                     .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                     .termination(new TerminationProtocol(ProcessGroupSignals.system()))
                     .environment((job, ignoredJobId) -> ENVIRONMENT).probeEnvironment((candidate, jobId) -> ENVIRONMENT)
-                    .parser((job, output) -> SUCCESS).primitives(request -> Optional.empty())
+                    .parser((job, output, cut) -> SUCCESS).primitives(request -> Optional.empty())
                     .supervision((name, onFailure, task) -> {
                         throw failure;
                     }).build();
@@ -1552,7 +1554,7 @@ class SubprocessJobRunnerTest {
                     .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                     .termination(new TerminationProtocol(ProcessGroupSignals.system()))
                     .environment((job, ignoredJobId) -> ENVIRONMENT).probeEnvironment((candidate, jobId) -> ENVIRONMENT)
-                    .parser((job, output) -> SUCCESS).primitives(request -> Optional.empty())
+                    .parser((job, output, cut) -> SUCCESS).primitives(request -> Optional.empty())
                     .audit(events::add).build();
             var jobId = JobId.random(JobId.Kind.PROBE);
             var jobRecord = JobRecord.builder().jobId(jobId).execution(JobRecord.Execution.PROCESS)
@@ -1596,7 +1598,7 @@ class SubprocessJobRunnerTest {
                     .pipeline(fixture.pipeline()).launcher(new PmExecLauncher(home))
                     .termination(new TerminationProtocol(ProcessGroupSignals.system()))
                     .environment((job, ignoredJobId) -> ENVIRONMENT).probeEnvironment((candidate, jobId) -> ENVIRONMENT)
-                    .parser((job, output) -> SUCCESS).primitives(request -> Optional.empty())
+                    .parser((job, output, cut) -> SUCCESS).primitives(request -> Optional.empty())
                     .audit(event -> {
                         throw new IllegalStateException(failureMessage);
                     }).build();
@@ -2021,6 +2023,34 @@ class SubprocessJobRunnerTest {
         }
 
         @Test
+        @DisplayName("the parser is told that the job log over the cap was cut")
+        void parserReceivesTheCutFact() throws Exception {
+            FakePmExec.install(home, FakePmExec.Mode.REPORT);
+            var overCap = fixture.base.resolve("over-cap-output");
+            try (var channel = Files.newByteChannel(overCap, StandardOpenOption.CREATE,
+                         StandardOpenOption.WRITE)) {
+                channel.position(JobLog.MAX_BYTES + 1L);
+                channel.write(ByteBuffer.wrap(new byte[]{'x'}));
+            }
+            Files.writeString(fixture.tools.get(HostToolName.GIT),
+                    "#!/bin/sh\nexec " + FakePmExec.tool("cat") + " " + overCap + "\n");
+            fixture.enrol();
+            var seenCut = new AtomicBoolean();
+            runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), environment(),
+                    (job, output, cut) -> {
+                        seenCut.set(cut);
+                        return SUCCESS;
+                    }, request -> Optional.empty(), null);
+
+            var jobId = started(runner.start(git(30, "ok")));
+            var settledOverCap = runner.awaitSettled(jobId, Duration.ofMinutes(2));
+
+            assertAll(
+                    () -> assertTrue(settledOverCap.isPresent(), "the over-cap job settles"),
+                    () -> assertTrue(seenCut.get(), "the parser is told the job log was cut"));
+        }
+
+        @Test
         @DisplayName("a build job records no egress, only a worker does")
         void buildRecordsNoEgress() throws Exception {
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
@@ -2034,14 +2064,16 @@ class SubprocessJobRunnerTest {
 
         @ParameterizedTest(name = "{0}")
         @EnumSource(BuildSystem.class)
-        @DisplayName("the parser receives the job record of every build system")
+        @DisplayName("the parser receives the job record and the uncut fact of every build system")
         void parserReceivesTheRecord(BuildSystem system) throws Exception {
             var budgetKey = system.wireName() + ":verify";
             FakePmExec.install(home, FakePmExec.Mode.REPORT);
             var seen = new AtomicReference<JobRecord>();
+            var seenCut = new AtomicBoolean(true);
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), environment(),
-                    (job, output) -> {
+                    (job, output, cut) -> {
                         seen.set(job);
+                        seenCut.set(cut);
                         return SUCCESS;
                     }, request -> Optional.empty(), null);
 
@@ -2051,6 +2083,7 @@ class SubprocessJobRunnerTest {
 
             assertAll(
                     () -> assertNotNull(seen.get(), "the parser ran for the ended job"),
+                    () -> assertFalse(seenCut.get(), "a small job log is not reported as cut"),
                     () -> assertEquals(budgetKey, seen.get().budgetKey(), "the parser received the job key"),
                     () -> assertEquals(JobId.Kind.BUILD, seen.get().kind(), "the parser received the kind"));
         }
@@ -2068,7 +2101,7 @@ class SubprocessJobRunnerTest {
             });
             replay(replacement);
             runner = runner(new TerminationProtocol(ProcessGroupSignals.system()), environment(),
-                    (job, output) -> SUCCESS, request -> Optional.empty(), null,
+                    (job, output, cut) -> SUCCESS, request -> Optional.empty(), null,
                     Map.of(Name.CHANGE_LEDGER_ROW, replacement));
 
             var jobId = started(runner.start(git(30, "ok")));
@@ -2089,7 +2122,7 @@ class SubprocessJobRunnerTest {
             Map<Name, SettlementStep> steps = Map.of(Name.METRICS_ROW, misnamed);
 
             assertThrows(IllegalArgumentException.class, () -> runner(termination, env,
-                            (job, output) -> SUCCESS, request -> Optional.empty(), null, steps),
+                            (job, output, cut) -> SUCCESS, request -> Optional.empty(), null, steps),
                     "a step filed under another name is refused");
         }
 

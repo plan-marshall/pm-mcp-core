@@ -1,0 +1,11 @@
+{
+  "id": "PLAN-V2-179",
+  "slug": "commit-unit-second-residue-closeout",
+  "workstream": "WS-01",
+  "status": "shipped",
+  "lane": "runbook",
+  "plan_marshall_plan_id": "rb-v2-179-commit-unit-second-residue-closeout",
+  "pr": "#598",
+  "landing": "landings/PLAN-V2-179.md",
+  "seq": 167
+}
