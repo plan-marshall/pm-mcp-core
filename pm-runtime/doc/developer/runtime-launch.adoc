@@ -266,11 +266,12 @@ the enrolment (<<_not_implemented_here>>).
 * *A refused launch before its spawn is counted as a start failure*: a refusal the verifier makes because the store is
   unreadable, tampered, outside the supported range or absent, a launch the composer cannot compose, and a start the
   runner refuses are counted per role and harness through `StartFailureGuard`, closing the tasks of the role `lost`
-  with `role_unavailable` after the compiled count; `WorkerSupervisor` makes that call and records the refused job and
-  releases the slot before it counts. A refusal of `harness_update_unverified` is a decision about that one start and is
-  not counted, and neither is a start the supervisor declines itself (ADR `runtime-worker/025`). The warm offer, the
-  re-delivery, the offer bound, harness activation and the `skills_not_loaded` submit refusal of Model Work § Skill
-  Delivery Record & Re-Delivery are the task protocol's.
+  with `role_unavailable` after the compiled count; `WorkerSupervisor` makes that call: it records a verifier or
+  composition refusal through the runner's refused-job path and releases the slot before it counts, and a refusal of
+  the runner itself is the runner's own record. A refusal of `harness_update_unverified` is a decision about that one
+  start and is not counted, and neither is a start the supervisor declines itself (ADR `runtime-worker/025`). The warm
+  offer, the re-delivery, the offer bound, harness activation and the `skills_not_loaded` submit refusal of Model Work
+  § Skill Delivery Record & Re-Delivery are the task protocol's.
 * *Output and usage reading*: the mapping of the output stream to activity, the per-turn usage and the result parsing
   are not this package's (Model Work § Output Read While the Worker Runs).
 * *The Linux child subreaper* of the launcher (`PR_SET_CHILD_SUBREAPER` in `pm-exec`, a binary of `pm-mcp-clients`) is

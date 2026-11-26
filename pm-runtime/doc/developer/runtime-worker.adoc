@@ -294,9 +294,10 @@ so it is never counted; the supervisor consults the guard for a role that has a 
   link:{src}/StartFailureReport.java[`StartFailureReport`] bounds the worker's own error text to the job record's
   `MAX_HARNESS_ERROR` tail and redacts a minted job token, a minted worker secret, the user information of a URI and an
   e-mail address. The report goes to the audit log as `workerStartFailed`, to the assembly's clients on the declined
-  `StartOutcome`, and nowhere to a model. `WorkerSupervisor` records the refused job and releases the model slot before
-  it counts, so a count that throws — the audit sink, or the protocol's close at the hold — loses neither; and a batch
-  of starts stops at the first request after which the guard holds, so one failure is counted once.
+  `StartOutcome`, and nowhere to a model. `WorkerSupervisor` records a verifier or composition refusal through the
+  runner's refused-job path and releases the model slot BEFORE it counts, so a count that throws — the audit sink, or
+  the protocol's close at the hold — loses neither; a refusal of the runner itself is already the runner's record. A
+  batch of starts stops at the first request after which the guard holds, so one failure is counted once.
 * *Hold* — at `StartFailureGuard.HOLD_THRESHOLD` (three) consecutive failures the guard holds. It logs
   `WORKER_START_GUARD_HELD` and closes the role's queued and new tasks through `WorkerProtocol.closeUnavailable` as
   `lost` with the reason `role_unavailable`, with their conservative fallback (PM-WORK-6).
@@ -322,10 +323,10 @@ Past the bound the next start proceeds and owns the turn, so the spacing only ev
 one. `firstCall(harness, owner)` and `ended(harness, owner)` release the turn for THAT owner alone: an unrelated end, a
 worker that already called first, and a former owner past the bound release nothing. A collision that still makes a
 worker exit before its first call is a start failure and counts for the guard. A test lowers the bound instead of
-sleeping. `WorkerSupervisor` awaits the turn between the launch's preparation and its registration, outside every
-monitor of the supervisor, and releases it when the spawn was refused or the runner threw; `WorkerEnding` releases it
-when the generation ends and `SupervisorCalls` when its worker calls first. The start decision is serialized by a
-private start lock, so the pending worker's first call reaches the registry while another start waits
+sleeping. `WorkerSupervisor` awaits the turn between the launch's preparation and its registration, outside the
+registry monitor, and releases it when the spawn was refused or the runner threw; `WorkerEnding` releases it when the
+generation ends and `SupervisorCalls` when its worker calls first. The start decision is serialized by a private start
+lock, so the pending worker's first call reaches the registry while another start waits
 (ADR `runtime-worker/024`). The instance travels in `SupervisorEnvironment`, so the assembly supplies the one shared
 by every supervisor.
 

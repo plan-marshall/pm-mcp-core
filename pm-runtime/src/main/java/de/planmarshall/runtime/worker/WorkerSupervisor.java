@@ -61,10 +61,10 @@ import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
  * does not have and every transition out of a terminal state.
  * <p>
  * The role's starts are serialized by one start lock, so two concurrent callers never start beyond the role's count.
- * That lock is NOT the registry's monitor: the harness's start spacing is awaited outside every monitor of this
- * supervisor, so the pending worker's first call — which reads the registry through {@link #generation(String)} —
- * releases the wait instead of queueing behind it. A successful start logs {@code WORKER_GENERATION_STARTED} exactly
- * once.
+ * That lock is NOT the registry's monitor: the harness's start spacing is awaited outside the registry monitor, and a
+ * worker's call never takes the start lock, so the pending worker's first call — which reads the registry through
+ * {@link #generation(String)} — releases the wait instead of queueing behind it. A successful start logs
+ * {@code WORKER_GENERATION_STARTED} exactly once.
  *
  * @since 0.1
  */
@@ -137,8 +137,9 @@ public final class WorkerSupervisor {
      * the model slots admit them.
      *
      * @param requests the starts one caller asks for, all of one role
-     * @return one outcome per request the role's bounds admitted, in request order; the requests beyond the role's
-     *         count are not attempted and have no outcome
+     * @return one outcome per request the role's bounds and the guard admitted, in request order; the requests beyond
+     *         the role's count, and the requests left after the guard began to hold mid-batch, are not attempted and
+     *         have no outcome
      * @throws NullPointerException     if the list or an element is {@code null}
      * @throws IllegalArgumentException if the requests name different roles
      * @throws RuntimeException         whatever a start raises; the probe the guard admitted is settled before it
