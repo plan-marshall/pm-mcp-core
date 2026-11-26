@@ -7,8 +7,9 @@ Accepted
 
 == Date
 
-2026-10-31; amended 2026-11-25 (PLAN-V2-188: the enumeration holds fifteen kinds; `branch_up_to_date_required` left the
-specification, the schema and `DerivedFactKind`, and the decision itself is unchanged. The Context and the alternative
+2026-10-31; amended 2026-11-25 (PLAN-V2-188: the enumeration holds thirteen kinds; `branch_up_to_date_required`,
+`required_checks` and `checks_visible` left the specification, the schema and `DerivedFactKind`, and the decision itself
+is unchanged. `merge_queue_enforced` stays with `{available, check_response_timeout}`. The Context and the alternative
 below state "sixteen" because that is what the set held at the decision date)
 
 == Context

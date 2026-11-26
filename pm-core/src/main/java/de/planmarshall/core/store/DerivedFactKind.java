@@ -16,7 +16,7 @@ import java.util.Optional;
  * The closed set of the fact kinds of the derived facts store (Store Schemas § Derived Facts Store, {@code kind};
  * PM-EXT-6).
  * <p>
- * The schema enumerates the fifteen kinds, so a kind is a Java constant and never a free-form string: a document that
+ * The schema enumerates the thirteen kinds, so a kind is a Java constant and never a free-form string: a document that
  * names another kind is unreadable. The set is closed in the code and open for extension only through the
  * specification: a new kind is a specification change, an enum constant and a registration of its value schema in
  * {@link DerivedFactKinds} (ADR {@code core-store/053}).
@@ -37,16 +37,12 @@ public enum DerivedFactKind {
     CI_PROVIDER("ci_provider", false),
     /** The merge methods the repository allows (network). */
     MERGE_METHODS_ALLOWED("merge_methods_allowed", false),
-    /** Whether the base branch enforces its merge queue, and whether a queue is available (network). */
+    /** Whether a merge queue is available, and its check-response timeout (network). */
     MERGE_QUEUE_ENFORCED("merge_queue_enforced", false),
-    /** The required status check contexts of the base branch (network). */
-    REQUIRED_CHECKS("required_checks", false),
     /** Whether the repository requires signed commits (network). */
     SIGNED_COMMITS_REQUIRED("signed_commits_required", false),
     /** Whether a direct push to the base branch is refused (network). */
     BASE_BRANCH_PROTECTED("base_branch_protected", false),
-    /** Whether the agent credential can read check runs (network). */
-    CHECKS_VISIBLE("checks_visible", false),
     /** The provider's identity of the agent credential; operator-only (network). */
     AGENT_IDENTITY("agent_identity", true),
     /** The repository features the native git variant cannot serve (local). */

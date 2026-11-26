@@ -243,6 +243,28 @@ class DerivedFactsCodecTest {
     }
 
     @Test
+    @DisplayName("stored entries keyed with the removed check kinds are refused and named")
+    void removedCheckKindsAreRefused() {
+        assertAll("The removed check kinds are refused and named",
+                () -> assertRemovedKindRefused("required_checks"),
+                () -> assertRemovedKindRefused("checks_visible"));
+    }
+
+    private static void assertRemovedKindRefused(String kind) {
+        var document = MINIMAL
+                .replace("\"module_discovery\":{", "\"" + kind + "\":{")
+                .replace("\"kind\":\"module_discovery\"", "\"kind\":\"" + kind + "\"");
+
+        var refusal = refused(document);
+
+        assertAll("The key " + kind + " is refused and named",
+                () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                        "the removed kind should be unreadable"),
+                () -> assertTrue(refusal.getMessage().contains(kind),
+                        "the refusal should name the removed key"));
+    }
+
+    @Test
     @DisplayName("a bad digest, an offset instant and a reason of 501 code points are refused")
     void valueBoundsAreRefused() {
         assertAll("A value outside its bound is refused",
