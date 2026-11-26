@@ -36,7 +36,7 @@ Three deliverables, about 22 files, no split needed. Schema first.
 ## Standing Constraints
 
 - Every removal deletes its pinning tests and adds a negative control; no read shim; schema and parity test in one commit.
-- The writer of the new members (the job runner side, `pm_build`) and the freshness gate's derivation are not built here (owners: `build-parsers-and-gate-honesty`, `finalize-pipeline-and-merge`); this plan delivers the record and its codec.
+- The writer of the new members (the job runner side, `pm_build`) and the freshness gate's derivation are not built here (owner of both: `build-parsers-and-gate-honesty`, task "The build-neutral derivation of the freshness gate", merged by PLAN-V2-195 as #623; `finalize-pipeline-and-merge` only READS the derivation for its `open_ended` verdict-currency exception); this plan delivers the record and its codec.
 - Read cited lines at the head first. No dependency or plugin; at most 100 files per pull request; no model-facing content.
 - Sonar: fix or dismiss only on the operator's selection; an undecidable read blocks.
 
@@ -63,7 +63,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
 
 - Depends on: the schema-and-store-removals plan (`status.schema.json`); PLAN-V2-185 (staged and open: it edits `FreshnessReconcile` Javadoc, `core-store.adoc` and ADRs 087-089) — this plan STARTS AFTER 185 MERGES, because the removal deletes the very file 185 edits.
 - Overlaps with: PLAN-V2-55 `gate-baseline-separation` (staged; also edits `ChangeLedgerRecord`; assumed overlap on `ChangeLedgerRecord.java`, `ChangeLedgerCodec.java`, `ChangeLedgerSchemaParityTest.java`, `change-ledger-record.schema.json` — the gate decides). Recommended order: PLAN-V2-55 first, this plan rebased on it, so the exact-match parity test is written once over the final member set. Also PLAN-V2-150 (`failing_again` reads the failed-test identities): this plan lands before that half.
-- Adjacent to: the owners of the writer and of the gate (`build-parsers-and-gate-honesty`, `finalize-pipeline-and-merge`); `provider-git-primitive.adoc` (one line only).
+- Adjacent to: the owner of the writer and of the gate (`build-parsers-and-gate-honesty`; `finalize-pipeline-and-merge` reads the derivation, it does not own it); `provider-git-primitive.adoc` (one line only).
 
 ## Hand-Off Command
 

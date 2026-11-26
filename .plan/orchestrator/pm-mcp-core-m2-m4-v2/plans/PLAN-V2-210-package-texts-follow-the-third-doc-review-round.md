@@ -1,0 +1,84 @@
+# PLAN-V2-210: The package texts follow the third doc-review round: the merge path's two new routes, the base branch of an adopt plan, the lines and owners the first follow-up declined, and the rows it left unlinked
+
+epic: pm-mcp-core-m2-m4-v2
+workstream: WS-10
+origin: the residue of PLAN-V2-195 (`landings/PLAN-V2-195.md`, #623 `2b4bdee8`, §9 of the lane's landing message: the third doc-review round declined by the operator's selection "Decline as out of scope; stage a follow-up", the `forgejo-provider` row, the specification drift) and `inbox/doc-review-2026-11-25-003.md` §2 (core #622 `5ae4fd1c`: the merge path, the plan sources, `finalize.adopt-pr`), staged by the orchestrator on the thirty-ninth run, 2026-11-26. Documents only: NO Java.
+lane: runbook
+
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Lives at `plans/PLAN-V2-210-package-texts-follow-the-third-doc-review-round.md` and is queued as one row file, `queue/PLAN-V2-210.json`,
+> in the epic ledger (lane `runbook`). The orchestrator EMITS the command below; it never launches the plan inline.
+> This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names.
+
+## First Instruction: Read The Standing Rules
+
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`). They bind this plan exactly as if they were written below. Say in your first progress note that you read them, with their revision (`r7`; R21 binds the orchestrator's analysis and not this plan), and repeat the revision and the rule ids in your landing message.
+
+Rules that apply to this plan: R01, R05, R07, R08, R10, R11, R19, R20. (R02, R14 and R18 concern code and do not apply: this plan edits no Java; R19 names `doc/plans/README.adoc` as shared bookkeeping, governed by R08.)
+
+Plan parameters: R06 none (the work package files are the product here); ADR none; layout WS-10. **Read the skill first (R20):** `ref-asciidoc` of `pm-documents`, and the section "Planning the Work" of `../plan-marshall-documentation/doc/developer/project-setup.adoc` for what a package file holds.
+
+## Objective
+
+PLAN-V2-195 aligned the package texts with the first two doc reviews and declined the third round (the operator chose to stage a follow-up), and the doc-review session's decisions of 2026-11-25, merged as #622, changed what the merge path and the plan sources build: a dispatch refused `checks_pending` waits on the checks, a required check red only through baseline failures hands the plan back at the barrier, and an `adopt` plan's base branch is the pull request's base. No package text says so, and no package text names the owner of `finalize.adopt-pr` or of the `source-pr` start's base write. This plan edits the package texts, gives every mechanism of the third round one named owner, and links the rows the first follow-up left unlinked. It changes no specification and no code.
+
+## Deliverables
+
+All references are read at `2b4bdee8` and re-read at the head of `main` before editing; drop what a merge since then settled and name the commit.
+
+1. **The merge path (doc-review-003 §2, first bullet).** In `doc/plans/finalize-pipeline-and-merge.adoc` task 3 (the merge path as its chain of states): the dispatch refused `checks_pending` routes to `finalize.merge-evidence-wait` over the same `HEAD`, the lease released, `all_green` re-entering `finalize.merge-gate`, a CI wait without a deadline that charges no server-rule retry budget, `checks_failed` keeping its route (State Catalogue § `finalize.merge-refused`, `finalize.merge-evidence-wait`; Phase Workflows § Merge Path items 4 and 6; Timeouts § CI Wait and § Server-Rule Retry Budget). Task 4 (the Pre-Merge Review Barrier): the barrier outcome `baseline_red_required` when `baseline_red` change-ledger rows of the `worktree_sha` of `HEAD` cover every failure of every red required check, going to `finalize.hand-back` with the lease released, the gap `cause: baseline_red` (the cause itself is PLAN-V2-209's) listing the checks and the base commit that shows them red (State Catalogue § `finalize.merge-barrier`, § `finalize.hand-back`; Phase Workflows § Baseline-Red Server Rule; Workflow DSL § `remediation.ci-failure`). Done When gains the two guards with their matched controls: PM-WATCH-PHASE-83, `checks_pending` charges no budget, control `checks_failed` on a branch that is not behind whose next `finalize.merge-sync` ends `not_required`; PM-WATCH-JOB-25, control a second red required check beside a covered one, with one fingerprint the base does not show, ending `ci_failed`. The task text names the sections, never repeats them.
+   - Skills: pm-documents:ref-asciidoc
+   - Persona: documenter
+2. **The base branch of an adopt plan, and the owners it lacks (doc-review-003 §2, second and third bullet).** No package text names the `source-pr` start, the Base Stamp or `finalize.adopt-pr` (`git grep` of `doc/plans/*.adoc` at `2b4bdee8` finds none of the three; the packages that name an adopt are `process-designer.adoc:16` and `:37`, and that is `config_drift` adoption, another thing). The outline reads the index and gives each of the two mechanisms ONE owner and says so in the landing message: (a) the start writes `base_branch` from `ci.pr-view` into `overrides.json` in the plan's creation transaction, and `init.options` never asks the base for an `adopt` plan (Phase Workflows § Plan Source Contracts and Base Stamp; Store Schemas § Plan Overrides; Filesystem Layout 03); the nearest package is `start-source-intake` (the sources of a start), recommended, or `phase-sub-workflows` where `init.options` is built; (b) `finalize.adopt-pr` reads the pull request's base with its head, writes a retargeted base as the plan's `base_branch` in the adoption's transaction with a decision-log record naming both bases and re-stamps `main_sha` (State Catalogue § `finalize.adopt-pr`; watch PM-WATCH-PHASE-76; Workflow DSL § Posture and base branch); the nearest package is `finalize-pipeline-and-merge`, recommended. Where no package fits, the outline says so and creates none: it reports the gap, because a new package is the operator's decision. Done When gains the PHASE-76 fixture and its control.
+   - Skills: pm-documents:ref-asciidoc
+   - Persona: documenter
+3. **The lines and owners PLAN-V2-195 declined (its message of 2026-11-25T20:47:36Z, §3 and the four owners settled above 90%).** (a) The Done When lines: `finalize-pipeline-and-merge` (the `queue_required` re-dispatch — the line at `:37` already says "a direct merge refused `queue_required` dispatched again as `ci.enqueue`"; the outline reads whether it is the line the message asked for and says so — and optionally the test line "a `checks_failed` refusal whose red check carried only a non-blocking finding is routed `ci_failed` -> `finalize.remediate-barrier-ci` and made blocking"); `project-onboarding-unit` task 4 (the merge-queue probe reads the base branch's queue live: queue present -> `not_needed`; absent and available -> asks; unreadable -> `not_needed` with its reason; nothing stored); `decision-engine` task 1 and Done When (what a decision blocks is written by the server from what waits, vocabulary `plan|epic|setup|entry|task|nothing`, a worker envelope carrying `blocks` is refused; the staged spec PLAN-V2-23 is already edited by the orchestrator); `initial-lane-router` Done When (a submission with questions at score 100 opens the round; without questions below 95 it continues with `low_confidence_manual_review`; questions after the round are kept as `facts.builder_open_questions`). (b) The owners settled above 90% in that message: the setup merge-queue probe and the credential `verify` probing check-run visibility without storing it -> `project-onboarding-unit` task 4 (90%); the per-deliverable build scope from the deliverable's change entries -> `phase-sub-workflows` task 7 with the build map of PLAN-V2-35 (90%); the delivered consultations -> no package, the plan PLAN-V2-202 ("the consultation references the worker declares are removed"), which the package text names (90%); server-written `blocks` -> `decision-engine` (95%). **Not in this plan, still the operator's questions** (each with its recommendation, held open in `epic.md`): the CI contract at the act (`ci-contract-finalize-operations`, 70%), `finalize.land-message` (`finalize-pipeline-and-merge`, 65%), surfacer and retrospective-aspect selection (`phase-sub-workflows`, 85%), refine `evidence_class` and its questions (`initial-lane-router`, 60%), `FIX` -> `fixed` (`phase-sub-workflows` task 7, 55%); the plan edits none of these five and adds each to its landing message as "owner open".
+   - Skills: pm-documents:ref-asciidoc
+   - Persona: documenter
+4. **The rows the first follow-up left unlinked (PLAN-V2-195 §9).** The index `doc/plans/README.adoc`: the `forgejo-provider` row owns the Forgejo `behind` mapping and records no dependency on `ci-contract-finalize-operations`; add the dependency (a row records dependencies and status, the package text records tasks, `ref-asciidoc`'s package shape). The build-neutral derivation of the freshness gate has ONE owner in the package texts (`build-parsers-and-gate-honesty`); the orchestrator has already corrected the second owner out of the spec of PLAN-V2-192, so the outline only confirms that no package text names `finalize-pipeline-and-merge` as its owner (task 1 of that package reads it for the `open_ended` verdict currency, which stays).
+   - Skills: pm-documents:ref-asciidoc
+   - Persona: documenter
+
+**Done when** (against `origin/main` `2b4bdee8`): `finalize-pipeline-and-merge.adoc` names the route `checks_pending` -> `finalize.merge-evidence-wait` and the barrier outcome `baseline_red_required` with their two guards — fails at `2b4bdee8` (neither string is in `doc/plans/`); the `source-pr` start's base write and `finalize.adopt-pr` each have one named owner in a package text, or the landing says that none fits — fails at `2b4bdee8` (no package text names either); the four Done When lines and the four owners of deliverable 3 are in the package texts, the five owners left open are named as open and nowhere else; the `forgejo-provider` row lists the dependency on `ci-contract-finalize-operations` — fails at `2b4bdee8`; the index and the package files agree on names and dependencies; no package text names a removed thing as built. `verify -Ppre-commit` (rewrites reviewed and committed) green. Sonar: a documents-only pull request is not analysed by the project's CI (the landing of PLAN-V2-195 showed `undecidable`): the lane asks the operator once, and records `unknown`, never 0.
+
+## Standing Constraints
+
+- Documents only: no Java, no schema, no specification text of this repository is edited by this plan; a deviation found is a finding, not an edit. The specification drift PLAN-V2-195 found (`workflow-dsl/06-reusable-sub-workflows.adoc` still says "six phases"; `job-runtime/02` item 2 lets a project-root `write_paths` entry stay writable for `writer` workers, contradicting the doc review of 2026-11-24 §1) is the documentation repository's: report it in the landing message, do not edit it.
+- Names the specification sections instead of repeating them; a package text states the tasks, never the statuses (the index does).
+- A package whose status is `done` at the head is not edited; report it.
+- Read every cited line at the head first; drop what a merge settled. No more than 100 files per pull request.
+- Sonar: fix or dismiss only on the operator's selection; an `undecidable` read blocks until the operator selects.
+
+## Claim Labels
+
+All lines read at `origin/main` `2b4bdee8` by the orchestrator.
+
+- OBSERVED: `finalize-pipeline-and-merge.adoc` has eight tasks (`:13-20` in the list order of the file: verdict currency, step records, the merge path, the barrier, the phase `sanity-check`, the composite wait, the PR author's title, the review-bot records) and its Done When tests line names a `queue_required` dispatch as `ci.enqueue` — read at `doc/plans/finalize-pipeline-and-merge.adoc:11-20, 34-37`
+- OBSERVED: neither `checks_pending`, `merge-evidence-wait`, `baseline_red`, `baseline_red_required`, `adopt-pr`, `source-pr` nor `Base Stamp` occurs in any file of `doc/plans/` as a task or Done When of a package — checked by `git grep` on 2026-11-26 (the string `source-pr` occurs nowhere in `doc/plans`; `adopt` occurs only in `process-designer.adoc:16, :37`, a different mechanism)
+- OBSERVED: the specification names all of it: `checks_pending` routes to `finalize.merge-evidence-wait` and `merge.route-refusal` is the closed class `conflict, behind, queue_required, checks_pending, checks_failed, review_require…` — read at `doc/specification/state-catalogue/07*.adoc:85-88, 129-130`
+- OBSERVED: the operator's selection "Decline as out of scope; stage a follow-up" (PLAN-V2-195's operator question 3, recorded in its landing message §6) is the instruction for deliverables 3 and 4
+- OBSERVED: `doc/plans/README.adoc` has a row for `forgejo-provider` and one for `ci-contract-finalize-operations` — read at `doc/plans/README.adoc:102` and the rows PLAN-V2-195 added; whether the first row's dependency cell names the second is for the outline to read (the lane says it does not)
+- HYPOTHESIS: `start-source-intake` is the nearest package of the `source-pr` start and `finalize-pipeline-and-merge` the nearest of `finalize.adopt-pr` — confirm/refute at the index rows `doc/plans/README.adoc:69, 90, 270` and the package Left-out lines (verify-at-outline)
+- HYPOTHESIS: the `queue_required` Done-When line of `finalize-pipeline-and-merge` (`:37`) already is the line the third-round message asked for — confirm/refute against the message text above (verify-at-outline)
+- Verify-first clause: an owner this spec gives "recommended" is the orchestrator's recommendation, not the operator's decision; if the outline finds a better-fitting package it says so and takes it, with the reason in the landing message.
+
+## Expected Surface
+
+- OBSERVED: `doc/plans/finalize-pipeline-and-merge.adoc`, `doc/plans/project-onboarding-unit.adoc`, `doc/plans/decision-engine.adoc`, `doc/plans/initial-lane-router.adoc`, `doc/plans/phase-sub-workflows.adoc`, `doc/plans/start-source-intake.adoc`, `doc/plans/README.adoc` (the `forgejo-provider` row and the cells the new owners change).
+- HYPOTHESIS (swept: the file exists on the main branch): `doc/plans/forgejo-provider.adoc` (read only, to confirm the dependency; the row is in the index).
+
+## Dependencies and Sequencing
+
+- Depends on: PLAN-V2-195 (shipped, #623), PLAN-V2-209 for the NAME of the gap cause (a package text may name `baseline_red` before the schema carries it; the text is accurate once the specification is read, so this is no block).
+- Overlaps with (class level): the plans that edit `doc/plans/README.adoc` (R19: shared bookkeeping, R08), PLAN-V2-150 (`runtime-worker.adoc`, no common file), and any running documents plan: the gate decides at emit.
+- Adjacent to: PLAN-V2-23 (the `decision-engine` spec, edited by the orchestrator, not by this plan), PLAN-V2-202 (named by the package text, not edited), PLAN-V2-192 (its owner text corrected by the orchestrator on 2026-11-26).
+
+## Hand-Off Command
+
+```text
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-210-package-texts-follow-the-third-doc-review-round.md
+```
+
+## Write-Boundary
+
+The plan implementing this spec touches only its own repository documents. It creates and edits NO file under `.plan/orchestrator/` other than its own `inbox/{sender}-{seq}` message — the orchestrator owns every other ledger write — and reports its outcome through its PR and its inbox message. See `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.

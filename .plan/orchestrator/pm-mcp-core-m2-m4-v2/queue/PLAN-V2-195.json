@@ -2,10 +2,10 @@
   "id": "PLAN-V2-195",
   "slug": "package-text-edits-from-the-doc-reviews",
   "workstream": "WS-10",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-195-package-text-edits-from-the-doc-reviews",
+  "pr": "#623",
+  "landing": "landings/PLAN-V2-195.md",
   "seq": 183
 }
