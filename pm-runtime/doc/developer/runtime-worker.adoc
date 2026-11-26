@@ -105,8 +105,11 @@ life, uses the budget key `worker:<role>` with the role's floor budget, and logs
 once. `WorkerSupervisor.replaced(WorkerGeneration)` publishes a successor snapshot so the next decision sees the new
 lifecycle and terminal state; `generation(id)` and `generations()` read the registry in start order.
 
-Starts of one supervisor are serialized on the supervisor's own monitor, so two concurrent callers never start the
-role's workers beyond its count. A successful start is the only path that keeps the claimed slot; every refusal path
+Starts of one supervisor are serialized by the supervisor's private start lock, so two concurrent callers never start
+the role's workers beyond its count. The registry's monitor is held only for the admission, the launch's preparation,
+the spawn and the registration; the harness's spacing is awaited outside it, and a start waiting there re-checks
+`admitting` under the registry monitor before it spawns, so a drain that begins during the wait starts and registers
+nothing (`stopped_admitting`). A successful start is the only path that keeps the claimed slot; every refusal path
 releases it. The terminal worker state is written by the settlement with the job's fate and read at the end path, not
 here (<<_ending_fencing_and_drain>>).
 
@@ -594,21 +597,23 @@ enrolment, and no plan cleanup calls `ActivityJournal.archiveInto` or `delete`.
 
 Gaps of the package itself:
 
-* `StartFailureGuard.startFailed` is called by `WorkerSupervisor` for the two enrolment-store refusals only, so a live
-  guard does not count the start failure of an exit the pass observes, while a guard rebuilt over the registry does,
-  because the pass enters the `START_FAILED` state on that path. The pass is the only reader of the settled record, so
-  only the pass can count it; that count is owed to PLAN-V2-126.
+* `StartFailureGuard.startFailed` is not called for a start that ends before its first call as the pass observes it, so
+  a live guard does not count that failure while a guard rebuilt over the registry does, because the pass enters the
+  `START_FAILED` state on that path. The pass is the only reader of the settled record, so only the pass can count it;
+  that count is owed to PLAN-V2-126. The live guard does count every launch the runtime refuses before its spawn, with
+  the reasons and the one exclusion ADR `runtime-worker/025` names.
 * `AgentStartedDetector` has no `forget` for a terminal generation, which the pass makes long-lived.
 * The pass's pump map and finished-attempt set, with the calls' detection, loss and digest maps, are removed by the
   pass's completion. The registry's only removal is `forgetStartFailures`, which takes terminal `START_FAILED`
   generations — a state only the pass's end path produces, and that path has already cleaned its entries. No map entry
   can therefore outlive a retirement at the head; a removal path added later must clean them itself.
 * The monitor order is a cycle: `SupervisorCalls.harnessEnrolled` holds the calls monitor, `StartFailureGuard.clear` is
-  `synchronized` and calls `retireFailures` (the supervisor monitor) from inside it, while `WorkerSupervisor.start` is
-  `synchronized` and calls `StartFailureGuard.holds` (the guard monitor). The cycle would close only by releasing the
-  guard's monitor before its callback, which changes the clear-versus-failure race — `clear` would no longer remove the
-  state and retire the failed generations as one critical section. This residue plan records the analysis rather than
-  taking that concurrency decision; the guard's own design owns it.
+  `synchronized` and calls `retireFailures` (the supervisor monitor) from inside it, while the start path takes the
+  supervisor monitor and calls `StartFailureGuard.holds` and `startFailed` (the guard monitor) under it. The cycle
+  would close only by releasing the guard's monitor before its callback, which changes the clear-versus-failure
+  race — `clear` would no longer remove the state and retire the failed generations as one critical section. This
+  residue plan records the analysis rather than taking that concurrency decision; the guard's own design owns it, and
+  ADR `runtime-worker/024` records the cycle from the start path's side.
 
 The four follow-ups the end path's lane named, each with its outcome; none is built:
 
@@ -730,8 +735,8 @@ _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/1
 |The launch is refused before its spawn
 |`HarnessVerifier` or `LaunchComposer`
 |Records the refused job through `WorkerStarter.refuseWorker`, releases the claimed slot and declines with
-`LAUNCH_REFUSED`. A refusal on the enrolment store is counted by the start-failure guard; any other refusal is recorded
-without a count, and the task stays queued.
+`LAUNCH_REFUSED`. The refusal is counted by the start-failure guard, except `harness_update_unverified` and the
+supervisor's own declines (ADR `runtime-worker/025`); the task stays queued.
 
 |The worker exits before its first call
 |`LossDetection.exit` answers empty and sets `startFailure`

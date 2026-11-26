@@ -39,8 +39,9 @@ start lock is held, and no worker call takes it.
   (the guard and the eligibility gate), the model-slot claim, the verification and the composition run under the
   registry monitor; the spacing's turn is awaited between that preparation and the registration, outside the registry
   monitor — the start lock is held, and the pending worker's first call never takes it; the spawn and the registry
-  write run under the registry monitor again. A start the runner refuses or that throws releases its turn in a
-  `finally`.
+  write run under the registry monitor again, and a start waiting there re-checks `admitting` under that monitor, so a
+  drain that begins during the wait starts and registers nothing (`stopped_admitting`). A start the runner refuses or
+  that throws releases its turn in a `finally`.
 * The three release sites pass the generation id: `WorkerEnding.end` releases the turn of the generation it ends,
   `SupervisorCalls.firstCall` releases the turn of the generation that called, and the supervisor's refused-spawn path
   releases the turn of the generation it refused.

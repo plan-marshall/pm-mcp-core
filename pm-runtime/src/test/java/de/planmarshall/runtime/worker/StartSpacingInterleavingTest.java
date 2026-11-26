@@ -11,6 +11,7 @@ package de.planmarshall.runtime.worker;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,6 +25,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -89,6 +91,7 @@ class StartSpacingInterleavingTest {
         }, "second-start");
         waitingStart.start();
         var reachedTheClaim = fixture.claims.await(2, TimeUnit.SECONDS);
+        var finishedBeforeTheCall = secondStarted.await(200, TimeUnit.MILLISECONDS);
         var firstCallReturned = new CountDownLatch(1);
         var firstCall = new Thread(() -> {
             calls.callHeartbeat(first.generationId(), fixture.clock.instant());
@@ -99,6 +102,7 @@ class StartSpacingInterleavingTest {
         try {
             assertAll(
                     () -> assertTrue(reachedTheClaim, "the waiting start claims its slot first"),
+                    () -> assertFalse(finishedBeforeTheCall, "the turn still holds the waiting start"),
                     () -> assertTrue(firstCallReturned.await(2, TimeUnit.SECONDS),
                             "the first call completes while a start waits"),
                     () -> assertTrue(secondStarted.await(2, TimeUnit.SECONDS),
@@ -156,6 +160,34 @@ class StartSpacingInterleavingTest {
                 () -> assertTrue(waitedAfterTheLateEnd.compareTo(Duration.ofMillis(200)) >= 0,
                         "the former owner's late end releases nothing"),
                 () -> assertEquals(3, fixture.starts.size(), "each start of the scenario spawns a worker"));
+    }
+
+    @Test
+    @DisplayName("a start prepared while the drain begins registers nothing")
+    void aStartPreparedWhileTheDrainBeginsRegistersNothing() throws Exception {
+        var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 2);
+        var environment = environment(LONG_BOUND);
+        var supervisor = new WorkerSupervisor(environment);
+        var ending = ending(environment);
+        var first = started(supervisor.start(List.of(fixture.freshRequest(role))).getFirst());
+        fixture.claims = new CountDownLatch(1);
+        var waiting = new AtomicReference<List<WorkerSupervisor.StartOutcome>>();
+        var second = new Thread(() -> waiting.set(supervisor.start(List.of(fixture.freshRequest(role)))),
+                "second-start");
+        second.start();
+        var reachedTheClaim = fixture.claims.await(2, TimeUnit.SECONDS);
+        supervisor.stopAdmitting();
+        ending.end(first, EndCause.RECYCLE);
+        second.join(LONG_BOUND.toMillis());
+
+        assertAll(
+                () -> assertTrue(reachedTheClaim, "the waiting start claims its slot first"),
+                () -> assertEquals(WorkerStartRefusal.STOPPED_ADMITTING,
+                        assertInstanceOf(WorkerSupervisor.StartOutcome.Declined.class, waiting.get().getFirst(),
+                                "the waiting start is declined").reason(),
+                        "the drain declines the waiting start"),
+                () -> assertEquals(1, fixture.starts.size(), "the prepared worker never spawns"),
+                () -> assertEquals(1, supervisor.generations().size(), "the prepared worker is never registered"));
     }
 
     @Test
@@ -257,7 +289,7 @@ class StartSpacingInterleavingTest {
 
     private Duration waitedToStart(WorkerSupervisor supervisor, EffectiveRole role) {
         var startedAt = System.nanoTime();
-        supervisor.start(List.of(fixture.freshRequest(role)));
+        started(supervisor.start(List.of(fixture.freshRequest(role))).getFirst());
         return Duration.ofNanos(System.nanoTime() - startedAt);
     }
 

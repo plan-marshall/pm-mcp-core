@@ -312,6 +312,11 @@ public final class WorkerSupervisor {
         synchronized (this) {
             var started = false;
             try {
+                if (!admitting) {
+                    // the drain began while this start waited for its turn: nothing is started or registered
+                    environment.slots().release(lease);
+                    return new StartOutcome.Declined(WorkerStartRefusal.STOPPED_ADMITTING, null);
+                }
                 var result = startWorker(role, block, launch, lease);
                 if (result instanceof JobRunner.StartResult.Refused refused) {
                     environment.slots().release(lease);
