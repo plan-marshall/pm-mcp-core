@@ -32,6 +32,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import org.easymock.Capture;
@@ -126,6 +127,9 @@ final class SupervisorTestFixture {
 
     /** The model-slot leases the admission granted, in order. */
     final List<ModelSlots.Lease> claimed = new CopyOnWriteArrayList<>();
+
+    /** Signals every model-slot claim; a test that orders a start against a worker's call replaces it. */
+    CountDownLatch claims = new CountDownLatch(0);
 
     /** The model-slot leases the admission released, in order. */
     final List<ModelSlots.Lease> released = new CopyOnWriteArrayList<>();
@@ -390,6 +394,7 @@ final class SupervisorTestFixture {
             var arguments = getCurrentArguments();
             var lease = new ModelSlots.Lease((String) arguments[0], (String) arguments[1]);
             claimed.add(lease);
+            claims.countDown();
             return Optional.of(lease);
         }).anyTimes();
         expect(mock.nextWaitingRole()).andAnswer(() -> Optional.ofNullable(waitingRole)).anyTimes();

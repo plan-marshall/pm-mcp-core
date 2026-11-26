@@ -81,12 +81,14 @@ class StartSpacingInterleavingTest {
         var calls = calls(supervisor);
         var first = started(supervisor.start(List.of(fixture.freshRequest(role))).getFirst());
 
+        fixture.claims = new CountDownLatch(1);
         var secondStarted = new CountDownLatch(1);
         var waitingStart = new Thread(() -> {
             supervisor.start(List.of(fixture.freshRequest(role)));
             secondStarted.countDown();
         }, "second-start");
         waitingStart.start();
+        var reachedTheClaim = fixture.claims.await(2, TimeUnit.SECONDS);
         var firstCallReturned = new CountDownLatch(1);
         var firstCall = new Thread(() -> {
             calls.callHeartbeat(first.generationId(), fixture.clock.instant());
@@ -96,6 +98,7 @@ class StartSpacingInterleavingTest {
 
         try {
             assertAll(
+                    () -> assertTrue(reachedTheClaim, "the waiting start claims its slot first"),
                     () -> assertTrue(firstCallReturned.await(2, TimeUnit.SECONDS),
                             "the first call completes while a start waits"),
                     () -> assertTrue(secondStarted.await(2, TimeUnit.SECONDS),
@@ -110,7 +113,7 @@ class StartSpacingInterleavingTest {
     @Test
     @DisplayName("the end of a generation that is not the pending owner releases nothing")
     void anEndOfANonOwnerReleasesNothing() {
-        var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 3);
+        var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 4);
         var environment = environment(SHORT_BOUND);
         var supervisor = new WorkerSupervisor(environment);
         var calls = calls(supervisor);
@@ -120,30 +123,18 @@ class StartSpacingInterleavingTest {
 
         started(supervisor.start(List.of(fixture.freshRequest(role))).getFirst());
         ending.end(first, EndCause.RECYCLE);
-        var waited = waitedToStart(supervisor, role);
+        var startedAt = System.nanoTime();
+        var third = started(supervisor.start(List.of(fixture.freshRequest(role))).getFirst());
+        var waited = Duration.ofNanos(System.nanoTime() - startedAt);
+        ending.end(third, EndCause.RECYCLE);
+        var waitedAfterTheOwnerEnd = waitedToStart(supervisor, role);
 
         assertAll(
                 () -> assertTrue(waited.compareTo(Duration.ofMillis(200)) >= 0,
                         "a non-owner's end releases nothing"),
-                () -> assertEquals(3, fixture.starts.size(), "the third start still spawns a worker"));
-    }
-
-    @Test
-    @DisplayName("the owner's own end releases the next start at once")
-    void anEndOfTheOwnerReleasesTheNextStart() {
-        var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 2);
-        var environment = environment(LONG_BOUND);
-        var supervisor = new WorkerSupervisor(environment);
-        var ending = ending(environment);
-        var first = started(supervisor.start(List.of(fixture.freshRequest(role))).getFirst());
-
-        ending.end(first, EndCause.RECYCLE);
-        var waited = waitedToStart(supervisor, role);
-
-        assertAll(
-                () -> assertTrue(waited.compareTo(Duration.ofMillis(500)) < 0,
-                        "the owning generation's end releases at once"),
-                () -> assertEquals(2, fixture.starts.size(), "the released start spawns a worker"));
+                () -> assertTrue(waitedAfterTheOwnerEnd.compareTo(Duration.ofMillis(500)) < 0,
+                        "the owner's own end releases at once"),
+                () -> assertEquals(4, fixture.starts.size(), "each start of the scenario spawns a worker"));
     }
 
     @Test
