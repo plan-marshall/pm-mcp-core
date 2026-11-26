@@ -83,7 +83,7 @@ class WorkerSupervisorStartFailureTest {
             names = {"HARNESS_NOT_ENROLLED", "HARNESS_VERSION_UNSUPPORTED", "HARNESS_TAMPERED",
                     "HARNESS_STORE_UNREADABLE"})
     @DisplayName("a launch refused on the enrolment store counts one start failure")
-    void anEnrolmentStoreRefusalCountsOneStartFailure(LaunchRefusal reason) throws IOException {
+    void anEnrolmentStoreRefusalCountsOneStartFailure(LaunchRefusal reason) throws Exception {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
         var guard = guard();
         var supervisor = supervisorRefusing(reason, guard);
@@ -155,7 +155,7 @@ class WorkerSupervisorStartFailureTest {
 
     @Test
     @DisplayName("a start failure the guard throws on still records the refusal and releases the slot")
-    void aThrowingCountStillRecordsTheRefusal() throws IOException {
+    void aThrowingCountStillRecordsTheRefusal() throws Exception {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
         var supervisor = new WorkerSupervisor(fixture.environment(throwingGuard(failure), OPEN_GATE));
         tamperStore();
@@ -195,7 +195,7 @@ class WorkerSupervisorStartFailureTest {
 
     @Test
     @DisplayName("three launches refused on the harness store hold the role's starts")
-    void threeStoreRefusalsHoldTheRole() throws IOException {
+    void threeStoreRefusalsHoldTheRole() throws Exception {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
         var guard = guard();
         var supervisor = new WorkerSupervisor(fixture.environment(guard, OPEN_GATE));
