@@ -897,17 +897,24 @@ Source:: design review.
 === PM-WATCH-DISP-37: A handed-back plan keeps its queue row live until its pull request is observed
 
 Anchor:: link:../specification/model-work/08-epic-coordination.adoc#git-distributed-epic-ledger[Model Work § Git-Distributed Epic Ledger & Per-File Store Layout],
+link:../specification/store-schemas/10-job-and-lesson-records.adoc#lesson-claim[Store Schemas § A Claimed Lesson Ends with the Landing],
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-15[PM-WF-15]
 Hazard:: Mapping a plan's `handed_back` outcome onto a shipped status reports unmerged work as shipped and lets a
-dependent row start on a base that lacks it.
+dependent row start on a base that lacks it; a row that nothing observes after the hand-back stays live, with its
+dependants and its lesson, after the pull request merged, closed, or never existed.
 Guard:: Reconciliation test per plan state and outcome: `merged` -> `merged`, `no_change` -> `completed`, `aborted` ->
 `abandoned`, `cancelled` -> `cancelled`, `abandoned` -> `abandoned`, `returned` -> `returned`, `handed_back` ->
 `handed_back` (live), a pausing or paused plan -> `pausing`, `paused` (live, back to `running` on start), and
-`released` changes no row; a `handed_back` row becomes `merged`
-only when the landing reconciliation observes its pull request merged, and a row that depends on it is not started
-before; it becomes `abandoned` when the reconciliation observes the pull request closed without a merge, and a row
-that depends on it is then never started. Matched control: while the pull request is open the row stays
-`handed_back`.
+`released` changes no row. `epic.next-work` observes every `handed_back` row that has a pull request through
+`ci.pr-observe`, in the same pass that reconciles the shipped rows without a landing record: observed merged with the plan's last recorded push as its head, the row
+becomes `merged`, its landing facts are derived as for a shipped row, and the lesson the plan was started from is
+retired `applied` in that step, and a row that depends on it is not started before; observed merged with another head,
+the row becomes `abandoned` and the lesson stays `active`; a pass that wrote a row ends `reconciled` and
+`epic.commit-ledger` commits it; observed closed without a merge,
+the row becomes `abandoned` and a row that depends on it is then never started; a `handed_back` row without a pull
+request (`merge_outcome` `local_only` or `no_pr`) becomes `abandoned` in that pass. Matched controls: while the pull
+request is open the row stays `handed_back` and the lesson stays `active`; a pull request that merged after the plan
+was handed back, observed on the next pass, settles the row, its landing facts, and the lesson in one step.
 Source:: design review.
 
 [#PM-WATCH-DISP-38]

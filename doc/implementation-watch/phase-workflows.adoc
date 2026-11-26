@@ -396,7 +396,11 @@ Guard:: Loop-back scenario tests count fix-induced (self-seeded) findings separa
 change, per round and cumulatively. No `FIX` finding is resolved `fixed` without the recorded commit (the fix task's
 verified commit or the settle commit of the round that carried its fix): a fixture whose settle commit's message or
 diff matches the fix task's `population` text but belongs to another round leaves the finding `pending`, and a defect
-the producer reports again at the new `HEAD` is a new finding.
+the producer reports again at the new `HEAD` is a new finding. The reply of a `FIX` is model-authored at triage and
+reaches the provider only with the finding resolved `fixed`: a `FIX` still `pending` makes no provider call and reads
+`transmit_outcome: not_sent` with `transmit_reason: nothing_to_transmit`; matched control: the same finding after its
+fix landed on the recorded commit transmits the reply once and resolves the thread, and a finding whose `FIX` never
+reaches `fixed` leaves its thread unanswered and unresolved.
 Fixture:: `0b918c` (`7bd671bec` fixed `6bc073` and created a `contract_drift`); `037198` (`819e4055f` false "closed
 population of 3"); both closed by deletion (`069c9519e`, `b29541c83`); 14 of 51 findings (27%) over 19 firings
 self-seeded, in 5 chains. Convergence vs oscillation: 4 / 4 / 2 findings over three rounds, 6 of 10 authored by the
@@ -1062,8 +1066,9 @@ Guard:: CI stub test (sandboxed provider) where the merge call reports success b
 workflow stays in its wait state and then reports ejected or timed out, never stamps merged. A merge-queue enqueue
 counts only on an observed read of this PR's own queue membership, never on the command's success or on the existence
 of a queue rule. The merge and enqueue calls carry the expected head SHA: a stub whose head moved between barrier and
-dispatch answers `head_moved`, and the plan re-enters `finalize.merge-gate` instead of merging. The bound of the
-queue wait is PM-WATCH-PHASE-78's.
+dispatch answers `head_moved`, and the plan re-enters `finalize.merge-gate` instead of merging, the re-entry charged
+to the server-rule retry budget (a head that keeps moving ends the budget and hands the plan back, gap
+`budget: server_rule_retry`). The bound of the queue wait is PM-WATCH-PHASE-78's.
 Fixture:: `ci pr merge` → `merged: true`, branch deleted, PR not merged; PR #1480: 11 checks green, 2 × 30-min
 windows merged nothing.
 Source:: plan-marshall defects orchestrator-refactor PLAN-10 D3; truthful-signals (quality-aspect) PLAN-220 D3.
@@ -1290,7 +1295,12 @@ same in both variants. In `finalize.merge-sync` the same rejection resets the br
 calls `remediation.merge-conflict`, whose gather first rebases onto the observed remote head (a clean rebase ends the
 unit `resolved` without a task); on a conflict the server takes `fix` without a decision task (an `implement` task) and
 continues the integration in `remediation.continue-integration` onto the observed remote head, keeping the foreign
-commits and never force-pushing over them.
+commits and never force-pushing over them. `finalize.merge-sync` also compares the head of the pull request that
+`ci.pr-observe` reports with the local `HEAD`: a head the plan has not pushed ends the sync `foreign_head` and calls
+`remediation.merge-conflict` before the barrier, as a lease rejection does; matched controls: a head equal to the
+last recorded push of the plan ends the sync as before, and a remote head the plan's `HEAD` contains (the foreign head a
+remediation rebased onto) is no foreign head: the sync pushes with the lease on that head instead of ending
+`foreign_head` again.
 Source:: design review.
 
 [#PM-WATCH-PHASE-75]
@@ -1302,9 +1312,10 @@ Hazard:: A plan that did not merge closed its pull request, or its pull request 
 hand-back and the plan archived it as `handed_back` although its change landed; a retried hand-back posted its gap
 comment twice.
 Guard:: Fixture whose provider reports the pull request merged at the archive re-observation: no state-changing
-request is sent, and the plan archives with `merge_outcome: merged` and `merge_state: landed`; matched control: an
+request is sent, and the plan archives with `merge_outcome: merged` and `merge_state: landed`; matched controls: an
 open pull request is never closed by the plan and archives with `merge_outcome: handed_back`, a closed one with
-`declined`. Retry fixture: the hand-back fails after the gap comment was posted; the retry finds the comment's
+`declined`, and one merged with a head other than the plan's `HEAD` with `merge_outcome: handed_back` and
+`merge_state: not_applicable`. Retry fixture: the hand-back fails after the gap comment was posted; the retry finds the comment's
 hidden `plan_id` marker and posts no second comment; an unobservable pull request at archive retries within the
 condition budget and then archives with `merge_state: unknown`, counted in `missing_facts`.
 Source:: design review.
@@ -1386,20 +1397,31 @@ Source:: design review.
 [#PM-WATCH-PHASE-83]
 === PM-WATCH-PHASE-83: A provider refusal offers no merging path
 
-Anchor:: link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#merge-path[Phase Workflows § Merge Path] (items 4 and 6),
+Anchor:: link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#merge-path[Phase Workflows § Merge Path] (items 1, 4 and 6),
 link:../specification/phase-workflows/06-finalize-re-entry-and-merge.adoc#_cross_plan_merge_mutex_fifo_admission_queue[Phase Workflows § Cross-Plan Merge Mutex & FIFO Admission Queue] (item 5)
 Hazard:: A `not_mergeable` refusal is bypassed by an administrator merge (`plan-marshall`'s `--admin`), or a
 `behind`/`conflict` refusal re-enters the gate, the next sync sees no reason to rebase, and the dispatch is refused
 again until the retry budget is spent, or a `checks_pending` refusal re-enters the gate, whose barrier does not wait
-for a pending check, and is refused again until the budget is spent while the checks still run.
+for a pending check, and is refused again until the budget is spent while the checks still run; a pull request that
+someone else closed or merged after the plan began is dispatched against as an open one.
 Guard:: Scenario per `facts.reason` value: the `auto` state `finalize.merge-refused` offers no link; `behind`,
 `conflict`, `queue_required`, and `checks_failed` re-enter `finalize.merge-gate` within the retry budget (after
-`queue_required` the next `merge.dispatch` is `ci.enqueue`), `checks_pending` enters `finalize.merge-evidence-wait`
-over the same `HEAD` without charging the retry budget and re-enters the gate on `all_green`, a `checks_failed` whose red check carries
-only a non-blocking finding makes it blocking and enters `finalize.remediate-barrier-ci`, and
+`queue_required` the next `merge.dispatch` is `ci.enqueue`), the first `checks_pending` refusal at a `HEAD` enters
+`finalize.merge-evidence-wait` over the same `HEAD` without charging the retry budget and re-enters the gate on
+`all_green`, a `checks_pending` refusal that repeats at the same `HEAD` after the wait ended `all_green` is a re-entry
+charged to the retry budget and, with the budget spent, hands the plan back with a gap that names the checks the
+provider called pending and states that every observed check was complete, a `checks_failed` whose red check carries
+only a non-blocking finding makes it blocking and enters `finalize.remediate-barrier-ci`, `closed` (the pull request
+was closed after the plan began) enters `finalize.hand-back` with gap `cause: pr_closed`, `merged` (the pull request
+was merged after the plan began) takes the route of the observed `merged` outcome of `finalize.merge-dispatch` when the merged `head_sha` is the plan's `HEAD` and otherwise enters `finalize.hand-back` with gap `cause: pr_merged`, and
 `review_required`, `blocked`, `draft`, `method_not_allowed`, `unknown`, and a spent budget enter `finalize.hand-back`
-with gap `cause: provider_refused`; a separate hand-back fixture per remaining gap cause asserts its own value, never
-`provider_refused`: `stepped_out` with `step_out_cause: push_state_unknown` (a `git.commit_and_push` parity state
+with gap `cause: provider_refused`; at gate entry a pull request observed `closed` (`pr_closed`) hands the plan back
+with gap `cause: pr_closed` and one observed `merged` (`pr_merged`) takes the `merged` route when its `head_sha` is the plan's `HEAD` (`pr_merged_unlanded` hands back with gap `cause: pr_merged`), an observation that
+cannot be made decides neither (the dispatch observes again at the act), and a pull request whose
+`base_branch` differs from the plan's is followed as `finalize.adopt-pr` follows a retargeted one (the observed base
+written as `base_branch` with a decision-log record naming both bases, `main_sha` stamped from it, the next
+`finalize.merge-sync` rebasing onto it); a separate hand-back fixture per remaining gap cause asserts its own value,
+never `provider_refused`: `pr_closed`, `stepped_out` with `step_out_cause: push_state_unknown` (a `git.commit_and_push` parity state
 `remote_absent_unverified` or an unrecognised state) and `local_only` (no push remote: recorded, not a failure); no link,
 waiver, or verb sends a merge request with an administrative flag (request log of the recorded provider); for
 `behind` the next `finalize.merge-sync` rebases because the last dispatch was refused `behind`, and for `conflict`
@@ -1431,7 +1453,7 @@ Hazard:: A fallback that ends the plan at once skips the post-run band (no landi
 same fallback (a spent budget and a step-out) are indistinguishable in the record; begun steps stay open and later
 re-fire on an ended plan.
 Guard:: Scenario per cause (`exhausted`, `stepped_out`, `decided`, `infeasible`, `condition`, `provider_refused`,
-`merge_by_operator`, `operator_path`, `local_only`, `files_not_applicable`, `deliverable_removed`, `baseline_red`): the transaction entering `plan.return` or `finalize.hand-back` records every
+`merge_by_operator`, `operator_path`, `local_only`, `files_not_applicable`, `deliverable_removed`, `baseline_red`, `pr_closed`, `pr_merged`): the transaction entering `plan.return` or `finalize.hand-back` records every
 begun, unsettled step `failed`, writes one gap record with its cause and the spent budget, the server's step-out
 cause, or the decision task's reason and evidence, and composes the post-run-only instance version (event
 `fallback`); the plan then runs the post-run band and ends only through `finalize.archive-plan` in `returned` or
@@ -1477,8 +1499,9 @@ Guard:: Scenario test with a provider fixture that fails `ci.pr-create`: `finali
 server retry backoff, within the server-rule retry budget, from the persisted title and body; `finalize.create-pr` is
 never re-entered and no second queue task exists; with the budget spent `retry_spent` hands the plan back (branch
 only; gap `budget: server_rule_retry`). Matched controls: a pull request that already exists for the branch settles
-`pr_exists` and completes `default:create-pr` as `skipped`; a success settles `opened` with `pr_number` and
-`head_sha` recorded.
+`pr_exists` and completes `default:create-pr` as `skipped`; a recorded pull request observed merged settles `merged`,
+completes `default:create-pr` as `skipped`, and enters `finalize.merge-gate`; a success settles `opened` with
+`pr_number` and `head_sha` recorded.
 Source:: design review.
 
 [#PM-WATCH-PHASE-97]
@@ -1800,8 +1823,13 @@ that merges findings by location drops a second defect on the same line; a dupli
 reading makes it look useful; one reading ending `lost` leaves the round reported clean.
 Guard:: Scenario with `code_readings: 2`: each reading runs on its own entity in a fresh worker and its facts hold no
 finding of the other; two different findings on one line are both filed; a finding answered `SUPPRESS` as a duplicate
-leaves `second_reading_yield` unchanged; a lost reading records `not_run`, never `clean_full`. Matched controls: the
-default value runs one task, a delta round and terminus mode run one task with the value `2`, and findings carry `reading: null`.
+leaves `second_reading_yield` unchanged; a lost reading records `not_run`, never `clean_full`. A `SUPPRESS` with
+`suppress_reason: duplicate` is refused with `invalid_link_args` naming the finding when the finding in its
+`evidence.ref` lies in another `file_path`, or in the same file with neither the same `line` nor the same `rule_id`,
+or is itself resolved as a duplicate, and nothing is written. Matched controls: the default value runs one task, a
+delta round and terminus mode run one task with the value `2`, and findings carry `reading: null`; the same
+`SUPPRESS` naming a finding of the same file on the same `line`, and one naming a finding of the same file with the
+same `rule_id` on another line, are accepted.
 Source:: Article analysis `review-like-my-team` of plan-marshall-documentation.
 
 [#PM-WATCH-PHASE-126]

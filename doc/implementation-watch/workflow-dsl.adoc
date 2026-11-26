@@ -546,7 +546,9 @@ request, and `finalize.push-barrier` routes it by result guard to `finalize.merg
 is resolved by provider evidence first: a merged pull request of the head branch makes it `remote_absent_landed`
 (no push), no pull request at all makes it `never_pushed` (pushes); with an open or closed-unmerged pull request or
 an unobservable provider it, and every unrecognised state, steps out (`cause: push_state_unknown`) to the caller's
-fallback without a push; only `synced` and an executed push report `pushed: true`.
+fallback without a push; `behind` and `diverged` end `git.push-barrier-decision` with `sync_required` and enter
+`git.sync-required` (the server fetches and rebases onto the observed remote head), never `push_state_unknown`; only
+`synced` and an executed push report `pushed: true`.
 Source:: design review.
 
 [#PM-WATCH-DSL-25]

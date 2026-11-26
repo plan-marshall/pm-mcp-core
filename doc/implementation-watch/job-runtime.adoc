@@ -527,10 +527,15 @@ bound to the `worktree_sha` of the evaluated tree and recorded as a `baseline_re
 commit makes the row stale and the gate re-runs; a failure whose fingerprint the base does not show calls
 `remediation.ci-failure` for a CI check and `remediation.build-failure` for a local gate; without a CI
 result on the base the local build of the merge base is the proof, and without either the red is not baseline;
-at the pre-merge barrier, red required checks whose every failure such a row of `HEAD` covers end
-`baseline_red_required` and enter `finalize.hand-back` with gap `cause: baseline_red`; matched control: beside such a
-covered check, a second red required check with one fingerprint the base does not show ends `ci_failed` and enters
-`finalize.remediate-barrier-ci`.
+at the pre-merge barrier, red required checks whose every failure such a row of `HEAD` covers read, before the barrier
+ends, the provider's result for each failing check at the current base head: every check green there, at a base head `HEAD` does not contain, ends the barrier
+`baseline_cleared` and enters `finalize.merge-gate` (its facts name the base commit, and the next sync rebases onto it; the outcome counts against the server-rule retry budget, and with the budget spent the plan is handed back),
+and a check still red there, or without a readable result at that commit, ends `baseline_red_required` and enters
+`finalize.hand-back` with gap `cause: baseline_red`, whose gap names the base commit the read used; matched controls:
+beside such a covered check, a second red required check with one fingerprint the base does not show ends `ci_failed`
+and enters `finalize.remediate-barrier-ci`; a base head whose provider result is green for one failing check and red
+for another ends `baseline_red_required`; a base head that `HEAD` already contains and is green for the failing check
+ends `ci_failed`, never `baseline_cleared`.
 Source:: design review.
 
 [#PM-WATCH-JOB-26]
