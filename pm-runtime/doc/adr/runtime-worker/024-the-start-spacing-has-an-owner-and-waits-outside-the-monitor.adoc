@@ -28,7 +28,8 @@ cleared the marker of the start that owned it.
 
 == Decision
 
-The turn has an owner and the wait runs outside every monitor of the supervisor.
+The turn has an owner and the wait runs outside the registry monitor that the pending worker's first call takes — the
+start lock is held, and no worker call takes it.
 
 * `HarnessStartSpacing` keys the harness on the id of the start that owns its turn: `awaitTurn(harness, owner)`
   reserves the turn for an owner, `firstCall(harness, owner)` and `ended(harness, owner)` release it for that owner

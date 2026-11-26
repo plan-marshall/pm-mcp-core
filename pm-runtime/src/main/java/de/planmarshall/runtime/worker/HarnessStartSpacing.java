@@ -33,8 +33,9 @@ import java.util.concurrent.TimeUnit;
  * the bound handed the turn to the next start, the former owner's late release leaves it alone. A release is
  * idempotent.
  * <p>
- * The wait happens outside every monitor of the caller: it is the spacing's own monitor that is released while the
- * thread waits, so the pending worker's first call reaches the release without the caller's lock in its way.
+ * The wait happens outside the monitors of the caller that the pending worker's first call needs: the spacing's own
+ * monitor is the only one released while the thread waits, so the first call reaches the release without the caller's
+ * lock in its way.
  *
  * @since 0.1
  */

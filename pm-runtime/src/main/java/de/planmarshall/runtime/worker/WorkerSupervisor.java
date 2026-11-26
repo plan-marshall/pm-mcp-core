@@ -357,10 +357,11 @@ public final class WorkerSupervisor {
     }
 
     /**
-     * Waits for the harness's start spacing outside every monitor of this supervisor: the workers of one harness start
-     * one after another on the machine, so a start waits until the previous worker of that harness made its first call
-     * or ended, at most the spacing's bound. The spacing only ever delays a start and never refuses one, so an
-     * interrupted wait proceeds at once with the thread's flag restored.
+     * Waits for the harness's start spacing outside the registry monitor: the workers of one harness start one after
+     * another on the machine, so a start waits until the previous worker of that harness made its first call or ended,
+     * at most the spacing's bound. The start lock is held and no worker call takes it, so the pending worker's first
+     * call reaches the release. The spacing only ever delays a start and never refuses one, so an interrupted wait
+     * proceeds at once with the thread's flag restored.
      */
     private void awaitTurn(String harness, String generationId) {
         try {

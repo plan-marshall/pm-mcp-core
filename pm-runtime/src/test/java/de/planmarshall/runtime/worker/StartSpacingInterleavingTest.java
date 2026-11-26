@@ -132,7 +132,7 @@ class StartSpacingInterleavingTest {
         assertAll(
                 () -> assertTrue(waited.compareTo(Duration.ofMillis(200)) >= 0,
                         "a non-owner's end releases nothing"),
-                () -> assertTrue(waitedAfterTheOwnerEnd.compareTo(Duration.ofMillis(500)) < 0,
+                () -> assertTrue(waitedAfterTheOwnerEnd.compareTo(Duration.ofMillis(150)) < 0,
                         "the owner's own end releases at once"),
                 () -> assertEquals(4, fixture.starts.size(), "each start of the scenario spawns a worker"));
     }
