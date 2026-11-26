@@ -159,9 +159,9 @@ class WorkerSupervisorStartFailureTest {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
         var supervisor = new WorkerSupervisor(fixture.environment(throwingGuard(failure), OPEN_GATE));
         tamperStore();
+        var requests = List.of(fixture.freshRequest(role));
 
-        var thrown = assertThrows(IllegalStateException.class,
-                () -> supervisor.start(List.of(fixture.freshRequest(role))),
+        var thrown = assertThrows(IllegalStateException.class, () -> supervisor.start(requests),
                 "the guard's own failure propagates");
 
         assertAll(
@@ -175,7 +175,7 @@ class WorkerSupervisorStartFailureTest {
     void aBatchStopsWhenTheGuardHolds() {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 3);
         var guard = guard();
-        for (var failure = 1; failure <= StartFailureGuard.HOLD_THRESHOLD; failure++) {
+        for (var attempt = 1; attempt <= StartFailureGuard.HOLD_THRESHOLD; attempt++) {
             guard.startFailed(role.artifact().name(), role.harness(), RuntimeGenerators.words().next());
         }
         fixture.advance(StartFailureGuard.PROBE_BACKOFF);

@@ -213,9 +213,9 @@ class StartSpacingInterleavingTest {
         var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 2);
         fixture.startFailure = new IllegalStateException(failure);
         var supervisor = supervisor(SHORT_BOUND);
+        var requests = List.of(fixture.freshRequest(role));
 
-        var thrown = assertThrows(IllegalStateException.class,
-                () -> supervisor.start(List.of(fixture.freshRequest(role))),
+        var thrown = assertThrows(IllegalStateException.class, () -> supervisor.start(requests),
                 "a throwing runner propagates its failure");
         fixture.startFailure = null;
         var waited = waitedToStart(supervisor, role);
