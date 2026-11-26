@@ -24,6 +24,9 @@ public enum WorkerStartRefusal {
     /** The verification-record gate of the harness does not admit workers of the role. */
     HARNESS_INELIGIBLE("harness_ineligible", "the verification record of the harness does not admit the role"),
 
+    /** The supervisor stopped admitting starts, as the drain requires, before the prepared worker could start. */
+    STOPPED_ADMITTING("stopped_admitting", "the supervisor stopped admitting starts before the worker started"),
+
     /** No model slot is free for the worker, or its plan's writer worker holds the slot. */
     NO_MODEL_SLOT("no_model_slot", "no model slot is free for the worker"),
 

@@ -105,8 +105,11 @@ life, uses the budget key `worker:<role>` with the role's floor budget, and logs
 once. `WorkerSupervisor.replaced(WorkerGeneration)` publishes a successor snapshot so the next decision sees the new
 lifecycle and terminal state; `generation(id)` and `generations()` read the registry in start order.
 
-Starts of one supervisor are serialized on the supervisor's own monitor, so two concurrent callers never start the
-role's workers beyond its count. A successful start is the only path that keeps the claimed slot; every refusal path
+Starts of one supervisor are serialized by the supervisor's private start lock, so two concurrent callers never start
+the role's workers beyond its count. The registry's monitor is held only for the admission, the launch's preparation,
+the spawn and the registration; the harness's spacing is awaited outside it, and a start waiting there re-checks
+`admitting` under the registry monitor before it spawns, so a drain that begins during the wait starts and registers
+nothing (`stopped_admitting`). A successful start is the only path that keeps the claimed slot; every refusal path
 releases it. The terminal worker state is written by the settlement with the job's fate and read at the end path, not
 here (<<_ending_fencing_and_drain>>).
 
@@ -286,11 +289,18 @@ link:{src}/StartFailureGuard.java[`StartFailureGuard`] counts the consecutive st
 failed before the worker's first call, or that the runtime refused before the spawn. A `zero_tool` worker makes no call,
 so it is never counted; the supervisor consults the guard for a role that has a connection only.
 
-* *Count* — `startFailed(role, harness, logTail)` counts one failure per role and harness. The
+* *Count* — `startFailed(role, harness, logTail)` counts one failure per role and harness. A launch the runtime refuses
+  before its spawn counts: the four enrolment-store refusals (`harness_store_unreadable`, `harness_tampered`,
+  `harness_version_unsupported`, `harness_not_enrolled`), a launch the composer cannot compose and a start the runner
+  refuses. A refusal of `harness_update_unverified` counts nothing, and neither does a start the supervisor declines
+  itself (ADR `runtime-worker/025`). The
   link:{src}/StartFailureReport.java[`StartFailureReport`] bounds the worker's own error text to the job record's
   `MAX_HARNESS_ERROR` tail and redacts a minted job token, a minted worker secret, the user information of a URI and an
-  e-mail address. The report goes to the audit log as `workerStartFailed` and to the assembly's clients; it is never
-  rendered to a model.
+  e-mail address. The report goes to the audit log as `workerStartFailed`, to the assembly's clients on the declined
+  `StartOutcome`, and nowhere to a model. `WorkerSupervisor` records a verifier or composition refusal through the
+  runner's refused-job path and releases the model slot BEFORE it counts, so a count that throws — the audit sink, or
+  the protocol's close at the hold — loses neither; a refusal of the runner itself is already the runner's record. A
+  batch of starts stops at the first request after which the guard holds, so one failure is counted once.
 * *Hold* — at `StartFailureGuard.HOLD_THRESHOLD` (three) consecutive failures the guard holds. It logs
   `WORKER_START_GUARD_HELD` and closes the role's queued and new tasks through `WorkerProtocol.closeUnavailable` as
   `lost` with the reason `role_unavailable`, with their conservative fallback (PM-WORK-6).
@@ -310,11 +320,18 @@ started workers resumes the count of the generations that exited before their fi
 
 link:{src}/HarnessStartSpacing.java[`HarnessStartSpacing`] is the machine-wide spacing of one harness: it keys on the
 harness id alone, so one instance shared by the supervisors of every project spaces two projects that start the same
-harness at once. `awaitTurn` waits until the previous worker of the harness made its first call or ended, at most
-`SPACING_BOUND` (30 seconds). Past the bound the next start proceeds, so the spacing only ever delays a start and never
-refuses one. A collision that still makes a worker exit before its first call is a start failure and counts for the
-guard. A test lowers the bound instead of sleeping. The class is not yet reached from a production start path — no
-production class calls `awaitTurn` — so the shared instance ADR 001 describes is owed to the supervisor's wiring.
+harness at once. `awaitTurn(harness, owner)` waits until the previous start of the harness made its first call or
+ended, at most `SPACING_BOUND` (30 seconds), and then records the turn as that owner's — the start's generation id.
+Past the bound the next start proceeds and owns the turn, so the spacing only ever delays a start and never refuses
+one. `firstCall(harness, owner)` and `ended(harness, owner)` release the turn for THAT owner alone: an unrelated end, a
+worker that already called first, and a former owner past the bound release nothing. A collision that still makes a
+worker exit before its first call is a start failure and counts for the guard. A test lowers the bound instead of
+sleeping. `WorkerSupervisor` awaits the turn between the launch's preparation and its registration, outside the
+registry monitor, and releases it when the spawn was refused or the runner threw; `WorkerEnding` releases it when the
+generation ends and `SupervisorCalls` when its worker calls first. The start decision is serialized by a private start
+lock, so the pending worker's first call reaches the registry while another start waits
+(ADR `runtime-worker/024`). The instance travels in `SupervisorEnvironment`, so the assembly supplies the one shared
+by every supervisor.
 
 The guard and the spacing are part of the supervisor's start ownership (ADR 001).
 
@@ -369,8 +386,8 @@ No value of a profile is believed because the profile says so:
 * A *shipped* profile is trusted — the release compiled its document.
 * A profile that makes *no claim* (`worker.eligible: false` and no `zero_tool` class) passes untouched.
 * A claimed profile makes up to three claims. `worker.eligible: true` is honoured only when the record carries `faults`
-  with `trials` of at least 10, the confinement its operating system's verification records (`landlock` on `linux`, the
-  sandbox `sandbox` on `darwin`), and `paths` and `egress` as `passed` — or an `egress` whose `results` state
+  with `trials` of at least 10, the confinement its operating system's verification records (`landlock` on `linux`,
+  `sandbox` on `darwin`), and `paths` and `egress` as `passed` — or an `egress` whose `results` state
   `"enforcement": "unenforced"` while the machine has accepted unenforced egress. A non-null `zero_tool` class is
   honoured only when `classes` and `isolation` passed. An `enforced` tool set on `writer` or `read_only` is honoured only
   when the record measured the `classes` and `isolation` stages that establish it. Beyond the claim's own stages, every
@@ -580,13 +597,23 @@ enrolment, and no plan cleanup calls `ActivityJournal.archiveInto` or `delete`.
 
 Gaps of the package itself:
 
-* `StartFailureGuard.startFailed` has no production caller, so a live guard does not count the start failure of an exit
-  the pass observes, while a guard rebuilt over the registry does, because the pass enters the `START_FAILED` state on
-  that path. The pass is the only reader of the settled record, so only the pass can count it. The count stays owed to
-  PLAN-V2-162 Deliverable 1.
+* `StartFailureGuard.startFailed` is not called for a start that ends before its first call as the pass observes it, so
+  a live guard does not count that failure while a guard rebuilt over the registry does, because the pass enters the
+  `START_FAILED` state on that path. The pass is the only reader of the settled record, so only the pass can count it;
+  that count is owed to PLAN-V2-126. The live guard does count every launch the runtime refuses before its spawn, with
+  the reasons and the one exclusion ADR `runtime-worker/025` names.
 * `AgentStartedDetector` has no `forget` for a terminal generation, which the pass makes long-lived.
-* The pass's pump map and finished-attempt set, with the calls' detection, loss and digest maps, are removed only by
-  the pass's completion, so a generation retired from the registry another way leaves its entries behind.
+* The pass's pump map and finished-attempt set, with the calls' detection, loss and digest maps, are removed by the
+  pass's completion. The registry's only removal is `forgetStartFailures`, which takes terminal `START_FAILED`
+  generations — a state only the pass's end path produces, and that path has already cleaned its entries. No map entry
+  can therefore outlive a retirement at the head; a removal path added later must clean them itself.
+* The monitor order is a cycle: `SupervisorCalls.harnessEnrolled` holds the calls monitor, `StartFailureGuard.clear` is
+  `synchronized` and calls `retireFailures` (the supervisor monitor) from inside it, while the start path takes the
+  supervisor monitor and calls `StartFailureGuard.holds` and `startFailed` (the guard monitor) under it. The cycle
+  would close only by releasing the guard's monitor before its callback, which changes the clear-versus-failure
+  race — `clear` would no longer remove the state and retire the failed generations as one critical section. This
+  residue plan records the analysis rather than taking that concurrency decision; the guard's own design owns it, and
+  ADR `runtime-worker/024` records the cycle from the start path's side.
 
 The four follow-ups the end path's lane named, each with its outcome; none is built:
 
@@ -597,9 +624,10 @@ The four follow-ups the end path's lane named, each with its outcome; none is bu
   also when the job settles first). The window that stays: an offer the transport makes is not visible to the pass, so a
   line the worker writes for the next task before the pass closes the previous attempt is read as that attempt's tail.
   It is reported to the orchestrator in the landing message, which places it in a staged plan.
-. *Per-line source offsets from `JobLog` for an idempotent tail replay* — owned by PLAN-V2-162 Deliverable 3 (carried
-  item 42 (c): a mid-batch failure of the pump can re-append lines; the narrowed catch or the log it names decides
-  whether offsets per line are needed).
+. *Per-line source offsets from `JobLog` for an idempotent tail replay* — owned by PLAN-V2-162 Deliverable 3. Carried
+  item 42(c)'s swallow is closed: the recorder's closed-task refusal is the named `TaskNotOpenException` and the pass
+  catches only that one, so any other failure reaches the caller. The per-line offsets stay open with the mid-batch
+  re-append they would fix; the second pull request of this plan carries them.
 . *A pump that outlives its generation for a retryable tail of a settled worker* — dropped: the operator's answer at
   refine of PLAN-V2-165 was to build none of the four follow-ups. The pump of a generation whose end fails before the
   attempt's end is appended already stays, because `finishAttempt` removes it only after that append and the pass keeps
@@ -707,12 +735,14 @@ _Requirements:_ link:{req}/16-model-work.adoc#PM-WORK-3[PM-WORK-3], link:{req}/1
 |The launch is refused before its spawn
 |`HarnessVerifier` or `LaunchComposer`
 |Records the refused job through `WorkerStarter.refuseWorker`, releases the claimed slot and declines with
-`LAUNCH_REFUSED`. The start-failure guard counts the failure; the task stays queued.
+`LAUNCH_REFUSED`. The refusal is counted by the start-failure guard, except `harness_update_unverified` and the
+supervisor's own declines (ADR `runtime-worker/025`); the task stays queued.
 
 |The worker exits before its first call
 |`LossDetection.exit` answers empty and sets `startFailure`
-|The supervisor records the start failure (`LossDetection.startFailure()`); the assembly counts it through the guard and
-the task takes its start-failure path. A `zero_tool` worker is never counted.
+|The supervisor records the start failure (`LossDetection.startFailure()`) and the pass enters `START_FAILED`; a live
+guard does not count it, a guard rebuilt over the registry does, and the count through a live guard is owed to
+PLAN-V2-126 (the gap above). The task takes its start-failure path. A `zero_tool` worker is never counted.
 
 |The worker exits after its first call
 |`LossDetection.exit`

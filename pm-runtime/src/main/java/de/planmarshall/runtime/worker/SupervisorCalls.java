@@ -216,6 +216,9 @@ public final class SupervisorCalls implements WorkerCalls {
         // acknowledgement deadline must not fire for a generation that holds.
         detection.acknowledged(at);
         supervisor.replaced(holding);
+        // The hold opens on a turn, so that turn decides the budget too: a generation whose context already reached it
+        // is recycled here instead of holding with its silence suppressed and never being recycled.
+        recycling.afterTurnCompleted(holding);
     }
 
     @Override
@@ -236,13 +239,29 @@ public final class SupervisorCalls implements WorkerCalls {
     public synchronized void answerDelivered(String generationId, Instant at) {
         Objects.requireNonNull(at, "at");
         var generation = known(generationId).orElse(null);
-        if (generation != null) {
-            var detection = detection(generation);
-            // The answer ends the wait of the hold: the silence limit counts again from the answer, whichever way the
-            // host's acknowledgement is configured (ADR runtime-worker/012).
-            detection.waitClosed(at);
-            detection.answerDelivered(at);
+        if (generation == null || !awaitsAnswer(generation.lifecycle())) {
+            return;
         }
+        var detection = detection(generation);
+        // The answer ends the wait of the hold: the silence limit counts again from the answer, whichever way the
+        // host's acknowledgement is configured (ADR runtime-worker/012).
+        detection.waitClosed(at);
+        detection.answerDelivered(at);
+        if (generation.lifecycle() == WorkerLifecycle.HOLDING) {
+            // The answer ends the hold: the continued worker executes, so a later turn at the budget is no hold's end.
+            supervisor.replaced(generation.advanceTo(WorkerLifecycle.EXECUTING));
+        }
+    }
+
+    /**
+     * @param lifecycle a generation's lifecycle state
+     * @return whether a generation in that state owes an answer, so a delivered answer arms its deadlines: the worker
+     *         holds its task for the answer, or the continued worker already reports the next turn. Any other state
+     *         owes nothing, and an answer delivered to it is a stray or a late one.
+     */
+    private static boolean awaitsAnswer(WorkerLifecycle lifecycle) {
+        return lifecycle == WorkerLifecycle.HOLDING || lifecycle == WorkerLifecycle.EXECUTING
+                || lifecycle == WorkerLifecycle.CONSULTING;
     }
 
     @Override
@@ -276,7 +295,7 @@ public final class SupervisorCalls implements WorkerCalls {
      * @throws IllegalStateException if the generation's role has no class, so no detection can be built for it; the
      *                               supervision pass reports it as that generation's failure
      */
-    public synchronized LossDetection detection(WorkerGeneration generation) {
+    synchronized LossDetection detection(WorkerGeneration generation) {
         Objects.requireNonNull(generation, "generation");
         var generationId = generation.generationId();
         return detections.computeIfAbsent(generationId, ignored -> {
@@ -297,7 +316,7 @@ public final class SupervisorCalls implements WorkerCalls {
      * @return the loss the generation's detection raised, whether a deadline fired it or the pass observed the exit;
      *         empty while the generation produced none
      */
-    public synchronized Optional<LossSignal> loss(String generationId) {
+    synchronized Optional<LossSignal> loss(String generationId) {
         Objects.requireNonNull(generationId, GENERATION_ID_ARGUMENT);
         return Optional.ofNullable(losses.get(generationId));
     }
@@ -321,7 +340,7 @@ public final class SupervisorCalls implements WorkerCalls {
      *
      * @param generationId the worker's generation
      */
-    public synchronized void forget(String generationId) {
+    synchronized void forget(String generationId) {
         Objects.requireNonNull(generationId, GENERATION_ID_ARGUMENT);
         var detection = detections.remove(generationId);
         if (detection != null) {
@@ -333,7 +352,8 @@ public final class SupervisorCalls implements WorkerCalls {
 
     /**
      * Hands the detection's signal to the one end path and keeps it for the supervision pass, which names the
-     * attempt's end on it. Runs on the timer thread, outside the detector's monitor.
+     * attempt's end on it. Runs on the timer thread, outside the detector's monitor. A terminal or unknown generation
+     * is skipped: its detection was already settled or cannot exist, so no loss is recorded for it.
      *
      * @param generationId the worker's generation
      * @param signal       the detection that settled the generation
@@ -357,6 +377,7 @@ public final class SupervisorCalls implements WorkerCalls {
     private void firstCall(WorkerGeneration generation, LossDetection detection, Instant at) {
         detection.firstCall(at);
         supervisor.environment().startGuard().firstCall(generation.role(), generation.harness());
+        supervisor.environment().spacing().firstCall(generation.harness(), generation.generationId());
         if (generation.form() != RoleForm.FRESH) {
             detection.acknowledged(at);
         }

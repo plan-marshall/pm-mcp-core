@@ -3,7 +3,7 @@
   "$id": "https://cuioss.de/plan-marshall-mcp/schemas/job-record.json",
   "title": "JobRecord",
   "type": "object",
-    "required": ["format_version", "job_id", "kind", "execution", "scope", "worker", "budget_key", "budget_seconds", "budget_derivation", "argv_digest", "status", "fate", "pid", "process_started_at", "confinement", "landlock_abi", "egress", "git_metadata", "created_at", "spawned_at", "ended_at", "child_wall_ms", "exit_code", "signal", "outcome_row", "refusal_reason", "cancel_before_group", "self_report_contradiction", "clamped_values", "gate_facts"],
+  "required": ["format_version", "job_id", "kind", "execution", "scope", "worker", "budget_key", "budget_seconds", "budget_derivation", "argv_digest", "status", "fate", "pid", "process_started_at", "confinement", "landlock_abi", "egress", "git_metadata", "created_at", "spawned_at", "ended_at", "child_wall_ms", "exit_code", "signal", "outcome_row", "refusal_reason", "cancel_before_group", "self_report_contradiction", "clamped_values", "gate_facts"],
   "additionalProperties": false,
   "properties": {
     "format_version": { "type": "integer", "const": 1 },

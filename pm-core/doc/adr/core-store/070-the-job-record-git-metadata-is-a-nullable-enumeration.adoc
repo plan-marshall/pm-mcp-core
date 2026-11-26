@@ -39,8 +39,10 @@ or compare the value.
 
 `format_version` stays 1 (R13): the member replaces version 1 in place, and no reader for an older record is written. The
 schema-parity test pins the property, its place in `required` and the enumeration, and the codec test pins the round trip
-and the strict read. `JobRecord.builder()` call sites that build a worker record must name the member; the compile finds
-them. The `FakePmExec` mode `REPORT_GIT_METADATA` is the fixture that proves a report's value is copied.
+and the strict read. `JobRecord.builder()` call sites that build a worker record must name the member; a Lombok builder
+that omits it compiles and fails where the record is built (the constructor refuses a worker without it), which the
+`JobRecordCodecTest` pin "a worker record without git_metadata is refused" covers. The `FakePmExec` mode
+`REPORT_GIT_METADATA` is the fixture that proves a report's value is copied.
 
 == Source
 

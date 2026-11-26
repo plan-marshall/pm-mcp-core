@@ -9,6 +9,7 @@
  */
 package de.planmarshall.runtime.job;
 
+import de.cuioss.tools.logging.CuiLogger;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -25,6 +26,7 @@ import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.ProjectEnrolment;
+import de.planmarshall.runtime.log.RuntimeLogMessages;
 
 /**
  * Composes the filesystem confinement of a job from the project's enrolment at job start (PM-SEC-5).
@@ -61,6 +63,8 @@ import de.planmarshall.core.store.ProjectEnrolment;
  */
 @Builder
 public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot, @Nullable Path sessionBusSocket) {
+
+    private static final CuiLogger LOGGER = new CuiLogger(JobConfinementComposer.class);
 
     /** The directory of the job-private directories below the base. */
     public static final String RUN_JOBS = "run/jobs";
@@ -294,9 +298,17 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
     private static List<Path> gitMetadataInside(Path projectRoot, List<Path> writeSet) {
         var root = projectRoot.toAbsolutePath().normalize();
         var normalizedWriteSet = writeSet.stream().map(path -> path.toAbsolutePath().normalize()).toList();
-        return GitMetadataPaths.of(root).paths().stream()
+        var metadata = GitMetadataPaths.of(root);
+        var inside = metadata.paths().stream()
                 .filter(path -> path.startsWith(root)
                         || normalizedWriteSet.stream().anyMatch(path::startsWith)).toList();
+        // a refused or skipped path is not in the set the worker receives: the launch goes on, and the record makes
+        // the smaller read-only set visible instead of leaving it silent (a symlinked .git yields no path at all)
+        if (!metadata.refused().isEmpty() || !metadata.skipped().isEmpty()) {
+            LOGGER.warn(RuntimeLogMessages.WARN.GIT_METADATA_PATHS_INCOMPLETE, root, metadata.refused().size(),
+                    metadata.skipped().size(), inside.size());
+        }
+        return inside;
     }
 
     /**

@@ -1,0 +1,100 @@
+= ADR 024: The Start Spacing Has an Owner and Is Awaited Outside the Supervisor's Monitor
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-25
+
+== Context
+
+`HarnessStartSpacing` is the machine-wide spacing of one harness: a start waits until the previous worker of the harness
+made its first call or ended, at most `SPACING_BOUND` (30 s), so the workers of one harness do not collide in what the
+harness shares besides its per-worker data home. At `90505ad2` the class kept a `Set<String>` of harness ids with no
+owner, and `WorkerSupervisor.start` was `synchronized` and awaited the turn inside that monitor.
+
+Two defects followed from that wiring. First, the wait and the release were on the same monitor chain: the pending
+worker's first call enters `SupervisorCalls.callHeartbeat`, which is synchronized on the calls object, reads the
+registry through `WorkerSupervisor.generation` — synchronized on the supervisor — and only then calls
+`spacing().firstCall`. Because the waiting start held the supervisor's monitor, that read could not complete, the
+release never arrived, and every second start of a role's harness waited the whole bound while every call of the
+supervisor's workers queued behind it. Second, ownership: `WorkerEnding.end` released the harness's one marker for any
+generation of the harness, and `awaitTurn` added the marker again after the bound, so an unrelated end — a worker long
+past its first call, another project's worker — released a newer start's marker, and a former owner's late release
+cleared the marker of the start that owned it.
+
+== Decision
+
+The turn has an owner and the wait runs outside the registry monitor that the pending worker's first call takes — the
+start lock is held, and no worker call takes it.
+
+* `HarnessStartSpacing` keys the harness on the id of the start that owns its turn: `awaitTurn(harness, owner)`
+  reserves the turn for an owner, `firstCall(harness, owner)` and `ended(harness, owner)` release it for that owner
+  alone, and a release of any other owner is a no-op. Past the bound the waiting start becomes the owner, so the
+  former owner's later release releases nothing. A release is idempotent.
+* The supervisor's start decision is serialized by a private start lock, not by the registry's monitor. The admission
+  (the guard and the eligibility gate), the model-slot claim, the verification and the composition run under the
+  registry monitor; the spacing's turn is awaited between that preparation and the registration, outside the registry
+  monitor — the start lock is held, and the pending worker's first call never takes it; the spawn and the registry
+  write run under the registry monitor again, and a start waiting there re-checks `admitting` under that monitor, so a
+  drain that begins during the wait starts and registers nothing (`stopped_admitting`). A start the runner refuses or
+  that throws releases its turn in a `finally`.
+* The three release sites pass the generation id: `WorkerEnding.end` releases the turn of the generation it ends,
+  `SupervisorCalls.firstCall` releases the turn of the generation that called, and the supervisor's refused-spawn path
+  releases the turn of the generation it refused.
+
+The lock order is: the start lock and the calls monitor are the outer locks; a thread holding either takes the
+supervisor's registry monitor, and under it the start-failure guard's monitor and the job runtime's start path; the
+ending monitor sits on the calls-timer path, and the spacing's monitor is innermost. Nothing is acquired while the
+spacing's monitor is held, and its wait releases it — so the order calls → supervisor → guard of item 42(a) is kept on
+every path this change touches, and the spacing never closes the cycle.
+
+Two edges this decision records but does not own are pre-existing: `StartFailureGuard.clear` retires the role's failed
+generations through `WorkerSupervisor.forgetStartFailures` while it holds the guard's monitor, so the reverse edge
+guard → supervisor exists; a task close whose role digest changed reaches it from `WorkerRecycling.afterTaskClosed` on
+the relay thread. The start path keeps its existing order, supervisor → guard, so the supervisor's monitor and the
+guard's form an ABBA cycle that a start refusing on the one side and a task close on the other can meet. The cycle is
+item 42(a)'s (the calls-monitor and guard-monitor lock order), reachable only with the retirement callback the assembly
+wires; it is named here so the item is decided from the record rather than rediscovered, and this change neither
+creates nor widens it.
+
+== Alternatives Considered
+
+1. *Keep the harness-keyed set and move only the wait out.* Not taken: it repairs the monitor defect and leaves the
+   ownership defect, whose evidence is the same review that named the monitor wait.
+2. *Make `SupervisorCalls.generation` read the registry without the supervisor's monitor.* Not taken: the first call
+   also takes the calls monitor and the guard's, and the invariant the redesign must hold is that no wait on the
+   spacing is held under a monitor the pending worker's first call needs; taking one monitor out of the path hides the
+   next one.
+3. *Wait with the supervisor's own `wait()` so the registry monitor is released.* Not taken: it releases the registry
+   monitor mid-decision and lets another start observe a half-made decision; the registry protocol and the spacing are
+   two protocols, and only the outermost one may be released by a wait.
+4. *Serialize the spacing with a fair per-harness queue of tickets.* Not taken: the compiled bound already decides
+   which start proceeds, and a queue would have to decide what a timed-out waiter leaves behind; more machinery than
+   the rule needs.
+
+== Consequences
+
+* A start no longer holds the registry monitor while it waits — it holds the start lock, which no worker call takes —
+  so the pending worker's first call and every later call of that supervisor's workers reach the registry while a start
+  waits.
+* A generation that never owned the turn releases nothing, so an unrelated end, a worker that already called first and
+  a former owner past the bound are all harmless.
+* A start that is declined after it took the turn — a refused spawn, a throwing runner — releases it, so the next start
+  is not delayed by a failure that left no worker behind.
+* The start decision is serialized by the start lock, and the registry monitor is held only for the admission, the
+  preparation, the spawn and the registration; a later change that needs another long wait keeps it outside every
+  monitor in the same way.
+
+== Source
+
+* Pull request of PLAN-V2-201
+* link:../../../../doc/specification/model-work/03-supervision-and-recycling.adoc#start-collisions[Model Work § Starts of One Harness]
+* link:../../../../doc/specification/model-work/03-supervision-and-recycling.adoc#start-failure-guard[Model Work § Start-Failure Guard]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/worker/HarnessStartSpacing.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/SupervisorCalls.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerEnding.java`

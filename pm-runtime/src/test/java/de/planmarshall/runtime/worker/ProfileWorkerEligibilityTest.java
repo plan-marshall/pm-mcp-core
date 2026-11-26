@@ -34,6 +34,7 @@ import de.planmarshall.core.profile.CanonicalJson;
 import de.planmarshall.core.profile.JsonDocument;
 import de.planmarshall.core.profile.LoadedProfile;
 import de.planmarshall.core.profile.ProfileSetKind;
+import de.planmarshall.core.profile.ProfileStages;
 import de.planmarshall.core.profile.VerificationRecord;
 import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
@@ -184,6 +185,39 @@ class ProfileWorkerEligibilityTest {
     }
 
     @Test
+    @DisplayName("a darwin record that names its sandbox confinement is eligible")
+    void darwinWithSandboxIsEligible() {
+        var profile = machine(recordFor("").conforming().os("darwin").arch("aarch64").confinement("sandbox"));
+
+        var verdict = ProfileWorkerEligibility.of(profile, DARWIN_PLATFORM).verdict();
+
+        assertTrue(verdict.isEligible(), "darwin's sandbox is the confinement darwin records");
+    }
+
+    @Test
+    @DisplayName("an endpoint profile needs no confinement and fails on a foreign digest")
+    void endpointProfileSkipsConfinementAndChecksItsDigest() {
+        var document = endpointDocument();
+        var confined = new RecordBuilder(document);
+        confined.confinement("none");
+        ProfileStages.ENDPOINT_STAGES.forEach(stage -> confined.stage(stage, "passed"));
+        var foreign = new RecordBuilder(document);
+        ProfileStages.ENDPOINT_STAGES.forEach(stage -> foreign.stage(stage, "passed"));
+        foreign.digestOfAnotherDocument();
+
+        var accepted = machine(confined);
+        var refused = ProfileWorkerEligibility.of(machine(foreign), THIS_PLATFORM).verdict();
+
+        assertAll(
+                () -> assertTrue(ProfileWorkerEligibility.of(accepted, THIS_PLATFORM).verdict().isEligible(),
+                        "an endpoint profile needs no worker confinement"),
+                () -> assertEquals(EligibilityRefusal.Reason.DIGEST_MISMATCH,
+                        assertInstanceOf(EligibilityVerdict.Refused.class, refused,
+                                "the foreign digest is refused").refusal().reason(),
+                        "an endpoint profile is checked against its own digest"));
+    }
+
+    @Test
     @DisplayName("a record that passes every check and ten trials is eligible")
     void aConformingRecordIsEligible() {
         var profile = machine(recordFor("").conforming());
@@ -206,8 +240,9 @@ class ProfileWorkerEligibilityTest {
     @Test
     @DisplayName("the refusal does not depend on the order of the stages in the record")
     void theRefusalDoesNotDependOnStageOrder() {
-        var claimed = machine(recordFor(ENFORCED_WRITER).conforming().stage("classes", "passed"));
-        var claimedReversed = machine(recordFor(ENFORCED_WRITER).conforming().stage("classes", "passed").reversed());
+        var claimed = machine(recordFor(ENFORCED_WRITER).stage("classes", "passed").stage("isolation", "passed"));
+        var claimedReversed = machine(recordFor(ENFORCED_WRITER).stage("classes", "passed")
+                .stage("isolation", "passed").reversed());
         var incidental = machine(recordFor("").conforming().stage("identity", "failed").stage("limits", "failed"));
         var incidentalReversed = machine(recordFor("").conforming().stage("identity", "failed")
                 .stage("limits", "failed").reversed());
@@ -218,6 +253,8 @@ class ProfileWorkerEligibilityTest {
         var reversedRefusal = refusalOf(incidentalReversed);
 
         assertAll(
+                () -> assertEquals("faults", refusal.stage(),
+                        "the claim order names the first missing stage"),
                 () -> assertEquals(refusal.reason(), claimedRefusal.reason(),
                         "the reversed claim refuses for the same reason"),
                 () -> assertEquals(refusal.stage(), claimedRefusal.stage(),
@@ -408,6 +445,37 @@ class ProfileWorkerEligibilityTest {
                   "tools": {"ask_user": "ask_user"}
                 }
                 """.formatted(CLIENT, eligible, classes).getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static byte[] endpointDocument() {
+        // the contract is the validated endpoint profile document of the profile sets (Client Profiles § Endpoint
+        // Profile Schema): a loopback endpoint, its identity and its model tiers
+        return """
+                {
+                  "profile_kind": "endpoint",
+                  "schema_version": 1,
+                  "harness_id": "%1$s",
+                  "display_name": "Local runner",
+                  "min_daemon_version": "0.1.0",
+                  "icon": null,
+                  "executable": "ollama",
+                  "identity": {"version_probe": ["--version"], "version_pattern": "version ([0-9.]+)"},
+                  "update_evidence": {"method": "none", "signer": null},
+                  "endpoint": {
+                    "protocol": "openai_chat",
+                    "base_url": "http://127.0.0.1:11434",
+                    "readiness_path": "/api/tags",
+                    "models_path": "/api/tags",
+                    "models_pointer": "/models",
+                    "result_schema": "enforced",
+                    "context_tokens": 8192,
+                    "answer_reserve_tokens": 1024,
+                    "request_timeout_seconds": 60
+                  },
+                  "model_tiers": {"frontier": "big", "standard": "mid", "fast": "small"},
+                  "weights_probe": {"source": "models_listing", "pointer": "/digest", "argv": null, "pattern": null}
+                }
+                """.formatted(CLIENT).getBytes(StandardCharsets.UTF_8);
     }
 
     private static String documentDigest(byte[] document) {

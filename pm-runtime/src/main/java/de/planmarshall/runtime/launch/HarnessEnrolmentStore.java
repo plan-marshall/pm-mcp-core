@@ -231,7 +231,7 @@ public final class HarnessEnrolmentStore {
         JsonNode root;
         try {
             root = JsonDocument.parse(document, HarnessesSidecarCheck.FILE_NAME);
-        } catch (ProfileRefusal | IllegalArgumentException malformed) {
+        } catch (ProfileRefusal malformed) {
             throw new StoreException(Refusal.UNREADABLE, "not a harness enrolment store: " + malformed.getMessage());
         }
         var version = root.member(FORMAT_VERSION_MEMBER).flatMap(node -> node.integerValue().isPresent()

@@ -40,7 +40,8 @@ import de.planmarshall.core.profile.ProfileRefusal;
  * template element are required exactly, and the value between two literals is the slot value that element carries.
  * The decision is recorded in ADR {@code runtime-launch/010}.
  * <p>
- * The rules, in the order the answer reports them:
+ * The rules; the correspondence pass decides (b) and (e) together, so the answer reports (a), then (b) and (e), then
+ * (c), then (d):
  * <ol>
  * <li>(a) element 0 is the enrolled executable path.</li>
  * <li>(b) every element of the vector corresponds to one element of the template; the elements the template skips (a
@@ -163,7 +164,10 @@ class WorkerVectorCheck {
     private static Optional<Violation> metacharacter(Input input, List<SlotValue> parsed) {
         var vector = input.vector();
         var jsonSlots = jsonSlots(parsed);
-        for (var position = 0; position < vector.size(); position++) {
+        // element 0 is the enrolled executable, not a caller-supplied argument: a path with a metacharacter must not
+        // refuse every launch of that harness (the specification's standing constraint), and the launcher spawns it by
+        // absolute path without a shell
+        for (var position = 1; position < vector.size(); position++) {
             if (!jsonSlots.contains(position) && containsMetacharacter(vector.get(position))) {
                 return Optional.of(new Violation(Rule.METACHARACTER, position));
             }
@@ -331,9 +335,6 @@ class WorkerVectorCheck {
      */
     private static boolean toolSet(String value, List<String> tools) {
         var named = value.split(SEPARATOR, -1);
-        if (named.length == 0) {
-            return false;
-        }
         for (var tool : named) {
             if (tool.isEmpty() || !tools.contains(tool)) {
                 return false;

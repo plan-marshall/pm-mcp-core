@@ -127,6 +127,20 @@ class SecretRedactorTest {
     }
 
     @Test
+    @DisplayName("a doubly escaped JSON credential is masked")
+    void doublyEscapedJsonAssignment() {
+        // the object embedded as a JSON string, and that string embedded again: every quote carries three backslashes
+        var escapedQuote = "\\\\\\\"";
+        var json = "{" + escapedQuote + "password" + escapedQuote + ":" + escapedQuote + "hunter2" + escapedQuote + "}";
+
+        var redacted = redactValue(json);
+
+        assertAll("doubly escaped JSON assignment",
+                () -> assertFalse(redacted.contains("hunter2"), "the doubly escaped value is masked"),
+                () -> assertTrue(redacted.contains(SecretRedactor.REDACTED), "the shape keeps the marker"));
+    }
+
+    @Test
     @DisplayName("a backslash-escaped key that is no credential stays readable")
     void escapedJsonNegativeControl() {
         var text = "{\\\"tokenizer\\\":\\\"wordpiece\\\"}";
@@ -601,8 +615,8 @@ class SecretRedactorTest {
     void unclosedPemPrivateKeyBlock() {
         var log = "key:\n-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA7v0x";
 
-        assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue(log),
-                "a block without its END line is masked to the end");
+        assertEquals("key:\n" + SecretRedactor.REDACTED + "\n", redactValue(log),
+                "a block without its END line masks the rest");
     }
 
     @Test
@@ -622,8 +636,8 @@ class SecretRedactorTest {
         // the armor header line is the OpenPGP wire format (RFC 4880 § 6.2)
         var log = "key:\n-----BEGIN PGP PRIVATE KEY BLOCK-----\n\n" + Generators.letterStrings(16, 64).next();
 
-        assertEquals("key:\n" + SecretRedactor.REDACTED, redactValue(log),
-                "an unclosed PGP key block is masked to the end");
+        assertEquals("key:\n" + SecretRedactor.REDACTED + "\n\n", redactValue(log),
+                "an unclosed PGP key block masks the rest");
     }
 
     @Test
@@ -669,8 +683,34 @@ class SecretRedactorTest {
                 "an unclosed marker keeps its over-masking");
     }
 
+    @Test
+    @DisplayName("an unclosed BEGIN keeps the line ends of the text its mask covers")
+    void unclosedBeginKeepsTheLineEndsItMasks() {
+        var log = "before\n-----BEGIN PRIVATE KEY-----\nsecret body\nmore body";
+
+        assertEquals("before\n" + SecretRedactor.REDACTED + "\n\n", redactValue(log),
+                "the masked text keeps its line ends");
+    }
+
+    @Test
+    @DisplayName("an unclosed BEGIN keeps CR line endings too")
+    void unclosedBeginKeepsCarriageReturns() {
+        var log = "before\r-----BEGIN PRIVATE KEY-----\rsecret body\rmore body";
+
+        assertEquals("before\r" + SecretRedactor.REDACTED + "\r\r", redactValue(log),
+                "a CR-only log keeps its line structure");
+    }
+
     /** A wall-clock bound a left-to-right scan meets easily and the former lazy pattern exceeds. */
     private static final Duration REDACTION_BOUND = Duration.ofSeconds(20);
+
+    /**
+     * The bound of the key-block cost tests. The former lazy {@code .*?} under {@code (?s)} needs about 18 seconds for the
+     * 400 000-character case on the development host (measured 2026-11-24 by restoring it), so the 20-second bound of
+     * the other cost tests would no longer catch it; five seconds is far above the linear scan's cost, which is well
+     * under one second.
+     */
+    private static final Duration PEM_BOUND = Duration.ofSeconds(5);
 
     private static final String PEM_BEGIN_MARKER = "-----BEGIN PRIVATE KEY-----";
 
@@ -681,7 +721,7 @@ class SecretRedactorTest {
         // no END follows any marker, so every marker was scanned to the end of the text before the fix
         var markers = PEM_BEGIN_MARKER.repeat(400_000 / PEM_BEGIN_MARKER.length() + 1).substring(0, 400_000);
 
-        var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(markers),
+        var redacted = assertTimeoutPreemptively(PEM_BOUND, () -> redactValue(markers),
                 "the linear redaction finishes within the bound");
 
         assertEquals(400_000, markers.length(), "the cost input holds 400 000 characters");
@@ -693,7 +733,7 @@ class SecretRedactorTest {
     void pemManyBeginMarkersWithoutEndAreLinear() {
         var markers = PEM_BEGIN_MARKER.repeat(3_700);
 
-        var redacted = assertTimeoutPreemptively(REDACTION_BOUND, () -> redactValue(markers),
+        var redacted = assertTimeoutPreemptively(PEM_BOUND, () -> redactValue(markers),
                 "3 700 BEGIN markers must redact within the bound");
 
         assertEquals(3_700, markers.length() / PEM_BEGIN_MARKER.length(), "the input holds 3 700 markers");

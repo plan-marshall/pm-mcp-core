@@ -2,10 +2,10 @@
   "id": "PLAN-V2-201",
   "slug": "start-spacing-ownership-and-monitor-held-wait",
   "workstream": "WS-06",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-201-start-spacing-ownership-and-monitor-held-wait",
+  "pr": "#625",
+  "landing": "landings/PLAN-V2-201.md",
   "seq": 189
 }

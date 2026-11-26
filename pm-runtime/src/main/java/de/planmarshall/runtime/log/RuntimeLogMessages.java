@@ -1252,6 +1252,36 @@ public final class RuntimeLogMessages {
                 .identifier(151)
                 .template("The terminal worker state of generation '%s' cannot be read: %s")
                 .build();
+
+        /**
+         * Logged when a holding generation reaches its token budget and the facts of its leased task cannot be read:
+         * the hold-ended notification would name no attempt, so it is not sent, and the generation is still recycled,
+         * because the end path must not wait for a task record the protocol may never supply. The task is left
+         * awaiting its answer under the recycled worker, which this record makes visible.
+         * <p>
+         * The component is {@code WorkerRecycling} of the worker package.
+         */
+        public static final LogRecord HOLD_ENDED_TASK_UNREADABLE = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(152)
+                .template("The facts of the held task '%s' of generation '%s' cannot be read: the hold ends "
+                        + "without the notification")
+                .build();
+
+        /**
+         * Logged when the git metadata of a project is not fully composable: a symlinked path was refused or a worktree
+         * record was skipped, so the read-only set a worker receives is smaller than the metadata it must not write.
+         * The record names the counts, never the paths; the launch continues with the paths that were read, and the
+         * git-metadata digest and guard cover what the read-only set does not.
+         * <p>
+         * The component is {@code JobConfinementComposer} of the job package.
+         */
+        public static final LogRecord GIT_METADATA_PATHS_INCOMPLETE = LogRecordModel.builder()
+                .prefix(PREFIX)
+                .identifier(153)
+                .template("The git metadata of '%s' is only partly composable: %d refused path(s), %d skipped "
+                        + "record(s); %d path(s) are read-only for the worker")
+                .build();
     }
 
     /** ERROR level messages. */

@@ -2,10 +2,10 @@
   "id": "PLAN-V2-187",
   "slug": "build-output-parser-statement-and-sweep-wording-residue",
   "workstream": "WS-03",
-  "status": "staged",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-187-build-output-parser-statement-and-sweep-wording-residue",
+  "pr": "#620",
+  "landing": "landings/PLAN-V2-187.md",
   "seq": 175
 }

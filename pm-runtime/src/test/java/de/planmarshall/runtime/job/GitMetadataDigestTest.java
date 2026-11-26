@@ -83,6 +83,22 @@ class GitMetadataDigestTest {
     }
 
     @Test
+    @DisplayName("Should follow an includeIf path without evaluating its condition")
+    void shouldFollowIncludeIfWithoutEvaluatingItsCondition() throws Exception {
+        var root = repository();
+        Files.writeString(root.resolve(".git/config"),
+                "[includeIf \"gitdir:/elsewhere/\"]\n\tpath = conditional.cfg\n");
+        Files.writeString(root.resolve(".git/conditional.cfg"), "[core]\n\thooksPath = " + name() + "\n");
+        var before = GitMetadataDigest.of(root);
+        Files.writeString(root.resolve(".git/conditional.cfg"), "[core]\n\thooksPath = " + name() + "\n");
+
+        var changed = GitMetadataDigest.differences(before, GitMetadataDigest.of(root));
+
+        assertEquals(Set.of(".git/conditional.cfg"), changed,
+                "the conditional target is digested without its condition");
+    }
+
+    @Test
     @DisplayName("Should differ when a hook file is added or its mode changes")
     void shouldDifferOnHooks() throws Exception {
         var root = repository();
@@ -142,6 +158,19 @@ class GitMetadataDigestTest {
         var changed = GitMetadataDigest.differences(before, GitMetadataDigest.of(root));
 
         assertEquals(Set.of(), changed, "the legitimate changes stay outside the digest");
+    }
+
+    @Test
+    @DisplayName("Should answer unreadable for a skipped worktree record beside a git directory")
+    void shouldFailClosedOnASkippedWorktreeRecord() throws Exception {
+        var root = repository();
+        var admin = Files.createDirectories(root.resolve(".git/worktrees/lost"));
+        Files.writeString(admin.resolve("gitdir"), root.resolve("missing/.git") + "\n");
+
+        var parts = GitMetadataDigest.of(root);
+
+        assertTrue(parts.containsKey(GitMetadataDigest.UNREADABLE),
+                "a skipped worktree record is the fail-closed part");
     }
 
     @Test
@@ -382,6 +411,18 @@ class GitMetadataDigestTest {
         var parts = GitMetadataDigest.of(root);
 
         assertTrue(parts.isEmpty(), "a project without git has no metadata");
+    }
+
+    @Test
+    @DisplayName("Should fail closed when the only pointer file names no directory")
+    void shouldFailClosedOnASkippedPointerFile() throws Exception {
+        var root = Files.createDirectories(base.resolve(name()));
+        Files.writeString(root.resolve(".git"), "gitdir: " + base.resolve("absent-administration") + "\n");
+
+        var parts = GitMetadataDigest.of(root);
+
+        assertTrue(parts.containsKey(GitMetadataDigest.UNREADABLE),
+                "a skipped pointer file fails closed, not empty");
     }
 
     private Path repository() throws IOException {

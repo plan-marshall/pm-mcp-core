@@ -18,14 +18,14 @@ import de.planmarshall.core.queue.SecretRedactor;
  * One recipe finding of the OpenRewrite log, parsed from a structured {@code WARN} line.
  * <p>
  * The five fields are the ones the recipe's log template carries — source path, line, column, recipe and message — and the
- * classification is the machine reading of the line's identifier. The path and the message are redacted in the
- * constructor, the seam every producer of a finding passes: the parser files its records here rather than through
+ * classification is the machine reading of the line's identifier. The path, the recipe and the message are redacted in
+ * the constructor, the seam every producer of a finding passes: the parser files its records here rather than through
  * {@code DiagnosticCollector.stored}, so the redaction lives on the record instead of at the parser.
  *
  * @param path           the source path the recipe pointed at, never blank; its credential shapes are redacted here
  * @param line           the line in that file, never negative
  * @param column         the column in that line, never negative
- * @param recipe         the recipe that produced the finding, never blank
+ * @param recipe         the recipe that produced the finding, never blank; its credential shapes are redacted here
  * @param message        the finding message, possibly empty; its credential shapes are redacted here
  * @param classification whether the finding is new in this run
  * @since 0.1
@@ -51,6 +51,7 @@ RewriteClassification classification) {
         Objects.requireNonNull(message, "message");
         Objects.requireNonNull(classification, "classification");
         path = SecretRedactor.redactText(path).orElseThrow();
+        recipe = SecretRedactor.redactText(recipe).orElseThrow();
         message = SecretRedactor.redactText(message).orElseThrow();
         if (path.isBlank()) {
             throw new IllegalArgumentException("a finding path must not be blank");

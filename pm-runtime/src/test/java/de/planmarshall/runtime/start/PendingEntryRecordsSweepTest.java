@@ -742,7 +742,7 @@ class PendingEntryRecordsSweepTest {
      */
     @Test
     @EnabledOnOs({OS.LINUX, OS.MAC})
-    @DisplayName("a lock release that throws without a message is named by its type, never printed as null")
+    @DisplayName("the report names a message-less release fault 'IllegalStateException with no message', never null")
     void aReleaseFaultWithoutAMessageIsNamedByItsType() throws Exception {
         create(entry(residue, now));
         cutOffRemoval(residue);
@@ -784,7 +784,7 @@ class PendingEntryRecordsSweepTest {
      * no reach text, and the delegate is closed in a {@code finally} like the sibling release-fault test.
      */
     @Test
-    @DisplayName("a first fault that throws without a message is named by its type, never printed as null")
+    @DisplayName("the report names a message-less first fault 'IllegalStateException with no message', never null")
     void aFirstFaultWithoutAMessageIsNamedByItsType() {
         create(entry(residue, now));
         cutOffRemoval(residue);

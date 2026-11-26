@@ -3482,6 +3482,8 @@ link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerDrainParti
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerRecyclingTest.java[WorkerRecyclingTest] (the four triggers, the idle yield, and the hold-ended notification before the fence and the release),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/StartFailureGuardTest.java[StartFailureGuardTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/HarnessStartSpacingTest.java[HarnessStartSpacingTest],
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/StartSpacingInterleavingTest.java[StartSpacingInterleavingTest] (the waiting start outside the registry monitor, the owner that alone releases the turn, the bound that hands it on, the three release sites and the throwing runner),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerSupervisorStartFailureTest.java[WorkerSupervisorStartFailureTest] (each counted launch refusal, the uncounted update evidence, the throwing count and the batch that stops at the hold),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/AgentStartedDetectorTest.java[AgentStartedDetectorTest],
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisorCallsTest.java[SupervisorCallsTest] (each call of `WorkerCalls` and its answer, the unknown generation, an end-requested wait, the three hold entries with the refused transition and the answer's deadline, the pause of a plan and the enrolment's clear),
 link:../pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisionPassTest.java[SupervisionPassTest] (a pass pumps each gained line once, a replay yields the same entries, an exit after the first call is a loss whose end path runs once and which reads the terminal state the settlement wrote through the project's real store writer, a worker that never calls is lost at its silence deadline, a failed end is reported and its retry keeps the cause and repeats nothing, a call is dispatched while another end runs, a fresh worker that served its task ends without a loss, each attempt of a warm worker keeps its own lines and its end, the `agent_started` signal ends the worker once, and a pass with nothing to do writes nothing)
@@ -3500,7 +3502,9 @@ link:../pm-runtime/doc/adr/runtime-worker/018-the-end-effects-run-once-and-one-g
 link:../pm-runtime/doc/adr/runtime-worker/019-the-detection-at-the-first-advance-and-the-end-work-outside-the-monitor.adoc[ADR runtime-worker/019],
 link:../pm-runtime/doc/adr/runtime-worker/020-the-loss-reason-maps-the-attempt-end.adoc[ADR runtime-worker/020],
 link:../pm-runtime/doc/adr/runtime-worker/021-the-persisted-end-reason-is-the-coarse-mapping-of-the-fate.adoc[ADR runtime-worker/021],
-link:../pm-runtime/doc/adr/runtime-worker/022-the-end-is-recorded-onto-the-registered-generation.adoc[ADR runtime-worker/022]
+link:../pm-runtime/doc/adr/runtime-worker/022-the-end-is-recorded-onto-the-registered-generation.adoc[ADR runtime-worker/022],
+link:../pm-runtime/doc/adr/runtime-worker/024-the-start-spacing-has-an-owner-and-waits-outside-the-monitor.adoc[ADR runtime-worker/024],
+link:../pm-runtime/doc/adr/runtime-worker/025-a-launch-refused-before-its-spawn-counts-except-the-update-evidence.adoc[ADR runtime-worker/025]
 
 [#PM-WORK-4]
 === PM-WORK-4: Consultation through the Server

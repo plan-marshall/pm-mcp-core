@@ -24,8 +24,9 @@ project and role.
 
 `WorkerSupervisor` is created per project and role, and it holds only that role's generations, its admitting flag and
 its serialized start decision. The machine-wide collaborators are supplied through `SupervisorEnvironment` and are
-shared: `HarnessStartSpacing` keys on the harness alone, `ModelSlots` delegates to the landed
-`runtime.launch.ModelSlotScheduler`, and the audit sink is the runtime's.
+shared: `HarnessStartSpacing` keys on the harness alone and records which start owns the harness's turn
+(ADR `runtime-worker/024`), `ModelSlots` delegates to the landed `runtime.launch.ModelSlotScheduler`, and the audit
+sink is the runtime's.
 
 `SupervisorEnvironment.StartGuard` and `SupervisorEnvironment.EligibilityGate` are seams of the supervisor, not of the
 process, so a supervisor consults the guard and the gate of its own project and role.
