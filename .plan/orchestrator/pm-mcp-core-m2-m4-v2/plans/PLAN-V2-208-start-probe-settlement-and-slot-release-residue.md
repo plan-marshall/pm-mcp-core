@@ -1,0 +1,97 @@
+# PLAN-V2-208: The residue of the start-spacing redesign: a probe that a gate decline never settles, a model slot that a throwing start leaks, a drain that does not stop the batch, and the update-evidence exclusion the specification does not state
+
+epic: pm-mcp-core-m2-m4-v2
+workstream: WS-06
+origin: the three-layer analysis of the landing of PLAN-V2-201 (`landings/PLAN-V2-201.md`, #625, merge `89ffec36`), 2026-11-26: layer 3 L3-1 (major) to L3-5, layer 2 L2-1 and L2-2, layer 1 L1-1; staged on the operator's word of the thirty-ninth run ("do as proposed" to the two questions: one small fix plan, no hot fix; state the exclusion of `harness_update_unverified` in the specification).
+lane: runbook
+
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Lives at `plans/PLAN-V2-208-start-probe-settlement-and-slot-release-residue.md` and is queued as one row file, `queue/PLAN-V2-208.json`,
+> in the epic ledger (lane `runbook`). The orchestrator EMITS the command below; it never launches the plan inline.
+> This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names.
+
+## First Instruction: Read The Standing Rules
+
+**Before you read the rest of this spec, read the standing rules of the epic completely:** `.plan/orchestrator/pm-mcp-core-m2-m4-v2/standing-rules.md` (from the root of the `pm-mcp-core` checkout; beside this spec's `plans/` directory it is `../standing-rules.md`). They bind this plan exactly as if they were written below. Say in your first progress note that you read them, with their revision (`r7`; R21 binds the orchestrator's analysis and not this plan), and repeat the revision and the rule ids in your landing message.
+
+Rules that apply to this plan: R02, R05, R06, R08, R10, R11, R13, R14, R18, R19, R20. (R12: no log message is added; R13: no stored format changes; R14 because the plan changes the settlement of a durable multi-step protocol, the guard's probe; R17 is lifted.)
+
+Plan parameters: R06 — developer documentation `pm-runtime/doc/developer/runtime-worker.adoc`; ADR directory `pm-runtime/doc/adr/runtime-worker/` (no new ADR: the fix restores the invariant ADR 024 and the `start` Javadoc already state; ADR 025 stays as it is, its decision is the one the specification now states); layout WS-06. R12 — none.
+
+**Read the skills first (R20).** `java-core`, `javadoc`, `junit-core` of `/home/oliver/git/plan-marshall/marketplace/bundles/pm-dev-java/skills/`, and `ref-asciidoc` of `pm-documents`; say in the first progress note which you read.
+
+## Objective
+
+PLAN-V2-201 moved the start spacing out of the supervisor's monitor, and in doing so moved the eligibility-gate decline out of the `try` whose `finally` settles the guard's probe. A held guard, a due probe and an ineligible harness at one start now leave the probe in flight for ever: every later `holds()` answers true and the role stays held with no future probe until a first call or a clear, which is the state the `start` Javadoc says cannot happen. This plan puts the settlement back on every path, closes the three neighbouring paths the same read found (a model slot leaked by a throwing verify, compose or refusal write; a drain that begins mid-batch and still claims, verifies, composes and counts; an interrupt during the spacing wait that the Javadoc does not state), pins each with a test that fails first, and states in the specification what ADR 025 already decided: a refusal of `harness_update_unverified` counts nothing. No behaviour of a passing start changes.
+
+## Deliverables
+
+All references are read at `89ffec36` (`origin/main` `2b4bdee8` for the line numbers below) and re-read at the head of `main` before editing; drop what a merge since then settled and name the commit.
+
+1. **The failing tests first (L2-1, L2-2, L3-1, L3-3, L3-5), in `WorkerSupervisorStartTest` and `WorkerSupervisorStartFailureTest`.** Each fails at the head before any production change, with a failing run id recorded in the progress note. (a) A held guard with a due probe and an ineligible gate: after `start` returns `HARNESS_INELIGIBLE`, the guard is not in flight (a second start after the backoff is admitted as a probe again); today `gateRefusedStartsNothing` (`WorkerSupervisorStartTest.java:162-170`) uses an open guard and cannot see it. (b) The same with a gate that throws: the exception propagates and the probe is settled. (c) A `harnessVerifier.verify`, a `composer.compose` (a non-`CompositionException`) and a refused-job write that each throw: the model slot is available again afterwards. (d) A drain beginning between two requests of one batch: the remaining requests are declined `STOPPED_ADMITTING` before they claim a slot, and nothing is counted. (e) The count reaching `HOLD_THRESHOLD` through counted refusals mid-batch (the case the 201 spec named for its D4(c) and its test does not reach): the batch stops and the remaining requests count nothing; the existing `aBatchStopsWhenTheGuardHolds` pre-fills the failures and stops through the in-flight probe.
+   - Skills: pm-dev-java:junit-core, pm-dev-java:java-core
+   - Persona: module-tester
+2. **The settlement and the release on every path (L3-1, L3-3, L3-5).** (a) `WorkerSupervisor.start` settles the guard's probe when the gate declines or throws: the gate check goes inside the settling scope, or the decline path settles through `probeDeclined` itself — the outline chooses by the lock order ADR 024 records (`startLock`, then `this`, the spacing's monitor last) and records the choice; `settleProbeUnlessStarted` and its Javadoc stay true of every path. (b) `startOne`'s first block holds the model-slot lease in a `try`/`finally` that releases it on every exit that does not hand it to a started worker, so a throwing `verify`, `compose` or refusal write no longer leaks the slot; the count's loss when `refuse()` throws is read and either closed or stated. (c) `startOne`'s first block tests `admitting` at its head, so a drain that begins mid-batch declines the remaining requests `STOPPED_ADMITTING` before the claim, the verify, the compose and the count; the later check after `awaitTurn` stays. (d) The Javadoc at `WorkerSupervisor.java:145-146` is true of the code after (a); the `awaitTurn` Javadoc (`HarnessStartSpacing.java:73-82`) states that an interrupt during the wait records no turn for the caller and leaves the previous owner's marker (L3-4 — a statement, no behaviour change; whether the start should still own the turn is a decision the outline records, not a change this plan makes unasked).
+   - Skills: pm-dev-java:java-core, pm-dev-java:javadoc
+   - Persona: implementer
+3. **The exclusion in the specification (L1-1).** `doc/specification/model-work/03-supervision-and-recycling.adoc:131` says the supervisor counts "the starts that the runtime refused before the spawn", without an exception, and `doc/specification/store-schemas/11-enrolment-store.adoc:56-61` names the counted reasons of the enrolment store and says nothing on update evidence. ADR `runtime-worker/025` decided that a refusal of `harness_update_unverified` counts nothing (it waits for the operator's enrolment, and a persistent refusal would otherwise hold every role of that harness, the verifier mapping a failing platform check to that reason). State it in both places in one sentence each, link ADR 025 and `harness-profiles/01-profile-schema.adoc#update-evidence`, and bring `doc/implementation-watch/model-work.adoc` (PM-WATCH-DISP-81) and `doc/Traceability.adoc` (the line naming `harness_update_unverified`) into agreement where they speak of the count. A specification change is made here, in this plan's own pull request, and is not a correction to the documentation repository (CLAUDE.md); the operator has decided the direction, so no other reading is offered.
+   - Skills: pm-documents:ref-asciidoc, pm-documents:ref-documentation
+   - Persona: documenter
+4. **The developer guide (R06).** `pm-runtime/doc/developer/runtime-worker.adoc` states the probe's settlement on every path of `start` (including the gate decline), the slot's release on a throwing first block, and that a drain stops the batch before a claim; the paragraphs at `:295` and `:738` that already state the `harness_update_unverified` exclusion are checked against the new specification sentence and are not restated.
+   - Skills: pm-documents:ref-asciidoc, pm-dev-java:javadoc
+   - Persona: documenter
+
+**Done when:** the five tests of deliverable 1 fail at `2b4bdee8` (or the head the plan names) and hold after deliverable 2; `start`'s Javadoc and the guard's behaviour agree on every path; the specification names the exclusion in `model-work/03` and `11-enrolment-store.adoc` and agrees with ADR 025, the guide, the watch and the traceability line; no behaviour of a passing start changes (the existing start tests hold unchanged at the head); `verify -Ppre-commit` (its rewrites reviewed, those of any file that is not this plan's not shipped) and `verify -pl pm-runtime -am` are green, targeted `-Dtest` where a full verify exceeds the host's budget; the open Sonar issues of the pull request are fixed or dismissed with a reason.
+
+## Standing Constraints
+
+- **Read every cited line at the head first** and drop what a merge settled. The line numbers are those of `2b4bdee8`.
+- **Tests first** (R10 spirit, the operator's standing practice for a defect): each defect gets a test that fails before the fix, with the run id in the progress note.
+- **Work to the Done-when.** Do not stop to ask the operator which part to continue with.
+- **Every carried item gets an outcome** in the landing message and the pull request: adopted into a deliverable, split off to a NAMED existing plan, or dropped, each with its reason. L3-6 and L3-9 below are carried and not adopted.
+- **No wall-clock assertion is added.** The new tests order their steps by latches and the supervisor's own state, never by a threshold against a real bound (the finding L3-9 of the 201 landing); `HarnessStartSpacing` gets no injectable clock in this plan.
+- **No new ADR, no dependency or plugin, no more than 100 files per pull request.**
+- **Do not repeat the lane's claims of PLAN-V2-201 as facts:** counts and run ids are its statement, not re-run.
+
+## Claim Labels
+
+All lines read at `origin/main` `2b4bdee8` by the orchestrator (the files below read at `89ffec36` by the analysis leaf and re-read by the orchestrator at the points named).
+
+- OBSERVED: `start` runs `startGuard().holds(...)` (`:164`) and `eligibilityGate().admits(...)` (`:167-168`) inside `synchronized (this)` before the `try` that starts at `:172`; `declineAll` (`:541-543`) settles nothing; `settleProbeUnlessStarted` (`:279-283`) runs only in that `try`'s `finally` — read at `WorkerSupervisor.java:138-200, 276-283, 541-543`
+- OBSERVED: before the merge the gate decline sat inside the `try`/`finally` — read at `git show 89ffec36^:…/WorkerSupervisor.java`, `start`, `:150-167`
+- OBSERVED: `StartFailureGuard.holds` answers `false` and sets `probeInFlight` when the backoff has passed, and answers `true` through the `probeInFlight` branch until `probeDeclined`, a first call or a clear — read at `StartFailureGuard.java:133-144`
+- OBSERVED: the model-slot lease is claimed at `startOne` `:293` and released only on the paths that return a decline or a started worker, not in a `finally` around the verify, compose and refusal write — read at `WorkerSupervisor.java:285-310, 354-362`
+- OBSERVED: `startOne`'s first block does not read `admitting`; the check is after `awaitTurn` (`:315`) — read at `WorkerSupervisor.java:292-315`
+- OBSERVED: `awaitTurn` puts the owner after the wait (`HarnessStartSpacing.java:96`), so an interrupt thrown from `timedWait` records no turn — read at `HarnessStartSpacing.java:84-98`
+- OBSERVED: the assembly `plan-marshall-mcp` (`fd7e252`) has no reference to `WorkerSupervisor`, `WorkerGradingHarness` or `WorkerJudgeScorer`; the callers of the supervisor are those two harness classes of this repository (`WorkerGradingHarness:229`, `WorkerJudgeScorer:80`) — checked by `git grep` on 2026-11-26
+- OBSERVED: no test combines a held guard, a due probe and an ineligible gate; `gateRefusedStartsNothing` uses `OPEN_GUARD` and is the only `HARNESS_INELIGIBLE` in `src/test` — read at `WorkerSupervisorStartTest.java:162-170`
+- OBSERVED: the specification set does not say whether `harness_update_unverified` counts; the code excludes it by ADR 025 and `WorkerSupervisor.java:446-448`; the guide states the exclusion at `runtime-worker.adoc:295, 738` — read at `model-work/03:131`, `11-enrolment-store.adoc:56-61`
+- HYPOTHESIS: the settlement can be one `try`/`finally` around the gate check and the batch without changing the lock order of ADR 024 — confirm/refute at `WorkerSupervisor.java:160-183` and `runtime-worker/024` (verify-at-outline)
+- HYPOTHESIS: `doc/implementation-watch/model-work.adoc` (PM-WATCH-DISP-81, `:262`) and `doc/Traceability.adoc:1856` say something about the count that the new sentence must agree with — confirm/refute at those lines (verify-at-outline)
+- Verify-first clause: the outline reads `StartFailureGuard.holds`, `probeDeclined`, `startFailed` and `firstCall` once more and states the settlement in a table (path × guard state) before it writes the test list; a path the table finds that this spec does not name is added to deliverable 1 and 2, not dropped.
+
+## Expected Surface
+
+- OBSERVED: `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/worker/HarnessStartSpacing.java` (Javadoc only), `pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerSupervisorStartTest.java`, `pm-runtime/src/test/java/de/planmarshall/runtime/worker/WorkerSupervisorStartFailureTest.java`, `pm-runtime/doc/developer/runtime-worker.adoc`, `doc/specification/model-work/03-supervision-and-recycling.adoc`, `doc/specification/store-schemas/11-enrolment-store.adoc`.
+- HYPOTHESIS (swept: both files exist on the main branch, the lines named above): `doc/implementation-watch/model-work.adoc`, `doc/Traceability.adoc`.
+- Read only, not surface: the class StartFailureGuard and the ADRs 024 and 025 of the runtime-worker directory are read and cited, none is edited.
+
+## Dependencies and Sequencing
+
+- Depends on: PLAN-V2-201 (shipped, #625).
+- Overlaps with (class level): PLAN-V2-146, PLAN-V2-148 (both name `WorkerSupervisor`; their records call it understated surface), PLAN-V2-150 (`runtime-worker.adoc`), PLAN-V2-193 (edits `WorkerSupervisor`; its spec says it starts after PLAN-V2-162, which is merged) and PLAN-V2-197 (`WorkerGradingHarness`'s port to the supervisor; `WorkerSupervisor.admitted()`): the gate decides at emit, and the overlap prompt applies to each file shared.
+- Adjacent to: `StartFailureGuard.java` (read only: the guard's own rules are not changed here), `HarnessStartSpacing`'s bound and its clock (no injectable clock; L3-9 stays carried).
+
+## Hand-Off Command
+
+```text
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-208-start-probe-settlement-and-slot-release-residue.md
+```
+
+## Write-Boundary
+
+The plan implementing this spec touches only its own repository source and tests. It creates and edits NO file under `.plan/orchestrator/` other than its own `inbox/{sender}-{seq}` message — the orchestrator owns every other ledger write — and reports its outcome through its PR and its inbox message. See `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Carried Open Items
+
+1. **The residue of the landing of PLAN-V2-201** (`landings/PLAN-V2-201.md`, carried 2026-11-26; merged as #625 `89ffec36`): deliverables 1 to 4 carry L3-1 (major), L3-2 (the Javadoc), L3-3, L3-4 (the interrupt statement), L3-5, L2-1, L2-2 and L1-1. Not adopted: **L3-6** (info) — `register()` throwing after `startWorker` returned `Started`: the worker runs unregistered, its slot is not released and the spacing release of a live worker lets the next start go unspaced; the outline reads it with deliverable 2(b) and records whether the same `try` closes it, and if not it goes to the leftovers plan (PLAN-V2-126's carried items, still unstaged) with this landing as its source. **L3-9** (minor) — the upper-bound wall-clock assertions of `StartSpacingInterleavingTest` against a real 300 ms bound need an injectable clock in `HarnessStartSpacing`: a design change, carried to the leftovers plan with this landing as its source. **L2-3** — the lane's claim that T1 to T3, T5 to T8 fail at `90505ad2` is not shown by reading: nothing to fix, no plan.
