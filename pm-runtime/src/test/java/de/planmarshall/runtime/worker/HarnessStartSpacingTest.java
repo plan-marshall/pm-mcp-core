@@ -30,14 +30,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.service.AuditEvent;
+import de.planmarshall.core.store.JobId;
 import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The start spacing of one harness (PM-WORK-3, Starts of One Harness): the wait for the previous worker's first call,
- * the compiled cap on that wait, the release by a previous exit and the collision the start-failure guard counts.
+ * the compiled cap on that wait, the release by a previous exit and the collision the start-failure guard counts. The
+ * controls are the two cases the spacing must not delay: another harness and a harness with no pending start.
  * <p>
- * The client id, the role, the project and the failure text are generated in {@code @BeforeEach}; the 30-second
- * spacing bound and the timing tolerances are the contract values the test pins.
+ * The client id, the owners, the role, the project and the failure text are generated in {@code @BeforeEach}; the
+ * 30-second spacing bound and the timing tolerances are the contract values the test pins.
  */
 @EnableGeneratorController
 @DisplayName("Harness start spacing")
@@ -53,23 +55,29 @@ class HarnessStartSpacingTest {
 
     private String failure;
 
+    private String owner;
+
+    private String successor;
+
     @BeforeEach
     void draw() {
         client = RuntimeGenerators.words().next();
         role = RuntimeGenerators.words().next();
         project = RuntimeGenerators.words().next();
         failure = Generators.letterStrings(3, 40).next();
+        owner = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
+        successor = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
     }
 
     @Test
     @DisplayName("a second start waits until the previous worker made its first call")
     void aSecondStartWaitsForTheFirstCall() throws Exception {
         var spacing = new HarnessStartSpacing(Duration.ofSeconds(5));
-        spacing.awaitTurn(client);
+        spacing.awaitTurn(client, owner);
         var released = new CountDownLatch(1);
         var waiting = new Thread(() -> {
             try {
-                spacing.awaitTurn(client);
+                spacing.awaitTurn(client, successor);
             } catch (InterruptedException _) {
                 Thread.currentThread().interrupt();
             } finally {
@@ -79,7 +87,7 @@ class HarnessStartSpacingTest {
 
         waiting.start();
         var releasedEarly = released.await(200, TimeUnit.MILLISECONDS);
-        spacing.firstCall(client);
+        spacing.firstCall(client, owner);
         var releasedAfterTheFirstCall = released.await(2, TimeUnit.SECONDS);
         waiting.join(Duration.ofSeconds(2).toMillis());
 
@@ -92,10 +100,10 @@ class HarnessStartSpacingTest {
     @DisplayName("the wait is capped at the compiled bound")
     void theWaitIsCapped() throws Exception {
         var spacing = new HarnessStartSpacing(Duration.ofMillis(150));
-        spacing.awaitTurn(client);
+        spacing.awaitTurn(client, owner);
 
         var started = System.nanoTime();
-        spacing.awaitTurn(client);
+        spacing.awaitTurn(client, successor);
         var waited = Duration.ofNanos(System.nanoTime() - started);
 
         assertAll(
@@ -111,11 +119,11 @@ class HarnessStartSpacingTest {
     @DisplayName("a start after the previous exit proceeds at once")
     void aStartAfterTheExitProceedsAtOnce() throws Exception {
         var spacing = new HarnessStartSpacing(Duration.ofSeconds(5));
-        spacing.awaitTurn(client);
-        spacing.ended(client);
+        spacing.awaitTurn(client, owner);
+        spacing.ended(client, owner);
 
         var started = System.nanoTime();
-        spacing.awaitTurn(client);
+        spacing.awaitTurn(client, successor);
         var waited = Duration.ofNanos(System.nanoTime() - started);
 
         assertTrue(waited.compareTo(Duration.ofMillis(500)) < 0, "the exit releases the next start at once");
@@ -126,13 +134,25 @@ class HarnessStartSpacingTest {
     void twoHarnessesAreNotSpaced() throws Exception {
         var spacing = new HarnessStartSpacing(Duration.ofSeconds(5));
         var other = client + "-other";
-        spacing.awaitTurn(client);
+        spacing.awaitTurn(client, owner);
 
         var started = System.nanoTime();
-        spacing.awaitTurn(other);
+        spacing.awaitTurn(other, successor);
         var waited = Duration.ofNanos(System.nanoTime() - started);
 
         assertTrue(waited.compareTo(Duration.ofMillis(500)) < 0, "another harness starts at once");
+    }
+
+    @Test
+    @DisplayName("a start with no pending worker proceeds at once")
+    void aStartWithNoPendingWorkerProceedsAtOnce() throws Exception {
+        var spacing = new HarnessStartSpacing(Duration.ofSeconds(5));
+
+        var started = System.nanoTime();
+        spacing.awaitTurn(client, owner);
+        var waited = Duration.ofNanos(System.nanoTime() - started);
+
+        assertTrue(waited.compareTo(Duration.ofMillis(500)) < 0, "the first start of a harness proceeds at once");
     }
 
     @Test
@@ -143,8 +163,8 @@ class HarnessStartSpacingTest {
         var guard = new StartFailureGuard(project, List::of, silentProtocol(), events::add,
                 InstantSource.fixed(NOW));
 
-        spacing.awaitTurn(client);
-        spacing.awaitTurn(client);
+        spacing.awaitTurn(client, owner);
+        spacing.awaitTurn(client, successor);
         guard.startFailed(role, client, failure);
 
         assertAll(

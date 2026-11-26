@@ -1,0 +1,80 @@
+= ADR 025: A Launch Refused Before Its Spawn Counts, Except the Update Evidence
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-25
+
+== Context
+
+The start-failure guard counts the consecutive starts of one role on one harness that failed before the worker's first
+call, and `WorkerSupervisor` counts a launch the runtime refused before its spawn. At `90505ad2` that wiring named two
+reasons, `harness_store_unreadable` and `harness_tampered`, while the Store Schemas part states the count for four:
+`harness_version_unsupported` and `harness_not_enrolled` "count as a start failure of the role on that harness" as
+well (link:../../../../doc/specification/store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas §
+Harness Enrolment Store]).
+
+Two further refusal paths existed and were decided nowhere: a launch the composer cannot compose
+(`LaunchComposer.CompositionException`, before any worker exists) and a start the runner refuses
+(`JobRunner.StartResult.Refused`). The guard's own section states the rule they answer to: the supervisor counts the
+starts "that the runtime refused before the spawn"
+(link:../../../../doc/specification/model-work/03-supervision-and-recycling.adoc#start-failure-guard[Model Work §
+Start-Failure Guard]). One launch refusal is named by the specification without a count: a changed executable whose
+update evidence fails is refused `harness_update_unverified` until the operator verifies it
+(link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#update-evidence[Harness Profiles § Update
+Evidence]).
+
+The count also ran before the refusal was recorded and before the model slot was released, and it ran inside a
+`finally`-less block: a guard whose count threw — the audit sink, or the protocol's close at the hold — leaked the slot
+and lost the refusal record. After the guard held mid-batch, the remaining requests of the same call still started and
+counted again.
+
+== Decision
+
+Every launch the runtime refuses before its spawn counts one start failure of the role on the harness, with one
+exception: a refusal of `harness_update_unverified` counts nothing. The supervisor's own declines — a held guard, an
+ineligible harness, no model slot — are no launch refusal and count nothing. `WorkerSupervisor.countsAsStartFailure`
+carries the rule.
+
+The refusal is recorded through the runner's refused-job path and the model slot is released BEFORE the count runs, so
+a count that throws neither loses the record nor leaks the slot; the count's bounded, redacted `StartFailureReport`
+travels on `WorkerSupervisor.StartOutcome.Declined`, which is where the assembly's clients read the operator-facing
+text. A batch of requests stops when the guard holds after a start, so the remaining requests are not attempted and
+count nothing.
+
+== Alternatives Considered
+
+1. *Count only the four reasons the Store Schemas part names.* Not taken: the composition refusal and the runner's
+   refusal are refusals before the spawn, and the guard's section counts those; they were the two paths the plan had to
+   decide.
+2. *Count every reason, the update evidence included.* Not taken: the Store Schemas part attaches the count to the
+   enrolment-store refusals, and the update-evidence section names no count for its refusal; the operator's answer that
+   a launch refused on the enrolment store counts pointed at the same four.
+3. *Keep the count before the record and the slot release.* Not taken: a throwing guard leaks the model slot and loses
+   the refusal, which is the defect the plan corrects.
+4. *Let the batch continue after the guard holds, and let the guard decline the rest.* Not taken: those requests would
+   each count again, so one failure would be counted several times, and a probe admitted once would be consumed by
+   every request of the batch.
+
+== Consequences
+
+* A harness whose store is unreadable, tampered, outside its supported range, or not enrolled holds the role after the
+  compiled count; so does a launch the composer cannot compose and a start the runner refuses.
+* A changed executable without update evidence stays a per-start refusal that the operator resolves by verifying it;
+  it does not hold the role.
+* The refused job record and the released model slot survive a guard that throws on the count, and the operator sees
+  the guard's report on the declined outcome.
+* The count of one batch never exceeds the failures the batch caused.
+
+== Source
+
+* Pull request of PLAN-V2-201
+* link:../../../../doc/specification/model-work/03-supervision-and-recycling.adoc#start-failure-guard[Model Work § Start-Failure Guard]
+* link:../../../../doc/specification/store-schemas/11-enrolment-store.adoc#harness-enrolment-store[Store Schemas § Harness Enrolment Store]
+* link:../../../../doc/specification/harness-profiles/01-profile-schema.adoc#update-evidence[Harness Profiles § Update Evidence]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/StartFailureGuard.java`
