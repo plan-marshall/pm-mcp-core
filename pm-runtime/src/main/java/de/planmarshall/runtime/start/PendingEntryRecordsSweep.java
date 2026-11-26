@@ -129,6 +129,7 @@ public final class PendingEntryRecordsSweep implements SweepStep {
                     : remove(workspace, store, candidates, at);
         } catch (UncheckedIOException | IllegalArgumentException | IllegalStateException | InternalFaultException
                 | StoreRefusal e) {
+            // Needs no message guard here: described's Javadoc states why no message-less fault reaches this catch.
             var failure = new StringBuilder("pending entry directories not swept: ").append(described(e));
             if (!unreadable.isEmpty()) {
                 failure.append("; kept unreadable entries ").append(unreadable);
@@ -345,7 +346,8 @@ public final class PendingEntryRecordsSweep implements SweepStep {
      * {@code null}, so no input reaches that catch with a message-less fault.
      *
      * @param fault the fault to name
-     * @return its message, or the type label when there is none
+     * @return its message, returned as it is even when blank, or {@code <SimpleName> with no message} when it carries
+     *         none
      */
     private static String described(RuntimeException fault) {
         var message = fault.getMessage();
