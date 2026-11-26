@@ -22,7 +22,7 @@
       "properties": {
         "kind": {
           "type": "string",
-          "enum": ["base_branch_default", "push_remote", "ci_provider", "merge_methods_allowed", "merge_queue_enforced", "branch_up_to_date_required", "required_checks", "signed_commits_required", "base_branch_protected", "checks_visible", "agent_identity", "git_native_capability", "domain_activation", "active_profiles", "module_discovery", "cost_calibration"]
+          "enum": ["base_branch_default", "push_remote", "ci_provider", "merge_methods_allowed", "merge_queue_enforced", "signed_commits_required", "base_branch_protected", "agent_identity", "git_native_capability", "domain_activation", "active_profiles", "module_discovery", "cost_calibration"]
         },
         "value": { "description": "Kind-specific value, validated against the value schema registered for the kind; null only with state failed." },
         "source": {

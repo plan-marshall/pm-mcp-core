@@ -37,7 +37,7 @@
         "check_name": { "type": "string", "minLength": 1, "description": "Provider name of the failed check or pipeline job." },
         "failure_class": { "type": "string", "enum": ["failure", "cancelled", "timed_out", "action_required", "stale", "startup_failure", "not_triggered", "no_checks"], "description": "From the provider's conclusion." },
         "failure_kind": { "type": "string", "enum": ["compile", "test", "lint", "policy", "unknown"], "description": "From the check's log, parsed by the PM-IMPL-6 build output parsers; unknown when no parser recognises the log or the log is unreadable; unknown is handled fail-closed: the finding of a failed required check is blocking whatever its kind." },
-        "required_check": { "type": "boolean", "description": "Whether the check is in the derived required_checks of the base branch; a non-required check is filed with blocking false." }
+        "required_check": { "type": "boolean", "description": "Whether the check is required for the base branch, read from the provider's read of the check at that moment; a non-required check is filed with blocking false." }
       }
     },
     "phase": { "type": ["string", "null"], "enum": ["phase-2-refine", "phase-3-outline", "phase-4-plan", "phase-5-execute", "phase-6-finalize", null], "description": "Phase the finding was filed against: the phase value of the phase sub-workflow on the call stack of the filing transition (Phases as Sub-Workflows); required for qgate findings. A write addressed to a phase the plan has left is refused with phase_closed." },
@@ -99,7 +99,7 @@
       "default": "pending",
       "description": "Server-written outcome of the finding (see Server-Written Resolution); never a link parameter. Mirrors plan-marshall's resolution vocabulary."
     },
-    "scope_class": { "type": ["string", "null"], "enum": ["in_footprint", "out_of_footprint", "unlocated", null], "description": "Server-classified at triage: whether file_path lies in the plan's effective footprint; unlocated when the finding names no path." },
+    "scope_class": { "type": ["string", "null"], "enum": ["in_footprint", "out_of_footprint", "unlocated", null], "description": "Server-classified at triage: whether file_path lies in the plan's realized footprint (the recorded unplanned changes included); unlocated when the finding names no path." },
     "carried_to": {
       "type": ["object", "null"],
       "description": "Set when a finding still pending after the merge is carried out of the plan.",

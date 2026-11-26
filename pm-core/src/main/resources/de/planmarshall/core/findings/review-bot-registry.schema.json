@@ -42,12 +42,6 @@
     "rate_limit_class": { "type": "string", "enum": ["awaitable_window", "hard_quota", "unknown"] },
     "rate_interval_seconds": { "type": ["integer", "null"], "minimum": 1, "description": "Window length after a claim when the bot publishes no parseable ETA; null applies the compiled rate-window floor (timeouts.adoc, Review-Bot Rate Windows)." },
     "attempt_ceiling": { "type": "integer", "minimum": 1, "default": 6, "description": "Maximum triggers per (repository, pr_number, bot_kind); compiled default 6 (timeouts.adoc, Review-Bot Rate Windows)." },
-    "structural_caps": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Ceilings for the pre-wait cap gate; null in every compiled-in record (a bot's ceilings are read from its notice), declared only by a team record that knows its bot's plan.",
-      "properties": { "max_files": { "type": ["integer", "null"] }, "max_diff_chars": { "type": ["integer", "null"] } }
-    },
     "actionable_content_markers": { "type": "array", "items": { "type": "string" } },
     "contentless_review_markers": { "type": "array", "items": { "type": "string" } },
     "ignore_patterns": { "type": "array", "items": { "type": "string" } },

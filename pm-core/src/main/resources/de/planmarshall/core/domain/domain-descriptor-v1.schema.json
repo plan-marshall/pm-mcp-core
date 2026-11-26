@@ -141,7 +141,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["maven", "gradle", "npm", "pyproject", "python", "markdown", "documentation", "lsp", "project-script"]
+        "enum": ["maven", "gradle", "npm", "pyproject", "markdown", "documentation", "lsp", "project-script"]
       }
     },
     "claim_paths": {

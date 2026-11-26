@@ -25,8 +25,8 @@ registered without an edit.
 
 == Alternatives Considered
 
-1. *Keep a list of the sixteen names in `pm-workflow`.* Rejected: it is a second list of one closed set, and it would
-   drift in silence.
+1. *Keep a list of the names of the closed set in `pm-workflow`.* Rejected: it is a second list of one closed set, and it
+   would drift in silence.
 2. *Build the registry from the registered value schemas.* Rejected: registration is a store concern, and a kind with no
    registered schema would silently leave the registry.
 

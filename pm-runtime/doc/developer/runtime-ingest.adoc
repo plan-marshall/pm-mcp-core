@@ -15,8 +15,9 @@ Package `de.planmarshall.runtime.ingest` of `pm-runtime` holds the level-1 inges
 stage that decides whether a Markdown text an untrusted party wrote may be handed on unchanged. The validator works in
 refusing mode: a text with any finding is refused, and nothing is changed silently.
 
-The package implements stage 2 of the validator, the Markdown AST stage. The other stages (Unicode fixpoint, bounds, the
-rule table and spotlighting) are not implemented in this package and are not simulated here.
+The package implements stage 2 of the validator, the Markdown AST stage. The other stages are not implemented in this
+package and are not simulated here: the Unicode stage (it removes every hidden character, then normalizes to NFC, once,
+with no pass limit), the bounds, the rule table and spotlighting.
 
 == Main Types
 _Requirements: link:{docs}/Requirements.adoc#PM-SEC-1[PM-SEC-1]_
@@ -73,8 +74,9 @@ repository.
 . Extend the visitor, not the parser: a new node type is a new `visit` override that appends a `Finding`.
 2. Give the new kind a stable name and add it to the pitfall list above; a caller never matches the detail.
 3. Add a test with one text that trips exactly the new rule and one matched control that does not.
-4. Do not fold another stage into this class: the Unicode fixpoint, the bounds and the spotlighting belong to their own
-   stage and their own refusal, so the record of why a text was refused names one stage.
+4. Do not fold another stage into this class: the Unicode stage (it removes every hidden character, then normalizes to
+   NFC, once, with no pass limit), the bounds and the spotlighting belong to their own stage and their own refusal, so
+   the record of why a text was refused names one stage.
 
 == Testing
 

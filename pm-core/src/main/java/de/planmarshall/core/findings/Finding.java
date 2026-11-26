@@ -234,7 +234,7 @@ Instant createdAt,
      * @param checkName     the non-empty provider name of the failed check or pipeline job
      * @param failureClass  the class of the failure, from the provider's conclusion
      * @param failureKind   the kind of the failure, from the check's log
-     * @param requiredCheck whether the check is a required check of the base branch
+     * @param requiredCheck whether the check is required, from the provider's read of the check at that moment
      */
     @Builder
     public record CiFailure(String checkName, FailureClass failureClass, FailureKind failureKind,

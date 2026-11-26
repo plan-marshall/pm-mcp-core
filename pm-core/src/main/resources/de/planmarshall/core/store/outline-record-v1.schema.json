@@ -85,7 +85,7 @@
               "tech_debt",
               "verification"
             ],
-            "description": "Deliverable-scoped; reconciled with the plan's change_type (phase-workflows/03, Scope Disagreement Refusal)."
+            "description": "Deliverable-scoped; reconciled with the plan's change_type (phase-workflows/03, Server-Derived change_type)."
           },
           "execution_mode": {
             "type": "string",

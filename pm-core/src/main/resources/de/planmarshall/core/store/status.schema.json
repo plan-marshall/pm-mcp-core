@@ -220,7 +220,6 @@
       "properties": {
         "finding_id": { "type": "integer", "minimum": 0 },
         "amendment_id": { "type": "integer", "minimum": 0 },
-        "assessment_id": { "type": "integer", "minimum": 0 },
         "owed_id": { "type": "integer", "minimum": 0 },
         "request_id": { "type": "integer", "minimum": 0 },
         "failure_id": { "type": "integer", "minimum": 0 },
@@ -351,14 +350,12 @@
         "escalation_trigger": { "type": ["string", "null"], "enum": ["budget_cap", "budget_band", "neighbours_indeterminate", "baseline_conflict", "scope_lane_mismatch", "premise", "cross_module_ripple", "public_symbol_deletion", null] },
         "phase_2_mode": { "type": "string", "enum": ["full", "collapsed_light"], "description": "collapsed_light while a light plan's Phase 2 is folded into the light envelope." },
         "domains": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" }, "description": "The plan's active domains: written by init.classify (its domain detection), widened only by refine (set union, phase-workflows.adoc, Widen-Only Domain Re-Merge), and narrowed exactly once by outline (phase-workflows.adoc, Single Domain Narrowing Pass)." },
-                "request_aspect": { "type": ["object", "null"], "required": ["aspect", "confidence"], "additionalProperties": false, "description": "init.classify for every plan from sources (domain-extensions.adoc, Request-Aspect Classification); intent only.", "properties": { "aspect": { "type": "string", "enum": ["analysis", "planning", "implementation"] }, "confidence": { "type": "number", "minimum": 0, "maximum": 1 } } },
         "confidence": { "type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": "The aggregated refine score, compared against the compiled threshold 95 (phase-workflows.adoc, Phase 2)." },
-        "change_type": { "type": ["string", "null"], "enum": ["feature", "bug_fix", "tech_debt", "enhancement", "verification", "analysis", null], "description": "Single writer: the change-type detection of the plan's lane (outline.detect-change-type, outline.light-detect-change-type) or the classify task's submit (phase-workflows.adoc, Single-Writer change_type)." },
+        "change_type": { "type": ["string", "null"], "enum": ["feature", "bug_fix", "tech_debt", "enhancement", "verification", "analysis", null], "description": "Single writer: the server's derivation at outline acceptance (phase-workflows/03, Server-Derived change_type)." },
         "scope_estimate": { "type": ["string", "null"], "enum": ["none", "surgical", "single_module", "multi_module", "broad", null] },
         "scope_estimate_pre_route": { "type": ["string", "null"], "enum": ["none", "surgical", "single_module", "multi_module", "broad", null], "description": "Immutable once written by the initial planning-lane router." },
         "scope_estimate_provenance": { "type": "array", "items": { "type": "object", "required": ["value", "phase", "recorded_at"], "additionalProperties": false, "properties": { "value": { "type": "string", "enum": ["none", "surgical", "single_module", "multi_module", "broad"] }, "phase": { "type": "string", "enum": ["phase-2-refine", "phase-3-outline"] }, "recorded_at": { "type": "string", "format": "date-time" } } }, "description": "One entry per later update of scope_estimate (phase-workflows.adoc, Deterministic Init Classifiers)." },
-        "pr_title": { "type": ["string", "null"], "maxLength": 72 },
-        "pr_title_stale": { "type": ["object", "null"], "required": ["transition", "at"], "additionalProperties": false, "description": "The scope-shrinking transition that made the title stale; cleared by the retitle submission in create-pr.", "properties": { "transition": { "type": "string" }, "at": { "type": "string", "format": "date-time" } } }
+        "pr_title": { "type": ["string", "null"], "maxLength": 72 }
     } },
     "freshness_reconcile": {
       "type": ["object", "null"],
