@@ -3,11 +3,11 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-04
 origin: the three-layer analysis of the landing of PLAN-V2-142 (`landings/PLAN-V2-142.md`, 2026-11-22, #552 `c910c59b` and #548 `fee03237`) and the operator's rule that leftovers go into a staged plan (no staged plan owns the icon store or the rename's remainder)
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
 > Lives at `plans/PLAN-V2-168-harness-icon-and-rename-closeout.md` and is queued as one row file, `queue/PLAN-V2-168.json`,
-> in the epic ledger (lane `runbook`: the operator runs it with the runbook lane). The orchestrator EMITS the command below; it never launches the plan inline.
+> in the epic ledger (lane `plan-marshall`). The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
 > the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
 > authored here and the epic-wide rules are in `standing-rules.md`, read first.
@@ -90,7 +90,7 @@ Source, tests, specification and documentation (specific files, R19; the outline
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-168-harness-icon-and-rename-closeout.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-168-harness-icon-and-rename-closeout.md"
 ```
 
 ## Write-Boundary

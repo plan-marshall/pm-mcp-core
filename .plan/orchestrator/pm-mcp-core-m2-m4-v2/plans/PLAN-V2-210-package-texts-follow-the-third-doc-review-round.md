@@ -3,11 +3,11 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-10
 origin: the residue of PLAN-V2-195 (`landings/PLAN-V2-195.md`, #623 `2b4bdee8`, §9 of the lane's landing message: the third doc-review round declined by the operator's selection "Decline as out of scope; stage a follow-up", the `forgejo-provider` row, the specification drift) and `inbox/doc-review-2026-11-25-003.md` §2 (core #622 `5ae4fd1c`: the merge path, the plan sources, `finalize.adopt-pr`), staged by the orchestrator on the thirty-ninth run, 2026-11-26. Documents only: NO Java.
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
 > Lives at `plans/PLAN-V2-210-package-texts-follow-the-third-doc-review-round.md` and is queued as one row file, `queue/PLAN-V2-210.json`,
-> in the epic ledger (lane `runbook`). The orchestrator EMITS the command below; it never launches the plan inline.
+> in the epic ledger (lane `plan-marshall`). The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names.
 
 ## First Instruction: Read The Standing Rules
@@ -97,7 +97,7 @@ All lines read at `origin/main` `2b4bdee8` by the orchestrator.
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-210-package-texts-follow-the-third-doc-review-round.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-210-package-texts-follow-the-third-doc-review-round.md"
 ```
 
 ## Write-Boundary

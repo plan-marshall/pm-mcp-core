@@ -3,9 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-06
 origin: PLAN-V2-162 (#567) landing revision 25, section 9: item 41(a)
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec, one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off. SELF-SUFFICIENT together with the standing rules.
+> Staged plan spec, one shippable unit of work, ready for `/plan-marshall` hand-off. SELF-SUFFICIENT together with the standing rules.
 
 ## First Instruction: Read The Standing Rules
 
@@ -95,7 +95,7 @@ This plan puts the choice to the operator, records it in an ADR first, and then 
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-198-git-baseline-decision.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-198-git-baseline-decision.md"
 ```
 
 ## Write-Boundary

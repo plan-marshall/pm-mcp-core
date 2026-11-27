@@ -3,11 +3,11 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-12
 origin: `inbox/doc-review-2026-11-25-004.md` §1 (the doc-review session's fourth round, core #628 `d961c9df`, bullets 3 and 4 of its Section 1 list: the `QuestionRecord` `blocks` member and the worker's declaration, and the `evidence.class` values), staged by the orchestrator on the forty-first run, 2026-11-27. It supersedes the third round's §1 (M3 §1) where that round said a decision's `blocks` is "written by the server from what waits" (PLAN-V2-23, parked): the fourth round says it is derived on every read from the scope's runnable work and never stored.
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
 > Lives at `plans/PLAN-V2-211-question-blocks-and-finding-evidence-classes-removed.md` and is queued as one row file, `queue/PLAN-V2-211.json`,
-> in the epic ledger (lane `runbook`). The orchestrator EMITS the command below; it never launches the plan inline.
+> in the epic ledger (lane `plan-marshall`). The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names.
 
 ## First Instruction: Read The Standing Rules
@@ -72,7 +72,7 @@ All lines read at `origin/main` `939578b6` by the orchestrator on 2026-11-27.
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-211-question-blocks-and-finding-evidence-classes-removed.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-211-question-blocks-and-finding-evidence-classes-removed.md"
 ```
 
 ## Write-Boundary
