@@ -172,7 +172,16 @@ class DiagnosticCollectorRedactionTest {
         assertMessagesRedacted(build.diagnostics());
     }
 
-    /** A wall-clock bound a linear scan meets and the former quadratic URL pattern exceeds. */
+    /**
+     * The bound of the two flood tests, and their control: a pathological-input guard that fails on a regression to
+     * super-linear time, not only a hang guard, because the tests assert nothing else about the cost.
+     * <p>
+     * The value: the flood is 2 000 lines of 8 192 characters. A linear scan walks each character a bounded number of
+     * times, some 16 million steps that finish in a few seconds even on a loaded host, so 120 seconds leaves it a wide
+     * margin. The former quadratic URL pattern walks back over the previous tokens of a line, on the order of
+     * 8 192 × 8 192 / 2 steps per line and 10<sup>10</sup> to 10<sup>11</sup> over the flood, which no host finishes
+     * within 120 seconds.
+     */
     private static final Duration FLOOD_BOUND = Duration.ofSeconds(120);
 
     private static List<String> hostileFlood() {
@@ -188,7 +197,7 @@ class DiagnosticCollectorRedactionTest {
     }
 
     @Test
-    @DisplayName("a hostile URL flood redacts within the bound through the stored seam")
+    @DisplayName("a hostile URL flood redacts within the bound through the stored seam (the bound is the control)")
     void hostileUrlFloodThroughTheStoredSeam() {
         var flood = hostileFlood();
 
@@ -206,7 +215,7 @@ class DiagnosticCollectorRedactionTest {
     }
 
     @Test
-    @DisplayName("a hostile URL flood redacts within the bound through the Diagnostic constructor")
+    @DisplayName("a hostile URL flood redacts within the bound through the Diagnostic constructor (the control)")
     void hostileUrlFloodThroughTheDiagnosticConstructor() {
         var stack = String.join("\n", hostileFlood());
 
