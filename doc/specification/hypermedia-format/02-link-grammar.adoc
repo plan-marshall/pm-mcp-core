@@ -119,7 +119,7 @@ A parameter of type `schema[<schema_name>]` takes a JSON object as its value; th
 |`schema_name` |Content |Used by
 
 |`decision-envelope`
-|The model-supplied part of a decision (link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]), without the server-owned `question_id`, revision, class, origin, source entity, and what the decision blocks (written by the server from what waits on it): `title`, `header`, `description`, its `evidence[]` (`pm://` URIs of files, diffs, findings, and records), `reversibility` (`reversible`, `costly`, `irreversible`), the optional `revisits` (the `decision_id` of the standing decision it reopens), and `parts[]` (one to six), each of the schema `question-envelope`
+|The model-supplied part of a decision (link:../model-work/06-envelopes-questions-deadlines.adoc#decision-structure[Model Work Specification, The Decision Structure]), without the server-owned `question_id`, revision, class, origin, source entity, and what the decision blocks (derived by the server on every read from what waits on it, never stored): `title`, `header`, `description`, its `evidence[]` (`pm://` URIs of files, diffs, findings, and records), `reversibility` (`reversible`, `costly`, `irreversible`), the optional `revisits` (the `decision_id` of the standing decision it reopens), and `parts[]` (one to six), each of the schema `question-envelope`
 |`ask` and `ask:TASK-NNN` (`decision:schema[decision-envelope]`); the optional `decision:schema[decision-envelope]?` parameter of the `submit` link of a refine or outline task entity
 
 |`question-envelope`
@@ -151,7 +151,7 @@ A parameter of type `schema[<schema_name>]` takes a JSON object as its value; th
 |`submit:vote` of a vote task (`answers:list<schema[vote-answer]>`, one item per question of the task's entity)
 
 |`triage-groups`
-|The triage of one gather firing: one entry per finding group `(domain, rule_id)` of the firing's batch with its disposition (`FIX`, `SUPPRESS`, `ACCEPT`), `confidence` (`0..100`, the group's decision confidence), `reply_text` (`1..4000` characters), optional `requirement_refs`, `population` for `FIX` (the fix task's guidance, never read for the finding's resolution), and `suppress_reason` for `SUPPRESS`, plus per-finding exceptions (`finding_id` with its own disposition, reply, and, for `SUPPRESS`, reason); a finding withheld by the screener is never part of it; definition in link:../model-work/07-untrusted-text-screening.adoc#batched-triage[Model Work Specification, Batched Triage]
+|The triage of one gather firing: one entry per finding group `(domain, rule_id)` of the firing's batch with its disposition (`FIX`, `SUPPRESS`, `ACCEPT`), `confidence` (`0..100`, the group's decision confidence), `reply_text` (`1..4000` characters; the model writes that of a `FIX` at triage, and the server transmits it only once the finding resolves `fixed`), optional `requirement_refs`, `population` for `FIX` (the fix task's guidance, never read for the finding's resolution), and `suppress_reason` for `SUPPRESS` with its `evidence_ref` (the `evidence.ref` the reason rests on), plus per-finding exceptions (`finding_id` with its own disposition, reply, and, for `SUPPRESS`, reason and `evidence_ref`); a finding withheld by the screener is never part of it; definition in link:../model-work/07-untrusted-text-screening.adoc#batched-triage[Model Work Specification, Batched Triage]
 |`submit:triage-groups` of the triage task of a gather firing (`triage:schema[triage-groups]`)
 
 |`own-call`

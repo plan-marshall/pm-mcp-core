@@ -225,8 +225,10 @@ Anchor:: link:../specification/store-schemas/03-findings-and-review-records.adoc
 Hazard:: Refuted findings could not be recorded: in-triage refutations were stored as `taken_into_account` or
 `accepted`, and a pull request with an 8.7% false-positive rate reported 0%.
 Guard:: Resolution derivation tests cover every row of the derivation table; the fixtures below replay as `rejected`
-with their evidence; the false-positive count per source reads `rejected` only; the legacy mapping of the
-ported-primitive tests maps all six resolutions 1:1.
+with their evidence cited as the id of an executed job of the plan (the rule of
+link:../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc#PM-WATCH-GEN-43[PM-WATCH-GEN-43]);
+the same refutation citing a `file:line` or a URL resolves `suppressed`; the false-positive count per source reads
+`rejected` only; the legacy mapping of the ported-primitive tests maps all six resolutions 1:1.
 Fixture:: PR #1387 `cde958` (accepted → rejected), `8a040a`, `652212`; PR #1447 `43956d`, `8d8a87` (CWE-78).
 Source:: plan-marshall truthful-signals (quality-aspect) PLAN-208 D4 / PLAN-214 D4.
 
@@ -289,21 +291,6 @@ members without a writer. Recommendation: 2, unless the epic slice needs one of 
 Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
 the result in the specification and the requirement it touches, and deletes this item.
 Source:: `store-schemas/04-epic-and-change-ledger.adoc#epic-queue-row`, `model-work/08-epic-coordination.adoc#git-distributed-epic-ledger`.
-
-[#PM-WATCH-STORE-54]
-=== PM-WATCH-STORE-54: Open: a handed-back plan without a pull request never settles its row
-
-Anchor:: link:../specification/store-schemas/04-epic-and-change-ledger.adoc#epic-queue-row[Store Schemas § Queue Row] (`handed_back`),
-link:../specification/model-work/08-epic-coordination.adoc#git-distributed-epic-ledger[Model Work § Git-Distributed Epic Ledger]
-Hazard:: Undecided: a `handed_back` row settles only from the observed pull request (merged -> `merged`, closed ->
-`abandoned`); a plan handed back with `merge_outcome` `local_only` or `no_pr` has no pull request, so its row stays
-live forever, its dependants never start, and `epic.next-work` never reaches `settled`. Options: (1) map
-`handed_back` without a pull request to a terminal row status; (2) keep it live with an explicit settle route.
-Recommendation: 1, the plan has ended and nothing is left to observe.
-Guard:: The plan implementing this anchor decides the point (with the operator where it changes scope), records
-the result in the specification and the requirement it touches, and deletes this item.
-Source:: `store-schemas/04-epic-and-change-ledger.adoc#epic-queue-row`, `model-work/08-epic-coordination.adoc#git-distributed-epic-ledger`
-(row settlement).
 
 [#PM-WATCH-STORE-55]
 === PM-WATCH-STORE-55: Open: how a row refused at its start is recorded and retried

@@ -26,7 +26,7 @@ The per-project machine store `<PM_MCP_BASE>/projects/<project_id>/` is the one 
 │       ├── outline.md                   # Rendered from outline.json
 │       ├── sources/                     # The plan's source directory, copied here from its entry at start.create-scope
 │       ├── instance/                    # Plan instance: immutable plan.v<N>.pmwf and <unit>.v<N>.pmwf versions, composition.jsonl
-│       ├── overrides.json               # The plan's own values (written by the operator, in either client; an adopt plan's base_branch by its start and finalize.adopt-pr)
+│       ├── overrides.json               # The plan's own values (written by the operator, in either client; an adopt plan's base_branch by its start and finalize.adopt-pr, a plan's base_branch also by the gate entry of the merge path when its pull request targets another base)
 │       ├── waivers.jsonl                # Append-only operator waivers (written only by the operator's acts)
 │       ├── waiver-consumptions.jsonl    # Append-only waiver consumptions (written only by waiver.lookup)
 │       ├── questions.jsonl              # Append-only question records of the plan scope
