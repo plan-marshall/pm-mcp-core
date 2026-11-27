@@ -268,7 +268,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 9
 
 |link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]
-|The finalize pipeline from re-entry to merge: verdict currency and the step records of a firing, the merge path's states, the Pre-Merge Review Barrier and its waivable gates, the composite wait, the pull-request author's title, the compiled-in review-bot records, and the phase `sanity-check`
+|The finalize pipeline from re-entry to merge: verdict currency and the step records of a firing, the merge path's states with the gate entry's observation of the pull request and the adoption of a pull request (`finalize.adopt-pr`),the Pre-Merge Review Barrier and its waivable gates, the composite wait, the pull-request author's title, the compiled-in review-bot records, and the phase `sanity-check`
 |`open`
 |`phase-sub-workflows` (the default units as phase sub-workflows, the simplify step); `domain-extensions-and-architecture`; `re-planning` (the `finalize.replan` call and the triggers it consumes); `ci-contract-finalize-operations` (the pull-request observation, `ci.merge`, `ci.enqueue` and the refusal class); `build-parsers-and-gate-honesty` (the build-neutral freshness derivation)
 |Milestone 10
