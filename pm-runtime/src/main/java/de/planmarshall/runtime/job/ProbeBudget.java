@@ -69,7 +69,8 @@ public class ProbeBudget {
     /**
      * Lowers the budget of one kind of probe for a test, so the timeout is observed without waiting the compiled
      * seconds. The production runtime never calls this: the compiled constants are the budget the specification names,
-     * and {@link #clearOverrides()} restores them.
+     * and {@link #clearOverrides()} restores them. The method is package-private because its only callers are the tests
+     * of this package.
      *
      * @param kind    the kind of probe
      * @param seconds the budget the test runs the probe with, positive and at most the compiled budget
@@ -77,7 +78,7 @@ public class ProbeBudget {
      *                                  only lowers it and never escalates it
      * @throws NullPointerException     if the kind is {@code null}
      */
-    public static void override(ProbeCandidate.Kind kind, long seconds) {
+    static void override(ProbeCandidate.Kind kind, long seconds) {
         Objects.requireNonNull(kind, "kind");
         if (seconds <= 0 || seconds > compiled(kind)) {
             throw new IllegalArgumentException(
@@ -87,7 +88,7 @@ public class ProbeBudget {
     }
 
     /** Drops every override, so a later caller reads the compiled constants again. */
-    public static void clearOverrides() {
+    static void clearOverrides() {
         OVERRIDES.clear();
     }
 
