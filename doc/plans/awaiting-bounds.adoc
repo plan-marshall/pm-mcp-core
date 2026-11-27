@@ -29,5 +29,3 @@ The starting set of the trace matrix of the project skill `traced-implementation
 
 * Watch: link:../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-49[PM-WATCH-DSL-49] (Liveness Guarantee, Bounds of Awaiting Primitives); link:../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc#PM-WATCH-GEN-63[PM-WATCH-GEN-63] of the documentation repository, which § Bounds of Awaiting Primitives also names and which this package reads and does not edit. The other item anchored to § Liveness Guarantee, link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-133[PM-WATCH-PHASE-133] of the prerequisite cycle, is `re-planning`'s.
 * Tests: the registry test over every registered awaiting primitive, each with a row, a bound source of the closed list and no unbounded row, a `stall-watched` row naming its hold; with the matched control of a fixture primitive awaiting `EXTERNAL_STATE` without a row failing and one awaiting `NONE` needing none; `PrimitiveRegistryTest` still refusing `MISSING_AWAITED_EVENT`.
-</content>
-</invoke>
