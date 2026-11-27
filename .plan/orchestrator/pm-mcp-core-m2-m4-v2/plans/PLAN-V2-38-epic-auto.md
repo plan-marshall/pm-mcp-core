@@ -161,3 +161,7 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Fourth Doc-Review Round Note (2026-11-27, orchestrator)
+
+Binding for the revival of this spec: The fourth doc-review round (`inbox/doc-review-2026-11-25-004.md`) gives the epic queue the observation of every `handed_back` row with a pull request (`epic.next-work` through `ci.pr-observe`, outcome `reconciled`, event `pull_request_settled`): item 7 ("a plan that ended without landing holds the dependants") and `doc/plans/epic-auto.adoc` tasks 5 and 9 gain it; PLAN-V2-210 deliverable 6(b) edits the package text, PLAN-V2-212 the lesson claim's guard. Re-read at revival.

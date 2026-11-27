@@ -91,3 +91,7 @@ Binding, like every earlier record: where a claim above and this record disagree
 
 - Claim 1: ADR core-store/088 does not contain freshness_reconcile (git grep -i: only 089, FreshnessReconcile.java, WorkflowStatus.java:64,89, WorkflowStatusCodec, package-info.java:57, status.schema.json:360, core-store.adoc, provider-git-primitive.adoc:285, Traceability.adoc, 3 tests); 088 only mentions the freshness verb.
 - Claim 4: change-ledger-record.schema.json:14-27 allOf holds only the worktree_sha=unavailable rule (:15-19) and a kind=commit rule (:20-26); the existing build-only members expect, expect_result, criterion, red_tests (:71-97) carry only a 'For kind == build' description and no conditional, so the current pattern does not need a kind==build condition.
+
+## Fourth Doc-Review Round Note (2026-11-27, orchestrator)
+
+Binding: The fourth doc-review round (`inbox/doc-review-2026-11-25-004.md` §2) notes that this plan's build row `head` is the only head-bearing record (`job-record.schema.json` and `change-ledger-record.schema.json` have none for other jobs): the finding rule `claim_refuted` (a job id of the plan executed at or after the finding's `raised_at_head`) needs a way to tell that a job ran at or after a head. This plan builds the build row only; the question belongs to the findings write seam (owner open, `epic.md`), and the outline of this plan reports whether the build row serves it.

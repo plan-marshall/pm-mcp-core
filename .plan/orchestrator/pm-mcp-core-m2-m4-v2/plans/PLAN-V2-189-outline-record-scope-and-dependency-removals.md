@@ -92,3 +92,7 @@ Binding, like every earlier record: where a claim above and this record disagree
 
 - Claim 0: status.schema.json scope_estimate members are at :355-357 at head (:357-359 holds scope_estimate_provenance, pr_title, closing braces); schema property block ends :36, added_dependencies :215-245; core-store.adoc:2886 is the 'The Outline Record' heading, added-dependencies sentence is :2892. Other cites (OutlineRecord, Codec, Renderer, Validator, core-spi:324) match.
 - Claim 6: OutlineCoverageTest.java has no direct reference to the removed components; it builds deliverables only through ValidationFixtures. Only ValidationFixtures.java:94 (ScopeEstimate.SINGLE_MODULE) and :119 (List.of() as addedDependencies) name them, so OutlineCoverageTest needs no edit itself.
+
+## Fourth Doc-Review Round Note (2026-11-27, orchestrator)
+
+Binding: The fourth doc-review round (`inbox/doc-review-2026-11-25-004.md` §2) asks whether this plan or a removal plan takes the removal of `evidence.class` `verifier`: the orchestrator's decision of 2026-11-27 is a removal plan, **PLAN-V2-211** (it also removes the stored `blocks`); this plan does not touch `evidence.class`. They share `finding-record.schema.json` and `core-store.adoc` (a re-read by whichever merges second).
