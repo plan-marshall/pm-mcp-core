@@ -1,0 +1,101 @@
+= ADR 014: The vector check bounds a slot by known values and by both ends of its element
+:nofooter:
+
+== Status
+
+Accepted.
+
+== Date
+
+2026-11-27.
+
+== Context
+
+`WorkerVectorCheck` parses the composed worker vector back against the template it was rendered from
+(link:010-the-composed-vector-is-parsed-back.adoc[ADR 010]). In its first form it read the value of every slot that a
+literal follows up to the *earliest* occurrence of that literal after the cursor. A value that itself contains the
+literal was cut short there, so a model name, a working directory, a prompt path or a session id that happens to
+contain the text after its slot refused a conforming launch as rule (b). Two slots that touch in one element
+(`{{a}}{{b}}`) left no literal at all between them, so the first had no bound, and nothing refused a profile that
+declared such an element.
+
+Two further limits sat in the rules. Rule (d) exempted a JSON-slot *element* as a whole, so a metacharacter in a literal
+written around `{{mcp_config}}` or `{{agent}}` passed unchecked. Rule (c) required every member of `{{tools}}` to be a
+tool of the role, but accepted the same tool twice and an empty member.
+
+== Decision
+
+**The value a slot carries is read by one of three bounds, none of them a search for the literal after it.**
+
+- *The only slot of its element is bounded from both ends.* The literal before it is matched up to the cursor, the
+  literal after it must end the element, and the value is what lies between, whatever it contains.
+- *A slot whose value the check already holds is matched with that value at the cursor.* `{{model}}` is the model the
+  composer resolved and `{{cwd}}` the working directory it fixed; the check requires that exact text where the slot
+  begins, so a literal inside the value is never taken for the one after it.
+- *The last slot of an element carries the rest of it.*
+
+**The profile validator refuses two adjacent slots.** `ProfileValidator` refuses an item of an argument list it checks
+as launch arguments (`argv`, a class's `args`, the resume `argv`, the probe and login argument lists) in which one
+placeholder ends where the next begins, at the item's pointer and with the reason that two slots are adjacent in one
+argument. Every slot of a validated profile therefore has a literal or an end of its element to bound it. The check
+still refuses such an element itself, so a template that reaches it unvalidated fails closed.
+
+**The presence of a slot stays a copy of the composer's rule.** `keptIndices` decides which template elements the
+vector must carry — an element that names a slot with no value is skipped together with the flag element before it.
+It is a copy of the presence rule of `LaunchComposer.fill`, kept beside the parse it serves rather than shared with the
+code it checks; the tests that place an absent slot first, in the middle, last, after a flag and after an element with
+its own value bind the two.
+
+**Rule (d) exempts the value of a JSON slot, not its element.** The span `{{mcp_config}}` or `{{agent}}` occupies is
+exempt and checked as JSON by rule (c); every literal of the same element is checked for a shell metacharacter like
+any other element.
+
+**Rule (c) for `{{tools}}` is membership, no duplicate and no empty member.** Every member of the comma list is a tool
+of the role's set, no member occurs twice and none is empty. The order is not checked: the composer collects the set
+in insertion order without duplicates, so a vector it rendered never repeats a tool, and the order carries no meaning
+the harness relies on.
+
+== Alternatives Considered
+
+**Anchoring a slot at the last occurrence of the literal after it.** Rejected: it moves the defect to the other side.
+In an element of two slots a value of the second that contains the literal is then given to the first, and in general
+an element whose values contain the literal has two valid parses, so the anchor decides between them by position
+rather than by what was composed.
+
+**A second parse against the values the composer used.** Rejected: handing the check every value the composer filled
+in makes it a second composition, the case ADR 010 rejects for re-rendering. The check holds two values of its own
+already, the model and the working directory, because rule (c) compares them; it matches those and no others.
+
+**Changing `fill` so that the composer bounds its values.** Rejected: the defect lies in reading the vector back, not in
+writing it, and escaping or delimiting values in `fill` would change the vector the harness receives to suit the check
+of it.
+
+**Deriving the presence of a slot from the template alone.** Rejected: which slots are absent is a fact of the
+composition, not of the template — a fresh worker without a result schema leaves `{{result_schema}}` empty, a
+`zero_tool` worker has no MCP configuration — so a second derivation would have to re-decide what the composer
+decided from the same inputs. The check takes the absent slots as its input and states the dependence instead.
+
+== Consequences
+
+A model name, a working directory, or the value of the only slot of an element that contains the literal after its
+slot no longer refuses a conforming launch. A metacharacter written into a literal around a JSON slot, a duplicate tool
+and an empty tool member now refuse the launch as `argument_rejected`.
+
+The residual is a named limit: in an element of two or more slots, a slot of unknown value that a literal follows is
+still bounded by the earliest occurrence of that literal. A value that contains the literal is cut short, the element
+then does not correspond and the vector is refused as rule (b) — fail-closed, never accepted with a wrong value. No
+template of the fixture profiles or of the profiles `pm-api` ships has that shape; a profile that adds it refuses the
+launches whose value contains the literal, and the act is to correct the template.
+
+The presence rule lives in two places, `LaunchComposer.fill` and `WorkerVectorCheck.keptIndices`. A change to one that
+the other does not follow refuses every launch of that shape; the presence tests are the binding.
+
+The validator's refusal is checked here against the fixture profiles and the profiles `pm-api` ships. The shipped
+profiles of `plan-marshall-mcp` are checked by that repository's own build, not by this one.
+
+== Source
+
+PLAN-V2-200 (`composed-vector-check-parser-limits`), workstream WS-06, carrying the remainder of item 30(c) of the
+landing of PLAN-V2-162 (#567); the operator's answers of 2026-11-27 to its three refine questions (known values and the
+validator's refusal for the bound, the stated presence dependence, the tool rule); Model Work § Launch Contract, § Agent Composition and § Tool Sets; Harness Profiles § Headless Block
+(`headless.argv`); link:010-the-composed-vector-is-parsed-back.adoc[ADR `runtime-launch/010`].
