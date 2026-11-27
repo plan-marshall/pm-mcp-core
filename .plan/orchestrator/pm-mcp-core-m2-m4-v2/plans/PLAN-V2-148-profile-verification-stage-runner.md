@@ -3,9 +3,8 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-04
 origin: the operator's decision of 2026-11-14 (issues pass Q14, answer 1): the verification stage runner and the stages, standing on a plan for the confinement package; the grounding of that day (`origin/main` `77f2a83d`): no code calls `SubprocessJobRunner.startProbe` or `startWorker` beyond the runner itself, nothing in `plan-marshall-mcp` or `pm-mcp-clients` carries `verify-profile`, `profile verify` or `VerificationRecord`, and PLAN-V2-39 (#412) delivered the value classes only (`landings/PLAN-V2-39.md`). This is the second of two plans (the first, PLAN-V2-147, builds the pure stage model and the writer)
-lane: plan-marshall
-
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
+lane: runbook
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
 > Lives at `plans/PLAN-V2-148-profile-verification-stage-runner.md` and is queued as one row file, `queue/PLAN-V2-148.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -112,7 +111,7 @@ Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-148-profile-verification-stage-runner.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-148-profile-verification-stage-runner.md
 ```
 
 ## Write-Boundary

@@ -3,11 +3,10 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-12
 origin: the layer-3 analysis of PLAN-V2-200 (`landings/PLAN-V2-200.md`, #641 `11ec6b72`), the wording residue of PLAN-V2-187 (`landings/PLAN-V2-187.md`, #620 `03fdfe57`) and the two points of PLAN-V2-201 the operator carried to "the leftovers plan" (`landings/PLAN-V2-201.md` L3-6 and L3-9, 2026-11-26): the ONE leftovers plan of the epic, staged by the orchestrator on the forty-third run, 2026-11-27. No behaviour of a conforming launch changes except where deliverable 3 decides it.
-lane: plan-marshall
-
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
+lane: runbook
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
 > Lives at `plans/PLAN-V2-214-residue-of-the-vector-check-the-parser-wording-and-the-start-spacing-tests.md` and is queued as one row file, `queue/PLAN-V2-214.json`,
-> in the epic ledger (lane `plan-marshall`). The orchestrator EMITS the command below; it never launches the plan inline.
+> in the epic ledger (lane `runbook`). The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names.
 
 ## First Instruction: Read The Standing Rules
@@ -86,7 +85,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-214-residue-of-the-vector-check-the-parser-wording-and-the-start-spacing-tests.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-214-residue-of-the-vector-check-the-parser-wording-and-the-start-spacing-tests.md
 ```
 
 ## Write-Boundary

@@ -3,11 +3,10 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-12
 origin: `inbox/doc-review-2026-11-25-003.md` §1 (the doc-review session's decisions of 2026-11-25, merged here as #622 `5ae4fd1c`: the base branch of an `adopt` plan, the `checks_pending` wait, the baseline-red hand-back), staged by the orchestrator on the thirty-ninth run, 2026-11-26. Ask 1 of the message ("fold §1 into the removal and correction plan, schemas first") is answered by staging: PLAN-V2-188, the removal plan, is running and its spec stays its scope (the message of the third round said so), and PLAN-V2-190 to PLAN-V2-192 sit behind it.
-lane: plan-marshall
-
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
+lane: runbook
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
 > Lives at `plans/PLAN-V2-209-baseline-red-cause-and-adopt-base-branch-in-the-schemas.md` and is queued as one row file, `queue/PLAN-V2-209.json`,
-> in the epic ledger (lane `plan-marshall`). The orchestrator EMITS the command below; it never launches the plan inline.
+> in the epic ledger (lane `runbook`). The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names.
 
 ## First Instruction: Read The Standing Rules
@@ -100,7 +99,7 @@ All lines read at `origin/main` `2b4bdee8` by the orchestrator.
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-209-baseline-red-cause-and-adopt-base-branch-in-the-schemas.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-209-baseline-red-cause-and-adopt-base-branch-in-the-schemas.md
 ```
 
 ## Write-Boundary

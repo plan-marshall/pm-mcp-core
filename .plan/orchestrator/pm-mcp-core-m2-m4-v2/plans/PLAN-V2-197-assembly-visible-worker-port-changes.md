@@ -3,9 +3,8 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-06
 origin: PLAN-V2-162 (#567) landing revision 25, section 9 (operator cut of 2026-11-25): items 48(b), 48(c) release, 48(d), 48(e) and the minor points, 55(b) task naming
-lane: plan-marshall
-
-> Staged plan spec, one shippable unit of work, ready for `/plan-marshall` hand-off. Lives at `plans/PLAN-V2-197-assembly-visible-worker-port-changes.md`. SELF-SUFFICIENT together with the standing rules named below.
+lane: runbook
+> Staged plan spec, one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off. Lives at `plans/PLAN-V2-197-assembly-visible-worker-port-changes.md`. SELF-SUFFICIENT together with the standing rules named below.
 
 ## First Instruction: Read The Standing Rules
 
@@ -113,7 +112,7 @@ PLAN-V2-162 was cut at its delivered boundary. What it left are changes to ports
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-197-assembly-visible-worker-port-changes.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-197-assembly-visible-worker-port-changes.md
 ```
 
 ## Write-Boundary

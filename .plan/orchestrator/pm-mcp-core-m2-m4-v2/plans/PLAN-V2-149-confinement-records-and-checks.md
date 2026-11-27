@@ -3,9 +3,8 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-06
 origin: the grounding of 2026-11-14 of the open package `job-confinement-and-environment` (a read-only leaf, `origin/main` `77f2a83d`; issues pass Q14, answer 1): after PLAN-V2-146 (the listed worker read set, `readable_paths`, the socket list, the probe residue) the package's Tasks 1 (`partial(abi=2)`), 9 (the proxy), 10 (the record members), 11 (the self-check) and 12 (the CLI git identity) have no owner; **a contract mismatch needs an owner too**: the real `pm-exec` report is `{"pm_exec":"launched",...,"no_new_privs":b}` (`pm-mcp-clients` `Launcher.java:79-81`) while `LaunchReport.parse` refuses undeclared members (`:164`) and the fixture launcher omits them, so the runtime cannot read a real report today
-lane: plan-marshall
-
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
+lane: runbook
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
 > Lives at `plans/PLAN-V2-149-confinement-records-and-checks.md` and is queued as one row file, `queue/PLAN-V2-149.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -119,7 +118,7 @@ Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-149-confinement-records-and-checks.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-149-confinement-records-and-checks.md
 ```
 
 ## Write-Boundary

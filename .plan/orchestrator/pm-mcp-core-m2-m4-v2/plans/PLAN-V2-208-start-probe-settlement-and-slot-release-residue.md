@@ -3,11 +3,10 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-06
 origin: the three-layer analysis of the landing of PLAN-V2-201 (`landings/PLAN-V2-201.md`, #625, merge `89ffec36`), 2026-11-26: layer 3 L3-1 (major) to L3-5, layer 2 L2-1 and L2-2, layer 1 L1-1; staged on the operator's word of the thirty-ninth run ("do as proposed" to the two questions: one small fix plan, no hot fix; state the exclusion of `harness_update_unverified` in the specification).
-lane: plan-marshall
-
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
+lane: runbook
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
 > Lives at `plans/PLAN-V2-208-start-probe-settlement-and-slot-release-residue.md` and is queued as one row file, `queue/PLAN-V2-208.json`,
-> in the epic ledger (lane `plan-marshall`). The orchestrator EMITS the command below; it never launches the plan inline.
+> in the epic ledger (lane `runbook`). The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names.
 
 ## First Instruction: Read The Standing Rules
@@ -97,7 +96,7 @@ All lines read at `origin/main` `2b4bdee8` by the orchestrator (the files below 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-208-start-probe-settlement-and-slot-release-residue.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-208-start-probe-settlement-and-slot-release-residue.md
 ```
 
 ## Write-Boundary

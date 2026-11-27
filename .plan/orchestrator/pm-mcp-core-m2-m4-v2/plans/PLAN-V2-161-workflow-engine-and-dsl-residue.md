@@ -3,11 +3,10 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-01
 origin: the landing of PLAN-V2-156 (`landings/PLAN-V2-156.md`, 2026-11-20: carried items 12, 34, 38, 40, 47, 51, 52, 53 and 54 named no owner) and the operator's rule that leftovers go into a staged plan
-lane: plan-marshall
-
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
+lane: runbook
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
 > Lives at `plans/PLAN-V2-161-workflow-engine-and-dsl-residue.md` and is queued as one row file, `queue/PLAN-V2-161.json`,
-> in the epic ledger (lane `plan-marshall`: the operator runs it with the plan lifecycle). The orchestrator EMITS the command below; it never launches the plan inline.
+> in the epic ledger (lane `runbook`: the operator runs it with the plan lifecycle). The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
 > the emitted command is a one-line pointer and carries no brief, so every per-plan carry is
 > authored here and the epic-wide rules are in `standing-rules.md`, read first.
@@ -105,7 +104,7 @@ Source, tests, specification and documentation (specific files, R19; the outline
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-161-workflow-engine-and-dsl-residue.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-161-workflow-engine-and-dsl-residue.md
 ```
 
 ## Write-Boundary
@@ -159,7 +158,7 @@ Read by a read-only leaf at `origin/main` `8c7eac6faa00b26d0e11f0307c768d85e4fd0
 - Item 12(a): the `INV_PLAN_1` refusing row is `CompiledInvariantsTest.java:820`; `DefaultPlanUnitTest:194` has a land-route mutation (read before adding a deep-lane case). 12(c): ALREADY DONE by #556 (`1339e53f`): the `workflow-engine.adoc` Decisions list runs 001 to 027 (only ADR 028 is missing); the depth statements now agree (:48, :475); `workflow-unit.adoc:261` "twelve units" is true, the false line is :302 (seven).
 - Item 34: `UnitFrontmatterReader` :805-806 (no `echo()`, defect holds), :335, :789; `RemediationInvariants:204`; fixtures `InvariantFixtures:117-125`, a weakened input exists (:128), refusing rows `CompiledInvariantsTest:487-495`, `AdditionalRulesTest` :667, :679, :680; Rule 6 `WorkflowValidator:1842`; `WorkflowParserTest:354`; `08-remediation-units.adoc:142-153`; `WorkflowParserRefusalTest` :323, :367, :369, :981.
 - Item 38: (a) ALREADY DONE by #556; ADR scenario/010 :103 "a third", ADR 001 :46, ADR 008 :6,:50, `package-info.java:27` still true; `ScenarioFixtures.java:756` (seed), `:251` ("nothing in memory survives"); `ScenarioReplayRunner.java:750` (`Deadline`). Item 40(b): 11 hits remain; `core-config.adoc` and `core-role.adoc` no longer carry the name (#536); `LeaseOwnerSchemaParityTest:64`, `PlanInstanceHeaderTest` :711, :729, :733, `core-profile.adoc:27`, `ProfileLoader.java:53`, `RoleEnvironment.java:22`, `workflow-plan/015:36` remain. Item 53(f): the explorer codec exists (`ExplorerCodec`), `store-schemas/12:146` no longer says "not built yet"; the `project.enrol` wording :62 stays. Item 54(d): `CompositionChecksTest` :250-266 is partly derived; `PlanInstanceStoreTest` :232. Item 59: ALREADY DONE for documents (#536 `6d804b78`, #541 `ffca9e7b`). Item 80(c): ALREADY DONE (#556 amended ADR 021); the code decision (`PlanInstanceComposer.java:147`) is open. Item 83: `WorkflowEngine.java:705` still `new ReadRequest(status.scopeId(), questionId)`.
-- Next free ADR: `workflow-verify` 044 (two ADRs are numbered 041). This row is lane `plan-marshall`: convert to runbook at emit (operator rule 2026-11-21). The spec is 99 files against the 100-file PR cap.
+- Next free ADR: `workflow-verify` 044 (two ADRs are numbered 041). This row is lane `runbook`: convert to runbook at emit (operator rule 2026-11-21). The spec is 99 files against the 100-file PR cap.
 
 ## Re-Ground Record of 2026-11-25 (cleanup, BINDING over any contradicting older text of this spec)
 

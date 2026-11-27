@@ -3,9 +3,8 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-11
 origin: PLAN-V2-126, deliverable 2 (the operator narrowed 126 to D1 on 2026-11-25; D1 shipped as #612). Re-ground records of 2026-11-17, 11-19 and 11-23 are binding over older text; counts re-swept at 3ba79c4f.
-lane: plan-marshall
-
-> Staged plan spec, one shippable unit of work, ready for `/plan-marshall` hand-off. Unemittable until PLAN-V2-125 merged. SELF-SUFFICIENT together with the standing rules.
+lane: runbook
+> Staged plan spec, one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off. Unemittable until PLAN-V2-125 merged. SELF-SUFFICIENT together with the standing rules.
 
 ## First Instruction: Read The Standing Rules
 
@@ -93,7 +92,7 @@ About 93 files: 65 runtime test files, 7 provider test classes, 2 Fixture copies
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-203-generators-for-the-repeated-test-helpers.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-203-generators-for-the-repeated-test-helpers.md
 ```
 
 ## Write-Boundary

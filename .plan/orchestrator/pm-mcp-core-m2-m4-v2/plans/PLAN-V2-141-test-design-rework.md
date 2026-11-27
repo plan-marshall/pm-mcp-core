@@ -3,9 +3,8 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-11
 origin: the three-layer analysis of PLAN-V2-140 (`landings/PLAN-V2-140.md`, layer 2 "D4 narrow" and "D6 narrow"), the merged pull request #403 (`91a131f9`), ADR `doc/adr/025-test-design-layering-base-classes-and-fixtures.adoc` (findings F1 to F14, the target design S1 to S9, § Leads for the Operator) and ADR `doc/adr/024-verify-duration-measured-and-cut.adoc`, and the operator's request of 2026-11-12 to cut the verify time "across all modules, quality must not fall, no test duplication, eventually rework the test design"
-lane: plan-marshall
-
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
+lane: runbook
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
 > Lives at `plans/PLAN-V2-141-test-design-rework.md` and is queued as one row file, `queue/PLAN-V2-141.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -142,7 +141,7 @@ Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-141-test-design-rework.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-141-test-design-rework.md
 ```
 
 ## Write-Boundary
