@@ -102,7 +102,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:forgejo-provider.adoc[`forgejo-provider`]
 |Codeberg and Forgejo as a provider
 |`open`
-|nothing
+|`ci-contract-finalize-operations` (the `behind` member of `ci.pr-observe`)
 |Milestone 6; the client work of `pm-mcp-clients`
 
 |link:recipe-workflows.adoc[`recipe-workflows`]
@@ -174,7 +174,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:epic-auto.adoc[`epic-auto`]
 |An epic runs by itself: its automatic mode, the overlap wait, its reactions on a finished plan
 |`open`
-|`plan-and-epic-control` (the operator's acts on a plan); `epic-resource-and-release` (next plan, the toggle among the epic's actions, archive, the release); `epic-decomposition`
+|`plan-and-epic-control` (the operator's acts on a plan); `epic-resource-and-release` (next plan, the toggle among the epic's actions, archive, the release); `epic-decomposition`; `ci-contract-finalize-operations` (the pull-request observation)
 |Milestone 12; the client work of `pm-mcp-clients`
 
 |link:operator-reports.adoc[`operator-reports`]
@@ -268,13 +268,13 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 9
 
 |link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]
-|The finalize pipeline from re-entry to merge: verdict currency and the step records of a firing, the merge path's states, the Pre-Merge Review Barrier and its waivable gates, the composite wait, the pull-request author's title, the compiled-in review-bot records, and the phase `sanity-check`
+|The finalize pipeline from re-entry to merge: verdict currency and the step records of a firing, the merge path's states with the gate entry's observation of the pull request and the adoption of a pull request (`finalize.adopt-pr`), the Pre-Merge Review Barrier and its waivable gates, the composite wait, the pull-request author's title, the compiled-in review-bot records, and the phase `sanity-check`
 |`open`
-|`phase-sub-workflows` (the default units as phase sub-workflows, the simplify step); `domain-extensions-and-architecture`; `re-planning` (the `finalize.replan` call and the triggers it consumes); `ci-contract-finalize-operations` (the `behind` route and the realized-footprint sync read); `build-parsers-and-gate-honesty` (the build-neutral freshness derivation)
+|`phase-sub-workflows` (the default units as phase sub-workflows, the simplify step); `domain-extensions-and-architecture`; `re-planning` (the `finalize.replan` call and the triggers it consumes); `ci-contract-finalize-operations` (the pull-request observation, `ci.merge`, `ci.enqueue` and the refusal class); `build-parsers-and-gate-honesty` (the build-neutral freshness derivation)
 |Milestone 10
 
 |link:ci-contract-finalize-operations.adoc[`ci-contract-finalize-operations`]
-|The CI contract of the finalize operations: `ci.pr-observe` with its `behind` mapping, `ci.merge`, `ci.enqueue`, and the refusal class of the merge dispatch
+|The CI contract of the finalize operations: `ci.pr-observe` with its `base_branch` and `behind` mapping, `ci.merge`, `ci.enqueue`, and the provider refusal mapped into its closed class
 |`open`
 |nothing
 |Milestone 10
@@ -298,15 +298,15 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 8
 
 |link:finalize-prune-and-land-files.adoc[`finalize-prune-and-land-files`]
-|The `no_production_delta` prune of the mutation step on the event `realized` (the event and `no_code_delta` are `lane-entries-and-realized-composition`'s), the hand-over `default:land-files` in the default roster, and rule 1 of the pipeline validator per composed instance; outside the window: starts when its milestone is planned
+|The `no_production_delta` prune of the mutation step on the event `realized` (the event composed by `phase-sub-workflows`; the `no_code_delta` prune built by no package of this index), the hand-over `default:land-files` in the default roster, and rule 1 of the pipeline validator per composed instance; outside the window: starts when its milestone is planned
 |`open`
-|PLAN-V2-190 `lane-entries-and-realized-composition` (the composition event `realized`; a correction plan, not a package row)
+|`phase-sub-workflows` (the composition of `realized` entering `execute.verify-sweep`)
 |Milestone 10
 
 |link:commit-boundary.adoc[`commit-boundary`]
-|The commit boundary: the protected-path decision at the commit check (built here), the main-checkout clause made conditional on confinement and the `declared_files` lift removal as decisions (their code is the plans of the cut)
+|The commit boundary: the protected-path decision at the commit check and the lift removal (a path the outline declares lifts no protection)
 |`open`
-|`job-confinement-and-environment` (the confinement level in the job record)
+|nothing
 |Milestone 10
 
 |link:epic-surface-and-ended-acts.adoc[`epic-surface-and-ended-acts`]

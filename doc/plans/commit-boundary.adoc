@@ -1,11 +1,11 @@
-= The commit boundary: the protected-path decision and the main-checkout clause
+= The commit boundary: the protected-path decision at the commit check and the lift removal
 :nofooter:
 
 link:README.adoc[Work packages of `pm-mcp-core`] » `commit-boundary`
 
 [horizontal]
-Roadmap item:: none of its own: the commit boundary's decisions follow the merged specification (the protected-path decision at the commit check, the main-checkout clause conditional on confinement, the lift removal; link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
-Where:: pm-workflow (the commit check's operator question, its `accept`/`refuse` and its `fix` task); pm-core (`core.store`: `ProtectedPaths`, the matcher the decision covers); pm-provider-git (the commit primitive's `FootprintBoundary` and `CommitSite`, the guard the clause covers)
+Roadmap item:: none of its own: the commit boundary's decisions follow the merged specification (the protected-path decision at the commit check, the lift removal; link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Where:: pm-workflow (the commit check's operator question, its `accept`/`refuse` and its `fix` task); pm-core (`core.store`: the protected-path matcher `ProtectedPaths`)
 Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
 == Tasks
@@ -13,20 +13,19 @@ Status, milestone and dependencies:: in the link:README.adoc#packages[index], th
 The specification sections named are the single statement of what each task builds.
 
 . *The protected-path decision at the commit check*: the server asks the operator one question over the diff of exactly the touched protected paths, `accept` or `refuse`, and a `refuse` leads to a `fix` task; the family of protected paths is unchanged: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths].
-. *The main-checkout clause made conditional on confinement*: the guard's check holds only under `confinement: unavailable`, and under confinement the main checkout is no concern of a plan, so the operator's own edits there never concern one — the clause this package decides; the guard's code and its documentation (`provider-git-primitive.adoc`, the `entry_baseline` description, ADR 006) are `worker-write-set-and-main-checkout-guard`'s (PLAN-V2-193, staged): link:../specification/job-runtime/02-confinement-and-environment.adoc#_linux_filesystem_confinement_landlock[Job Runtime § Linux Filesystem Confinement]; link:../specification/store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas § Workflow State Store], `entry_baseline`.
-. *The lift removal*: a path the plan declares no longer lifts a protected path, and the family stays what it was — the decision this package owns; the matcher's code and the `references.schema.json` `unplanned_changes` wording are `lane-entries-and-realized-composition`'s (PLAN-V2-190, staged): link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths]; link:../specification/store-schemas/06-task-and-references.adoc[Store Schemas § Task and References].
+. *The lift removal*: a path the outline declares lifts no protection, so a declared protected path is decided at the commit check like any other, and the family stays what it was. The matcher `ProtectedPaths` still drops a path named in `declaredFiles` from its result; the change removes that lift from the matcher and its test `ProtectedPathsTest`, from the link:../../pm-core/doc/developer/core-store.adoc#_protected_paths[Scope Stores Developer Guide § Protected Paths] and from link:../../pm-core/doc/adr/core-store/071-the-protected-path-matcher-is-a-pure-core-class.adoc[ADR core-store/071]: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths].
 
-Left out: the code and the documentation wording of both parts — the protected-path matcher and the `unplanned_changes` sentence (`lane-entries-and-realized-composition`, PLAN-V2-190) and the main-checkout guard with its `entry_baseline` description and ADR (`worker-write-set-and-main-checkout-guard`, PLAN-V2-193); this package owns the decisions those parts implement.
+Left out: the main-checkout clause made conditional on confinement (link:../specification/job-runtime/02-confinement-and-environment.adoc#_linux_filesystem_confinement_landlock[Job Runtime § Linux Filesystem Confinement]). The main-checkout guard of the commit primitive in `pm-provider-git` does not implement that condition: `FootprintBoundary.check` refuses every path `CommitSite.mainCheckoutBreaches` reports, neither takes a confinement input, and `git.stage-and-commit` runs the check for every scope before anything is staged, so today any main-checkout change a plan made since its entry baseline refuses its commit unconditionally (documented in `provider-git-primitive.adoc` and `pm-provider-git` ADR `provider-git-primitive/006`). Making that check conditional on confinement is owed work that no package of this index carries.
 
 == Trace
 
 The starting set of the trace matrix of the project skill `traced-implementation` (link:../../../plan-marshall-documentation/doc/developer/project-setup.adoc#_planning_the_work[Planning the Work]).
 
 * Requirements: link:../../../plan-marshall-documentation/doc/requirements/08-security.adoc#PM-SEC-1[PM-SEC-1], link:../../../plan-marshall-documentation/doc/requirements/08-security.adoc#PM-SEC-5[PM-SEC-5]
-* Specification: the sections the tasks name; link:../specification/job-runtime/02-confinement-and-environment.adoc[Job Runtime § Confinement & Environment]; link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths]
-* Watch: link:../implementation-watch/job-runtime.adoc[Job Runtime]; link:../implementation-watch/phase-workflows.adoc[Phase Workflows]
+* Specification: the sections the tasks name
+* Watch: link:../implementation-watch/phase-workflows.adoc[Phase Workflows]
 
 == Done When
 
-* Watch: link:../implementation-watch/job-runtime.adoc[Job Runtime]; link:../implementation-watch/phase-workflows.adoc[Phase Workflows]
-* Tests: one operator question over the diff of exactly the touched protected paths, with `accept` letting the commit through and `refuse` leading to a `fix` task; a touched protected path without a decision blocking the commit; the main-checkout clause stated as holding only under `confinement: unavailable`, with the guard's own tests in PLAN-V2-193; the lift removal stated, with the matcher's own tests in PLAN-V2-190.
+* Watch: the items of link:../implementation-watch/phase-workflows.adoc[Phase Workflows] anchored to the section the tasks name.
+* Tests: one operator question over the diff of exactly the touched protected paths, with `accept` letting the commit through and `refuse` leading to a `fix` task; a touched protected path without a decision blocking the commit; a protected path the outline declares still raising `footprint_violation` of kind `protected_path` unless the operator accepts it, and the same declared path accepted by the operator passing (control).
