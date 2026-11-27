@@ -2,10 +2,10 @@
   "id": "PLAN-V2-189",
   "slug": "outline-record-scope-and-dependency-removals",
   "workstream": "WS-12",
-  "status": "staged",
+  "status": "shipped",
   "lane": "plan-marshall",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "plan-v2-189-outline-record-scope",
+  "pr": "#635",
+  "landing": "landings/PLAN-V2-189.md",
   "seq": 177
 }
