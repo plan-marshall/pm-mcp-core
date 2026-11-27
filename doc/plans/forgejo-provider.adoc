@@ -29,5 +29,5 @@ The starting set of the trace matrix of the project skill `traced-implementation
 
 == Done When
 
-* Watch: none anchored to the sections.
+* Watch: the items anchored to the sections the tasks name, each deleted where a named test covers its guard or rewritten to its remainder, link:../implementation-watch/model-work.adoc#PM-WATCH-DISP-19[PM-WATCH-DISP-19], link:../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-82[PM-WATCH-PHASE-82] and link:../implementation-watch/store-schemas.adoc#PM-WATCH-STORE-50[PM-WATCH-STORE-50] (Store Schemas § Merge Outcome Mapping) among them.
 * Tests: against a recorded Forgejo API, an issue of a public and of a private repository read; Codeberg and a self-hosted Forgejo detected; against a recorded Forgejo API, `ci.pr-observe` mapping `behind` to `true`, to `false`, and to `null` where the forge reports none.
