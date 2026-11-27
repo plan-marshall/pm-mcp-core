@@ -454,6 +454,21 @@ class JobLogTest {
         }
 
         @Test
+        @DisplayName("a cap below the head bound keeps one copy of a multi-byte first line that ends the file")
+        void aCapBelowTheHeadBoundNeverRepeatsAMultiByteFirstLine() throws Exception {
+            // The two-byte character is the contract: the untrimmed window holds fewer characters than the cap bytes.
+            // The odd cap starts the window on a character boundary, so the tail decodes without a broken character.
+            var line = "ä".repeat(514) + "\n";
+            Files.writeString(path, line, StandardCharsets.UTF_8);
+
+            try (var channel = FileChannel.open(path, StandardOpenOption.READ)) {
+                var window = JobLog.capped(channel, Files.size(path), 1023);
+
+                assertEquals(line, window.text(), "the multi-byte first line appears once");
+            }
+        }
+
+        @Test
         @DisplayName("over the cap by less than the report: the report is kept, the window follows it")
         void reportLongerThanTheOvershootIsKept() throws Exception {
             // the contract of the boundary: an overshoot of report.length - 2 bytes, shorter than the report itself
