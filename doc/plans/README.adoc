@@ -298,9 +298,9 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 8
 
 |link:finalize-prune-and-land-files.adoc[`finalize-prune-and-land-files`]
-|The `no_production_delta` prune of the mutation step on the event `realized` (the event and `no_code_delta` belong to the lane-entries composition, which no package of this index builds), the hand-over `default:land-files` in the default roster, and rule 1 of the pipeline validator per composed instance; outside the window: starts when its milestone is planned
+|The `no_production_delta` prune of the mutation step on the event `realized` (the event composed by `phase-sub-workflows`; the `no_code_delta` prune built by no package of this index), the hand-over `default:land-files` in the default roster, and rule 1 of the pipeline validator per composed instance; outside the window: starts when its milestone is planned
 |`open`
-|nothing
+|`phase-sub-workflows` (the composition of `realized` entering `execute.verify-sweep`)
 |Milestone 10
 
 |link:commit-boundary.adoc[`commit-boundary`]
