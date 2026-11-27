@@ -148,11 +148,11 @@ class OutlineRecordTest {
         var unresolved = List.of(deliverable(1, text(), List.of(Generators.integers(2, 99).next()), criterion(),
                 text()));
         assertThrows(IllegalArgumentException.class,
-                () -> new OutlineRecord(summary, null,unresolved),
+                () -> new OutlineRecord(summary, null, unresolved),
                 "an unresolved dependency should be refused");
         var selfDependent = List.of(deliverable(1, text(), List.of(1), criterion(), text()));
         assertThrows(IllegalArgumentException.class,
-                () -> new OutlineRecord(summary, null,selfDependent),
+                () -> new OutlineRecord(summary, null, selfDependent),
                 "a self dependency should be refused");
     }
 
@@ -212,7 +212,7 @@ class OutlineRecordTest {
         var deliverables = List.of(deliverable(1, text(), List.of(), criterion(), text()),
                 deliverable(1, text(), List.of(), criterion(), text()));
         assertThrows(IllegalArgumentException.class,
-                () -> new OutlineRecord(summary, null,deliverables),
+                () -> new OutlineRecord(summary, null, deliverables),
                 "a duplicated deliverable number should fail");
     }
 
@@ -242,7 +242,7 @@ class OutlineRecordTest {
                 List.of(criterion()));
         var deliverables = List.of(deliverable(1, text(), List.of(), criterion(), text()), duplicatedDependency);
         assertThrows(IllegalArgumentException.class,
-                () -> new OutlineRecord(summary, null,deliverables),
+                () -> new OutlineRecord(summary, null, deliverables),
                 "a duplicated dependency should be refused");
     }
 
