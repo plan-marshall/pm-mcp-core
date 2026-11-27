@@ -32,13 +32,10 @@ import org.jspecify.annotations.Nullable;
  *
  * @param summary      what the solution is, 20 to 2000 characters
  * @param overview     an optional text diagram of the solution; may be {@code null}
- * @param scopeEstimate the size of the change
  * @param deliverables one to 50 deliverables
  * @since 0.1
  */
-@Builder
-public record OutlineRecord(String summary, @Nullable String overview, ScopeEstimate scopeEstimate,
-List<Deliverable> deliverables) {
+public record OutlineRecord(String summary, @Nullable String overview, List<Deliverable> deliverables) {
 
     /** The pattern of an entry in a deliverable's {@code satisfies}. */
     public static final Pattern SATISFIES_ID = Pattern.compile("(AC|DC)-\\d{1,4}");
@@ -63,7 +60,6 @@ List<Deliverable> deliverables) {
         if (overview != null && overview.length() > 8000) {
             throw new IllegalArgumentException("overview is at most 8000 characters: " + overview.length());
         }
-        Objects.requireNonNull(scopeEstimate, "scopeEstimate");
         Objects.requireNonNull(deliverables, "deliverables");
         if (deliverables.isEmpty() || deliverables.size() > 50) {
             throw new IllegalArgumentException("deliverables holds 1 to 50 items: " + deliverables.size());
@@ -124,39 +120,6 @@ List<Deliverable> deliverables) {
             }
         }
         return List.copyOf(found);
-    }
-
-    /** The size of the change. */
-    public enum ScopeEstimate {
-        /** No source change. */
-        NONE("none"),
-        /** One small, localized change. */
-        SURGICAL("surgical"),
-        /** One module. */
-        SINGLE_MODULE("single_module"),
-        /** Several modules. */
-        MULTI_MODULE("multi_module"),
-        /** A change across the project. */
-        BROAD("broad");
-
-        private final String wireName;
-
-        ScopeEstimate(String wireName) {
-            this.wireName = wireName;
-        }
-
-        /** @return the name of the value in a record */
-        public String wireName() {
-            return wireName;
-        }
-
-        /**
-         * @param wireName the name of a value in a record
-         * @return the value of that name; empty if no value has it
-         */
-        public static Optional<ScopeEstimate> fromWireName(String wireName) {
-            return Arrays.stream(values()).filter(value -> value.wireName.equals(wireName)).findFirst();
-        }
     }
 
     /** The kind of change a deliverable makes. */

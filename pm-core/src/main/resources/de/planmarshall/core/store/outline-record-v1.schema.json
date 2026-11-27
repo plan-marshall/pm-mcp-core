@@ -6,7 +6,6 @@
   "required": [
     "summary",
     "overview",
-    "scope_estimate",
     "deliverables"
   ],
   "additionalProperties": false,
@@ -23,16 +22,6 @@
       ],
       "maxLength": 8000,
       "description": "An optional text diagram of the solution."
-    },
-    "scope_estimate": {
-      "type": "string",
-      "enum": [
-        "none",
-        "surgical",
-        "single_module",
-        "multi_module",
-        "broad"
-      ]
     },
     "deliverables": {
       "type": "array",

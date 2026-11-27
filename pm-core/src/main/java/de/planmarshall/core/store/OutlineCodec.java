@@ -48,7 +48,6 @@ import de.planmarshall.core.store.OutlineRecord.Deliverable;
 import de.planmarshall.core.store.OutlineRecord.ExecutionMode;
 import de.planmarshall.core.store.OutlineRecord.FileIntent;
 import de.planmarshall.core.store.OutlineRecord.Profile;
-import de.planmarshall.core.store.OutlineRecord.ScopeEstimate;
 import de.planmarshall.core.store.OutlineRecord.Verification;
 import de.planmarshall.core.store.OutlineStore.DeliveryStatus;
 import de.planmarshall.core.store.OutlineStore.Revision;
@@ -62,7 +61,9 @@ import de.planmarshall.core.store.OutlineStore.Revision;
  * <p>
  * A member that PLAN-V2-129 deleted is undeclared like any other: an outline written before that plan (2026-11-12)
  * carries {@code "interfaces"} and {@code "key_links"} on every deliverable and is refused whole, the refusal naming
- * the member. No tolerant reader and no migration exist (pre-1.0; ADR {@code core-store/049}).
+ * the member. The same holds for the member PLAN-V2-189 deleted: an outline written before that plan carries
+ * {@code "scope_estimate"} on its record and is refused whole, the refusal naming the member. No tolerant reader and
+ * no migration exist (pre-1.0; ADR {@code core-store/049}).
  *
  * @since 0.1
  */
@@ -78,7 +79,6 @@ public class OutlineCodec {
     private static final String FIELD_RECORD = "record";
     private static final String FIELD_SUMMARY = "summary";
     private static final String FIELD_OVERVIEW = "overview";
-    private static final String FIELD_SCOPE_ESTIMATE = "scope_estimate";
     private static final String FIELD_DELIVERABLES = "deliverables";
     private static final String FIELD_NUMBER = "number";
     private static final String FIELD_TITLE = "title";
@@ -168,7 +168,6 @@ public class OutlineCodec {
         } else {
             generator.writeStringField(FIELD_OVERVIEW, outlineRecord.overview());
         }
-        generator.writeStringField(FIELD_SCOPE_ESTIMATE, outlineRecord.scopeEstimate().wireName());
         generator.writeArrayFieldStart(FIELD_DELIVERABLES);
         for (var deliverable : outlineRecord.deliverables()) {
             writeDeliverable(generator, deliverable);
@@ -299,7 +298,6 @@ public class OutlineCodec {
         requireObject(parser, name);
         @Nullable String summary = null;
         @Nullable String overview = null;
-        @Nullable ScopeEstimate scope = null;
         @Nullable List<Deliverable> deliverables = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -307,15 +305,13 @@ public class OutlineCodec {
             switch (field) {
                 case FIELD_SUMMARY -> summary = string(parser, field);
                 case FIELD_OVERVIEW -> overview = nullableString(parser, field).orElse(null);
-                case FIELD_SCOPE_ESTIMATE -> scope = ScopeEstimate.fromWireName(string(parser, field))
-                        .orElseThrow(() -> unreadable(UNKNOWN_VALUE.formatted(field)));
                 case FIELD_DELIVERABLES -> deliverables = array(parser, field, OutlineCodec::readDeliverable);
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, name, FIELD_SUMMARY, FIELD_OVERVIEW, FIELD_SCOPE_ESTIMATE, FIELD_DELIVERABLES);
+        requireFields(seen, name, FIELD_SUMMARY, FIELD_OVERVIEW, FIELD_DELIVERABLES);
         try {
-            return new OutlineRecord(summary, overview, scope, deliverables);
+            return new OutlineRecord(summary, overview, deliverables);
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
         }

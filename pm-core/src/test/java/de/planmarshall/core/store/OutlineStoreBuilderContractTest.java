@@ -30,7 +30,6 @@ class OutlineStoreBuilderContractTest {
     @DisplayName("the builder builds the constructor's revision")
     void builderBuildsRevision() {
         var outlineRecord = new OutlineRecord(Generators.letterStrings(20, 80).next(), null,
-                OutlineRecord.ScopeEstimate.SINGLE_MODULE,
                 List.of(OutlineFixtures.deliverable(1, "Write the intent record", List.of(), "AC-1", "A note")));
         var canonical = new Revision(1, Instant.parse("2026-10-27T11:00:00Z"), "TASK-001", outlineRecord);
 

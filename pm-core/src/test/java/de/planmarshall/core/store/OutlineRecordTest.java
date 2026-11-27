@@ -36,7 +36,6 @@ import de.planmarshall.core.store.OutlineRecord.Deliverable;
 import de.planmarshall.core.store.OutlineRecord.ExecutionMode;
 import de.planmarshall.core.store.OutlineRecord.FileIntent;
 import de.planmarshall.core.store.OutlineRecord.Profile;
-import de.planmarshall.core.store.OutlineRecord.ScopeEstimate;
 import de.planmarshall.core.store.OutlineRecord.Verification;
 
 /**
@@ -97,17 +96,17 @@ class OutlineRecordTest {
     void refusesUnknownWireName() {
         var store = OutlineStore.first(revision(1, valid()));
         var written = new String(OutlineCodec.write(store), StandardCharsets.UTF_8);
-        var known = "\"scope_estimate\":\"" + valid().scopeEstimate().wireName() + "\"";
-        assertTrue(written.contains(known), "the written record names its scope estimate");
+        var known = "\"change_type\":\"" + ChangeType.FEATURE.wireName() + "\"";
+        assertTrue(written.contains(known), "the written record names its change type");
         var unknown = "unknown_" + text().toLowerCase(Locale.ROOT);
-        var document = written.replace(known, "\"scope_estimate\":\"" + unknown + "\"")
+        var document = written.replace(known, "\"change_type\":\"" + unknown + "\"")
                 .getBytes(StandardCharsets.UTF_8);
 
         var refusal = assertThrows(StoreRefusal.class, () -> OutlineCodec.read(FILE, document),
-                "an unknown scope estimate should be refused");
+                "an unknown change type should be refused");
 
         // contract: the reason text of an unknown wire name
-        assertTrue(refusal.getMessage().contains("'scope_estimate' names no known value"),
+        assertTrue(refusal.getMessage().contains("'change_type' names no known value"),
                 "the refusal should name the field and its reason");
     }
 
@@ -116,7 +115,7 @@ class OutlineRecordTest {
     void revisionMovesCurrentToHistory() {
         var first = revision(1, valid());
         var store = OutlineStore.first(first);
-        var second = revision(2, new OutlineRecord(valid().summary(), null, ScopeEstimate.SINGLE_MODULE,
+        var second = revision(2, new OutlineRecord(valid().summary(), null,
                 List.of(deliverable(1, text(), List.of(), criterion(), text()))));
         var after = store.accept(second);
 
@@ -152,11 +151,11 @@ class OutlineRecordTest {
         var unresolved = List.of(deliverable(1, text(), List.of(Generators.integers(2, 99).next()), criterion(),
                 text()));
         assertThrows(IllegalArgumentException.class,
-                () -> new OutlineRecord(summary, null, ScopeEstimate.SINGLE_MODULE, unresolved),
+                () -> new OutlineRecord(summary, null,unresolved),
                 "an unresolved dependency should be refused");
         var selfDependent = List.of(deliverable(1, text(), List.of(1), criterion(), text()));
         assertThrows(IllegalArgumentException.class,
-                () -> new OutlineRecord(summary, null, ScopeEstimate.SINGLE_MODULE, selfDependent),
+                () -> new OutlineRecord(summary, null,selfDependent),
                 "a self dependency should be refused");
     }
 
@@ -217,7 +216,7 @@ class OutlineRecordTest {
         var deliverables = List.of(deliverable(1, text(), List.of(), criterion(), text()),
                 deliverable(1, text(), List.of(), criterion(), text()));
         assertThrows(IllegalArgumentException.class,
-                () -> new OutlineRecord(summary, null, ScopeEstimate.SINGLE_MODULE, deliverables),
+                () -> new OutlineRecord(summary, null,deliverables),
                 "a duplicated deliverable number should fail");
     }
 
@@ -225,7 +224,7 @@ class OutlineRecordTest {
     @Test
     void computesTransitiveDependencies() {
         var decision = "DC-" + Generators.integers(1, 99).next();
-        var outlineRecord = new OutlineRecord(valid().summary(), null, ScopeEstimate.SINGLE_MODULE,
+        var outlineRecord = new OutlineRecord(valid().summary(), null,
                 List.of(deliverable(1, text(), List.of(), criterion(), text()),
                         deliverable(2, text(), List.of(1), criterion(), text()),
                         deliverable(3, text(), List.of(2), decision, text())));
@@ -247,7 +246,7 @@ class OutlineRecordTest {
                 List.of(criterion()), List.of());
         var deliverables = List.of(deliverable(1, text(), List.of(), criterion(), text()), duplicatedDependency);
         assertThrows(IllegalArgumentException.class,
-                () -> new OutlineRecord(summary, null, ScopeEstimate.SINGLE_MODULE, deliverables),
+                () -> new OutlineRecord(summary, null,deliverables),
                 "a duplicated dependency should be refused");
     }
 
@@ -282,7 +281,7 @@ class OutlineRecordTest {
     }
 
     private static OutlineRecord outlineSatisfying(String entry) {
-        return new OutlineRecord(valid().summary(), null, ScopeEstimate.SINGLE_MODULE,
+        return new OutlineRecord(valid().summary(), null,
                 List.of(deliverable(1, text(), List.of(), entry, text())));
     }
 }

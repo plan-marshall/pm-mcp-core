@@ -21,7 +21,6 @@ import de.planmarshall.core.store.OutlineRecord.Deliverable;
 import de.planmarshall.core.store.OutlineRecord.ExecutionMode;
 import de.planmarshall.core.store.OutlineRecord.FileIntent;
 import de.planmarshall.core.store.OutlineRecord.Profile;
-import de.planmarshall.core.store.OutlineRecord.ScopeEstimate;
 import de.planmarshall.core.store.OutlineRecord.Verification;
 import de.planmarshall.core.store.OutlineStore.Revision;
 
@@ -40,7 +39,7 @@ final class OutlineFixtures {
 
     static OutlineRecord valid() {
         // Titles and satisfies identifiers are asserted in the rendered outline by OutlineRecordTest.
-        return new OutlineRecord(text(20, 80), text(1, 40), ScopeEstimate.SINGLE_MODULE,
+        return new OutlineRecord(text(20, 80), text(1, 40),
                 List.of(deliverable(1, "Write the intent record", List.of(), "AC-1", text(3, 20)),
                         deliverable(2, "Render the clarified request", List.of(1), "AC-2", text(3, 20))));
     }

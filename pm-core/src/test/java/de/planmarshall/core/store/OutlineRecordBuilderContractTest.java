@@ -20,7 +20,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.store.OutlineRecord.Deliverable;
-import de.planmarshall.core.store.OutlineRecord.ScopeEstimate;
 
 @EnableGeneratorController
 @DisplayName("Outline record builder contract")
@@ -30,30 +29,6 @@ class OutlineRecordBuilderContractTest {
         // The satisfies entry follows the identifier grammar AC-<number> of the record.
         return OutlineFixtures.deliverable(1, Generators.letterStrings(3, 60).next(), List.of(),
                 "AC-" + Generators.integers(1, 99).next(), Generators.letterStrings(3, 20).next());
-    }
-
-    @Test
-    @DisplayName("the builder builds the constructor's outline")
-    void builderBuildsOutline() {
-        var canonical = new OutlineRecord(Generators.letterStrings(20, 80).next(), null,
-                ScopeEstimate.SINGLE_MODULE, List.of(deliverable()));
-
-        var built = OutlineRecord.builder().summary(canonical.summary()).overview(canonical.overview())
-                .scopeEstimate(canonical.scopeEstimate()).deliverables(canonical.deliverables()).build();
-
-        var fromConstructor = assertThrows(NullPointerException.class,
-                () -> new OutlineRecord(null, canonical.overview(), canonical.scopeEstimate(),
-                        canonical.deliverables()),
-                "the constructor refuses an absent summary");
-        var incomplete = OutlineRecord.builder().overview(canonical.overview())
-                .scopeEstimate(canonical.scopeEstimate()).deliverables(canonical.deliverables());
-        var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
-                "the builder refuses an absent summary");
-
-        assertAll(
-                () -> assertEquals(canonical, built, "the builder builds the constructor's value"),
-                () -> assertEquals(fromConstructor.getMessage(), fromBuilder.getMessage(),
-                        "both refuse an absent summary with the same message"));
     }
 
     @Test

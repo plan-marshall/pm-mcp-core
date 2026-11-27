@@ -27,7 +27,8 @@ import de.planmarshall.core.SchemaResource;
 /**
  * The members and enumeration values the merged specification dropped are absent from their schema files, and the
  * object that held each of them is still closed, so a stored document carrying the dropped member fails the schema
- * instead of being tolerated (PLAN-V2-188). Each negative control on a member or an enumeration value is matched with a
+ * instead of being tolerated (PLAN-V2-188; the scope estimate of the status metadata and of the outline record,
+ * PLAN-V2-189). Each negative control on a member or an enumeration value is matched with a
  * positive one beside it: a sibling member or value of the same enumeration stays, so the assertion cannot pass because
  * the reader lost the file. The deleted schema file has no such sibling; it is checked against the resource tree with a
  * surviving sibling resource as witness.
@@ -82,6 +83,24 @@ class RemovedSchemaMembersTest {
         }
 
         @Test
+        @DisplayName("the three scope estimate members are gone and metadata stays closed")
+        void scopeEstimateMembersAreGone() {
+            var metadata = object(properties(status()).get("metadata"));
+
+            assertAll("The scope estimate members are gone",
+                    () -> assertFalse(properties(metadata).containsKey("scope_estimate"),
+                            "the scope estimate should be absent"),
+                    () -> assertFalse(properties(metadata).containsKey("scope_estimate_pre_route"),
+                            "the pre-route scope estimate should be absent"),
+                    () -> assertFalse(properties(metadata).containsKey("scope_estimate_provenance"),
+                            "the scope estimate provenance should be absent"),
+                    () -> assertEquals(Boolean.FALSE, metadata.get("additionalProperties"),
+                            "the metadata object should stay closed"),
+                    () -> assertTrue(properties(metadata).containsKey("change_type"),
+                            "the change type should stay declared"));
+        }
+
+        @Test
         @DisplayName("the change type names the server's derivation at outline acceptance")
         void changeTypeNamesItsSingleWriter() {
             var changeType = object(properties(object(properties(status()).get("metadata"))).get("change_type"));
@@ -94,6 +113,28 @@ class RemovedSchemaMembersTest {
                             "the description should name the derivation section"),
                     () -> assertFalse(description.contains("classify task"),
                             "the removed classify submit should be gone"));
+        }
+    }
+
+    @Nested
+    @DisplayName("Outline record schema")
+    class OutlineRecordSchema {
+
+        @Test
+        @DisplayName("the scope estimate is gone and the summary stays required")
+        void scopeEstimateIsGone() {
+            var outline = schema(STORE + "outline-record-v1.schema.json");
+            var required = strings(outline, "required");
+
+            assertAll("The scope estimate is gone",
+                    () -> assertFalse(properties(outline).containsKey("scope_estimate"),
+                            "the scope estimate should be absent"),
+                    () -> assertFalse(required.contains("scope_estimate"),
+                            "the scope estimate should not be required"),
+                    () -> assertEquals(Boolean.FALSE, outline.get("additionalProperties"),
+                            "the outline record should stay closed"),
+                    () -> assertTrue(required.contains("summary"),
+                            "the summary should stay required"));
         }
     }
 

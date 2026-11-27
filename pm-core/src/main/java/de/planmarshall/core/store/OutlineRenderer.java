@@ -38,7 +38,6 @@ public final class OutlineRenderer {
         if (outlineRecord.overview() != null) {
             out.append(outlineRecord.overview()).append("\n\n");
         }
-        out.append("**Scope estimate:** ").append(outlineRecord.scopeEstimate().wireName()).append("\n\n");
         for (var deliverable : outlineRecord.deliverables()) {
             renderDeliverable(out, deliverable, store.status(deliverable.number()).orElseThrow());
         }
