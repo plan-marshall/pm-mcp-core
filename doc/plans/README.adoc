@@ -174,7 +174,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:epic-auto.adoc[`epic-auto`]
 |An epic runs by itself: its automatic mode, the overlap wait, its reactions on a finished plan
 |`open`
-|`plan-and-epic-control` (the operator's acts on a plan); `epic-resource-and-release` (next plan, the toggle among the epic's actions, archive, the release); `epic-decomposition`
+|`plan-and-epic-control` (the operator's acts on a plan); `epic-resource-and-release` (next plan, the toggle among the epic's actions, archive, the release); `epic-decomposition`; `ci-contract-finalize-operations` (the pull-request observation)
 |Milestone 12; the client work of `pm-mcp-clients`
 
 |link:operator-reports.adoc[`operator-reports`]
