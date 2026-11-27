@@ -665,6 +665,16 @@ class ProfileValidatorTest {
             assertDoesNotThrow(() -> ProfileValidator.validate(bytes, DOCUMENT, ProfileRules.none()),
                     "an argument without adjacent slots loads");
         }
+
+        // The value shape is the contract: two placeholders that touch, in an environment value instead of an argument.
+        @Test
+        @DisplayName("an environment value with two adjacent slots loads, because the composed vector never carries it")
+        void adjacentSlotsInAnEnvironmentValueLoad() {
+            var bytes = ProfileFixtures.valid().set("/headless/env", Map.of("ACME_MODE", "{{model}}{{effort}}")).bytes();
+
+            assertDoesNotThrow(() -> ProfileValidator.validate(bytes, DOCUMENT, ProfileRules.none()),
+                    "an env value with adjacent slots loads");
+        }
     }
 
     @Test
