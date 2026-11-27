@@ -112,6 +112,21 @@ request decides the point (with the operator where it changes scope), records th
 `PM-ARCH-7`, and deletes this item.
 Source:: `pm-mcp-core` work package `service-unit` (review of the install and uninstall order).
 
+[#PM-WATCH-LIFE-3]
+=== PM-WATCH-LIFE-3: A hung drive loop leaves one thread dump and is reported
+
+Anchor:: link:../specification/runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-self-watch[Runtime Lifecycle § Runtime Self-Watch],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7]
+Hazard:: The drive loop or the periodic sweep hangs (a deadlock, a blocking call without a timeout) while the HTTP
+listener still answers: every scope stops moving, `pm-operator status` reports `running`, and the hang leaves nothing
+to analyse; or a sweep that keeps running refreshes a heartbeat the blocked drive loop shares; or the watchdog dumps
+on every check and floods the runtime log.
+Guard:: Test with a drive loop held on a latch past the heartbeat threshold while the periodic sweep keeps stamping its
+own heartbeat: exactly one thread dump naming the held thread is written to the runtime log for the episode,
+`pm-operator status` reports "not responding" naming the drive loop's heartbeat with the age of its last stamp, and nothing is stopped or restarted; releasing the latch ends the episode, and a second hang writes
+a second dump. Matched control: a loop that stamps its heartbeat within the threshold writes no dump.
+Source:: design review (liveness guarantee).
+
 == Server-Driven Scopes
 
 [#PM-WATCH-RUN-2]
@@ -131,3 +146,38 @@ control, and a control with a leased task, neither of which is reported.
 Fixture:: a 17-min gap 13:45:20 → 14:02:28; 12h54m idle vs 2h8m worked; a deferred stall nothing recorded
 (D-087-g).
 Source:: plan-marshall defect post-run-quality PLAN-PRQ-04 D0; truthful-signals (quality-aspect) PLAN-217 D3.
+
+[#PM-WATCH-LIFE-2]
+=== PM-WATCH-LIFE-2: A CI run nobody picks up is shown overdue, never decided by time
+
+Anchor:: link:../specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#overdue-waits[Runtime Lifecycle § Overdue Waits],
+link:../specification/timeouts/01-job-budgets-and-waits.adoc#ci-wait[Timeouts & Budgets § CI Wait],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-8[PM-WF-8]
+Hazard:: A CI wait has no deadline, and a scope that awaits it is never `stalled`: a run no runner picks up, or a
+provider that keeps deferring with `Retry-After`, or checks that keep changing without ever ending, hold the plan for
+days without a signal; or the stall clock is turned into a deadline that fails a slow but healthy run.
+Guard:: Scenario test on a test clock: a CI wait whose check runs stay `queued` without change past the overdue factor
+times the expected duration (once learned, once seeded from the operator budget, once the compiled fallback) is shown
+as the hold `overdue` with cause `no_change` in both clients, `pm-operator status`, and the event stream, writes exactly
+one `plan_overdue` record per episode, keeps its route and its wait, and clears with the next observed change; a
+repeated `Retry-After` deferral reaches `overdue` the same way; check runs that keep changing past the long-wait factor
+times the expected duration are shown `overdue` with cause `long_running` until the wait ends; nothing reaches a
+model-facing representation. Matched control: a run whose check runs change within the span and that ends within the
+long-wait span is never `overdue`.
+Source:: design review (liveness guarantee).
+
+[#PM-WATCH-LIFE-4]
+=== PM-WATCH-LIFE-4: A machine that slept reports no scope stalled or overdue for the sleep
+
+Anchor:: link:../specification/runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#clock-gap[Runtime Lifecycle § Clock Gap],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7]
+Hazard:: The stall clocks compare wall-clock instants, so after the machine wakes every idle scope passes the stalled
+threshold at once and every CI wait the overdue span: the operator sees a wall of false holds and records, and the
+watchdog dumps for a hang that never happened; or a sleep resets a hold already open, or a wall-clock adjustment is
+taken for a sleep.
+Guard:: Test on clock fixtures whose sleep-counting monotonic clock runs ahead of the other by more than the clock gap
+threshold: no `plan_stalled` or `plan_overdue` record and no thread dump is written for the gap, a hold `overdue`
+open before the gap stays open, the span is attributed as a pause in the wait slices, and a prerequisite deadline that
+passed in the gap is processed by its own rule. Matched controls: the same idle span awake reports `stalled`, and a
+wall-clock jump alone changes no stall clock.
+Source:: design review (liveness guarantee).

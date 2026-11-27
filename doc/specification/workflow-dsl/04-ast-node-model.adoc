@@ -41,6 +41,62 @@ A condition is an engine-owned overlay on the scope's current state, not a state
 * *Bounded self-remedy*: Every other condition is bounded by the compiled condition budget per condition instance (`remedy_attempts`, link:../timeouts/01-job-budgets-and-waits.adoc#condition-budget[Timeouts & Budgets Specification, Condition Budget]); the operator may fix the cause at any time. In a plan or an epic the server runs the self-remedy itself: it retries where a retry can clear the condition (`guard_indeterminate` re-evaluates every guard of the state, `precondition_unmet` re-checks its precondition after the compiled backoff (link:../timeouts/01-job-budgets-and-waits.adoc#server-retry-backoff[Timeouts & Budgets Specification, Server Retry Backoff]), `job_incomplete` re-offers the task, xref:02-units-jobs-decisions.adoc#model-job-states[Task States]), and where clearing it needs work, it creates a task of the role whose work raised it (`footprint_violation`: a task of the plan's writer role that reverts the offending changes, after which the check runs again); `config_drift` is resolved by the server: it adopts when the re-composed instance version verifies and contains the scope's position, and keeps the version in force otherwise (item 4 of <<project-owned-units>>), recording the choice in the audit log and the composition log (link:../store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas Specification, Composition Log]). A self-remedy that succeeds clears the condition and re-renders the current state. When the budget is spent, the engine takes the phase's fallback route with the condition recorded as the gap (`cause: condition`, with the condition kind): at plan scope the unwind of every call frame above the phase's frame to the phase's fallback (xref:01-grammar.adoc#sub-workflow-exits[Sub-Workflow Exit Contract]) records the server step-out `stepped_out {by: server, cause: condition}`; `handed_back` degrades to a local branch when the fallback itself needs what is missing (a push credential). After the merge there is no fallback: the condition's step is re-fired or owed (xref:03-reference-excerpt.adoc#_reference_workflow_dsl_excerpt_finalize_pmwf[Reference Workflow Excerpt], shared failure state). The epic, workspace, and machine scopes and the entries have no fallback end: a condition of theirs is retried by the server at the compiled backoff until its cause clears, shown to both clients as a hold with its acts, and ends by the operator removing the cause or, for an epic, by its cancel, and for an entry by the operator abandoning it; workspace setup failures are routed by `setup.needs-repair` (link:../domain-extensions/04-setup-state-machine.adoc[Domain Extensions Specification, Project Setup State Machine]).
 * *Not Declared in DSL Units*: Conditions are never declared in a `*.pmwf` unit and are never a transition target. A DSL transition whose target names a condition or one of the reserved state ids `<phase>.blocked`, `<phase>.footprint-violation`, and `<phase>.config-drift` fails validation (Rule 3).
 
+[#liveness-guarantee]
+=== Liveness Guarantee
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-IMPL-5[PM-IMPL-5: Declarative Workflow DSL & Automated Diagram Generation]_
+
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-8[PM-WF-8: Asynchronous Job Links & Wait Transitions]_
+
+_Implementation watch: link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-1[PM-WATCH-DSL-1], link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-4[PM-WATCH-DSL-4], link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-5[PM-WATCH-DSL-5], link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-49[PM-WATCH-DSL-49], link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-133[PM-WATCH-PHASE-133]_
+
+A scope never gets stuck unnoticed. Every non-terminal position of every scope (its current state with its call stack) is in exactly one *liveness class*:
+
+* *Engine-progressing* (E): a transition the engine chains is due; the chain is bounded by the measures of Rule 11a.
+* *Bounded wait* (B): the scope awaits an event, or the defined outcome that takes its place, within a bound that a compiled or configured budget, a counter, a deadline, or a holder's lease sets (link:../timeouts/01-job-budgets-and-waits.adoc#awaiting-bounds[Timeouts & Budgets Specification, Bounds of Awaiting Primitives]).
+* *Operator* (O): an operator wait, a question, a waiver wait, or a hold; it has no time limit (xref:02-units-jobs-decisions.adoc#operator-wait[Waiting for the Operator]), is counted in `needs_operator`, and always offers a way out.
+* *Resident rest* (R): an epic, the workspace, or the machine resting in its watch until its next event; it has no bound and is no fault.
+
+*Property*: from every engine-progressing or bounded-wait position, every path reaches a terminal, an operator or resident-rest position, or a position of strictly smaller measure, in a bounded number of transitions. Each obligation of the property is discharged by a rule or a bound; where the code still lags, its watch item stays open:
+
+[cols="2,4,1"]
+|===
+|Obligation |Discharged by |Open in code
+
+|Total routing: every outcome of every state and every call has its transition
+|Rules 2 and 6 (<<static-verification-rules>>)
+|—
+
+|A way out: every non-terminal state has a path to a terminal, and every operator position an act that ends its scope
+|Rule 3; item 4 of xref:02-units-jobs-decisions.adoc#operator-wait[Waiting for the Operator]; the scope's cancel every hold offers (link:../state-catalogue/01-conventions-generic-conditions.adoc#holds[State Catalogue Specification, Holds and Their Acts])
+|link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-1[PM-WATCH-DSL-1]
+
+|Bounded engine-chained cycles
+|Rule 11a
+|—
+
+|An awaited event on every resting cycle
+|Rule 11b, with the counters of the bounds of the awaiting primitives (link:../timeouts/01-job-budgets-and-waits.adoc#awaiting-bounds[Timeouts & Budgets Specification, Bounds of Awaiting Primitives])
+|—
+
+|Through calls: a path a call splits across units is checked as one
+|Rules 8, 9, and 11, which follow the callees
+|link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-4[PM-WATCH-DSL-4]
+
+|Per configuration
+|Rule 3, reachability under every combination of the configuration keys the guards declare
+|link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-5[PM-WATCH-DSL-5]
+
+|Every bounded wait has a listed bound
+|link:../timeouts/01-job-budgets-and-waits.adoc#awaiting-bounds[Timeouts & Budgets Specification, Bounds of Awaiting Primitives], pinned by its registry test
+|link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-49[PM-WATCH-DSL-49]
+
+|No wait cycle between plans
+|item 4 of link:../phase-workflows/08-dynamic-re-planning.adoc#replan-actions[Phase Workflows Specification, Dynamic Re-Planning, Actions & Guards]
+|link:../../implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-133[PM-WATCH-PHASE-133]
+|===
+
+A scope stuck outside the operator and resident-rest classes is therefore a fault of the engine or of the environment, never of a unit; the runtime shows it as the hold `stalled` or `overdue` (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#liveness-classes[Runtime Lifecycle Specification, Liveness Classes at Run Time]).
+
 [#static-verification-rules]
 === Static AST Verification Rules (Build Time & Every Unit Load)
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-5[PM-WF-5: Model Work as Role Tasks & Single-Level Leaf Constraint]_

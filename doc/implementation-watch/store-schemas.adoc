@@ -603,6 +603,20 @@ FIFO order of the `waiting` list of `build-slots.json`, and each job's budget cl
 control: with a free slot a build is admitted at once and never enters `waiting`.
 Source:: design review.
 
+[#PM-WATCH-STORE-63]
+=== PM-WATCH-STORE-63: A model slot of an ended job is released
+
+Anchor:: link:../specification/store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores[Store Schemas § Machine Lease Stores] (`model-slots.json`),
+link:../specification/store-schemas/01-format-and-session-log.adoc#transaction-journal[§ Transaction Journal] (Worker end)
+Hazard:: A model slot has no time expiry. A stop between the transaction that records a worker's fate and the one that
+releases its slot leaves the slot of an ended job with `lease_expires_at: null`: no expiry passes, the job was not
+recorded `killed` at the restart, and the owning scope may still be live, so no evidence releases it and the machine
+runs with one model slot fewer until it is restarted by hand.
+Guard:: Recovery test: a job record with an end fate and its model slot still held, the runtime stopped between the two
+writes; the next start releases the slot with an audit record naming the fate as its evidence, and the next queued
+worker is admitted. Matched control: the slot of a running worker whose job has no fate is kept.
+Source:: design review (liveness guarantee).
+
 == Data Layer Integrity & Concurrency Invariants (`PM-IMPL-7`)
 
 [#PM-WATCH-STORE-21]

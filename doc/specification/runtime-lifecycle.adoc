@@ -10,7 +10,7 @@ link:../Specification.adoc[Specification] » Runtime Lifecycle (link:../Specific
 
 == Overview
 
-This document specifies the lifecycle of the runtime (`pm-mcpd`) as far as the engine module `pm-runtime` implements it: the startup sequence, the per-project recovery with the fencing of worker generations and the requeue of leased tasks, the periodic sweep, the runtime's lifecycle operations (drain, stop, restart, upgrade), the pause and start of a plan with stalled plans as a hold, and the metrics the runtime keeps. The processes, the transport, the local API with its resources and events, the relay and the workers' connections are specified in the link:../../../plan-marshall-documentation/doc/specification/runtime-model.adoc[Runtime & Interaction Model Specification], which this document completes for the engine.
+This document specifies the lifecycle of the runtime (`pm-mcpd`) as far as the engine module `pm-runtime` implements it: the startup sequence, the per-project recovery with the fencing of worker generations and the requeue of leased tasks, the periodic sweep, the runtime's lifecycle operations (drain, stop, restart, upgrade), the pause and start of a plan with stalled plans and overdue waits as holds, the runtime's self-watch, and the metrics the runtime keeps. The processes, the transport, the local API with its resources and events, the relay and the workers' connections are specified in the link:../../../plan-marshall-documentation/doc/specification/runtime-model.adoc[Runtime & Interaction Model Specification], which this document completes for the engine.
 
 == Traceability
 
@@ -30,11 +30,11 @@ _See Requirements:_
 
 Implemented in (link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc[Module Structure Specification]):
 
-* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-runtime[`pm-runtime`]: parts 01 to 03: the start sequence, recovery, sweep and lifecycle operations, the plan pause and the stalled-plan hold, and the metrics registry
+* link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-runtime[`pm-runtime`]: parts 01 to 03: the start sequence, recovery, sweep and lifecycle operations, the plan pause, the stalled and overdue holds, the self-watch, and the metrics registry
 * link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#module-pm-workflow[`pm-workflow`]: part 02: the engine side of a paused plan
 
 == Parts
 
-* link:runtime-lifecycle/01-startup-recovery-drain.adoc[Startup, Recovery & Drain] — the startup sequence, per-project recovery with the fencing of worker generations and the requeue of leased tasks, the periodic sweep, and the runtime's lifecycle: drain, stop, restart, and upgrade, with the service unit and their verification
-* link:runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc[Pausing a Plan & Stalled Plans] — pausing and starting a plan, and stalled plans as a hold, with their verification
+* link:runtime-lifecycle/01-startup-recovery-drain.adoc[Startup, Recovery & Drain] — the startup sequence, per-project recovery with the fencing of worker generations and the requeue of leased tasks, the periodic sweep, the runtime's self-watch, and the runtime's lifecycle: drain, stop, restart, and upgrade, with the service unit and their verification
+* link:runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc[Pausing a Plan & Stalled Plans] — pausing and starting a plan, the liveness classes at run time, stalled plans and overdue waits as holds, and the clock gap, with their verification
 * link:runtime-lifecycle/03-runtime-metrics.adoc[The Runtime's Metrics] — the metrics the runtime keeps and how they are read

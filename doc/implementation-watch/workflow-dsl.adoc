@@ -427,6 +427,22 @@ transition and passes (`WorkflowValidatorTest`, group `Reasons`, of `pm-workflow
 none takes the transition of its outcome. Open: a fact a unit branches on that copies a reason is not detected.
 Source:: design review (PLAN-V2-19).
 
+[#PM-WATCH-DSL-49]
+=== PM-WATCH-DSL-49: Every awaiting primitive has a listed bound
+
+Anchor:: link:../specification/workflow-dsl/04-ast-node-model.adoc#liveness-guarantee[Workflow DSL § Liveness Guarantee],
+link:../specification/timeouts/01-job-budgets-and-waits.adoc#awaiting-bounds[Timeouts & Budgets § Bounds of Awaiting Primitives],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-8[PM-WF-8]
+Hazard:: A primitive that declares an awaited event but has no bound of its own, or whose bound is a figure nobody
+enforces, holds its scope in a bounded-wait position for ever: the scope is neither `stalled` (it awaits an event) nor
+in `needs_operator`, so the plan waits without a signal. Rule 11b accepts the cycle, because it asks only that an event
+is awaited, not that it ever arrives.
+Guard:: A registry test over every registered primitive: each one whose `awaitedEvent()` is not `NONE` has a row in the
+bounds of the awaiting primitives, the row's bound source is one of the closed list, and no row is unbounded; a
+`stall-watched` row names its hold. Matched control: a fixture primitive that awaits `EXTERNAL_STATE` without a row
+fails the test, and one that awaits `NONE` needs none.
+Source:: design review (liveness guarantee).
+
 == Reusable Compound Sub-Workflows & Call-Stack Execution
 
 [#PM-WATCH-DSL-6]

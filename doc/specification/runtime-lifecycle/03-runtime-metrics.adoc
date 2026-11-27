@@ -28,6 +28,7 @@ The runtime keeps its figures as metrics in one registry of named counters, gaug
 |`work.jobs` |count; `kind`, `state` (running, queued) |the job runner
 |`work.slots` |count and cap; `kind` (build, model) |the slot scheduler
 |`work.locks`, `work.leases` |count |the lock manager and the lease stores
+|`work.waits` |count; `kind` (the wait reasons of link:../job-runtime/01-pipeline-and-subprocesses.adoc#_bounded_long_poll_progress_reset_waiting_primitives_pm_wf_8_pm_impl_4[Wait Attribution]) |the wait registrations
 |`models.calls`, `models.tokens_in`, `models.tokens_out`, `models.total_tokens` |count per hour, with the coverage of the hour; `model`, `role` |the transaction that writes a task row
 |`models.errors`, `models.retries` |count per hour; `model`, `role`, cause class |the transaction that ends an attempt
 |===
