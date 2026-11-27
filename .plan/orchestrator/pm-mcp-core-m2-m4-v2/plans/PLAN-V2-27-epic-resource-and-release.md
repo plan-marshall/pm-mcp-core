@@ -181,3 +181,7 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Fourth Doc-Review Round Note (2026-11-27, orchestrator)
+
+Binding for the revival of this spec: The fourth doc-review round (`inbox/doc-review-2026-11-25-004.md`) gives the epic queue the observation of every `handed_back` row (see PLAN-V2-38's note): item 4 gains it. Re-read at revival.

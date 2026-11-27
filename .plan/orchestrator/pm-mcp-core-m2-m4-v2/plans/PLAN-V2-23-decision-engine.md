@@ -197,3 +197,7 @@ and edits NO file under `.plan/orchestrator/` other than its own
 its outcome through its PR and its inbox message. The inbox exception's qualifiers and the
 sole sanctioned write mechanism are stated in
 `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Fourth Doc-Review Round Note (2026-11-27, orchestrator)
+
+Binding for the revival of this spec: The fourth doc-review round (`inbox/doc-review-2026-11-25-004.md`, core #628) supersedes the third round's wording of this spec on what a decision blocks: it is **derived on every read from the scope's current runnable work and never stored** (a server-raised class keeps its declared value), not "written by the server from what waits"; the OBSERVED line on `QuestionRecord.java:183-190` (`enum Blocks` gains `EPIC`, `SETUP`, `ENTRY`) becomes "the record member and the codec read go away, a stored or declared `blocks` is refused" (PLAN-V2-211 builds the removal). When this spec is revived its `blocks` lines are re-read against the specification at that head.
