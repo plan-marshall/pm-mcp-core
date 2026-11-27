@@ -705,17 +705,21 @@ class SecretRedactorTest {
     private static final Duration REDACTION_BOUND = Duration.ofSeconds(20);
 
     /**
-     * The bound of the key-block cost tests. The former lazy {@code .*?} under {@code (?s)} needs about 18 seconds for the
-     * 400 000-character case on the development host (measured 2026-11-24 by restoring it), so the 20-second bound of
-     * the other cost tests would no longer catch it; five seconds is far above the linear scan's cost, which is well
-     * under one second.
+     * The bound of the key-block cost tests, and their control: the tests assert nothing else about the cost, so a
+     * regression to super-linear time fails them only through this bound, never through a hang guard.
+     * <p>
+     * The value: the former lazy {@code .*?} under {@code (?s)} needs about 18 seconds for the 400 000-character case on
+     * the development host (measured 2026-11-24 by restoring it), so the 20-second bound of the other cost tests would
+     * no longer catch it, while the linear scan stays well under one second. Ten seconds leaves the linear scan more
+     * than a tenfold margin on a loaded host and stays below the measured regression, which a slower host only makes
+     * slower.
      */
-    private static final Duration PEM_BOUND = Duration.ofSeconds(5);
+    private static final Duration PEM_BOUND = Duration.ofSeconds(10);
 
     private static final String PEM_BEGIN_MARKER = "-----BEGIN PRIVATE KEY-----";
 
     @Test
-    @DisplayName("400 000 characters of BEGIN markers without an END are redacted within the bound")
+    @DisplayName("400 000 characters of BEGIN markers without an END are redacted within the bound (the control)")
     void pemBeginMarkersWithoutEndAreLinear() {
         // the excerpt maximum of 50 lines of MAX_LINE_LENGTH characters is about 409 600 characters;
         // no END follows any marker, so every marker was scanned to the end of the text before the fix
@@ -729,7 +733,7 @@ class SecretRedactorTest {
     }
 
     @Test
-    @DisplayName("3 700 BEGIN markers without an END are redacted within the bound")
+    @DisplayName("3 700 BEGIN markers without an END are redacted within the bound (the control)")
     void pemManyBeginMarkersWithoutEndAreLinear() {
         var markers = PEM_BEGIN_MARKER.repeat(3_700);
 
