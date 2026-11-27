@@ -38,7 +38,6 @@ public final class OutlineRenderer {
         if (outlineRecord.overview() != null) {
             out.append(outlineRecord.overview()).append("\n\n");
         }
-        out.append("**Scope estimate:** ").append(outlineRecord.scopeEstimate().wireName()).append("\n\n");
         for (var deliverable : outlineRecord.deliverables()) {
             renderDeliverable(out, deliverable, store.status(deliverable.number()).orElseThrow());
         }
@@ -86,13 +85,6 @@ public final class OutlineRenderer {
         out.append("**Satisfies:** ")
                 .append(deliverable.satisfies().isEmpty() ? "none" : String.join(", ", deliverable.satisfies()))
                 .append("\n\n");
-        if (!deliverable.addedDependencies().isEmpty()) {
-            out.append("**Added dependencies:**\n");
-            deliverable.addedDependencies().forEach(dependency -> out.append("- `")
-                    .append(dependency.coordinate()).append("` — ").append(dependency.why())
-                    .append(" (rejected: ").append(dependency.rejectedAlternative()).append(")\n"));
-            out.append('\n');
-        }
         if (deliverable.designNotes() != null) {
             out.append("**Design notes:** ").append(deliverable.designNotes()).append("\n\n");
         }

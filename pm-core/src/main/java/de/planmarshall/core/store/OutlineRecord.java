@@ -32,19 +32,13 @@ import org.jspecify.annotations.Nullable;
  *
  * @param summary      what the solution is, 20 to 2000 characters
  * @param overview     an optional text diagram of the solution; may be {@code null}
- * @param scopeEstimate the size of the change
  * @param deliverables one to 50 deliverables
  * @since 0.1
  */
-@Builder
-public record OutlineRecord(String summary, @Nullable String overview, ScopeEstimate scopeEstimate,
-List<Deliverable> deliverables) {
+public record OutlineRecord(String summary, @Nullable String overview, List<Deliverable> deliverables) {
 
     /** The pattern of an entry in a deliverable's {@code satisfies}. */
     public static final Pattern SATISFIES_ID = Pattern.compile("(AC|DC)-\\d{1,4}");
-
-    /** The pattern of an added dependency's coordinate. */
-    public static final Pattern COORDINATE = Pattern.compile("(maven|npm|pypi):.+");
 
     /** The wire name of the verification profile and of the verification member. */
     private static final String VERIFICATION_WIRE = "verification";
@@ -63,7 +57,6 @@ List<Deliverable> deliverables) {
         if (overview != null && overview.length() > 8000) {
             throw new IllegalArgumentException("overview is at most 8000 characters: " + overview.length());
         }
-        Objects.requireNonNull(scopeEstimate, "scopeEstimate");
         Objects.requireNonNull(deliverables, "deliverables");
         if (deliverables.isEmpty() || deliverables.size() > 50) {
             throw new IllegalArgumentException("deliverables holds 1 to 50 items: " + deliverables.size());
@@ -124,39 +117,6 @@ List<Deliverable> deliverables) {
             }
         }
         return List.copyOf(found);
-    }
-
-    /** The size of the change. */
-    public enum ScopeEstimate {
-        /** No source change. */
-        NONE("none"),
-        /** One small, localized change. */
-        SURGICAL("surgical"),
-        /** One module. */
-        SINGLE_MODULE("single_module"),
-        /** Several modules. */
-        MULTI_MODULE("multi_module"),
-        /** A change across the project. */
-        BROAD("broad");
-
-        private final String wireName;
-
-        ScopeEstimate(String wireName) {
-            this.wireName = wireName;
-        }
-
-        /** @return the name of the value in a record */
-        public String wireName() {
-            return wireName;
-        }
-
-        /**
-         * @param wireName the name of a value in a record
-         * @return the value of that name; empty if no value has it
-         */
-        public static Optional<ScopeEstimate> fromWireName(String wireName) {
-            return Arrays.stream(values()).filter(value -> value.wireName.equals(wireName)).findFirst();
-        }
     }
 
     /** The kind of change a deliverable makes. */
@@ -304,14 +264,13 @@ List<Deliverable> deliverables) {
      * @param changePerFile   the change per file, 10 to 8000 characters
      * @param verification    the commands that verify the deliverable
      * @param satisfies       the criteria and decisions of the intent record it implements
-     * @param addedDependencies the third-party dependencies it adds
      * @since 0.1
      */
     @Builder
     public record Deliverable(int number, String title, String intentGloss, ChangeType changeType,
     ExecutionMode executionMode, String domain, String module, List<Integer> depends, @Nullable String designNotes,
     List<Profile> profiles, List<AffectedFile> affectedFiles, String changePerFile,
-    List<Verification> verification, List<String> satisfies, List<AddedDependency> addedDependencies) {
+    List<Verification> verification, List<String> satisfies) {
 
         /**
          * @throws IllegalArgumentException if a member is out of its bounds or a list is inconsistent
@@ -355,8 +314,6 @@ List<Deliverable> deliverables) {
                             "the deliverable %d satisfies '%s', which is no AC-<n> or DC-<n>".formatted(number, entry));
                 }
             }
-            Objects.requireNonNull(addedDependencies, "addedDependencies");
-            addedDependencies = checkedList(addedDependencies, "added_dependencies", 20);
         }
 
         /**
@@ -426,31 +383,6 @@ List<Deliverable> deliverables) {
         public Verification {
             bounded(command, "verification[].command", 1, 1000);
             bounded(criterion, "verification[].criterion", 5, 500);
-        }
-    }
-
-    /**
-     * One third-party dependency a deliverable adds.
-     *
-     * @param coordinate           the coordinate, {@code maven:}, {@code npm:} or {@code pypi:} prefixed
-     * @param why                  why it is needed
-     * @param rejectedAlternative  the simpler alternative considered and why it was rejected
-     * @since 0.1
-     */
-    public record AddedDependency(String coordinate, String why, String rejectedAlternative) {
-
-        /**
-         * @throws IllegalArgumentException if a member is out of its bounds
-         * @throws NullPointerException     if a value is {@code null}
-         */
-        public AddedDependency {
-            bounded(coordinate, "added_dependencies[].coordinate", 1, 256);
-            if (!COORDINATE.matcher(coordinate).matches()) {
-                throw new IllegalArgumentException(
-                        "the coordinate '%s' names none of maven, npm and pypi".formatted(coordinate));
-            }
-            bounded(why, "added_dependencies[].why", 10, 500);
-            bounded(rejectedAlternative, "added_dependencies[].rejected_alternative", 10, 500);
         }
     }
 

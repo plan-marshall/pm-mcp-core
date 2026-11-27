@@ -11,7 +11,6 @@ package de.planmarshall.core.spi.validation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -69,10 +68,9 @@ class OutlineValidatorTest {
 
     static Stream<Arguments> acceptedOutlines() {
         return Stream.of(
-                Arguments.of("every intent, the three ecosystems and two deliverables", OUTLINE),
-                Arguments.of("neither list", "# Solution Outline\n\nNothing to change."),
-                Arguments.of("an empty list", FILES + "\n" + DEPENDENCIES),
-                Arguments.of("the same name in two ecosystems", DEPENDENCIES + "- `npm:requests`\n- `pypi:requests`"));
+                Arguments.of("every intent and two deliverables", OUTLINE),
+                Arguments.of("no affected files list", "# Solution Outline\n\nNothing to change."),
+                Arguments.of("an empty list", FILES + "\n" + DEPENDENCIES));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -97,38 +95,7 @@ class OutlineValidatorTest {
                 Arguments.of("an affected file with an unknown intent", FILES + "- `pm-core/A.java` (modify)",
                         OutlineValidator.RULE_AFFECTED_FILE_INTENT, 2),
                 Arguments.of("an affected file with text after the intent", FILES + "- `pm-core/A.java` (read) twice",
-                        OutlineValidator.RULE_AFFECTED_FILE_INTENT, 2),
-                Arguments.of("a dependency without back quotes", DEPENDENCIES + "- maven:org.example:library",
-                        OutlineValidator.RULE_DEPENDENCY_UNPARSED, 2),
-                Arguments.of("a dependency without an ecosystem prefix", DEPENDENCIES + "- `library`",
-                        OutlineValidator.RULE_DEPENDENCY_UNPARSED, 2),
-                Arguments.of("a dependency with text after the coordinate", DEPENDENCIES + "- `npm:left-pad` for padding",
-                        OutlineValidator.RULE_DEPENDENCY_UNPARSED, 2),
-                Arguments.of("an unknown ecosystem", DEPENDENCIES + "- `cargo:serde`",
-                        OutlineValidator.RULE_DEPENDENCY_ECOSYSTEM, 2),
-                Arguments.of("an empty ecosystem", DEPENDENCIES + "- `:serde`",
-                        OutlineValidator.RULE_DEPENDENCY_ECOSYSTEM, 2),
-                Arguments.of("a Maven coordinate with a version", DEPENDENCIES + "- `maven:org.example:library:1.0`",
-                        OutlineValidator.RULE_DEPENDENCY_COORDINATE, 2),
-                Arguments.of("a Maven coordinate without an artifact", DEPENDENCIES + "- `maven:org.example`",
-                        OutlineValidator.RULE_DEPENDENCY_COORDINATE, 2),
-                Arguments.of("an npm coordinate with a version", DEPENDENCIES + "- `npm:left-pad@1.3.0`",
-                        OutlineValidator.RULE_DEPENDENCY_COORDINATE, 2),
-                Arguments.of("an npm coordinate in upper case", DEPENDENCIES + "- `npm:LeftPad`",
-                        OutlineValidator.RULE_DEPENDENCY_COORDINATE, 2),
-                Arguments.of("a Python coordinate with a version", DEPENDENCIES + "- `pypi:requests==2.32`",
-                        OutlineValidator.RULE_DEPENDENCY_COORDINATE, 2),
-                Arguments.of("a Python coordinate that ends with a separator", DEPENDENCIES + "- `pypi:requests-`",
-                        OutlineValidator.RULE_DEPENDENCY_COORDINATE, 2),
-                Arguments.of("a coordinate named twice in one list",
-                        DEPENDENCIES + "- `maven:org.example:library`\n- `maven:org.example:library`",
-                        OutlineValidator.RULE_DEPENDENCY_DUPLICATE, 3),
-                Arguments.of("a coordinate named in two lists",
-                        DEPENDENCIES + "- `npm:left-pad`\n\n## 2. Next\n\n" + DEPENDENCIES + "- `npm:left-pad`",
-                        OutlineValidator.RULE_DEPENDENCY_DUPLICATE, 7),
-                Arguments.of("a Python coordinate named twice in two spellings",
-                        DEPENDENCIES + "- `pypi:Typing_Extensions`\n- `pypi:typing-extensions`",
-                        OutlineValidator.RULE_DEPENDENCY_DUPLICATE, 3));
+                        OutlineValidator.RULE_AFFECTED_FILE_INTENT, 2));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -142,28 +109,30 @@ class OutlineValidatorTest {
     }
 
     @Test
-    @DisplayName("returns the violations of both lists in the order of the lines")
+    @DisplayName("returns the violations of the affected files lists in the order of the lines")
     void severalViolations() {
-        var outline = FILES + "- `pm-core/A.java`\nfree text\n" + DEPENDENCIES + "- `cargo:serde`\n- `npm:left-pad@1`";
+        var outline = FILES + "- `pm-core/A.java`\nfree text\n\n## 2. Next\n\n" + FILES + "- `pm-core/B.java` (modify)";
 
         var violations = validator.validate(outline);
 
         assertEquals(List.of(OutlineValidator.RULE_AFFECTED_FILE_INTENT + "@2",
                         OutlineValidator.RULE_AFFECTED_FILE_UNPARSED + "@3",
-                        OutlineValidator.RULE_DEPENDENCY_ECOSYSTEM + "@5",
-                        OutlineValidator.RULE_DEPENDENCY_COORDINATE + "@6"), keysAndLines(violations),
-                "the file rules and the dependency rules keep line order");
+                        OutlineValidator.RULE_AFFECTED_FILE_INTENT + "@8"), keysAndLines(violations),
+                "the file rules of both lists keep line order");
     }
 
     @Test
-    @DisplayName("names the line of the first occurrence in the message of a duplicate")
-    void duplicateNamesFirstLine() {
-        var outline = DEPENDENCIES + "- `npm:left-pad`\n- `npm:lodash`\n- `npm:left-pad`";
+    @DisplayName("no longer reads an added dependencies list, and still checks an affected files list after it")
+    void addedDependenciesListIsNotRead() {
+        // Each line broke one of the dependency rules PLAN-V2-189 removed: no bullet, an unknown ecosystem, a
+        // versioned coordinate, and a duplicate.
+        var outline = DEPENDENCIES + "maven:org.example:library\n- `cargo:serde`\n- `npm:left-pad@1.3.0`\n"
+                + "- `npm:left-pad`\n- `npm:left-pad`\n" + FILES + "- `pm-core/A.java` (modify)";
 
         var violations = validator.validate(outline);
 
-        assertTrue(violations.getFirst().message().endsWith("line 2"),
-                "the duplicate names the line of its first occurrence");
+        assertEquals(List.of(OutlineValidator.RULE_AFFECTED_FILE_INTENT + "@8"), keysAndLines(violations),
+                "only the affected file after the list is reported");
     }
 
     @Test

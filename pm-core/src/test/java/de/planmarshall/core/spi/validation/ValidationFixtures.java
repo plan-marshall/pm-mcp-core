@@ -29,7 +29,6 @@ import de.planmarshall.core.store.OutlineRecord.Deliverable;
 import de.planmarshall.core.store.OutlineRecord.ExecutionMode;
 import de.planmarshall.core.store.OutlineRecord.FileIntent;
 import de.planmarshall.core.store.OutlineRecord.Profile;
-import de.planmarshall.core.store.OutlineRecord.ScopeEstimate;
 import de.planmarshall.core.store.OutlineRecord.Verification;
 
 /** Records and outlines the validation tests share. */
@@ -91,7 +90,7 @@ final class ValidationFixtures {
     }
 
     static OutlineRecord outline(Deliverable... deliverables) {
-        return new OutlineRecord(OUTLINE_TITLE, null, ScopeEstimate.SINGLE_MODULE, List.of(deliverables));
+        return new OutlineRecord(OUTLINE_TITLE, null, List.of(deliverables));
     }
 
     static Deliverable deliverable(int number, List<Integer> depends, String... satisfies) {
@@ -101,7 +100,6 @@ final class ValidationFixtures {
                 List.of(new AffectedFile("pm-core/src/main/java/%d.java".formatted(number), FileIntent.WRITE_NEW,
                         null)),
                 DELIVERABLE_CHANGE + " " + number,
-                List.of(new Verification("mvn verify", "the build is green")), List.of(satisfies),
-                List.of());
+                List.of(new Verification("mvn verify", "the build is green")), List.of(satisfies));
     }
 }

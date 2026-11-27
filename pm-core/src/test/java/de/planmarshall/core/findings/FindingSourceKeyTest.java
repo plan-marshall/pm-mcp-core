@@ -145,23 +145,31 @@ class FindingSourceKeyTest {
     class SourceKinds {
 
         @Test
-        @DisplayName("the source vocabulary is the thirteen wire names of the store, each found by its name")
+        @DisplayName("the source vocabulary is the ten wire names of the store, each found by its name")
         void wireNames() {
             var expected = new String[]{"analysis", "github_pr", "gitlab_mr", "ci", "self_review", "arch_gate",
-                    "compiler", "qgate", "security_audit", "code_review", "dependency_delta", "fix_proof",
-                    "added_lines"};
+                    "compiler", "qgate", "security_audit", "code_review"};
 
             var actual = Arrays.stream(FindingSourceKind.values()).map(FindingSourceKind::wireName)
                     .toArray(String[]::new);
 
             assertAll(
                     () -> assertEquals(Arrays.asList(expected), Arrays.asList(actual),
-                            "wire names are the thirteen source kinds"),
+                            "wire names are the ten source kinds"),
                     () -> assertTrue(Arrays.stream(FindingSourceKind.values()).allMatch(
                                     kind -> FindingSourceKind.fromWireName(kind.wireName()).equals(Optional.of(kind))),
                             "every source kind round-trips its wire name"),
                     () -> assertEquals(Optional.empty(), FindingSourceKind.fromWireName("unknown"),
                             "unknown wire name answers empty"));
+        }
+
+        // The wire names are contract literals: the three sources the specification removed.
+        @ParameterizedTest(name = "\"{0}\"")
+        @ValueSource(strings = {"dependency_delta", "fix_proof", "added_lines"})
+        @DisplayName("the removed pre-merge wire names answer empty")
+        void removedWireNames(String wireName) {
+            assertEquals(Optional.empty(), FindingSourceKind.fromWireName(wireName),
+                    "removed source wire name answers empty");
         }
     }
 }

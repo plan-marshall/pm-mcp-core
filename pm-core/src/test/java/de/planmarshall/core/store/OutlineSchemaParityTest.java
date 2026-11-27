@@ -26,7 +26,6 @@ import de.planmarshall.core.store.OutlineRecord.ChangeType;
 import de.planmarshall.core.store.OutlineRecord.ExecutionMode;
 import de.planmarshall.core.store.OutlineRecord.FileIntent;
 import de.planmarshall.core.store.OutlineRecord.Profile;
-import de.planmarshall.core.store.OutlineRecord.ScopeEstimate;
 import de.planmarshall.core.store.OutlineStore.DeliveryStatus;
 import de.planmarshall.core.store.OutlineStore.Revision;
 
@@ -115,8 +114,7 @@ class OutlineSchemaParityTest {
         assertAll(
                 () -> assertEquals(20, minimum, "the file's summary minimum stays 20"),
                 () -> assertThrows(IllegalArgumentException.class,
-                        () -> new OutlineRecord(tooShort, fixture.overview(), fixture.scopeEstimate(),
-                                fixture.deliverables()),
+                        () -> new OutlineRecord(tooShort, fixture.overview(), fixture.deliverables()),
                         "the record should refuse a summary below its minimum"));
     }
 
@@ -130,9 +128,6 @@ class OutlineSchemaParityTest {
                 .get("additionalProperties"));
 
         assertAll(
-                () -> assertEquals(SchemaParity.enumOf(schema, "scope_estimate"),
-                        SchemaParity.wireNames(ScopeEstimate.values(), ScopeEstimate::wireName),
-                        "the scope estimates should equal the schema enum"),
                 () -> assertEquals(SchemaParity.enumOf(deliverable, "change_type"),
                         SchemaParity.wireNames(ChangeType.values(), ChangeType::wireName),
                         "the change types should equal the schema enum"),

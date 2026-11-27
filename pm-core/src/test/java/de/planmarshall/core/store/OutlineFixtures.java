@@ -14,14 +14,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 
-import de.planmarshall.core.store.OutlineRecord.AddedDependency;
 import de.planmarshall.core.store.OutlineRecord.AffectedFile;
 import de.planmarshall.core.store.OutlineRecord.ChangeType;
 import de.planmarshall.core.store.OutlineRecord.Deliverable;
 import de.planmarshall.core.store.OutlineRecord.ExecutionMode;
 import de.planmarshall.core.store.OutlineRecord.FileIntent;
 import de.planmarshall.core.store.OutlineRecord.Profile;
-import de.planmarshall.core.store.OutlineRecord.ScopeEstimate;
 import de.planmarshall.core.store.OutlineRecord.Verification;
 import de.planmarshall.core.store.OutlineStore.Revision;
 
@@ -40,7 +38,7 @@ final class OutlineFixtures {
 
     static OutlineRecord valid() {
         // Titles and satisfies identifiers are asserted in the rendered outline by OutlineRecordTest.
-        return new OutlineRecord(text(20, 80), text(1, 40), ScopeEstimate.SINGLE_MODULE,
+        return new OutlineRecord(text(20, 80), text(1, 40),
                 List.of(deliverable(1, "Write the intent record", List.of(), "AC-1", text(3, 20)),
                         deliverable(2, "Render the clarified request", List.of(1), "AC-2", text(3, 20))));
     }
@@ -56,9 +54,7 @@ final class OutlineFixtures {
                 text(10, 80),
                 // The command carries a regular expression with backslashes: the round trip must escape them.
                 List.of(new Verification(text(1, 40) + " '\\d+\\.'", text(5, 60))),
-                List.of(satisfies),
-                // Coordinate grammar: the record admits only a maven:, npm: or pypi: prefixed coordinate.
-                List.of(new AddedDependency("maven:" + identifier(), note + ' ' + text(10, 60), text(10, 60))));
+                List.of(satisfies));
     }
 
     static Revision revision(int number, OutlineRecord outlineRecord) {

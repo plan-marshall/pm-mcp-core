@@ -27,7 +27,8 @@ import de.planmarshall.core.SchemaResource;
 /**
  * The members and enumeration values the merged specification dropped are absent from their schema files, and the
  * object that held each of them is still closed, so a stored document carrying the dropped member fails the schema
- * instead of being tolerated (PLAN-V2-188). Each negative control on a member or an enumeration value is matched with a
+ * instead of being tolerated (PLAN-V2-188; the scope estimate of the status metadata and of the outline record and
+ * the added dependencies of an outline deliverable and the three pre-merge finding sources, PLAN-V2-189). Each negative control on a member or an enumeration value is matched with a
  * positive one beside it: a sibling member or value of the same enumeration stays, so the assertion cannot pass because
  * the reader lost the file. The deleted schema file has no such sibling; it is checked against the resource tree with a
  * surviving sibling resource as witness.
@@ -82,6 +83,24 @@ class RemovedSchemaMembersTest {
         }
 
         @Test
+        @DisplayName("the three scope estimate members are gone and metadata stays closed")
+        void scopeEstimateMembersAreGone() {
+            var metadata = object(properties(status()).get("metadata"));
+
+            assertAll("The scope estimate members are gone",
+                    () -> assertFalse(properties(metadata).containsKey("scope_estimate"),
+                            "the scope estimate should be absent"),
+                    () -> assertFalse(properties(metadata).containsKey("scope_estimate_pre_route"),
+                            "the pre-route scope estimate should be absent"),
+                    () -> assertFalse(properties(metadata).containsKey("scope_estimate_provenance"),
+                            "the scope estimate provenance should be absent"),
+                    () -> assertEquals(Boolean.FALSE, metadata.get("additionalProperties"),
+                            "the metadata object should stay closed"),
+                    () -> assertTrue(properties(metadata).containsKey("change_type"),
+                            "the change type should stay declared"));
+        }
+
+        @Test
         @DisplayName("the change type names the server's derivation at outline acceptance")
         void changeTypeNamesItsSingleWriter() {
             var changeType = object(properties(object(properties(status()).get("metadata"))).get("change_type"));
@@ -94,6 +113,88 @@ class RemovedSchemaMembersTest {
                             "the description should name the derivation section"),
                     () -> assertFalse(description.contains("classify task"),
                             "the removed classify submit should be gone"));
+        }
+    }
+
+    @Nested
+    @DisplayName("Outline record schema")
+    class OutlineRecordSchema {
+
+        @Test
+        @DisplayName("the scope estimate is gone and the summary stays required")
+        void scopeEstimateIsGone() {
+            var outline = schema(STORE + "outline-record-v1.schema.json");
+            var required = strings(outline, "required");
+
+            assertAll("The scope estimate is gone",
+                    () -> assertFalse(properties(outline).containsKey("scope_estimate"),
+                            "the scope estimate should be absent"),
+                    () -> assertFalse(required.contains("scope_estimate"),
+                            "the scope estimate should not be required"),
+                    () -> assertEquals(Boolean.FALSE, outline.get("additionalProperties"),
+                            "the outline record should stay closed"),
+                    () -> assertTrue(required.contains("summary"),
+                            "the summary should stay required"));
+        }
+
+        @Test
+        @DisplayName("the added dependencies are gone and the satisfies entries stay required")
+        void addedDependenciesAreGone() {
+            var outline = schema(STORE + "outline-record-v1.schema.json");
+            var item = object(properties(outline).get("deliverables"));
+            var deliverable = object(item.get("items"));
+            var required = strings(deliverable, "required");
+
+            assertAll("The added dependencies are gone",
+                    () -> assertFalse(properties(deliverable).containsKey("added_dependencies"),
+                            "the added dependencies should be absent"),
+                    () -> assertFalse(required.contains("added_dependencies"),
+                            "the added dependencies should not be required"),
+                    () -> assertEquals(Boolean.FALSE, deliverable.get("additionalProperties"),
+                            "the deliverable item should stay closed"),
+                    () -> assertTrue(required.contains("satisfies"),
+                            "the satisfies entries should stay required"));
+        }
+    }
+
+    @Nested
+    @DisplayName("Finding record schema")
+    class FindingRecordSchema {
+
+        @Test
+        @DisplayName("the three pre-merge sources are gone and code_review and ci stay")
+        void preMergeSourcesAreGone() {
+            var source = object(properties(schema(FINDINGS + "finding-record.schema.json")).get("source"));
+            var sources = strings(source, "enum");
+
+            assertAll("The pre-merge sources are gone",
+                    () -> assertFalse(sources.contains("dependency_delta"),
+                            "the dependency delta source should be absent"),
+                    () -> assertFalse(sources.contains("fix_proof"),
+                            "the fix proof source should be absent"),
+                    () -> assertFalse(sources.contains("added_lines"),
+                            "the added lines source should be absent"),
+                    () -> assertTrue(sources.contains("code_review"),
+                            "the code review source should stay declared"),
+                    () -> assertTrue(sources.contains("ci"),
+                            "the ci source should stay declared"));
+        }
+
+        @Test
+        @DisplayName("the source description names none of the three and still describes ci")
+        void sourceDescriptionDropsThePreMergeSources() {
+            var source = object(properties(schema(FINDINGS + "finding-record.schema.json")).get("source"));
+            var description = String.valueOf(source.get("description"));
+
+            assertAll("The source description drops the three",
+                    () -> assertFalse(description.contains("dependency_delta"),
+                            "the description should not name dependency_delta"),
+                    () -> assertFalse(description.contains("fix_proof"),
+                            "the description should not name fix_proof"),
+                    () -> assertFalse(description.contains("added_lines"),
+                            "the description should not name added_lines"),
+                    () -> assertTrue(description.contains("ci is a failed CI check"),
+                            "the description should still describe ci"));
         }
     }
 

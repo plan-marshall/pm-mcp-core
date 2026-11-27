@@ -41,14 +41,12 @@ import java.util.regex.Pattern;
 import lombok.experimental.UtilityClass;
 import org.jspecify.annotations.Nullable;
 
-import de.planmarshall.core.store.OutlineRecord.AddedDependency;
 import de.planmarshall.core.store.OutlineRecord.AffectedFile;
 import de.planmarshall.core.store.OutlineRecord.ChangeType;
 import de.planmarshall.core.store.OutlineRecord.Deliverable;
 import de.planmarshall.core.store.OutlineRecord.ExecutionMode;
 import de.planmarshall.core.store.OutlineRecord.FileIntent;
 import de.planmarshall.core.store.OutlineRecord.Profile;
-import de.planmarshall.core.store.OutlineRecord.ScopeEstimate;
 import de.planmarshall.core.store.OutlineRecord.Verification;
 import de.planmarshall.core.store.OutlineStore.DeliveryStatus;
 import de.planmarshall.core.store.OutlineStore.Revision;
@@ -62,7 +60,9 @@ import de.planmarshall.core.store.OutlineStore.Revision;
  * <p>
  * A member that PLAN-V2-129 deleted is undeclared like any other: an outline written before that plan (2026-11-12)
  * carries {@code "interfaces"} and {@code "key_links"} on every deliverable and is refused whole, the refusal naming
- * the member. No tolerant reader and no migration exist (pre-1.0; ADR {@code core-store/049}).
+ * the member. The same holds for the members PLAN-V2-189 deleted: an outline written before that plan carries
+ * {@code "scope_estimate"} on its record and {@code "added_dependencies"} on every deliverable and is refused whole,
+ * the refusal naming the member. No tolerant reader and no migration exist (pre-1.0; ADR {@code core-store/049}).
  *
  * @since 0.1
  */
@@ -78,7 +78,6 @@ public class OutlineCodec {
     private static final String FIELD_RECORD = "record";
     private static final String FIELD_SUMMARY = "summary";
     private static final String FIELD_OVERVIEW = "overview";
-    private static final String FIELD_SCOPE_ESTIMATE = "scope_estimate";
     private static final String FIELD_DELIVERABLES = "deliverables";
     private static final String FIELD_NUMBER = "number";
     private static final String FIELD_TITLE = "title";
@@ -94,15 +93,11 @@ public class OutlineCodec {
     private static final String FIELD_CHANGE_PER_FILE = "change_per_file";
     private static final String FIELD_VERIFICATION = "verification";
     private static final String FIELD_SATISFIES = "satisfies";
-    private static final String FIELD_ADDED_DEPENDENCIES = "added_dependencies";
     private static final String FIELD_PATH = "path";
     private static final String FIELD_INTENT = "intent";
     private static final String FIELD_GATE = "gate";
     private static final String FIELD_COMMAND = "command";
     private static final String FIELD_CRITERION = "criterion";
-    private static final String FIELD_COORDINATE = "coordinate";
-    private static final String FIELD_WHY = "why";
-    private static final String FIELD_REJECTED_ALTERNATIVE = "rejected_alternative";
     /** The reason of a wire name that names no value of its enumeration; formatted with the field name. */
     private static final String UNKNOWN_VALUE = "'%s' names no known value";
 
@@ -168,7 +163,6 @@ public class OutlineCodec {
         } else {
             generator.writeStringField(FIELD_OVERVIEW, outlineRecord.overview());
         }
-        generator.writeStringField(FIELD_SCOPE_ESTIMATE, outlineRecord.scopeEstimate().wireName());
         generator.writeArrayFieldStart(FIELD_DELIVERABLES);
         for (var deliverable : outlineRecord.deliverables()) {
             writeDeliverable(generator, deliverable);
@@ -226,15 +220,6 @@ public class OutlineCodec {
         generator.writeArrayFieldStart(FIELD_SATISFIES);
         for (var entry : deliverable.satisfies()) {
             generator.writeString(entry);
-        }
-        generator.writeEndArray();
-        generator.writeArrayFieldStart(FIELD_ADDED_DEPENDENCIES);
-        for (var dependency : deliverable.addedDependencies()) {
-            generator.writeStartObject();
-            generator.writeStringField(FIELD_COORDINATE, dependency.coordinate());
-            generator.writeStringField(FIELD_WHY, dependency.why());
-            generator.writeStringField(FIELD_REJECTED_ALTERNATIVE, dependency.rejectedAlternative());
-            generator.writeEndObject();
         }
         generator.writeEndArray();
         generator.writeEndObject();
@@ -299,7 +284,6 @@ public class OutlineCodec {
         requireObject(parser, name);
         @Nullable String summary = null;
         @Nullable String overview = null;
-        @Nullable ScopeEstimate scope = null;
         @Nullable List<Deliverable> deliverables = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -307,15 +291,13 @@ public class OutlineCodec {
             switch (field) {
                 case FIELD_SUMMARY -> summary = string(parser, field);
                 case FIELD_OVERVIEW -> overview = nullableString(parser, field).orElse(null);
-                case FIELD_SCOPE_ESTIMATE -> scope = ScopeEstimate.fromWireName(string(parser, field))
-                        .orElseThrow(() -> unreadable(UNKNOWN_VALUE.formatted(field)));
                 case FIELD_DELIVERABLES -> deliverables = array(parser, field, OutlineCodec::readDeliverable);
                 default -> throw undeclared(field);
             }
         }
-        requireFields(seen, name, FIELD_SUMMARY, FIELD_OVERVIEW, FIELD_SCOPE_ESTIMATE, FIELD_DELIVERABLES);
+        requireFields(seen, name, FIELD_SUMMARY, FIELD_OVERVIEW, FIELD_DELIVERABLES);
         try {
-            return new OutlineRecord(summary, overview, scope, deliverables);
+            return new OutlineRecord(summary, overview, deliverables);
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
         }
@@ -337,7 +319,6 @@ public class OutlineCodec {
         @Nullable String changePerFile = null;
         @Nullable List<Verification> verification = null;
         @Nullable List<String> satisfies = null;
-        @Nullable List<AddedDependency> addedDependencies = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
             var field = nextField(parser, seen);
@@ -358,19 +339,15 @@ public class OutlineCodec {
                 case FIELD_CHANGE_PER_FILE -> changePerFile = string(parser, field);
                 case FIELD_VERIFICATION -> verification = array(parser, field, OutlineCodec::readVerification);
                 case FIELD_SATISFIES -> satisfies = stringList(parser, field);
-                case FIELD_ADDED_DEPENDENCIES ->
-                    addedDependencies = array(parser, field, OutlineCodec::readAddedDependency);
                 default -> throw undeclared(field);
             }
         }
         requireFields(seen, name, FIELD_NUMBER, FIELD_TITLE, FIELD_INTENT_GLOSS, FIELD_CHANGE_TYPE,
                 FIELD_EXECUTION_MODE, FIELD_DOMAIN, FIELD_MODULE, FIELD_DEPENDS, FIELD_DESIGN_NOTES, FIELD_PROFILES,
-                FIELD_AFFECTED_FILES, FIELD_CHANGE_PER_FILE, FIELD_VERIFICATION, FIELD_SATISFIES,
-                FIELD_ADDED_DEPENDENCIES);
+                FIELD_AFFECTED_FILES, FIELD_CHANGE_PER_FILE, FIELD_VERIFICATION, FIELD_SATISFIES);
         try {
             return new Deliverable(Math.toIntExact(number), title, intentGloss, changeType, executionMode, domain,
-                    module, depends, designNotes, profiles, affectedFiles, changePerFile, verification, satisfies,
-                    addedDependencies);
+                    module, depends, designNotes, profiles, affectedFiles, changePerFile, verification, satisfies);
         } catch (IllegalArgumentException | ArithmeticException e) {
             throw unreadable(e.getMessage(), e);
         }
@@ -429,29 +406,6 @@ public class OutlineCodec {
         requireFields(seen, name, FIELD_COMMAND, FIELD_CRITERION);
         try {
             return new Verification(command, criterion);
-        } catch (IllegalArgumentException e) {
-            throw unreadable(e.getMessage(), e);
-        }
-    }
-
-    private static AddedDependency readAddedDependency(JsonParser parser, String name) throws IOException {
-        requireObject(parser, name);
-        @Nullable String coordinate = null;
-        @Nullable String why = null;
-        @Nullable String rejected = null;
-        var seen = new HashSet<String>();
-        while (parser.nextToken() == JsonToken.FIELD_NAME) {
-            var field = nextField(parser, seen);
-            switch (field) {
-                case FIELD_COORDINATE -> coordinate = string(parser, field);
-                case FIELD_WHY -> why = string(parser, field);
-                case FIELD_REJECTED_ALTERNATIVE -> rejected = string(parser, field);
-                default -> throw undeclared(field);
-            }
-        }
-        requireFields(seen, name, FIELD_COORDINATE, FIELD_WHY, FIELD_REJECTED_ALTERNATIVE);
-        try {
-            return new AddedDependency(coordinate, why, rejected);
         } catch (IllegalArgumentException e) {
             throw unreadable(e.getMessage(), e);
         }
