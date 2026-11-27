@@ -300,13 +300,13 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:finalize-prune-and-land-files.adoc[`finalize-prune-and-land-files`]
 |The `no_production_delta` prune of the mutation step on the event `realized` (the event and `no_code_delta` are `lane-entries-and-realized-composition`'s), the hand-over `default:land-files` in the default roster, and rule 1 of the pipeline validator per composed instance; outside the window: starts when its milestone is planned
 |`open`
-|PLAN-V2-190 `lane-entries-and-realized-composition` (the composition event `realized`; a correction plan, not a package row)
+|nothing
 |Milestone 10
 
 |link:commit-boundary.adoc[`commit-boundary`]
-|The commit boundary: the protected-path decision at the commit check (built here), the main-checkout clause made conditional on confinement and the `declared_files` lift removal as decisions (their code is the plans of the cut)
+|The commit boundary: the protected-path decision at the commit check
 |`open`
-|`job-confinement-and-environment` (the confinement level in the job record)
+|nothing
 |Milestone 10
 
 |link:epic-surface-and-ended-acts.adoc[`epic-surface-and-ended-acts`]

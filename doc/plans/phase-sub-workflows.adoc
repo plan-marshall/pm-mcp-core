@@ -23,7 +23,7 @@ The specification sections named are the single statement of what each task buil
 . *The simplify step* (Milestone 10): states, roster wiring and model tasks of `finalize.simplify` and `finalize.simplify-apply`: link:../specification/phase-workflows/04-finalize-step-bands.adoc#finalize-step-bands[Phase Workflows § Finalize Step Ordering Bands].
 . *The self-review results per constraint, non-goal and decision* in the phase (Milestone 10): § Finalize Step Ordering Bands, `pre-submission-self-review`.
 
-Left out: the instance versions (done, PLAN-V2-13); the finalize pipeline (link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]); the drill-down in the clients; the removal of the worker-declared consultation references from the code, which is work of no package.
+Left out: the instance versions, which the code already has;the finalize pipeline (link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]); the drill-down in the clients; the removal of the worker-declared consultation references from the code, which is work of no package.
 
 == Trace
 
