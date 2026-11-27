@@ -293,6 +293,22 @@ class SupervisionPassTest {
                 settledRecord(gen, fate, SupervisorTestFixture.NOW.plusSeconds(30)), null));
     }
 
+    /**
+     * Settles the job of a generation whose worker exited before its first call, the way the runner does: the running
+     * record carries a worker block without a connection, and the runner's fate step derives the terminal block — a
+     * start failure — from it.
+     * <p>
+     * A scenario settles the generation that already holds the harness's start turn. A second start on the same
+     * harness would wait the whole {@link HarnessStartSpacing#SPACING_BOUND} for a worker that neither called nor ended,
+     * so the helper settles the turn's own generation and starts nothing.
+     */
+    private SettlementStep.Outcome settleAsExitBeforeTheFirstCall(WorkerGeneration gen) {
+        try (var transaction = locks.openTransaction()) {
+            jobs.writeAhead(transaction, running(gen, workerState(gen).toBuilder().connectedAt(null).build()));
+        }
+        return settleThroughTheFateStep(gen, JobRecord.Fate.FAILED);
+    }
+
     /** Settles the job with a worker block the codec rejects: the settlement leaves such a block as it is. */
     private void settleWithUnreadableWorkerBlock(WorkerGeneration gen) {
         try (var transaction = locks.openTransaction()) {
@@ -1101,6 +1117,34 @@ class SupervisionPassTest {
                         "the pass ends the worker the record names"),
                 () -> assertEquals("closed", entries.getLast().end(), "the served task closes its attempt"),
                 () -> assertTrue(fixture.writes.isEmpty(), "the pass writes no worker state of the record"));
+    }
+
+    @Test
+    @DisplayName("an exit before the first call is settled as a start failure, and no wait runs for the start spacing")
+    void anExitBeforeTheFirstCallIsSettledWithoutASpacingWait() throws Exception {
+        // A tenth of the compiled bound: a run that waited for the spacing could not finish inside it.
+        var margin = HarnessStartSpacing.SPACING_BOUND.dividedBy(10);
+        var outcome = assertTimeoutPreemptively(margin, () -> settleAsExitBeforeTheFirstCall(generation),
+                "the settlement runs far below the spacing bound");
+        var settled = jobs.read(generation.jobId()).orElseThrow();
+        var terminal = recorded(generation);
+        assertTimeoutPreemptively(margin, () -> pass(journal("exit-before-first-call")).run(),
+                "the pass ends the generation far below the bound");
+        var owner = Generators.letterStrings(8, 24).next();
+
+        assertTimeoutPreemptively(margin, () -> fixture.spacing.awaitTurn(generation.harness(), owner),
+                "the harness's turn is free once the end ran");
+        assertAll(
+                () -> assertInstanceOf(SettlementStep.Outcome.Done.class, outcome,
+                        "the runner's fate step records the fate"),
+                () -> assertEquals(JobRecord.Status.ENDED, settled.status(), "the job record is settled as ended"),
+                () -> assertTrue(terminal.state().isTerminal(), "the worker block of the record is terminal"),
+                () -> assertTrue(terminal.startFailure(), "the worker block carries the start-failure flag"),
+                () -> assertEquals(WorkerState.EndReason.START_FAILURE, terminal.endReason(),
+                        "the worker block's end reason is the start failure"),
+                () -> assertEquals(WorkerLifecycle.START_FAILED,
+                        supervisor.generation(generation.generationId()).orElseThrow().lifecycle(),
+                        "the pass ends the generation as a start failure"));
     }
 
     @Test
