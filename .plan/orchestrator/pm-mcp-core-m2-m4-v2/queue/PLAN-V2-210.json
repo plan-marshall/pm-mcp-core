@@ -2,10 +2,10 @@
   "id": "PLAN-V2-210",
   "slug": "package-texts-follow-the-third-doc-review-round",
   "workstream": "WS-10",
-  "status": "running",
+  "status": "shipped",
   "lane": "plan-marshall",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "plan-v2-210-package-texts-third-doc-review",
+  "pr": "#636",
+  "landing": "landings/PLAN-V2-210.md",
   "seq": 198
 }
