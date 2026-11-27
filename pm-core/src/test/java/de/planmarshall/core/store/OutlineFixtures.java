@@ -14,7 +14,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 
-import de.planmarshall.core.store.OutlineRecord.AddedDependency;
 import de.planmarshall.core.store.OutlineRecord.AffectedFile;
 import de.planmarshall.core.store.OutlineRecord.ChangeType;
 import de.planmarshall.core.store.OutlineRecord.Deliverable;
@@ -55,9 +54,7 @@ final class OutlineFixtures {
                 text(10, 80),
                 // The command carries a regular expression with backslashes: the round trip must escape them.
                 List.of(new Verification(text(1, 40) + " '\\d+\\.'", text(5, 60))),
-                List.of(satisfies),
-                // Coordinate grammar: the record admits only a maven:, npm: or pypi: prefixed coordinate.
-                List.of(new AddedDependency("maven:" + identifier(), note + ' ' + text(10, 60), text(10, 60))));
+                List.of(satisfies));
     }
 
     static Revision revision(int number, OutlineRecord outlineRecord) {

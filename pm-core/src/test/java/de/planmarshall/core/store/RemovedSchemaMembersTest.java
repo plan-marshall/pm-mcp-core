@@ -27,8 +27,8 @@ import de.planmarshall.core.SchemaResource;
 /**
  * The members and enumeration values the merged specification dropped are absent from their schema files, and the
  * object that held each of them is still closed, so a stored document carrying the dropped member fails the schema
- * instead of being tolerated (PLAN-V2-188; the scope estimate of the status metadata and of the outline record,
- * PLAN-V2-189). Each negative control on a member or an enumeration value is matched with a
+ * instead of being tolerated (PLAN-V2-188; the scope estimate of the status metadata and of the outline record and
+ * the added dependencies of an outline deliverable, PLAN-V2-189). Each negative control on a member or an enumeration value is matched with a
  * positive one beside it: a sibling member or value of the same enumeration stays, so the assertion cannot pass because
  * the reader lost the file. The deleted schema file has no such sibling; it is checked against the resource tree with a
  * surviving sibling resource as witness.
@@ -135,6 +135,25 @@ class RemovedSchemaMembersTest {
                             "the outline record should stay closed"),
                     () -> assertTrue(required.contains("summary"),
                             "the summary should stay required"));
+        }
+
+        @Test
+        @DisplayName("the added dependencies are gone and the satisfies entries stay required")
+        void addedDependenciesAreGone() {
+            var outline = schema(STORE + "outline-record-v1.schema.json");
+            var item = object(properties(outline).get("deliverables"));
+            var deliverable = object(item.get("items"));
+            var required = strings(deliverable, "required");
+
+            assertAll("The added dependencies are gone",
+                    () -> assertFalse(properties(deliverable).containsKey("added_dependencies"),
+                            "the added dependencies should be absent"),
+                    () -> assertFalse(required.contains("added_dependencies"),
+                            "the added dependencies should not be required"),
+                    () -> assertEquals(Boolean.FALSE, deliverable.get("additionalProperties"),
+                            "the deliverable item should stay closed"),
+                    () -> assertTrue(required.contains("satisfies"),
+                            "the satisfies entries should stay required"));
         }
     }
 

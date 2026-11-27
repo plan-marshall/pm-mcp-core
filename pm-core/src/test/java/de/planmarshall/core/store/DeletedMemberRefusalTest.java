@@ -40,7 +40,8 @@ import de.planmarshall.core.store.MetricsRow.SpendClass;
  * A record written before PLAN-V2-129 or PLAN-V2-189 carries a member that plan deleted, and the strict readers refuse
  * it whole, naming the member (ADR {@code core-store/049}): of PLAN-V2-129 {@code capability} of an intent criterion,
  * {@code interfaces} and {@code key_links} of an outline deliverable, {@code attempt_end} of a metrics task row; of
- * PLAN-V2-189 {@code scope_estimate} of an outline record. No tolerant reader exists.
+ * PLAN-V2-189 {@code scope_estimate} of an outline record and {@code added_dependencies} of an outline deliverable. No
+ * tolerant reader exists.
  * <p>
  * The member names, the anchors they are inserted at and the refusal text are the contract of the stored formats; the
  * documents around them are written by the codecs from the fixtures.
@@ -86,7 +87,8 @@ class DeletedMemberRefusalTest {
                 Arguments.of("interfaces", outline(), "\"deliverables\":[{", readOutline, OUTLINE),
                 Arguments.of("key_links", outline(), "\"deliverables\":[{", readOutline, OUTLINE),
                 Arguments.of("attempt_end", metrics(), "\"rows\":[{", readMetrics, METRICS),
-                Arguments.of("scope_estimate", outline(), "\"record\":{", readOutline, OUTLINE));
+                Arguments.of("scope_estimate", outline(), "\"record\":{", readOutline, OUTLINE),
+                Arguments.of("added_dependencies", outline(), "\"deliverables\":[{", readOutline, OUTLINE));
     }
 
     @ParameterizedTest(name = "a record that still carries {0} is refused whole")

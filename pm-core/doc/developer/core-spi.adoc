@@ -321,24 +321,17 @@ block it opens no further block.
 |link:{src}/validation/OutlineValidator.java[`OutlineValidator`]
 |In a list below `+**Affected files:**+`: a line that is not a bullet starting with a back-quoted path, and a path
 without one of the intents `(read)`, `(write-new)`, `(write-replace)`, `(write-conditional)`, `(delete)` at the end of
-its line. In a list below `+**Added dependencies:**+`: a line that is not a bullet with exactly one back-quoted
-coordinate, an ecosystem other than `maven`, `npm` and `pypi`, a coordinate that is not of the form of its ecosystem,
-and a coordinate named a second time anywhere in the outline.
+its line.
 |===
 
-Three properties of the validators are deliberate:
+Two properties of the validators are deliberate:
 
 * *A trailer in the submitted message is refused even when it equals the one the server would write.* The server appends
   the trailer it resolved itself; accepting one from the text would let the text of a model decide whom a commit
   credits.
-* *A line of a list that does not parse is a violation, never skipped.* `OutlineValidator` reads each of the two lists
-  from its marker line to the next line that starts with `+**+` or `+#+`. A bullet with a typing error therefore
+* *A line of the list that does not parse is a violation, never skipped.* `OutlineValidator` reads the affected files
+  list from its marker line to the next line that starts with `+**+` or `+#+`. A bullet with a typing error therefore
   surfaces with its line number instead of silently dropping an entry.
-* *A coordinate has the name form of its ecosystem.* A Maven coordinate is `maven:<groupId>:<artifactId>`, both parts
-  of letters, digits, `_`, `.` and `-`. An npm coordinate is `npm:<name>` in lower case (letters, digits, `.`, `_`, `~`
-  and `-`, not starting with `.` or `_`), optionally with a scope (`npm:@scope/name`). A Python coordinate is
-  `pypi:<name>` of letters, digits, `.`, `_` and `-`, starting and ending with a letter or digit; two Python names are
-  the same when they differ only in case or in their runs of `-`, `_` and `.`.
 
 `OutlineValidator` decides only what the text decides on its own. It does not check that the files exist, that the tasks
 of the outline can be derived, or that a deliverable declares what its files require.

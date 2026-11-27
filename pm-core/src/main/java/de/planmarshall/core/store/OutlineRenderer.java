@@ -85,13 +85,6 @@ public final class OutlineRenderer {
         out.append("**Satisfies:** ")
                 .append(deliverable.satisfies().isEmpty() ? "none" : String.join(", ", deliverable.satisfies()))
                 .append("\n\n");
-        if (!deliverable.addedDependencies().isEmpty()) {
-            out.append("**Added dependencies:**\n");
-            deliverable.addedDependencies().forEach(dependency -> out.append("- `")
-                    .append(dependency.coordinate()).append("` — ").append(dependency.why())
-                    .append(" (rejected: ").append(dependency.rejectedAlternative()).append(")\n"));
-            out.append('\n');
-        }
         if (deliverable.designNotes() != null) {
             out.append("**Design notes:** ").append(deliverable.designNotes()).append("\n\n");
         }

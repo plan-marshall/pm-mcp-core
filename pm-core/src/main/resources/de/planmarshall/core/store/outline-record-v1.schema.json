@@ -43,8 +43,7 @@
           "affected_files",
           "change_per_file",
           "verification",
-          "satisfies",
-          "added_dependencies"
+          "satisfies"
         ],
         "additionalProperties": false,
         "properties": {
@@ -199,37 +198,6 @@
             "items": {
               "type": "string",
               "pattern": "^(AC|DC)-[0-9]{1,4}$"
-            }
-          },
-          "added_dependencies": {
-            "type": "array",
-            "maxItems": 20,
-            "items": {
-              "type": "object",
-              "required": [
-                "coordinate",
-                "why",
-                "rejected_alternative"
-              ],
-              "additionalProperties": false,
-              "properties": {
-                "coordinate": {
-                  "type": "string",
-                  "pattern": "^(maven|npm|pypi):.+$",
-                  "maxLength": 256
-                },
-                "why": {
-                  "type": "string",
-                  "minLength": 10,
-                  "maxLength": 500
-                },
-                "rejected_alternative": {
-                  "type": "string",
-                  "minLength": 10,
-                  "maxLength": 500,
-                  "description": "The simpler alternative considered and why it was rejected."
-                }
-              }
             }
           }
         }

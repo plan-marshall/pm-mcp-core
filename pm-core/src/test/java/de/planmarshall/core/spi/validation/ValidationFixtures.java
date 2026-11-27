@@ -100,7 +100,6 @@ final class ValidationFixtures {
                 List.of(new AffectedFile("pm-core/src/main/java/%d.java".formatted(number), FileIntent.WRITE_NEW,
                         null)),
                 DELIVERABLE_CHANGE + " " + number,
-                List.of(new Verification("mvn verify", "the build is green")), List.of(satisfies),
-                List.of());
+                List.of(new Verification("mvn verify", "the build is green")), List.of(satisfies));
     }
 }

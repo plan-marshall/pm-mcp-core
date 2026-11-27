@@ -41,23 +41,20 @@ class OutlineRecordBuilderContractTest {
                 .executionMode(canonical.executionMode()).domain(canonical.domain()).module(canonical.module())
                 .depends(canonical.depends()).designNotes(canonical.designNotes()).profiles(canonical.profiles())
                 .affectedFiles(canonical.affectedFiles()).changePerFile(canonical.changePerFile())
-                .verification(canonical.verification()).satisfies(canonical.satisfies())
-                .addedDependencies(canonical.addedDependencies()).build();
+                .verification(canonical.verification()).satisfies(canonical.satisfies()).build();
 
         var fromConstructor = assertThrows(NullPointerException.class,
                 () -> new Deliverable(canonical.number(), canonical.title(), canonical.intentGloss(), null,
                         canonical.executionMode(), canonical.domain(), canonical.module(), canonical.depends(),
                         canonical.designNotes(), canonical.profiles(), canonical.affectedFiles(),
-                        canonical.changePerFile(), canonical.verification(), canonical.satisfies(),
-                        canonical.addedDependencies()),
+                        canonical.changePerFile(), canonical.verification(), canonical.satisfies()),
                 "the constructor refuses an absent change type");
         var incomplete = Deliverable.builder().number(canonical.number()).title(canonical.title())
                 .intentGloss(canonical.intentGloss()).executionMode(canonical.executionMode())
                 .domain(canonical.domain()).module(canonical.module()).depends(canonical.depends())
                 .designNotes(canonical.designNotes()).profiles(canonical.profiles())
                 .affectedFiles(canonical.affectedFiles()).changePerFile(canonical.changePerFile())
-                .verification(canonical.verification()).satisfies(canonical.satisfies())
-                .addedDependencies(canonical.addedDependencies());
+                .verification(canonical.verification()).satisfies(canonical.satisfies());
         var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent change type");
 
