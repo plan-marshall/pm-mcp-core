@@ -331,7 +331,8 @@ public final class SupervisionPass {
 
     /**
      * Appends the attempt's end to the journal of the task the generation held, through the pump that read its log; a
-     * generation whose log was never pumped appends nothing, because the attempt has no journal in this run.
+     * generation whose log was never pumped appends nothing, because the attempt has no journal in this run. The
+     * attempt gets one end however often a failed completion is retried ({@link WorkerActivityPump#finish}).
      */
     private void finishAttempt(WorkerGeneration generation, @Nullable EndCause cause, @Nullable LossSignal loss,
             @Nullable EndReason recorded) {
@@ -344,8 +345,10 @@ public final class SupervisionPass {
                 // The same race as the pump's: a task that closed first has no journal entry to append.
             }
         }
-        // The pump leaves only after its end is appended: a completion that throws before that keeps the pump, and the
-        // retry resumes from its offset instead of re-reading the whole log.
+        // The pump leaves only after its finish completed: a completion that throws keeps the pump, and the retry resumes
+        // from its offset instead of re-reading the whole log. A finish that threw after the journal committed the end
+        // — the report of an off-track signal the end raised — leaves that end with the pump, so the retry appends no
+        // second one.
         active.remove(generation.generationId());
     }
 

@@ -9,11 +9,14 @@
  */
 package de.planmarshall.runtime.worker;
 
+import static org.easymock.EasyMock.anyObject;
 import static org.easymock.EasyMock.createMock;
+import static org.easymock.EasyMock.expectLastCall;
 import static org.easymock.EasyMock.replay;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
@@ -26,6 +29,7 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.time.InstantSource;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -39,6 +43,7 @@ import de.planmarshall.core.queue.ActivityEntry;
 import de.planmarshall.core.queue.ActivityEventMapping;
 import de.planmarshall.core.queue.ActivityJournal;
 import de.planmarshall.core.queue.QueueTaskRecord;
+import de.planmarshall.core.role.RoleArtifact;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.runtime.job.JobLog;
 import de.planmarshall.runtime.lock.FileLockManager;
@@ -98,15 +103,39 @@ class WorkerActivityPumpTest {
 
     private static WorkerActivityPump pump(ActivityJournal journal, Map<String, String> usagePointers,
             ServedModelWatch watch) {
+        return pump(journal, usagePointers, watch, -1, noSignals());
+    }
+
+    /**
+     * @param unplannedChanges the unplanned changed files every task reports; {@code -1} outside an envelope task
+     * @param protocol         where the recorder reports an off-track signal
+     */
+    private static WorkerActivityPump pump(ActivityJournal journal, Map<String, String> usagePointers,
+            ServedModelWatch watch, int unplannedChanges, WorkerProtocol protocol) {
         var mapping = ActivityEventMapping.of(
                 JsonDocument.parse(EVENTS.getBytes(StandardCharsets.UTF_8), "events")).orElseThrow();
         var mapper = new ActivityEventMapper(mapping, usagePointers);
         var role = OffTrackDetectorTest.role(Map.of());
         WorkerTaskActivity tasks = queueTaskId -> Optional.of(
-                new WorkerTaskActivity.TaskActivity(1, role, Set.of(), null, -1));
-        var recorder = new ActivityRecorder(journal, tasks, noSignals(), new OffTrackDetector(),
+                new WorkerTaskActivity.TaskActivity(1, role, Set.of(), null, unplannedChanges));
+        var recorder = new ActivityRecorder(journal, tasks, protocol, new OffTrackDetector(),
                 InstantSource.fixed(AT));
         return new WorkerActivityPump(mapper, recorder, watch);
+    }
+
+    /** @return the protocol double whose first off-track report fails, and which takes every later one */
+    private static WorkerProtocol offTrackFailingOnce(String message) {
+        WorkerProtocol mock = createMock(WorkerProtocol.class);
+        mock.offTrack(anyObject(WorkerProtocol.OffTrackReport.class));
+        expectLastCall().andThrow(new IllegalStateException(message)).once();
+        mock.offTrack(anyObject(WorkerProtocol.OffTrackReport.class));
+        expectLastCall().anyTimes();
+        replay(mock);
+        return mock;
+    }
+
+    private static List<ActivityEntry> attemptEnds(List<ActivityEntry> entries) {
+        return entries.stream().filter(entry -> entry.kind() == ActivityEntry.Kind.ATTEMPT_END).toList();
     }
 
     /** @return an EasyMock protocol with no expectation: the pump raises no signal in these fixtures */
@@ -242,5 +271,38 @@ class WorkerActivityPumpTest {
         assertAll(
                 () -> assertTrue(healed.isPresent(), "the healed tail closes the attempt"),
                 () -> assertEquals(2, journal.entries(task).size(), "the healed attempt carries its line and end"));
+    }
+
+    @Test
+    @DisplayName("a second finish of an attempt whose first finish threw after the append writes no second end")
+    void aRetriedFinishAppendsTheEndOnce(@TempDir Path base) {
+        var journal = ActivityJournal.ofScope(base, project,
+                new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, plan),
+                new FileLockManager(_ -> {
+                }));
+        var failure = Generators.letterStrings(8, 24).next();
+        var end = Generators.enumValues(QueueTaskRecord.AttemptEnd.class).next();
+        // At the threshold of outside_footprint, so the end's own append raises the signal and its report throws once
+        // — after the journal committed the entry.
+        var unplanned = (int) Math.ceil(RoleArtifact.OffTrackSignal.OUTSIDE_FOOTPRINT.compiledThreshold());
+        var pump = pump(journal, Map.of(), ServedModelWatch.recordingNothing(), unplanned,
+                offTrackFailingOnce(failure));
+
+        var thrown = assertThrows(IllegalStateException.class, () -> pump.finish(task, generation, end),
+                "the report of the end's signal fails");
+        var endsAfterTheFailure = attemptEnds(journal.entries(task));
+        var retried = pump.finish(task, generation, end);
+        var ends = attemptEnds(journal.entries(task));
+        var next = RuntimeGenerators.queueTaskIds().next();
+        pump.finish(next, generation, end);
+
+        assertAll(
+                () -> assertEquals(failure, thrown.getMessage(), "the failure is the report's own"),
+                () -> assertEquals(1, endsAfterTheFailure.size(), "the failed finish committed the end"),
+                () -> assertEquals(1, ends.size(), "the retry appends no second attempt end"),
+                () -> assertEquals(ends.getFirst().seq(), retried.seq(), "the retry answers the committed end"),
+                () -> assertEquals(end.wireName(), retried.end(), "the answered end keeps the requested end"),
+                () -> assertEquals(1, attemptEnds(journal.entries(next)).size(),
+                        "the next task's finish appends its own end"));
     }
 }
