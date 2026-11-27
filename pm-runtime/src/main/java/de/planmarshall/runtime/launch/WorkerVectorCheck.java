@@ -38,16 +38,22 @@ import de.planmarshall.core.profile.ProfileRefusal;
  * The check <em>parses the rendered vector back</em> against the template it was rendered from and against the closed
  * grammar of each typed slot. It does not render again: re-running the composer's own replacement would repeat the code
  * under test and prove nothing, so the vector is matched element against template element, the literal parts of a
- * template element are required exactly, and the text a slot carries is read back by one of three bounds, none of them
- * a search: the only slot of its element is bounded by the literal before it and the literal after it, from both ends of
- * the element; a slot whose value the check already holds ({@code {{model}}}, {@code {{cwd}}}) is matched with that
- * value at the cursor; the last slot of an element carries the rest of it. The decision is recorded in ADR
- * {@code runtime-launch/010}, the bounds in ADR {@code runtime-launch/014}.
+ * template element are required exactly, and the text a slot carries is read back, wherever its element allows it, by
+ * one of three bounds, none of them a search: the only slot of its element is bounded by the literal before it and the
+ * literal after it, from both ends of the element; a slot whose value the check already holds ({@code {{model}}},
+ * {@code {{cwd}}}) is matched with that value at the cursor; the last slot of an element carries the rest of it. The
+ * decision is recorded in ADR {@code runtime-launch/010}, the bounds in ADR {@code runtime-launch/014}.
  * <p>
- * The residual: in an element of two or more slots, a slot of unknown value followed by a literal is still bounded by
- * the earliest occurrence of that literal. A value that contains the literal is cut short, the element then does not
- * correspond, and the vector is refused — fail-closed, never accepted with a wrong value. The profile validator refuses
- * two slots that touch, so every slot of a validated profile has a literal or an end of the element to bound it.
+ * The residual, the one place the check searches: in an element of two or more slots, a slot of unknown value followed
+ * by a literal ends at the earliest occurrence of that literal. A value that contains the literal is cut short there;
+ * the vector is refused only when the cut-short value or the rest of the element then fails its slot grammar (rule (c))
+ * or the element no longer matches its template (rule (b)). A path-typed slot and the session id accept any value of
+ * their grammar, so a different split can pass with a wrong value: {@code {{prompt_file}}-{{result_schema}}} rendered as
+ * {@code /tmp/job/prompt-/tmp/job/schema-/tmp/job/result} reads as {@code /tmp/job/prompt} and
+ * {@code /tmp/job/schema-/tmp/job/result}. The composer gives a path-typed slot the job-private directory with a fixed
+ * file name, so a composed launch parses back to its own values unless that directory or the file name contains the
+ * literal. The profile validator refuses two slots that touch, so every slot of a validated profile has a literal or an
+ * end of the element to bound it.
  * <p>
  * The rules; the correspondence pass decides (b) and (e) together, so the answer reports (a), then (b) and (e), then
  * (c), then (d):
@@ -315,7 +321,8 @@ class WorkerVectorCheck {
     /**
      * A slot of an element of two or more slots: a slot directly followed by another has no bound and is refused; a known
      * value is matched at the cursor; the last slot carries the rest; any other slot ends at the earliest occurrence of
-     * the literal after it — the residual, which refuses a value containing that literal rather than accept a wrong one.
+     * the literal after it — the residual, the one search of the check: a value containing that literal is cut short,
+     * and it is refused only when a slot grammar or the template then fails, so a different split can pass.
      *
      * @param segments the template element of the slot
      * @param index    the position of the slot marker in it

@@ -138,9 +138,13 @@ Normative Harness Profile JSON Schema]: `{{prompt_file}}`, `{{model}}`, `{{effor
 argument templates, the delivery of the MCP configuration `mcp_config`, the launch environment `env`, and the
 capabilities; the server fills only the slots a template declares. Two slots are never adjacent in one element of a
 template: a literal or an end of the element separates every slot from the next, so the composed value of each slot
-can be read back out of the vector (the profile validation refuses `{{model}}{{effort}}`,
+has a bound when it is read back out of the vector (the profile validation refuses `{{model}}{{effort}}`,
 link:../harness-profiles/01-profile-schema.adoc#headless-adjacent-slots[Harness Profiles Specification, No Two Adjacent
-Slots]). A
+Slots]). In an element of two or more slots, a slot whose value the check does not hold and that a literal follows is
+read up to the earliest occurrence of that literal; a value that contains the literal can then be read back as a
+different split that still passes the slot grammars, so a template of that shape is corrected rather than relied on
+(link:../../../pm-runtime/doc/developer/runtime-launch.adoc#_the_composed_vector_check[Worker Launch Developer Guide,
+The Composed-Vector Check]). A
 placeholder the composition does not know fails the launch (`prompt_composition_failed`, <<harness-selection>>) rather
 than being dropped, and a known slot without a value drops its element, together with the flag that introduces it. The
 `inline` mode renders a per-worker named agent into the `{{agent}}` slot; `flags` turns the same slots into per-call

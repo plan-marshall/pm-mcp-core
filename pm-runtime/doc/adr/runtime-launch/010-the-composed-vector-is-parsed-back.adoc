@@ -133,10 +133,15 @@ with its own value bind the two; a change of one that the other does not follow 
 
 The parse back has a named residual (ADR link:014-the-vector-check-bounds-a-slot-by-known-values-and-both-ends.adoc[014]):
 in an element of two or more slots, a slot whose value the check does not hold and that a literal follows is bounded by
-the earliest occurrence of that literal. A value containing the literal is cut short and the vector is refused as rule
-(b) — fail-closed, never accepted with a wrong value. No template of the fixture profiles or of the profiles `pm-api`
-ships has that shape, and the profile validator refuses two slots that touch, so every slot of a validated profile has
-a literal or an end of its element to bound it.
+the earliest occurrence of that literal, the one place the check searches. A value containing the literal is cut short;
+the vector is refused only when the cut-short value or the rest of the element then fails its slot grammar (rule (c)) or
+the element no longer matches its template (rule (b)). A path-typed slot and the session id accept any value of their
+grammar, so a different split can pass and be accepted with a wrong value: `{{prompt_file}}-{{result_schema}}` rendered
+as `/tmp/job/prompt-/tmp/job/schema-/tmp/job/result` reads as `/tmp/job/prompt` and `/tmp/job/schema-/tmp/job/result`.
+The composer gives a path-typed slot the job-private directory with a fixed file name, so a composed launch parses back
+to its own values unless that directory or the file name contains the literal. No template of the fixture profiles or
+of the profiles `pm-api` ships has that shape, and a profile that adds it must be corrected. The profile validator
+refuses two slots that touch, so every slot of a validated profile has a literal or an end of its element to bound it.
 
 == Source
 

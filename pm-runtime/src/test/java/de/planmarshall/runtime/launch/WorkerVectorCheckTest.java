@@ -345,7 +345,7 @@ class WorkerVectorCheckTest {
         private final List<String> template = resumeTemplateOf(LaunchFixtures.documentWithTwoSlotsInOneElement());
 
         @Test
-        @DisplayName("a session id containing the separator literal is refused fail-closed by rule (b)")
+        @DisplayName("a session id cut short at the separator literal is refused by rule (b) when the rest no longer matches")
         void sessionContainingTheSeparatorIsRefused() {
             var session = letters() + LaunchFixtures.SLOT_SEPARATOR + letters();
 

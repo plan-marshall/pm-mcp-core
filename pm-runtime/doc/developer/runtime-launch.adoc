@@ -115,8 +115,8 @@ link:../adr/runtime-launch/010-the-composed-vector-is-parsed-back.adoc[runtime-l
 
 The check **parses the rendered vector back** against the template it was rendered from. It splits each template element
 into its literal fragments and its slot markers, requires every fragment at the position the previous one ended, and
-reads the value of each slot the template names by one of three bounds, none of them a search for the literal after it
-(ADR link:../adr/runtime-launch/014-the-vector-check-bounds-a-slot-by-known-values-and-both-ends.adoc[runtime-launch/014]):
+reads the value of each slot the template names by one of three bounds, none of them a search for the literal after it,
+wherever the element allows one; the residual below is the one place the check searches (ADR link:../adr/runtime-launch/014-the-vector-check-bounds-a-slot-by-known-values-and-both-ends.adoc[runtime-launch/014]):
 
 * the **only slot of its element** lies between the literal before it, matched up to the cursor, and the literal after
   it, which must end the element; the value is what lies between, whatever it contains;
@@ -127,8 +127,14 @@ Two slots that touch in one element (`{{model}}{{effort}}`) leave no literal to 
 of `pm-core` refuses such an argument, and the check refuses the element too, so a template that reaches it unvalidated
 fails closed. The one shape still bounded by a search is the **residual**: in an element of two or more slots, a slot
 of unknown value that a literal follows ends at the earliest occurrence of that literal. A value that contains the
-literal is cut short, the element no longer corresponds, and the vector is refused as rule (b) — never accepted with a
-wrong value. No template of the fixture profiles or of the profiles `pm-api` ships has that shape.
+literal is cut short there. The vector is refused only when the cut-short value or the rest of the element then fails
+its slot grammar (rule (c)) or the element no longer matches its template (rule (b)). A path-typed slot
+(`{{prompt_file}}`, `{{result_schema}}`) and the session id accept any value of their grammar, so a different split can
+pass and be accepted with a wrong value: the template `{{tools}}_{{session_id}}` with the rendered element
+`read_bad_abc` reads as `read` and `bad_abc`. The composer gives a path-typed slot the job-private directory with a
+fixed file name (`prompt.md`, `result-schema.json`), so a composed launch parses back to its own values unless that
+directory or the file name contains the literal. No template of the fixture profiles or of the profiles `pm-api` ships
+has that shape; a profile that adds it must be corrected.
 
 The check never renders again: re-running `fill` would compare the composition with itself. The answer is the first
 violated rule and the position of the element, never the value, so the refusal can be recorded and shown without the

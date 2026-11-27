@@ -25,7 +25,8 @@ tool of the role, but accepted the same tool twice and an empty member.
 
 == Decision
 
-**The value a slot carries is read by one of three bounds, none of them a search for the literal after it.**
+**Where its element allows it, the value a slot carries is read by one of three bounds, none of them a search for the
+literal after it.** The one case left over is the residual named under Consequences, the one place the check searches.
 
 - *The only slot of its element is bounded from both ends.* The literal before it is matched up to the cursor, the
   literal after it must end the element, and the value is what lies between, whatever it contains.
@@ -81,11 +82,19 @@ A model name, a working directory, or the value of the only slot of an element t
 slot no longer refuses a conforming launch. A metacharacter written into a literal around a JSON slot, a duplicate tool
 and an empty tool member now refuse the launch as `argument_rejected`.
 
-The residual is a named limit: in an element of two or more slots, a slot of unknown value that a literal follows is
-still bounded by the earliest occurrence of that literal. A value that contains the literal is cut short, the element
-then does not correspond and the vector is refused as rule (b) — fail-closed, never accepted with a wrong value. No
-template of the fixture profiles or of the profiles `pm-api` ships has that shape; a profile that adds it refuses the
-launches whose value contains the literal, and the act is to correct the template.
+The residual is a named limit and the one place the check searches: in an element of two or more slots, a slot of
+unknown value that a literal follows ends at the earliest occurrence of that literal after the cursor. A value that
+contains the literal is cut short there. The vector is refused only when the cut-short value or the rest of the element
+then fails its slot grammar (rule (c)) or the element no longer matches its template (rule (b)). A path-typed slot
+(`{{prompt_file}}`, `{{result_schema}}`) and the session id accept any value of their grammar, so a different split can
+pass both rules and be accepted with a wrong value: the template `{{prompt_file}}-{{result_schema}}` with the rendered
+element `/tmp/job/prompt-/tmp/job/schema-/tmp/job/result` splits into `/tmp/job/prompt` and
+`/tmp/job/schema-/tmp/job/result`, both absolute normalized paths below the job-private directory `/tmp/job`.
+
+The composer gives a path-typed slot the job-private directory with a fixed file name (`prompt.md`,
+`result-schema.json`), so a composed launch parses back to its own values unless that directory or the file name
+contains the literal. No template of the fixture profiles or of the profiles `pm-api` ships has that shape; a profile
+that adds it must be corrected.
 
 The presence rule lives in two places, `LaunchComposer.fill` and `WorkerVectorCheck.keptIndices`. A change to one that
 the other does not follow refuses every launch of that shape; the presence tests are the binding.
