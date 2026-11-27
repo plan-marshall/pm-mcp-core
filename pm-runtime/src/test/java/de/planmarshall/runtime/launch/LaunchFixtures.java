@@ -125,6 +125,64 @@ final class LaunchFixtures {
         return document().replace("\"--allowedTools\", \"{{tools}}\"", "\"--allowedTools\", \"{{tools}} ;\"");
     }
 
+    /** The literal tail of the {@code {{model}}} element of {@link #documentWithTrailingLiteralsAfterKnownSlots()}. */
+    static final String MODEL_TAIL = "-1";
+
+    /** The literal tail of the {@code {{cwd}}} element of {@link #documentWithTrailingLiteralsAfterKnownSlots()}. */
+    static final String CWD_TAIL = "/pm";
+
+    /** The literal prefix of the {@code {{prompt_file}}} element of {@link #documentWithBoundedSingleSlots()}. */
+    static final String PROMPT_PREFIX = "file:";
+
+    /** The literal suffix of the {@code {{prompt_file}}} element of {@link #documentWithBoundedSingleSlots()}. */
+    static final String PROMPT_SUFFIX = ".md";
+
+    /** The literal prefix of the {@code {{session_id}}} element of {@link #documentWithBoundedSingleSlots()}. */
+    static final String SESSION_PREFIX = "id=";
+
+    /** The literal suffix of the {@code {{session_id}}} element of {@link #documentWithBoundedSingleSlots()}. */
+    static final String SESSION_SUFFIX = "-end";
+
+    /** The literal between the two slots of the resume element of {@link #documentWithTwoSlotsInOneElement()}. */
+    static final String SLOT_SEPARATOR = "-";
+
+    /**
+     * @return the fixture document whose {@code {{model}}} element ends in {@link #MODEL_TAIL} and which carries a
+     *         {@code --cwd} pair whose {@code {{cwd}}} element ends in {@link #CWD_TAIL}, right after the model pair
+     */
+    static String documentWithTrailingLiteralsAfterKnownSlots() {
+        return document().replace("\"--model\", \"{{model}}\"", "\"--model\", \"{{model}}" + MODEL_TAIL
+                + "\", \"--cwd\", \"{{cwd}}" + CWD_TAIL + "\"");
+    }
+
+    /**
+     * @param slot   the JSON slot whose element gains the literals, {@code mcp_config} or {@code agent}
+     * @param prefix the literal before the slot
+     * @param suffix the literal after the slot
+     * @return the fixture document whose element of the JSON slot carries a literal prefix and suffix
+     */
+    static String documentWithLiteralsAroundJsonSlot(String slot, String prefix, String suffix) {
+        return document().replace("\"{{" + slot + "}}\"", "\"" + prefix + "{{" + slot + "}}" + suffix + "\"");
+    }
+
+    /**
+     * @return the fixture document whose {@code {{prompt_file}}} and {@code {{session_id}}} elements are each the only
+     *         slot of their element, bounded by a literal prefix and suffix
+     */
+    static String documentWithBoundedSingleSlots() {
+        return document()
+                .replace("\"{{prompt_file}}\"", "\"" + PROMPT_PREFIX + "{{prompt_file}}" + PROMPT_SUFFIX + "\"")
+                .replace("\"{{session_id}}\"", "\"" + SESSION_PREFIX + "{{session_id}}" + SESSION_SUFFIX + "\"");
+    }
+
+    /**
+     * @return the fixture document whose resume element carries {@code {{session_id}}}, the literal
+     *         {@link #SLOT_SEPARATOR} and {@code {{model}}}: two slots in one element, the unknown one first
+     */
+    static String documentWithTwoSlotsInOneElement() {
+        return document().replace("\"{{session_id}}\"", "\"{{session_id}}" + SLOT_SEPARATOR + "{{model}}\"");
+    }
+
     static RoleArtifact artifact(RoleClass roleClass, String model, String effort, RoleForm form,
             List<String> skills) {
         var tools = roleClass == RoleClass.ZERO_TOOL

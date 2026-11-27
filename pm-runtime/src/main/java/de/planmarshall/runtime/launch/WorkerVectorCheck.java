@@ -14,6 +14,7 @@ import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
@@ -37,8 +38,16 @@ import de.planmarshall.core.profile.ProfileRefusal;
  * The check <em>parses the rendered vector back</em> against the template it was rendered from and against the closed
  * grammar of each typed slot. It does not render again: re-running the composer's own replacement would repeat the code
  * under test and prove nothing, so the vector is matched element against template element, the literal parts of a
- * template element are required exactly, and the value between two literals is the slot value that element carries.
- * The decision is recorded in ADR {@code runtime-launch/010}.
+ * template element are required exactly, and the text a slot carries is read back by one of three bounds, none of them
+ * a search: the only slot of its element is bounded by the literal before it and the literal after it, from both ends of
+ * the element; a slot whose value the check already holds ({@code {{model}}}, {@code {{cwd}}}) is matched with that
+ * value at the cursor; the last slot of an element carries the rest of it. The decision is recorded in ADR
+ * {@code runtime-launch/010}, the bounds in ADR {@code runtime-launch/014}.
+ * <p>
+ * The residual: in an element of two or more slots, a slot of unknown value followed by a literal is still bounded by
+ * the earliest occurrence of that literal. A value that contains the literal is cut short, the element then does not
+ * correspond, and the vector is refused — fail-closed, never accepted with a wrong value. The profile validator refuses
+ * two slots that touch, so every slot of a validated profile has a literal or an end of the element to bound it.
  * <p>
  * The rules; the correspondence pass decides (b) and (e) together, so the answer reports (a), then (b) and (e), then
  * (c), then (d):
@@ -50,12 +59,15 @@ import de.planmarshall.core.profile.ProfileRefusal;
  * <li>(c) every typed slot value matches the closed grammar of its slot: {@code {{model}}} is the model the composer
  * resolved, {@code {{effort}}} one of the efforts the profile accepts for that model, {@code {{prompt_file}}} and
  * {@code {{result_schema}}} absolute normalized paths below the job-private directory, {@code {{cwd}}} the working
- * directory the composer fixed, {@code {{session_id}}} a harness session id, {@code {{tools}}} a comma list of the
- * role's tool set, and {@code {{mcp_config}}} and {@code {{agent}}} a JSON object of the composed relay shape.</li>
- * <li>(d) no element outside the two JSON slots contains a shell metacharacter — the rule the job runtime's
- * {@code ArgumentCheck} applies to every caller-supplied argument of every other job kind, applied here to the vector
- * the composition made of the profile's data (the runtime spawns without a shell, so this is defence in depth, not a
- * restriction the harness sees).</li>
+ * directory the composer fixed, {@code {{session_id}}} a harness session id, {@code {{tools}}} a comma list in which
+ * every member is a tool of the role's set, no member is empty and no member occurs twice, in any order (the composer
+ * collects the set in insertion order without duplicates, so a vector it rendered never repeats a tool), and
+ * {@code {{mcp_config}}} and {@code {{agent}}} a JSON object of the composed relay shape.</li>
+ * <li>(d) no element carries a shell metacharacter outside the value of a JSON slot: the value of {@code {{mcp_config}}}
+ * and {@code {{agent}}} is exempt and checked as JSON by rule (c), the literals of its element are not. It is the rule
+ * the job runtime's {@code ArgumentCheck} applies to every caller-supplied argument of every other job kind, applied here
+ * to the vector the composition made of the profile's data (the runtime spawns without a shell, so this is defence in
+ * depth, not a restriction the harness sees).</li>
  * <li>(e) the vector carries no element that is neither a template element nor a slot value.</li>
  * </ol>
  * <p>
@@ -72,7 +84,7 @@ class WorkerVectorCheck {
     /** The placeholder of a typed slot in a template element. */
     static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{([a-z_]+)}}");
 
-    /** The shell metacharacters, refused in every element outside the two JSON slots. */
+    /** The shell metacharacters, refused in every element outside the value of a JSON slot. */
     static final String SHELL_METACHARACTERS = "|;&$`><";
 
     /** The grammar of a harness session id. */
@@ -105,7 +117,7 @@ class WorkerVectorCheck {
         if (!starts(input)) {
             return Optional.of(new Violation(Rule.EXECUTABLE, 0));
         }
-        var parsed = new ArrayList<SlotValue>();
+        var parsed = new ArrayList<PlacedSlot>();
         var structure = correspondence(input, parsed);
         if (structure.isPresent()) {
             return structure;
@@ -128,22 +140,22 @@ class WorkerVectorCheck {
      * be left over.
      *
      * @param input  the check's input
-     * @param parsed receives the slot values the vector carries, at the position of their element
+     * @param parsed receives the slot values the vector carries, with the position of their element and their span in it
      * @return the violation of rule (b) or (e), or empty
      */
-    private static Optional<Violation> correspondence(Input input, List<SlotValue> parsed) {
+    private static Optional<Violation> correspondence(Input input, List<PlacedSlot> parsed) {
         var rendered = input.vector().subList(1, input.vector().size());
         var cursor = 0;
         for (var index : keptIndices(input.template(), input.absentSlots())) {
             if (cursor >= rendered.size()) {
                 return Optional.of(new Violation(Rule.CORRESPONDENCE, cursor + 1));
             }
-            var matched = match(segments(input.template().get(index)), rendered.get(cursor));
+            var matched = match(segments(input.template().get(index)), rendered.get(cursor), input);
             if (matched.isEmpty()) {
                 return Optional.of(new Violation(Rule.CORRESPONDENCE, cursor + 1));
             }
             for (var value : matched.get()) {
-                parsed.add(new SlotValue(value.slot(), value.value(), cursor + 1));
+                parsed.add(new PlacedSlot(value, cursor + 1));
             }
             cursor++;
         }
@@ -151,24 +163,23 @@ class WorkerVectorCheck {
     }
 
     /** Rule (c): each slot value the vector carries matches the closed grammar of the slot the template names. */
-    private static Optional<Violation> grammar(List<SlotValue> parsed, Input input) {
-        for (var value : parsed) {
-            if (!conforms(value, input)) {
-                return Optional.of(new Violation(Rule.SLOT_GRAMMAR, value.position()));
+    private static Optional<Violation> grammar(List<PlacedSlot> parsed, Input input) {
+        for (var placed : parsed) {
+            if (!conforms(placed.value(), input)) {
+                return Optional.of(new Violation(Rule.SLOT_GRAMMAR, placed.position()));
             }
         }
         return Optional.empty();
     }
 
-    /** Rule (d): no element outside the two JSON slots carries a shell metacharacter. */
-    private static Optional<Violation> metacharacter(Input input, List<SlotValue> parsed) {
+    /** Rule (d): no element carries a shell metacharacter outside the value of a JSON slot. */
+    private static Optional<Violation> metacharacter(Input input, List<PlacedSlot> parsed) {
         var vector = input.vector();
-        var jsonSlots = jsonSlots(parsed);
         // element 0 is the enrolled executable, not a caller-supplied argument: a path with a metacharacter must not
         // refuse every launch of that harness (the specification's standing constraint), and the launcher spawns it by
         // absolute path without a shell
         for (var position = 1; position < vector.size(); position++) {
-            if (!jsonSlots.contains(position) && containsMetacharacter(vector.get(position))) {
+            if (containsMetacharacter(vector.get(position), jsonSpans(parsed, position))) {
                 return Optional.of(new Violation(Rule.METACHARACTER, position));
             }
         }
@@ -176,23 +187,30 @@ class WorkerVectorCheck {
     }
 
     /**
-     * The positions of the elements that hold the value of a JSON slot, which rule (d) exempts and rule (c) checks as
-     * JSON instead.
+     * @param parsed   the slot values the vector carries
+     * @param position the position of an element
+     * @return the spans of the element that hold the value of a JSON slot, which rule (d) exempts and rule (c) checks as
+     *         JSON instead
      */
-    private static Set<Integer> jsonSlots(List<SlotValue> parsed) {
-        var positions = new LinkedHashSet<Integer>();
-        for (var value : parsed) {
-            if (SLOT_MCP_CONFIG.equals(value.slot()) || SLOT_AGENT.equals(value.slot())) {
-                positions.add(value.position());
+    private static List<Span> jsonSpans(List<PlacedSlot> parsed, int position) {
+        var spans = new ArrayList<Span>();
+        for (var placed : parsed) {
+            var slot = placed.value().slot();
+            if (placed.position() == position && (SLOT_MCP_CONFIG.equals(slot) || SLOT_AGENT.equals(slot))) {
+                spans.add(placed.value().span());
             }
         }
-        return positions;
+        return spans;
     }
 
     /**
      * The template elements the composer keeps, in order: an element that names a slot with no value is skipped, and the
      * flag element before it is skipped with it. Only presence is derived here; the value of a slot is read back out of
      * the vector, never rendered.
+     * <p>
+     * This is a copy of the presence rule of {@code LaunchComposer.fill}, kept beside the parse it serves rather than
+     * shared with the code it checks: the tests that place an absent slot first, in the middle, last and after a flag
+     * bind the two, so a change of one that the other does not follow refuses every launch of that shape.
      */
     private static List<Integer> keptIndices(List<String> template, Set<String> absentSlots) {
         var kept = new ArrayList<Integer>();
@@ -247,24 +265,28 @@ class WorkerVectorCheck {
 
     /**
      * Parses one rendered element back against its template element: every literal fragment is required at the position
-     * the previous fragment ended, and the text between two fragments is the value of a slot.
+     * the previous fragment ended, and the text a slot carries is read by the bound its place in the element allows.
      *
      * @param segments the template element
      * @param rendered the vector element
+     * @param input    the check's input, which holds the known values
      * @return the slot values the element carries, or empty when the element does not correspond to the template
      */
-    private static Optional<List<SlotValue>> match(List<Segment> segments, String rendered) {
+    private static Optional<List<SlotValue>> match(List<Segment> segments, String rendered, Input input) {
         var parsed = new ArrayList<SlotValue>();
+        var onlySlot = segments.stream().filter(Segment::isSlot).count() == 1;
         var cursor = 0;
         for (var index = 0; index < segments.size(); index++) {
             var segment = segments.get(index);
-            if (segment.isSlot()) {
-                var carried = carried(segments, index, rendered, cursor);
-                if (carried.isEmpty()) {
+            var name = segment.slot();
+            if (name != null) {
+                var span = onlySlot ? bounded(segments, index, rendered, cursor)
+                        : carried(segments, index, name, rendered, cursor, input);
+                if (span.isEmpty()) {
                     return Optional.empty();
                 }
-                parsed.add(new SlotValue(segment.slot(), carried.get().text(), SlotValue.UNPLACED));
-                cursor = carried.get().end();
+                parsed.add(new SlotValue(name, rendered.substring(span.get().start(), span.get().end()), span.get()));
+                cursor = span.get().end();
             } else if (!rendered.startsWith(segment.text(), cursor)) {
                 return Optional.empty();
             } else {
@@ -275,25 +297,59 @@ class WorkerVectorCheck {
     }
 
     /**
+     * The only slot of its element: the literal before it is matched up to the cursor, the literal after it is the end of
+     * the element, so the value is what lies between, whatever it contains.
+     *
      * @param segments the template element of the slot
      * @param index    the position of the slot marker in it
      * @param rendered the vector element
-     * @param cursor   the position the previous fragment ended at
-     * @return the text the slot carries and the position after it, or empty when the element does not carry it
+     * @param cursor   the position the literal before the slot ended at
+     * @return the span of the value, or empty when the element does not end with the literal after the slot
      */
-    private static Optional<Carried> carried(List<Segment> segments, int index, String rendered, int cursor) {
-        if (index == segments.size() - 1) {
-            return Optional.of(new Carried(rendered.substring(cursor), rendered.length()));
-        }
-        var next = segments.get(index + 1);
-        if (next.isSlot()) {
+    private static Optional<Span> bounded(List<Segment> segments, int index, String rendered, int cursor) {
+        var suffix = index == segments.size() - 1 ? "" : segments.get(index + 1).text();
+        var end = rendered.length() - suffix.length();
+        return end >= cursor && rendered.endsWith(suffix) ? Optional.of(new Span(cursor, end)) : Optional.empty();
+    }
+
+    /**
+     * A slot of an element of two or more slots: a slot directly followed by another has no bound and is refused; a known
+     * value is matched at the cursor; the last slot carries the rest; any other slot ends at the earliest occurrence of
+     * the literal after it — the residual, which refuses a value containing that literal rather than accept a wrong one.
+     *
+     * @param segments the template element of the slot
+     * @param index    the position of the slot marker in it
+     * @param name     the name of the slot
+     * @param rendered the vector element
+     * @param cursor   the position the previous fragment ended at
+     * @param input    the check's input, which holds the known values
+     * @return the span of the value, or empty when the element does not carry it
+     */
+    private static Optional<Span> carried(List<Segment> segments, int index, String name, String rendered, int cursor,
+            Input input) {
+        var last = index == segments.size() - 1;
+        if (!last && segments.get(index + 1).isSlot()) {
             return Optional.empty();
         }
-        var boundary = rendered.indexOf(next.text(), cursor);
-        if (boundary < 0) {
-            return Optional.empty();
+        var known = knownValue(name, input);
+        if (known.isPresent()) {
+            var end = cursor + known.get().length();
+            return rendered.startsWith(known.get(), cursor) ? Optional.of(new Span(cursor, end)) : Optional.empty();
         }
-        return Optional.of(new Carried(rendered.substring(cursor, boundary), boundary));
+        if (last) {
+            return Optional.of(new Span(cursor, rendered.length()));
+        }
+        var boundary = rendered.indexOf(segments.get(index + 1).text(), cursor);
+        return boundary < 0 ? Optional.empty() : Optional.of(new Span(cursor, boundary));
+    }
+
+    /** @return the value the check already holds for a slot, {@code {{model}}} and {@code {{cwd}}}, or empty */
+    private static Optional<String> knownValue(String slot, Input input) {
+        return switch (slot) {
+            case SLOT_MODEL -> Optional.of(input.model());
+            case SLOT_CWD -> Optional.of(input.workingDirectory().toString());
+            default -> Optional.empty();
+        };
     }
 
     private static boolean conforms(SlotValue value, Input input) {
@@ -331,12 +387,13 @@ class WorkerVectorCheck {
     /**
      * @param value a rendered {@code {{tools}}} slot
      * @param tools the tool set the composer resolved for the role
-     * @return whether every element of the comma list is one of the role's tools
+     * @return whether every member of the comma list is one of the role's tools, none is empty and none occurs twice; the
+     *         order is not checked
      */
     private static boolean toolSet(String value, List<String> tools) {
-        var named = value.split(SEPARATOR, -1);
-        for (var tool : named) {
-            if (tool.isEmpty() || !tools.contains(tool)) {
+        var named = new HashSet<String>();
+        for (var tool : value.split(SEPARATOR, -1)) {
+            if (tool.isEmpty() || !tools.contains(tool) || !named.add(tool)) {
                 return false;
             }
         }
@@ -369,9 +426,23 @@ class WorkerVectorCheck {
         }
     }
 
-    private static boolean containsMetacharacter(String element) {
+    /**
+     * @param element an element of the vector
+     * @param exempt  the spans of the element that hold the value of a JSON slot
+     * @return whether a character outside the exempt spans is a shell metacharacter
+     */
+    private static boolean containsMetacharacter(String element, List<Span> exempt) {
         for (var index = 0; index < element.length(); index++) {
-            if (SHELL_METACHARACTERS.indexOf(element.charAt(index)) >= 0) {
+            if (SHELL_METACHARACTERS.indexOf(element.charAt(index)) >= 0 && !within(exempt, index)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean within(List<Span> spans, int index) {
+        for (var span : spans) {
+            if (index >= span.start() && index < span.end()) {
                 return true;
             }
         }
@@ -430,7 +501,7 @@ class WorkerVectorCheck {
         /** (c) a slot value violates the closed grammar of its slot. */
         SLOT_GRAMMAR('c', "the slot value violates the closed grammar of its slot"),
 
-        /** (d) an element outside the two JSON slots contains a shell metacharacter. */
+        /** (d) an element carries a shell metacharacter outside the value of a JSON slot. */
         METACHARACTER('d', "the element contains a shell metacharacter"),
 
         /** (e) the vector carries an element the template does not explain. */
@@ -489,19 +560,20 @@ class WorkerVectorCheck {
         }
     }
 
-    /** One slot value read back out of the vector, at the position of the element that carries it. */
-    private record SlotValue(String slot, String value, int position) {
-
-        /** The position of a value read out of the vector before the element that carries it is known. */
-        static final int UNPLACED = -1;
+    /**
+     * The characters of an element a slot value occupies.
+     *
+     * @param start the index of the first character of the value in the element
+     * @param end   the index after the last character of the value
+     */
+    private record Span(int start, int end) {
     }
 
-    /**
-     * The text one slot carries out of a rendered element, and the position the element continues at.
-     *
-     * @param text the value the slot carries
-     * @param end  the position after the value in the rendered element
-     */
-    private record Carried(String text, int end) {
+    /** One slot value read back out of an element, with the span it occupies there. */
+    private record SlotValue(String slot, String value, Span span) {
+    }
+
+    /** One slot value read back out of the vector, at the position of the element that carries it. */
+    private record PlacedSlot(SlotValue value, int position) {
     }
 }

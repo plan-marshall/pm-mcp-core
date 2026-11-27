@@ -9,12 +9,16 @@
  */
 package de.planmarshall.runtime.launch;
 
+import static de.planmarshall.runtime.launch.WorkerVectorCheck.SLOT_AGENT;
+import static de.planmarshall.runtime.launch.WorkerVectorCheck.SLOT_MCP_CONFIG;
+import static de.planmarshall.runtime.launch.WorkerVectorCheck.SLOT_RESULT_SCHEMA;
 import static de.planmarshall.runtime.testing.generators.RuntimeGenerators.planIds;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -22,6 +26,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -35,7 +40,9 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The composed-vector check: the four template shapes of the fixture profile, one violating vector per rule of the
- * check, and the end-to-end path through a real {@link LaunchComposer} and a recording starter.
+ * check, the end-to-end path through a real {@link LaunchComposer} and a recording starter, and the limits of the parse
+ * back: a known value followed by a literal, the literals around a JSON slot, the only slot of an element bounded from
+ * both ends, the tool rule, the presence of a slot and the residual shape of two slots in one element.
  *
  * <p>
  * The paths, the model, the effort values and the tool set are the contract the check compares against and stay
@@ -73,6 +80,10 @@ class WorkerVectorCheckTest {
     private static final String AGENT = "{\"pm-job\":{}}";
 
     private static final String SESSION = "session-1";
+
+    // the template shape of an absent slot after its flag, a contract of the presence rule
+    private static final List<String> FLAGGED_SLOT_TEMPLATE = List.of("-p", "--json-schema", "{{result_schema}}",
+            "--model", "{{model}}");
 
     private final SkillSource skills = LaunchFixtures.skills();
 
@@ -144,6 +155,245 @@ class WorkerVectorCheckTest {
         var input = input(writerTemplate(), List.copyOf(vector), MODEL, Set.of(), executable);
 
         assertTrue(WorkerVectorCheck.check(input).isEmpty(), "the enrolled path is no caller argument");
+    }
+
+    @Nested
+    @DisplayName("a known value followed by a literal")
+    class KnownValues {
+
+        private final List<String> template = writerTemplateOf(LaunchFixtures
+                .documentWithTrailingLiteralsAfterKnownSlots());
+
+        @Test
+        @DisplayName("a model containing the literal tail of its element is accepted")
+        void modelContainingItsTail() {
+            var model = letters() + LaunchFixtures.MODEL_TAIL + letters();
+            var input = input(template, knownSlotVector(model, CWD), model, Set.of());
+
+            assertTrue(WorkerVectorCheck.check(input).isEmpty(), "the model is matched at the cursor");
+        }
+
+        @Test
+        @DisplayName("a working directory containing the literal tail of its element is accepted")
+        void workingDirectoryContainingItsTail() {
+            // the job-private directory lies below /opt/pm, so every working directory contains the tail /pm
+            var cwd = JOB_PRIVATE.resolve(letters());
+            var input = WorkerVectorCheck.Input.builder()
+                    .template(template)
+                    .vector(knownSlotVector(MODEL, cwd))
+                    .executablePath(EXECUTABLE)
+                    .model(MODEL)
+                    .acceptedEfforts(EFFORTS)
+                    .jobPrivateDirectory(JOB_PRIVATE)
+                    .workingDirectory(cwd)
+                    .tools(TOOLS)
+                    .absentSlots(Set.of())
+                    .build();
+
+            assertTrue(WorkerVectorCheck.check(input).isEmpty(), "the directory is matched at the cursor");
+        }
+
+        @Test
+        @DisplayName("another model followed by the literal tail is refused by rule (c)")
+        void anotherModelIsRefused() {
+            var input = input(template, knownSlotVector(letters(), CWD), MODEL, Set.of());
+
+            assertRefused(input, 'c', 4);
+        }
+    }
+
+    @Nested
+    @DisplayName("the literals around a JSON slot")
+    class JsonLiterals {
+
+        @ParameterizedTest(name = "the metacharacter {0}")
+        @MethodSource("de.planmarshall.runtime.launch.WorkerVectorCheckTest#metacharacters")
+        @DisplayName("a literal tail of the MCP element carrying a metacharacter is refused by rule (d)")
+        void metacharacterInTheTail(String metacharacter) {
+            var template = writerTemplateOf(LaunchFixtures.documentWithLiteralsAroundJsonSlot(SLOT_MCP_CONFIG, "",
+                    metacharacter));
+            var input = input(template, withElement(10, MCP + metacharacter), MODEL, Set.of());
+
+            assertRefused(input, 'd', 10);
+        }
+
+        @Test
+        @DisplayName("a literal prefix of the agent element carrying a metacharacter is refused by rule (d)")
+        void metacharacterInThePrefix() {
+            var metacharacter = metacharacter();
+            var template = writerTemplateOf(LaunchFixtures.documentWithLiteralsAroundJsonSlot(SLOT_AGENT,
+                    metacharacter, ""));
+            var input = input(template, withElement(16, metacharacter + AGENT), MODEL, Set.of());
+
+            assertRefused(input, 'd', 16);
+        }
+
+        @Test
+        @DisplayName("a JSON value carrying a metacharacter between clean literals is accepted")
+        void metacharacterInTheValue() {
+            // the prefix cfg= and the suffix .json are the template shape, free of metacharacters
+            var template = writerTemplateOf(LaunchFixtures.documentWithLiteralsAroundJsonSlot(SLOT_MCP_CONFIG, "cfg=",
+                    ".json"));
+            var value = "{\"mcpServers\":{\"pm-job\":{\"env\":{\"K\":\"" + letters() + metacharacter() + letters()
+                    + "\"}}}}";
+            var input = input(template, withElement(10, "cfg=" + value + ".json"), MODEL, Set.of());
+
+            assertTrue(WorkerVectorCheck.check(input).isEmpty(), "only the literals of the element count");
+        }
+    }
+
+    @Nested
+    @DisplayName("the only slot of an element between two literals")
+    class BoundedSingleSlot {
+
+        private final String document = LaunchFixtures.documentWithBoundedSingleSlots();
+
+        @Test
+        @DisplayName("a prompt file containing the suffix literal of its element is accepted")
+        void promptFileContainingItsSuffix() {
+            var prompt = JOB_PRIVATE.resolve(letters() + LaunchFixtures.PROMPT_SUFFIX).toString();
+            var input = input(writerTemplateOf(document), withElement(8, boundedPrompt(prompt)), MODEL, Set.of());
+
+            assertTrue(WorkerVectorCheck.check(input).isEmpty(), "the value is bounded from both ends");
+        }
+
+        @Test
+        @DisplayName("a session id containing the suffix literal of its element is accepted")
+        void sessionContainingItsSuffix() {
+            var session = letters() + LaunchFixtures.SESSION_SUFFIX + letters();
+            var input = input(resumeTemplateOf(document), boundedResumedVector(session), MODEL, Set.of());
+
+            assertTrue(WorkerVectorCheck.check(input).isEmpty(), "the session id is bounded from both ends");
+        }
+
+        @Test
+        @DisplayName("a prompt file outside the job-private directory is refused by rule (c)")
+        void promptFileOutsideIsRefused() {
+            var input = input(writerTemplateOf(document), withElement(8, boundedPrompt("/etc/" + letters())), MODEL,
+                    Set.of());
+
+            assertRefused(input, 'c', 8);
+        }
+
+        @Test
+        @DisplayName("an element without its suffix literal is refused by rule (b)")
+        void missingSuffixIsRefused() {
+            var prompt = JOB_PRIVATE.resolve(letters()).toString();
+            var input = input(writerTemplateOf(document), withElement(8, LaunchFixtures.PROMPT_PREFIX + prompt), MODEL,
+                    Set.of());
+
+            assertRefused(input, 'b', 8);
+        }
+    }
+
+    @Nested
+    @DisplayName("the tool list")
+    class Tools {
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.runtime.launch.WorkerVectorCheckTest#refusedToolLists")
+        @DisplayName("a tool list breaking the tool rule is refused by rule (c)")
+        void refused(String name, String tools) {
+            assertRefused(input(writerTemplate(), withElement(14, tools), MODEL, Set.of()), 'c', 14);
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.runtime.launch.WorkerVectorCheckTest#acceptedToolLists")
+        @DisplayName("a tool list naming each tool of the role once is accepted in any order")
+        void accepted(String name, String tools) {
+            var input = input(writerTemplate(), withElement(14, tools), MODEL, Set.of());
+
+            assertTrue(WorkerVectorCheck.check(input).isEmpty(), "the tool list conforms to rule (c)");
+        }
+    }
+
+    @Nested
+    @DisplayName("the presence of a slot")
+    class Presence {
+
+        @ParameterizedTest(name = "{0}")
+        @MethodSource("de.planmarshall.runtime.launch.WorkerVectorCheckTest#absentSlotShapes")
+        @DisplayName("an absent slot removes its element and the flag before it, read off the template alone")
+        void absentSlot(String name, List<String> template, List<String> vector) {
+            var input = input(template, vector, MODEL, Set.of(SLOT_RESULT_SCHEMA));
+
+            assertTrue(WorkerVectorCheck.check(input).isEmpty(), "the vector without the slot conforms");
+        }
+
+        @Test
+        @DisplayName("the flag of an absent slot left in the vector is refused by rule (b)")
+        void flagOfAnAbsentSlotIsRefused() {
+            var vector = List.of(EXECUTABLE.toString(), "-p", "--json-schema", "--model", MODEL);
+
+            assertRefused(input(FLAGGED_SLOT_TEMPLATE, vector, MODEL, Set.of(SLOT_RESULT_SCHEMA)), 'b', 2);
+        }
+
+        @Test
+        @DisplayName("a present slot keeps its flag and its element")
+        void presentSlot() {
+            var vector = List.of(EXECUTABLE.toString(), "-p", "--json-schema", SCHEMA, "--model", MODEL);
+            var input = input(FLAGGED_SLOT_TEMPLATE, vector, MODEL, Set.of());
+
+            assertTrue(WorkerVectorCheck.check(input).isEmpty(), "the vector with the slot conforms");
+        }
+    }
+
+    @Nested
+    @DisplayName("two slots in one element, the unknown one first")
+    class Residual {
+
+        private final List<String> template = resumeTemplateOf(LaunchFixtures.documentWithTwoSlotsInOneElement());
+
+        @Test
+        @DisplayName("a session id containing the separator literal is refused fail-closed by rule (b)")
+        void sessionContainingTheSeparatorIsRefused() {
+            var session = letters() + LaunchFixtures.SLOT_SEPARATOR + letters();
+
+            assertRefused(input(template, residualVector(session), MODEL, Set.of()), 'b', 2);
+        }
+
+        @Test
+        @DisplayName("a session id without the separator literal is accepted")
+        void sessionWithoutTheSeparator() {
+            var input = input(template, residualVector(letters()), MODEL, Set.of());
+
+            assertTrue(WorkerVectorCheck.check(input).isEmpty(), "the earliest literal bounds the session");
+        }
+    }
+
+    static Stream<String> metacharacters() {
+        return WorkerVectorCheck.SHELL_METACHARACTERS.chars().mapToObj(code -> String.valueOf((char) code));
+    }
+
+    static Stream<Arguments> refusedToolLists() {
+        var tool = tool();
+        return Stream.of(
+                Arguments.of("a duplicate member", String.join(",", TOOLS) + "," + tool),
+                Arguments.of("an empty member", tool + ",," + tool()),
+                Arguments.of("a tool outside the role's tool set", tool + "," + letters()));
+    }
+
+    static Stream<Arguments> acceptedToolLists() {
+        return Stream.of(
+                Arguments.of("every tool once in reverse order", String.join(",", TOOLS.reversed())),
+                Arguments.of("a single tool of the role", tool()),
+                Arguments.of("every tool once in the composer's order", TOOL_LIST));
+    }
+
+    // The template shapes are the contract of the presence rule: the absent slot first, in the middle, last, after a
+    // flag and after an element that names a value of its own.
+    static Stream<Arguments> absentSlotShapes() {
+        var exe = EXECUTABLE.toString();
+        return Stream.of(
+                Arguments.of("first", List.of("{{result_schema}}", "-p", "--model", "{{model}}"), List.of(exe, "-p",
+                        "--model", MODEL)),
+                Arguments.of("middle", List.of("-p", "{{result_schema}}", "--model", "{{model}}"), List.of(exe, "-p",
+                        "--model", MODEL)),
+                Arguments.of("last", List.of("-p", "--model", "{{model}}", "{{result_schema}}"), List.of(exe, "-p",
+                        "--model", MODEL)),
+                Arguments.of("after a flag", FLAGGED_SLOT_TEMPLATE, List.of(exe, "-p", "--model", MODEL)),
+                Arguments.of("after an element with its own value", List.of("-p", "--mode=strict",
+                        "{{result_schema}}"), List.of(exe, "-p", "--mode=strict")));
     }
 
     static Stream<Arguments> conformingVectors() {
@@ -246,6 +496,72 @@ class WorkerVectorCheckTest {
                 .tools(TOOLS)
                 .absentSlots(absentSlots)
                 .build();
+    }
+
+    private static String letters() {
+        return Generators.letterStrings(1, 12).next();
+    }
+
+    private static String metacharacter() {
+        var metacharacters = WorkerVectorCheck.SHELL_METACHARACTERS;
+        return String.valueOf(metacharacters.charAt(Generators.integers(0, metacharacters.length() - 1).next()));
+    }
+
+    private static String tool() {
+        return TOOLS.get(Generators.integers(0, TOOLS.size() - 1).next());
+    }
+
+    private static List<String> writerTemplateOf(String document) {
+        return HeadlessBlock.of(LaunchFixtures.profile(document)).argumentsFor(RoleClass.WRITER);
+    }
+
+    private static List<String> resumeTemplateOf(String document) {
+        return HeadlessBlock.of(LaunchFixtures.profile(document)).resumeArgv();
+    }
+
+    /** @return the fresh vector with one element replaced */
+    private static List<String> withElement(int index, String element) {
+        var vector = new ArrayList<>(freshVector());
+        vector.set(index, element);
+        return List.copyOf(vector);
+    }
+
+    /** @return the fresh vector of the template with the literal tails after {@code {{model}}} and {@code {{cwd}}} */
+    private static List<String> knownSlotVector(String model, Path cwd) {
+        var vector = new ArrayList<>(freshVector());
+        vector.set(4, model + LaunchFixtures.MODEL_TAIL);
+        vector.add(5, "--cwd");
+        vector.add(6, cwd + LaunchFixtures.CWD_TAIL);
+        return List.copyOf(vector);
+    }
+
+    private static String boundedPrompt(String prompt) {
+        return LaunchFixtures.PROMPT_PREFIX + prompt + LaunchFixtures.PROMPT_SUFFIX;
+    }
+
+    private static List<String> boundedResumedVector(String session) {
+        return List.of(EXECUTABLE.toString(), "--resume", LaunchFixtures.SESSION_PREFIX + session
+                + LaunchFixtures.SESSION_SUFFIX, "-p", "--prompt-file", boundedPrompt(PROMPT));
+    }
+
+    private static List<String> residualVector(String session) {
+        return List.of(EXECUTABLE.toString(), "--resume", session + LaunchFixtures.SLOT_SEPARATOR + MODEL, "-p",
+                "--prompt-file", PROMPT);
+    }
+
+    /** Asserts the refusal a composition answers for the vector: argument_rejected, its rule letter and position. */
+    private static void assertRefused(WorkerVectorCheck.Input input, char letter, int position) {
+        var violation = WorkerVectorCheck.check(input);
+        assertTrue(violation.isPresent(), "the vector is refused by the check");
+        var refusal = LaunchComposer.CompositionException.argumentRejected(violation.get());
+
+        assertAll("the refusal",
+                () -> assertEquals(LaunchRefusal.ARGUMENT_REJECTED, refusal.refusal(),
+                        "the refusal is argument_rejected"),
+                () -> assertEquals(letter, violation.get().rule().letter(), "the refusal names the rule letter"),
+                () -> assertEquals(position, violation.get().position(), "the refusal names the element position"),
+                () -> assertTrue(refusal.getMessage().contains("(" + letter + ") at element " + position),
+                        "the detail names the rule and the element"));
     }
 
     private static WorkerVectorCheck.Input replaced(int index, String element) {
