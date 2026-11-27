@@ -3504,7 +3504,8 @@ link:../pm-runtime/doc/adr/runtime-worker/020-the-loss-reason-maps-the-attempt-e
 link:../pm-runtime/doc/adr/runtime-worker/021-the-persisted-end-reason-is-the-coarse-mapping-of-the-fate.adoc[ADR runtime-worker/021],
 link:../pm-runtime/doc/adr/runtime-worker/022-the-end-is-recorded-onto-the-registered-generation.adoc[ADR runtime-worker/022],
 link:../pm-runtime/doc/adr/runtime-worker/024-the-start-spacing-has-an-owner-and-waits-outside-the-monitor.adoc[ADR runtime-worker/024],
-link:../pm-runtime/doc/adr/runtime-worker/025-a-launch-refused-before-its-spawn-counts-except-the-update-evidence.adoc[ADR runtime-worker/025]
+link:../pm-runtime/doc/adr/runtime-worker/025-a-launch-refused-before-its-spawn-counts-except-the-update-evidence.adoc[ADR runtime-worker/025],
+link:../pm-runtime/doc/adr/runtime-worker/026-the-attempt-end-is-appended-once-across-a-retried-completion.adoc[ADR runtime-worker/026]
 
 [#PM-WORK-4]
 === PM-WORK-4: Consultation through the Server
