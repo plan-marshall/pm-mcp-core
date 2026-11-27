@@ -681,7 +681,7 @@ class PlanInstanceComposerTest {
             var refusedMissing = assertThrows(IllegalArgumentException.class, () -> request(CompositionEvent.WAIVER,
                     missing, realized, List.of(), AT_START), "a waiver without the footprint is refused");
             var refusedDiffering = assertThrows(IllegalArgumentException.class, () -> request(
-                    CompositionEvent.WAIVER, differing, realized, List.of(), AT_START),
+                            CompositionEvent.WAIVER, differing, realized, List.of(), AT_START),
                     "a waiver with another footprint is refused");
 
             assertAll(
