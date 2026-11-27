@@ -544,6 +544,17 @@ runs `AgentStartedDetector.detect` over the record's PID, and yields an idle slo
 it completes an end, so the tail a worker wrote before its exit reaches the journal, and it appends the attempt's end with
 the reason the cause and the loss signal name.
 
+**One attempt end per attempt across a retried completion**
+(link:../adr/runtime-worker/026-the-attempt-end-is-appended-once-across-a-retried-completion.adoc[ADR 026]). A
+completion can throw after the journal committed the attempt's end: the end is an activity entry, so the recorder
+evaluates the off-track signals at it and reports each one to `WorkerProtocol.offTrack` after the commit, and that report
+can fail. The pass then reports the generation's failure and keeps its claim and its pump for the next pass, as for any
+failed end. The end stays appended exactly once because `ActivityRecorder.append` hands the committed entry to its caller
+before it reports a signal, and `WorkerActivityPump.finish` keeps that entry until the finish completes: the retry's
+`finishAttempt` reaches the same pump, which answers the end already in the journal and appends no second one. A
+completion that threw before the commit kept nothing, so its retry appends the end; the signal report that failed is not
+repeated.
+
 **The end path completes against the store** (ADR 017, which retires the blocker ADR 014 recorded). The runner's
 settlement writes the terminal worker block in the same transaction as the job's fate, derived from the worker block the
 record carries under that transaction's lock — so a state the transport wrote after the runner read its record is not
@@ -630,8 +641,9 @@ The four follow-ups the end path's lane named, each with its outcome; none is bu
   re-append they would fix; the second pull request of this plan carries them.
 . *A pump that outlives its generation for a retryable tail of a settled worker* — dropped: the operator's answer at
   refine of PLAN-V2-165 was to build none of the four follow-ups. The pump of a generation whose end fails before the
-  attempt's end is appended already stays, because `finishAttempt` removes it only after that append and the pass keeps
-  the generation's claim while the end stays owed, so the retry resumes from the pump's offset (ADR 018, ADR 022). The
+  attempt's end is appended already stays, because `finishAttempt` removes it only after the pump's finish completed and
+  the pass keeps the generation's claim while the end stays owed, so the retry resumes from the pump's offset (ADR 018,
+  ADR 022); an end that failed after its append is not appended again (ADR 026). The
   gap that stays is a tail that `JobLog` reports unreadable at the settling pass. While the generation still leases its
   task, the attempt's end is appended in that same pass and the pump leaves with it, so that tail is not read again.
   When the task closed before the job settled, `closeAttempt` appends no end on an unreadable tail and `finishAttempt`

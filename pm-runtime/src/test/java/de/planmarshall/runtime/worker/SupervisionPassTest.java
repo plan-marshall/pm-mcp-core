@@ -187,12 +187,21 @@ class SupervisionPassTest {
 
     /** @return the {@code WorkerTaskActivity} double: the facts of the open tasks, by the attempt the test records */
     private WorkerTaskActivity tasks() {
+        return tasks(-1);
+    }
+
+    /**
+     * @param unplannedChanges the unplanned changed files every open task reports; {@code -1} outside an envelope task
+     * @return the {@code WorkerTaskActivity} double: the facts of the open tasks, by the attempt the test records
+     */
+    private WorkerTaskActivity tasks(int unplannedChanges) {
         WorkerTaskActivity mock = createMock(WorkerTaskActivity.class);
         expect(mock.facts(anyString())).andAnswer(() -> {
             var asked = (String) getCurrentArguments()[0];
             var attempt = openTasks.get(asked);
             return attempt == null ? Optional.<WorkerTaskActivity.TaskActivity>empty()
-                    : Optional.of(new WorkerTaskActivity.TaskActivity(attempt, role.artifact(), Set.of(), null, -1));
+                    : Optional.of(new WorkerTaskActivity.TaskActivity(attempt, role.artifact(), Set.of(), null,
+                            unplannedChanges));
         }).anyTimes();
         replay(mock);
         return mock;
@@ -204,11 +213,21 @@ class SupervisionPassTest {
     }
 
     private Function<WorkerGeneration, WorkerActivityPump> pumps(ActivityJournal journal) {
+        return pumps(journal, tasks, fixture.protocol);
+    }
+
+    /**
+     * @param journal  the journal the recorder writes
+     * @param facts    the facts the recorder evaluates the off-track signals against
+     * @param protocol where the recorder reports an off-track signal
+     * @return the pumps of the pass, over one recorder
+     */
+    private Function<WorkerGeneration, WorkerActivityPump> pumps(ActivityJournal journal, WorkerTaskActivity facts,
+            WorkerProtocol protocol) {
         var mapping = ActivityEventMapping.of(JsonDocument.parse(EVENTS.getBytes(StandardCharsets.UTF_8), "events"))
                 .orElseThrow();
         var mapper = new ActivityEventMapper(mapping, Map.of());
-        var recorder = new ActivityRecorder(journal, tasks, fixture.protocol, new OffTrackDetector(),
-                InstantSource.fixed(AT));
+        var recorder = new ActivityRecorder(journal, facts, protocol, new OffTrackDetector(), InstantSource.fixed(AT));
         return _ -> new WorkerActivityPump(mapper, recorder);
     }
 
@@ -1224,6 +1243,57 @@ class SupervisionPassTest {
                 // The wire name of the drain's attempt end is the contract the journal records.
                 () -> assertEquals("drain", entries.getLast().end(),
                         "the requested drain names the attempt end"));
+    }
+
+    @Test
+    @DisplayName("a completion that throws after its attempt end was appended appends no second end on the retry")
+    void aCompletionThatThrowsAfterTheAppendAppendsTheEndOnce() throws Exception {
+        var failure = Generators.letterStrings(8, 24).next();
+        // At the threshold of outside_footprint, so the attempt end's own append raises the signal and its report
+        // throws once — after the journal committed the entry.
+        var unplanned = (int) Math.ceil(RoleArtifact.OffTrackSignal.OUTSIDE_FOOTPRINT.compiledThreshold());
+        writeRunning(generation, ProcessHandle.current().pid());
+        lease();
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        var journal = journal("throw-after-append");
+        var pass = new SupervisionPass(supervisor, calls, ending, recycling, tasks, silentDetector(),
+                pumps(journal, tasks(unplanned), offTrackFailingOnce(failure)));
+        pass.run();
+        ending.end(generation, EndCause.DRAIN);
+        settle(generation);
+
+        pass.run();
+        var endsAfterTheFailure = attemptEnds(journal.entries(task));
+        var terminalAfterTheFailure = supervisor.generation(generation.generationId()).orElseThrow().terminal();
+        pass.run();
+
+        var ends = attemptEnds(journal.entries(task));
+        assertAll(
+                () -> assertEquals(1, endsAfterTheFailure.size(), "the failed completion appended the end"),
+                () -> assertFalse(terminalAfterTheFailure, "the failed completion leaves the generation"),
+                () -> assertTrue(supervisor.generation(generation.generationId()).orElseThrow().terminal(),
+                        "the retry ends the generation"),
+                () -> assertEquals(1, ends.size(), "the retry appends no second attempt end"),
+                // The wire name of the drain's attempt end is the contract the journal records.
+                () -> assertEquals("drain", ends.getFirst().end(), "the one attempt end keeps the requested drain"));
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                RuntimeLogMessages.WARN.WORKER_ADVANCE_FAILED.resolveIdentifierString());
+        LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN, failure);
+    }
+
+    private static List<ActivityEntry> attemptEnds(List<ActivityEntry> entries) {
+        return entries.stream().filter(entry -> entry.kind() == ActivityEntry.Kind.ATTEMPT_END).toList();
+    }
+
+    /** @return the protocol double whose first off-track report fails, and which takes every later one */
+    private static WorkerProtocol offTrackFailingOnce(String message) {
+        WorkerProtocol mock = createMock(WorkerProtocol.class);
+        mock.offTrack(anyObject(WorkerProtocol.OffTrackReport.class));
+        expectLastCall().andThrow(new IllegalStateException(message)).once();
+        mock.offTrack(anyObject(WorkerProtocol.OffTrackReport.class));
+        expectLastCall().anyTimes();
+        replay(mock);
+        return mock;
     }
 
     @Test

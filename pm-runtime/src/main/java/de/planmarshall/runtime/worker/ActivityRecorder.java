@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 
 import de.planmarshall.core.queue.ActivityEntry;
 import de.planmarshall.core.queue.ActivityJournal;
@@ -71,6 +72,25 @@ public final class ActivityRecorder {
      * @throws TaskNotOpenException if the task's facts cannot be read
      */
     public ActivityEntry append(String queueTaskId, String generationId, ActivityEntry.ActivityEntryBuilder builder) {
+        return append(queueTaskId, generationId, builder, _ -> {
+        });
+    }
+
+    /**
+     * Appends one activity entry, hands the written entry to the caller once the journal committed it, and only then
+     * reports the signals the entry raised. A report that fails after the commit reaches the caller with the entry
+     * already handed over, so the caller knows the entry is in the journal although the call threw.
+     *
+     * @param queueTaskId  the task
+     * @param generationId the worker's generation
+     * @param builder      the entry, without its sequence, attempt and instant
+     * @param onWritten    receives the entry as the journal wrote it, before any signal is reported
+     * @return the entry as the journal wrote it
+     * @throws TaskNotOpenException if the task's facts cannot be read
+     */
+    public ActivityEntry append(String queueTaskId, String generationId, ActivityEntry.ActivityEntryBuilder builder,
+            Consumer<ActivityEntry> onWritten) {
+        Objects.requireNonNull(onWritten, "onWritten");
         var facts = tasks.facts(queueTaskId).orElseThrow(() -> new TaskNotOpenException(queueTaskId));
         var at = clock.instant();
         var written = new ActivityEntry[1];
@@ -87,6 +107,8 @@ public final class ActivityRecorder {
             detected.addAll(detector.detect(facts.attempt(), entries, facts.role(), raised,
                     facts.predictedCostTokens(), facts.unplannedChanges()));
         });
+        var entry = SecretRedactor.redact(written[0]);
+        onWritten.accept(entry);
         for (var signal : detected) {
             protocol.offTrack(WorkerProtocol.OffTrackReport.builder()
                     .generationId(generationId)
@@ -101,7 +123,7 @@ public final class ActivityRecorder {
             reported.computeIfAbsent(key, ignored -> EnumSet.noneOf(RoleArtifact.OffTrackSignal.class))
                     .add(signal.signal());
         }
-        return SecretRedactor.redact(written[0]);
+        return entry;
     }
 
     /**
