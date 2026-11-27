@@ -1409,6 +1409,15 @@ public class ProfileValidator {
             }
         }
 
+        /**
+         * The rules of one launch argument: it names no URL, no absolute path and no home path, every placeholder is a
+         * slot of the closed set, and no two slots touch — the check of the composed vector reads a slot value back up to
+         * the literal after it, so a slot that ends where the next begins has no bound (PM-CLIENT-5, PM-EXEC-5).
+         *
+         * @param item    the argument
+         * @param pointer the JSON Pointer of the argument
+         * @param slots   the slots the argument may name
+         */
         private void launchItem(String item, String pointer, Set<String> slots) {
             if (item.contains("://") || item.startsWith("http:") || item.startsWith("https:")) {
                 throw invalid(pointer, "an argument names a URL: '%s'".formatted(item));
@@ -1419,10 +1428,15 @@ public class ProfileValidator {
             if (item.startsWith("~/")) {
                 throw invalid(pointer, "an argument names a home path: '%s'".formatted(item));
             }
+            var previousEnd = -1;
             for (var placeholder = PLACEHOLDER.matcher(item); placeholder.find(); ) {
                 if (!slots.contains(placeholder.group(1))) {
                     throw invalid(pointer, "not a closed slot: '{{%s}}'".formatted(placeholder.group(1)));
                 }
+                if (placeholder.start() == previousEnd) {
+                    throw invalid(pointer, "two slots are adjacent in one argument: '%s'".formatted(item));
+                }
+                previousEnd = placeholder.end();
             }
         }
 
