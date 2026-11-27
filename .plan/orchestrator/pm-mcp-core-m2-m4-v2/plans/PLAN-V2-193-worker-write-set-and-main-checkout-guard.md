@@ -3,9 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-06
 origin: doc-review-2026-11-24-001.md section 1 ("Worker write set and the main-checkout guard"; job-runtime/02:17-19, phase-workflows/02:242); operator's cut, plan 6.
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec — ready for `/plan-marshall-runbook-lane` hand-off. Lives at `plans/PLAN-V2-193-worker-write-set-and-main-checkout-guard.md`; one queue row, lane `runbook`. The orchestrator EMITS the command; it never launches the plan inline.
+> Staged plan spec — ready for `/plan-marshall` hand-off. Lives at `plans/PLAN-V2-193-worker-write-set-and-main-checkout-guard.md`; one queue row, lane `plan-marshall`. The orchestrator EMITS the command; it never launches the plan inline.
 
 ## First Instruction: Read The Standing Rules
 
@@ -79,7 +79,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-193-worker-write-set-and-main-checkout-guard.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-193-worker-write-set-and-main-checkout-guard.md"
 ```
 
 ## Write-Boundary

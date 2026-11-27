@@ -3,9 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-05
 origin: doc-review-2026-11-24-001.md section 1 ("Judge check", model-work/01:363-370; owner D4 of section 4); operator's cut, plan 7.
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec — ready for `/plan-marshall-runbook-lane` hand-off. Lives at `plans/PLAN-V2-194-judge-check-refuses-grading.md`; one queue row, lane `runbook`. The orchestrator EMITS the command; it never launches the plan inline.
+> Staged plan spec — ready for `/plan-marshall` hand-off. Lives at `plans/PLAN-V2-194-judge-check-refuses-grading.md`; one queue row, lane `plan-marshall`. The orchestrator EMITS the command; it never launches the plan inline.
 
 ## First Instruction: Read The Standing Rules
 
@@ -75,7 +75,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-194-judge-check-refuses-grading.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-194-judge-check-refuses-grading.md"
 ```
 
 ## Write-Boundary

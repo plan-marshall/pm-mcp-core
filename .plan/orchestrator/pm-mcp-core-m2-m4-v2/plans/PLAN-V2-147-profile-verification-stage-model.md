@@ -3,9 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-04
 origin: the operator's decision of 2026-11-14 (issues pass Q14, answer 1) to stage the verification stage runner and the stages, and the grounding of that day (`origin/main` `77f2a83d`, a read-only leaf): PLAN-V2-39 (#412) shipped the record **reader** and value classes only; no stage runs, no writer exists, `settings` is in the specification's stage table and not in `VerificationRecord.STAGE_NAMES`, and `code`, `figures` and the `results` keys of the record are not closed in the reader although the specification says they are. This is the first of two plans (the second, PLAN-V2-148, builds the runner on the confined jobs); everything here is pure logic that needs no harness
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
 > Lives at `plans/PLAN-V2-147-profile-verification-stage-model.md` and is queued as one row file, `queue/PLAN-V2-147.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -122,7 +122,7 @@ Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf 
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-147-profile-verification-stage-model.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-147-profile-verification-stage-model.md"
 ```
 
 ## Write-Boundary

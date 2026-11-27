@@ -3,9 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-11
 origin: PLAN-V2-126, deliverable 4 (the operator narrowed 126 to D1 on 2026-11-25; one PR per the operator's "four PRs per spec")
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec, one shippable unit of work (one PR), ready for `/plan-marshall-runbook-lane` hand-off. SELF-SUFFICIENT together with the standing rules.
+> Staged plan spec, one shippable unit of work (one PR), ready for `/plan-marshall` hand-off. SELF-SUFFICIENT together with the standing rules.
 
 ## First Instruction: Read The Standing Rules
 
@@ -113,7 +113,7 @@ About 40 existing files; about 50 if the scan finds more statement classes.
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-205-test-statements-draws-and-pairs.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-205-test-statements-draws-and-pairs.md"
 ```
 
 ## Write-Boundary

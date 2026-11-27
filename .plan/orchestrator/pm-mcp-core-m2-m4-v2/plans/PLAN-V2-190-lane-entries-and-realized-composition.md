@@ -3,9 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-02
 origin: doc-review-2026-11-24-001.md section 1 ("Lane entries", "Composition on the realized change", "Protected paths"); operator's cut, plan 3.
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec — ready for `/plan-marshall-runbook-lane` hand-off. Lives at `plans/PLAN-V2-190-lane-entries-and-realized-composition.md`; one queue row, lane `runbook`. The orchestrator EMITS the command; it never launches the plan inline.
+> Staged plan spec — ready for `/plan-marshall` hand-off. Lives at `plans/PLAN-V2-190-lane-entries-and-realized-composition.md`; one queue row, lane `plan-marshall`. The orchestrator EMITS the command; it never launches the plan inline.
 
 ## First Instruction: Read The Standing Rules
 
@@ -84,7 +84,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-190-lane-entries-and-realized-composition.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-190-lane-entries-and-realized-composition.md"
 ```
 
 ## Write-Boundary

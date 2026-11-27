@@ -3,9 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-07
 origin: doc-review-2026-11-25-001.md section 1 V4 (supersedes the first round's wording item on `change-ledger-record.schema.json:83`: `criterion` is DELETED) and doc-review-2026-11-24-001.md section 1 ("Freshness reconcile replaced by the gate's derivation"); operator's cut, plan 5.
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec — ready for `/plan-marshall-runbook-lane` hand-off. Lives at `plans/PLAN-V2-192-change-ledger-build-row-and-freshness-reconcile.md`; one queue row, lane `runbook`. The orchestrator EMITS the command; it never launches the plan inline.
+> Staged plan spec — ready for `/plan-marshall` hand-off. Lives at `plans/PLAN-V2-192-change-ledger-build-row-and-freshness-reconcile.md`; one queue row, lane `plan-marshall`. The orchestrator EMITS the command; it never launches the plan inline.
 
 ## First Instruction: Read The Standing Rules
 
@@ -74,7 +74,7 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-192-change-ledger-build-row-and-freshness-reconcile.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-192-change-ledger-build-row-and-freshness-reconcile.md"
 ```
 
 ## Write-Boundary

@@ -3,9 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-06
 origin: PLAN-V2-162 (#567) landing revision 25, section 9: items 42(f) (four T-3 test gaps) and 42(h) (`finishAttempt` throw-after-append)
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec, one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off. SELF-SUFFICIENT together with the standing rules.
+> Staged plan spec, one shippable unit of work, ready for `/plan-marshall` hand-off. SELF-SUFFICIENT together with the standing rules.
 
 ## First Instruction: Read The Standing Rules
 
@@ -89,7 +89,7 @@ The tail pump before the exit, the `START_FAILURE` branch, the requested-end bra
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-199-supervisor-t3-test-gaps-and-finish-attempt.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-199-supervisor-t3-test-gaps-and-finish-attempt.md"
 ```
 
 ## Write-Boundary

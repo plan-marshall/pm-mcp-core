@@ -3,9 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-06
 origin: the impact analysis of the specification pull requests #414, #417 and #419 of 2026-11-14 (`landings/SPEC-PRS-2026-11-14.md`): #417 (`f97055e1`) added the bullet `[[observed-file-changes]]` "File changes the runtime observes itself" to `doc/specification/harness-profiles/01-profile-schema.adoc` (line 306), a task 3 to the open package `doc/plans/worker-activity.adoc` and the watch item `PM-WATCH-DISP-68` with its guard; no staged plan owns the observation or the two signals `failing_again` and `edit_churn` (Tasks 3 and 5 of the package; the specification is ahead of the code)
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
 > Lives at `plans/PLAN-V2-150-worker-activity-observation-and-signals.md` and is queued as one row file, `queue/PLAN-V2-150.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -115,7 +115,7 @@ Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf 
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-150-worker-activity-observation-and-signals.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-150-worker-activity-observation-and-signals.md"
 ```
 
 ## Write-Boundary

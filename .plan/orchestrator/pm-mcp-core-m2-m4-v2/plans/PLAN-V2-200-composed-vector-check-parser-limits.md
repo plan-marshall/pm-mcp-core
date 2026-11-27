@@ -3,9 +3,9 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-06
 origin: PLAN-V2-162 (#567) landing revision 25, section 9: item 30(c) remainder (the lane's ADR 010 and guide statements stand)
-lane: runbook
+lane: plan-marshall
 
-> Staged plan spec, one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off. SELF-SUFFICIENT together with the standing rules.
+> Staged plan spec, one shippable unit of work, ready for `/plan-marshall` hand-off. SELF-SUFFICIENT together with the standing rules.
 
 ## First Instruction: Read The Standing Rules
 
@@ -99,7 +99,7 @@ These are parser changes with their own risk and test surface: adversarial input
 ## Hand-Off Command
 
 ```text
-/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-200-composed-vector-check-parser-limits.md
+/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-200-composed-vector-check-parser-limits.md"
 ```
 
 ## Write-Boundary
