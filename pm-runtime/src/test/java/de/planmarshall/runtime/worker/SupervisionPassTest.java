@@ -57,6 +57,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import de.planmarshall.core.profile.JsonDocument;
@@ -1145,6 +1146,84 @@ class SupervisionPassTest {
                 () -> assertEquals(WorkerLifecycle.START_FAILED,
                         supervisor.generation(generation.generationId()).orElseThrow().lifecycle(),
                         "the pass ends the generation as a start failure"));
+    }
+
+    @Test
+    @DisplayName("the lines a log gained before the exit are appended before the attempt end, which is appended once")
+    void theTailIsAppendedBeforeTheAttemptEnd() throws Exception {
+        var first = Generators.letterStrings(4, 16).next();
+        var tail = List.of(Generators.letterStrings(4, 16).next(), Generators.letterStrings(4, 16).next());
+        writeRunning(generation, ProcessHandle.current().pid());
+        lease();
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        var journal = journal("tail-before-end");
+        var pass = pass(journal);
+        append(text(first));
+        pass.run();
+        tail.forEach(line -> append(text(line)));
+        settle(generation);
+
+        pass.run();
+        pass.run();
+
+        var entries = journal.entries(task);
+        assertAll(
+                () -> assertEquals(List.of(ActivityEntry.Kind.TEXT, ActivityEntry.Kind.TEXT, ActivityEntry.Kind.TEXT,
+                        ActivityEntry.Kind.ATTEMPT_END), entries.stream().map(ActivityEntry::kind).toList(),
+                        "the tail precedes the one attempt end"),
+                () -> assertEquals(List.of(first, tail.get(0), tail.get(1)),
+                        entries.stream().filter(entry -> entry.kind() == ActivityEntry.Kind.TEXT)
+                                .map(ActivityEntry::text).toList(),
+                        "the journal holds the lines in log order"),
+                // The wire name of the attempt end is the contract the journal records.
+                () -> assertEquals("exited_without_submit", entries.getLast().end(),
+                        "the exit ends the attempt without a submit"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false, START_FAILED, start_failure", "true, LOST, exited"})
+    @DisplayName("a settled worker is a start failure only without its first call (end names are wire contract)")
+    void aSettledWorkerIsAStartFailureOnlyWithoutItsFirstCall(boolean called, WorkerLifecycle lifecycle,
+            String endName) throws Exception {
+        if (called) {
+            writeRunning(generation);
+            calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+            settleThroughTheFateStep(generation, JobRecord.Fate.FAILED);
+        } else {
+            settleAsExitBeforeTheFirstCall(generation);
+        }
+
+        pass(journal("start-failure-" + called)).run();
+
+        assertEquals(lifecycle, supervisor.generation(generation.generationId()).orElseThrow().lifecycle(),
+                "the first call decides the generation's end");
+        LogAsserts.assertLogMessagePresent(TestLogLevel.INFO, RuntimeLogMessages.INFO.WORKER_GENERATION_ENDED
+                .format(generation.generationId(), generation.role(), endName));
+    }
+
+    @Test
+    @DisplayName("a requested end names the attempt end, not the loss of the exit nor the reason the record carries")
+    void aRequestedEndWinsOverTheLossAndTheRecordedReason() throws Exception {
+        writeRunning(generation, ProcessHandle.current().pid());
+        lease();
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        var journal = journal("requested-wins");
+        var pass = pass(journal);
+        pass.run();
+        ending.end(generation, EndCause.DRAIN);
+        settle(generation);
+
+        pass.run();
+
+        var entries = journal.entries(task);
+        assertAll(
+                () -> assertEquals(WorkerState.EndReason.TASK_DONE, recorded(generation).endReason(),
+                        "the settled record carries its own end reason"),
+                () -> assertEquals(1, entries.stream().filter(entry -> entry.kind() == ActivityEntry.Kind.ATTEMPT_END)
+                        .count(), "the attempt's end is appended once"),
+                // The wire name of the drain's attempt end is the contract the journal records.
+                () -> assertEquals("drain", entries.getLast().end(),
+                        "the requested drain names the attempt end"));
     }
 
     @Test
