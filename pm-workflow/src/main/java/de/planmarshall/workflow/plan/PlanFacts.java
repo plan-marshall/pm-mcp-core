@@ -42,10 +42,13 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * The composition rules address a fact by name:
  * <ul>
- * <li>{@value #LANE_FACT}, {@value #POSTURE_FACT}, {@value #CHANGE_TYPE_FACT}: the plan facts of the same names;</li>
+ * <li>{@value #LANE_FACT}, {@value #POSTURE_FACT}: the plan facts of the same names;</li>
  * <li>{@value #POST_RUN_FACT}: the post-run-only form a fallback or an empty harvest composes ({@code returned},
  * {@code handed_back} or {@code empty_harvest});</li>
- * <li>{@value #FOOTPRINT_FACT}: the declared footprint, a list of paths; absent when it could not be read;</li>
+ * <li>{@value #REALIZED_FOOTPRINT_FACT}: the realized footprint, the repository-relative paths of the diff against the
+ * plan's base; absent when it could not be read, and absent before the event {@code realized}, because the composer
+ * masks it at {@code start}, {@code outline}, {@code plan} and {@code replan} ({@link #withoutRealizedFootprint()}),
+ * so a rule over it never holds there;</li>
  * <li>{@code axes.<axis>} ({@link Axis#fact()}): the variant bound on the plan behaviour axis {@code landing},
  * {@code method} or {@code asking}, which is always known: the nearest level that sets the axis, else the shipped
  * plan default ({@link #bound(Axis)});</li>
@@ -63,42 +66,39 @@ import org.jspecify.annotations.Nullable;
  * declarations of the bound variant are not: they are the content of the variant's unit, which the header names by
  * its own digest.
  *
- * @param lane          the lane of the plan; {@code null} if unknown
- * @param posture       the posture of the plan; {@code null} if not set
- * @param changeType    the change type of the plan; {@code null} if unknown
- * @param postRun       the post-run-only form being composed; {@code null} if none
- * @param footprint     the declared footprint; {@code null} if it could not be read
- * @param configuration the effective configuration values by key, derived facts included
- * @param steps         the step ids known to the plan
- * @param tasks         the task ids known to the plan
- * @param axes          per plan behaviour axis the variant each level sets, {@link Level#SHIPPED} never among them
- * @param overrides     the text of the plan's {@code overrides.json}; {@code null} if the plan has none
- * @param declarations  per axis variant whose tree was read its declarations by name
+ * @param lane              the lane of the plan; {@code null} if unknown
+ * @param posture           the posture of the plan; {@code null} if not set
+ * @param postRun           the post-run-only form being composed; {@code null} if none
+ * @param realizedFootprint the realized footprint; {@code null} if it could not be read or is not read
+ * @param configuration     the effective configuration values by key, derived facts included
+ * @param steps             the step ids known to the plan
+ * @param tasks             the task ids known to the plan
+ * @param axes              per plan behaviour axis the variant each level sets, {@link Level#SHIPPED} never among
+ *                          them
+ * @param overrides         the text of the plan's {@code overrides.json}; {@code null} if the plan has none
+ * @param declarations      per axis variant whose tree was read its declarations by name
  * @since 0.1
  */
 public record PlanFacts(PlanInstanceHeader.@Nullable Lane lane, PlanInstanceHeader.@Nullable Posture posture,
-@Nullable String changeType, @Nullable String postRun, @Nullable List<String> footprint,
-SortedMap<String, String> configuration, List<String> steps, List<String> tasks,
-Map<Axis, Map<Level, String>> axes, @Nullable String overrides,
+@Nullable String postRun, @Nullable List<String> realizedFootprint, SortedMap<String, String> configuration,
+List<String> steps, List<String> tasks, Map<Axis, Map<Level, String>> axes, @Nullable String overrides,
 Map<String, Map<String, CallValue>> declarations) {
 
     /** The fact name of the lane. */
     public static final String LANE_FACT = "lane";
     /** The fact name of the posture. */
     public static final String POSTURE_FACT = "posture";
-    /** The fact name of the change type. */
-    public static final String CHANGE_TYPE_FACT = "change_type";
     /** The fact name of the post-run-only form. */
     public static final String POST_RUN_FACT = "post_run";
-    /** The fact name of the declared footprint. */
-    public static final String FOOTPRINT_FACT = "footprint";
+    /** The fact name of the realized footprint. */
+    public static final String REALIZED_FOOTPRINT_FACT = "realized_footprint";
 
     /** The prefix of every fact of a plan behaviour axis. */
     private static final String AXES_PREFIX = "axes.";
 
     /** The names of the plan facts; every other fact name is an axis fact or a configuration key. */
-    static final Set<String> PLAN_FACT_NAMES = Set.of(LANE_FACT, POSTURE_FACT, CHANGE_TYPE_FACT, POST_RUN_FACT,
-            FOOTPRINT_FACT);
+    static final Set<String> PLAN_FACT_NAMES = Set.of(LANE_FACT, POSTURE_FACT, POST_RUN_FACT,
+            REALIZED_FOOTPRINT_FACT);
 
     /** The names of the axis facts: the bound variant of each axis and the declarations of its variants. */
     static final Set<String> AXIS_FACT_NAMES = axisFactNames();
@@ -108,23 +108,22 @@ Map<String, Map<String, CallValue>> declarations) {
      * level, and declarations of a unit that is no axis variant, and copies the collections into unmodifiable ones; the
      * configuration is ordered by key.
      *
-     * @param lane          the lane of the plan, {@code null} if unknown
-     * @param posture       the posture of the plan, {@code null} if not set
-     * @param changeType    the change type of the plan, {@code null} if unknown
-     * @param postRun       the post-run-only form being composed, {@code null} if none
-     * @param footprint     the declared footprint, {@code null} if it could not be read
-     * @param configuration the effective configuration values by key
-     * @param steps         the step ids known to the plan
-     * @param tasks         the task ids known to the plan
-     * @param axes          per axis the variant each level sets
-     * @param overrides     the text of the plan's {@code overrides.json}, {@code null} if none
-     * @param declarations  per axis variant its declarations by name
+     * @param lane              the lane of the plan, {@code null} if unknown
+     * @param posture           the posture of the plan, {@code null} if not set
+     * @param postRun           the post-run-only form being composed, {@code null} if none
+     * @param realizedFootprint the realized footprint, {@code null} if it could not be read or is not read
+     * @param configuration     the effective configuration values by key
+     * @param steps             the step ids known to the plan
+     * @param tasks             the task ids known to the plan
+     * @param axes              per axis the variant each level sets
+     * @param overrides         the text of the plan's {@code overrides.json}, {@code null} if none
+     * @param declarations      per axis variant its declarations by name
      * @throws IllegalArgumentException if a level sets a value that is no variant of its axis, a level is
      *                                  {@link Level#SHIPPED}, or declarations name a unit that is no axis variant
      */
     public PlanFacts {
-        if (footprint != null) {
-            footprint = List.copyOf(footprint);
+        if (realizedFootprint != null) {
+            realizedFootprint = List.copyOf(realizedFootprint);
         }
         configuration = Collections.unmodifiableSortedMap(new TreeMap<>(Objects.requireNonNull(configuration,
                 "configuration")));
@@ -194,9 +193,8 @@ Map<String, Map<String, CallValue>> declarations) {
         return switch (fact) {
             case LANE_FACT -> lane == null ? Optional.empty() : Optional.of(lane.wireName());
             case POSTURE_FACT -> posture == null ? Optional.empty() : Optional.of(posture.wireName());
-            case CHANGE_TYPE_FACT -> Optional.ofNullable(changeType);
             case POST_RUN_FACT -> Optional.ofNullable(postRun);
-            case FOOTPRINT_FACT -> Optional.empty();
+            case REALIZED_FOOTPRINT_FACT -> Optional.empty();
             default -> fact.startsWith(AXES_PREFIX) ? axisValue(fact).flatMap(PlanFacts::textOf)
                     : Optional.ofNullable(configuration.get(fact));
         };
@@ -209,8 +207,8 @@ Map<String, Map<String, CallValue>> declarations) {
      * @return the list, or empty when the fact is unknown or holds one text
      */
     public Optional<List<String>> list(String fact) {
-        if (FOOTPRINT_FACT.equals(fact)) {
-            return Optional.ofNullable(footprint);
+        if (REALIZED_FOOTPRINT_FACT.equals(fact)) {
+            return Optional.ofNullable(realizedFootprint);
         }
         return axisValue(fact).flatMap(value -> value instanceof CallValue.EnumList(var values)
                 ? Optional.of(values) : Optional.empty());
@@ -242,8 +240,27 @@ Map<String, Map<String, CallValue>> declarations) {
     public PlanFacts withDeclarations(String variant, Map<String, CallValue> declared) {
         var replaced = new TreeMap<>(declarations);
         replaced.put(variant, declared);
-        return new PlanFacts(lane, posture, changeType, postRun, footprint, configuration, steps, tasks, axes,
-                overrides, replaced);
+        return new PlanFacts(lane, posture, postRun, realizedFootprint, configuration, steps, tasks, axes, overrides,
+                replaced);
+    }
+
+    /**
+     * The masked form of these facts the composer reads at an event that reads no realized footprint.
+     *
+     * @return these facts with the realized footprint absent; every other fact unchanged
+     */
+    public PlanFacts withoutRealizedFootprint() {
+        return new PlanFacts(lane, posture, postRun, null, configuration, steps, tasks, axes, overrides,
+                declarations);
+    }
+
+    /**
+     * @return the SHA-256 over the canonical JSON list of the realized footprint, 64 lowercase hexadecimal characters,
+     *         or empty when the footprint is absent
+     */
+    public Optional<String> realizedFootprintDigest() {
+        return realizedFootprint == null ? Optional.empty()
+                : Optional.of(sha256(HeaderJson.canonical(strings(realizedFootprint))));
     }
 
     /**
@@ -270,9 +287,9 @@ Map<String, Map<String, CallValue>> declarations) {
         var members = new LinkedHashMap<String, Node>();
         members.put(LANE_FACT, optional(lane == null ? null : lane.wireName()));
         members.put(POSTURE_FACT, optional(posture == null ? null : posture.wireName()));
-        members.put(CHANGE_TYPE_FACT, optional(changeType));
         members.put(POST_RUN_FACT, optional(postRun));
-        members.put(FOOTPRINT_FACT, footprint == null ? NullNode.INSTANCE : strings(footprint));
+        members.put(REALIZED_FOOTPRINT_FACT,
+                realizedFootprint == null ? NullNode.INSTANCE : strings(realizedFootprint));
         var config = new LinkedHashMap<String, Node>();
         configuration.forEach((key, value) -> config.put(key, new StringNode(value)));
         members.put("configuration", new ObjectNode(config));
@@ -353,9 +370,8 @@ Map<String, Map<String, CallValue>> declarations) {
 
         private PlanInstanceHeader.@Nullable Lane lane;
         private PlanInstanceHeader.@Nullable Posture posture;
-        private @Nullable String changeType;
         private @Nullable String postRun;
-        private @Nullable List<String> footprint;
+        private @Nullable List<String> realizedFootprint;
         private final Map<String, String> configuration = new TreeMap<>();
         private List<String> steps = List.of();
         private List<String> tasks = List.of();
@@ -385,15 +401,6 @@ Map<String, Map<String, CallValue>> declarations) {
         }
 
         /**
-         * @param value the change type
-         * @return this builder
-         */
-        public Builder changeType(String value) {
-            changeType = value;
-            return this;
-        }
-
-        /**
          * @param value the post-run-only form, {@code returned}, {@code handed_back} or {@code empty_harvest}
          * @return this builder
          */
@@ -403,11 +410,11 @@ Map<String, Map<String, CallValue>> declarations) {
         }
 
         /**
-         * @param value the declared footprint
+         * @param value the realized footprint, the repository-relative paths of the diff against the plan's base
          * @return this builder
          */
-        public Builder footprint(List<String> value) {
-            footprint = value;
+        public Builder realizedFootprint(List<String> value) {
+            realizedFootprint = value;
             return this;
         }
 
@@ -474,7 +481,7 @@ Map<String, Map<String, CallValue>> declarations) {
          * @throws IllegalArgumentException if an axis value or a declared variant is refused
          */
         public PlanFacts build() {
-            return new PlanFacts(lane, posture, changeType, postRun, footprint, new TreeMap<>(configuration), steps,
+            return new PlanFacts(lane, posture, postRun, realizedFootprint, new TreeMap<>(configuration), steps,
                     tasks, axes, overrides, declarations);
         }
     }

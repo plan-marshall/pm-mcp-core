@@ -140,7 +140,7 @@ class PlanInstanceHeaderTest {
     /** A header with every list empty and every optional member absent. */
     static PlanInstanceHeader minimalHeader() {
         return new PlanInstanceHeader("plan-24", 1, CompositionEvent.START, COMPOSED_AT,
-                new CompositionInputs("c", List.of(), List.of(), "r1", DIGEST_A, DIGEST_B, null, null, null),
+                new CompositionInputs("c", List.of(), List.of(), "r1", DIGEST_A, DIGEST_B, null, null),
                 null, null, new PlanInstanceHeader.Steps(List.of(), List.of()), List.of(), List.of(), List.of());
     }
 
@@ -156,7 +156,7 @@ class PlanInstanceHeaderTest {
                         List.of(new UnitReference("plan", ".marshall/config/plan.pmwf", DIGEST_B,
                                 UnitOrigin.PROJECT)),
                         List.of(new UnitReference("remediation.ci-failure", null, DIGEST_C, UnitOrigin.DEFAULT)),
-                        "r7", DIGEST_D, DIGEST_A, DIGEST_B, "feature", DIGEST_C),
+                        "r7", DIGEST_D, DIGEST_A, DIGEST_B, DIGEST_C),
                 PlanInstanceHeader.Lane.DEEP, PlanInstanceHeader.Posture.STANDARD,
                 new PlanInstanceHeader.Steps(List.of("verify:quality-gate"),
                         List.of("default:push", "project:lint-docs")),
@@ -169,7 +169,7 @@ class PlanInstanceHeaderTest {
     /** A header with the given policy-call arguments and nothing else in the policy calls. */
     static PlanInstanceHeader headerWithArgs(Map<String, BoundArgument> args) {
         return new PlanInstanceHeader("plan-24", 1, CompositionEvent.WAIVER, COMPOSED_AT,
-                new CompositionInputs(DIGEST_A, List.of(), List.of(), "r7", DIGEST_A, DIGEST_B, null, null, null),
+                new CompositionInputs(DIGEST_A, List.of(), List.of(), "r7", DIGEST_A, DIGEST_B, null, null),
                 null, null, new PlanInstanceHeader.Steps(List.of(), List.of()), List.of(),
                 List.of(PolicyCall.of("finalize.remediate-ci", "remediation.ci-failure", args)), List.of());
     }
@@ -190,7 +190,7 @@ class PlanInstanceHeaderTest {
         @DisplayName("is one line, members sorted by name at every level, no whitespace, absent values as null")
         void exactSpelling() {
             var expected = "{\"composed_at\":\"2026-10-14T08:05:00Z\",\"event\":\"start\",\"format_version\":1,"
-                    + "\"inputs\":{\"change_type\":null,\"composition_rules\":{\"digest\":\"" + DIGEST_A
+                    + "\"inputs\":{\"composition_rules\":{\"digest\":\"" + DIGEST_A
                     + "\",\"revision\":\"r1\"},\"config_hash\":\"c\",\"plan_facts_digest\":\"" + DIGEST_B
                     + "\",\"providers_digest\":null,\"realized_footprint_digest\":null,\"sub_units\":[],"
                     + "\"templates\":[]},\"lane\":null,\"plan_id\":\"plan-24\",\"policy_calls\":[],"
@@ -314,7 +314,6 @@ class PlanInstanceHeaderTest {
                     () -> assertEquals(".marshall/config/plan.pmwf", inputs.templates().getFirst().file(),
                             "a present unit file reads back"),
                     () -> assertNull(inputs.subUnits().getFirst().file(), "an absent unit file reads back null"),
-                    () -> assertEquals("feature", inputs.changeType(), "the change type reads back"),
                     () -> assertEquals(DIGEST_B, inputs.realizedFootprintDigest(), "the footprint digest reads back"),
                     () -> assertEquals(DIGEST_C, inputs.providersDigest(), "the providers digest reads back"),
                     () -> assertNull(args.get("actions").file(), "an absent argument file reads back null"),
@@ -338,7 +337,7 @@ class PlanInstanceHeaderTest {
         void lenientShapesRead() {
             var json = HeaderJson.write(PlanInstanceHeaderTest.minimalHeader())
                     .replace("\"posture\":null,", "")
-                    .replace("\"change_type\":null,", "")
+                    .replace("\"providers_digest\":null,", "")
                     .replace("2026-10-14T08:05:00Z", "2026-10-14t10:05:00+02:00");
 
             assertEquals(PlanInstanceHeaderTest.minimalHeader(), HeaderJson.read(json),
@@ -419,8 +418,7 @@ class PlanInstanceHeaderTest {
                             new UnitReference("phase-6-finalize", composedFile, DIGEST_C, UnitOrigin.DEFAULT)),
                     base.inputs().subUnits(), base.inputs().compositionRulesRevision(),
                     base.inputs().compositionRulesDigest(), base.inputs().planFactsDigest(),
-                    base.inputs().realizedFootprintDigest(), base.inputs().changeType(),
-                    base.inputs().providersDigest());
+                    base.inputs().realizedFootprintDigest(), base.inputs().providersDigest());
             return new PlanInstanceHeader(base.planId(), base.version(), base.event(), base.composedAt(), inputs,
                     base.lane(), base.posture(), base.steps(), base.pruned(),
                     List.of(base.policyCalls().getFirst(), nested), base.waivedGates());
@@ -649,9 +647,9 @@ class PlanInstanceHeaderTest {
             var base = minimalHeader();
             var pruned = List.of(
                     new PrunedElement(PrunedElement.Kind.STEP, "default:create-pr", PruneReason.NO_CODE_DELTA,
-                            "change_type"),
+                            PlanFacts.REALIZED_FOOTPRINT_FACT),
                     new PrunedElement(PrunedElement.Kind.STEP, "default:push", PruneReason.NO_PRODUCTION_DELTA,
-                            "change_type"));
+                            PlanFacts.REALIZED_FOOTPRINT_FACT));
             var header = new PlanInstanceHeader(base.planId(), base.version(), base.event(), base.composedAt(),
                     base.inputs(), base.lane(), base.posture(), base.steps(), pruned, List.of(), List.of());
 
@@ -660,6 +658,56 @@ class PlanInstanceHeaderTest {
                             "the header with the new reasons should be valid"),
                     () -> assertTrue(filePruneReasons().containsAll(List.of("no_code_delta", "no_production_delta")),
                             "the file should list the new prune reasons"));
+        }
+
+        @Test
+        @DisplayName("the event realized is a server event of the file, listed between plan and config_adopted")
+        void realizedEventInFileOrder() {
+            var events = fileCompositionEvents();
+
+            assertAll(
+                    () -> assertEquals(Optional.of(CompositionEvent.REALIZED),
+                            CompositionEvent.fromWireName("realized"), "the realized wire name reads back"),
+                    () -> assertEquals(CompositionEvent.Trigger.SERVER, CompositionEvent.REALIZED.trigger(),
+                            "the realized event is a server event"),
+                    () -> assertEquals(events.indexOf("plan") + 1, events.indexOf("realized"),
+                            "the file lists realized right after plan"),
+                    () -> assertEquals(events.indexOf("realized") + 1, events.indexOf("config_adopted"),
+                            "the file lists config_adopted after realized"));
+        }
+
+        // the wire names below are the removed reasons of the schema, the contract of this negative control
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"footprint_disjoint", "change_type_exempt"})
+        @DisplayName("a header naming a removed prune reason is refused by the schema check")
+        void removedPruneReasonRefused(String wireName) {
+            var json = HeaderJson.write(fullHeader("plan-24", 1, "lane")).replace("\"reason\":\"adopt\"",
+                    "\"reason\":\"" + wireName + "\"");
+
+            assertAll(
+                    () -> assertEquals(Optional.empty(), PruneReason.fromWireName(wireName),
+                            "the removed reason has no value of the type"),
+                    () -> assertFalse(filePruneReasons().contains(wireName), "the file no longer lists the reason"),
+                    () -> assertEquals(List.of("/pruned/0/reason"),
+                            HeaderSchemaCheck.check(json).stream().map(HeaderViolation::pointer).toList(),
+                            "the check refuses the removed reason"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json),
+                            "the reader refuses the removed reason"));
+        }
+
+        @Test
+        @DisplayName("a header that still carries inputs.change_type is refused as an undeclared member")
+        void changeTypeInputRefused() {
+            // "change_type" is the removed member of the closed inputs object, the contract of this negative control
+            var json = HeaderJson.write(minimalHeader()).replace("\"inputs\":{",
+                    "\"inputs\":{\"change_type\":\"feature\",");
+
+            assertAll(
+                    () -> assertEquals(List.of(new HeaderViolation("/inputs/change_type",
+                                    HeaderSchemaCheck.NOT_ALLOWED)), HeaderSchemaCheck.check(json),
+                            "the check refuses the change type member"),
+                    () -> assertThrows(IllegalArgumentException.class, () -> HeaderJson.read(json),
+                            "the reader refuses the change type member"));
         }
 
         @ParameterizedTest(name = "{0}")
@@ -771,7 +819,6 @@ class PlanInstanceHeaderTest {
                     () -> assertNull(header.lane(), "the lane of the minimal header is absent"),
                     () -> assertNull(header.posture(), "the posture of the minimal header is absent"),
                     () -> assertNull(header.inputs().realizedFootprintDigest(), "the footprint digest is absent"),
-                    () -> assertNull(header.inputs().changeType(), "the change type is absent"),
                     () -> assertNull(header.inputs().providersDigest(), "the providers digest is absent"),
                     () -> assertNull(reference.file(), "the file of the reference is absent"),
                     () -> assertNull(argument.file(), "the file of a rule argument is absent"),
@@ -821,7 +868,7 @@ class PlanInstanceHeaderTest {
                                     minimalHeader().steps(), List.of(), List.of(), List.of()),
                             "a header without its event is refused"),
                     () -> assertThrows(NullPointerException.class, () -> new CompositionInputs(null, List.of(),
-                                    List.of(), "r", DIGEST_A, DIGEST_B, null, null, null),
+                                    List.of(), "r", DIGEST_A, DIGEST_B, null, null),
                             "composition inputs without a config hash are refused"));
         }
     }

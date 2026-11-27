@@ -22,11 +22,11 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 
 [horizontal]
 `PlanInstanceHeader`:: The header of one version: plan id, version, `CompositionEvent`, `composedAt`, `CompositionInputs`, lane, posture, the kept step lists (`Steps`), the pruned elements, the policy calls and the waived gates. The nested enums `Lane` and `Posture` carry the wire names. The record holds values as given; the schema is answered by `HeaderSchemaCheck`.
-`CompositionInputs`:: Every input of a version by digest: `config_hash`, the templates and sub-units as `UnitReference`, the revision and digest of the composition rules, the digest of the plan facts, and the optional digests of the realized footprint and the providers with the change type.
+`CompositionInputs`:: Every input of a version by digest: `config_hash`, the templates and sub-units as `UnitReference`, the revision and digest of the composition rules, the digest of the plan facts, and the optional digests of the realized footprint (computed by the composer from the realized footprint it read, `null` where it read none) and of the providers.
 `UnitReference`:: A template or sub-unit named by id, optional file, SHA-256 of its text and origin.
-`CompositionEvent`:: The closed set of the nine events (`start`, `outline`, `plan`, `config_adopted`, `waiver`, `override`, `fallback`, `empty_harvest`, `replan`), each with its `Trigger` (`server` or `operator`); `override`, the operator setting or changing one of the plan's own values, is an operator event.
+`CompositionEvent`:: The closed set of the ten events (`start`, `outline`, `plan`, `realized`, `config_adopted`, `waiver`, `override`, `fallback`, `empty_harvest`, `replan`), each with its `Trigger` (`server` or `operator`); `override`, the operator setting or changing one of the plan's own values, is an operator event. `realized` is a server event composed in the transaction that enters `execute.verify-sweep` after the last plan task committed, again when a loop-back or a re-planning added tasks and the last of them committed (<<_the_realized_footprint>>).
 `PrunedElement`:: One element the composition left out: its `Kind` (`step`, `state`, `link`, `policy_action`, `call`), id, `PruneReason` and the source fact. A `call` is a call of a phase sub-workflow or of an axis variant, its id `<call_site>/<subworkflow_id>`.
-`PruneReason`:: The closed set of the fifteen prune reasons of the header schema, `no_code_delta`, `no_production_delta`, `other_lane`, `merge_by_operator` and `plan_default` among them.
+`PruneReason`:: The closed set of the thirteen prune reasons of the header schema, `no_code_delta`, `no_production_delta`, `other_lane`, `merge_by_operator` and `plan_default` among them.
 `PolicyCall`:: One call of a remediation unit in the kept states with its effective arguments and, for a call of a composed unit, the unit that holds it (`inUnit`; absent for a call of the plan unit).
 `BoundArgument`:: The effective value of one argument with its `Source`: the template (with its file), a composition rule, or the `raise` waiver (with its id).
 `WaivedGate`:: A gate a `met` waiver marks waived, with the waiver id.
@@ -51,7 +51,7 @@ A header or a log line with a value outside them, such as the former `recipe_ove
 [horizontal]
 `CompositionRules`:: The rule file with its revision and the SHA-256 of its bytes. `shipped()` loads the classpath resource `/de/planmarshall/workflow/plan/composition-rules.json`, `parse(byte[])` checks any bytes; both return `Loading`, `Loaded` or `Refused` with a `Refusal` (`UNREADABLE`, `MALFORMED`, `ADDS_ELEMENT`, `RAISES_BUDGET`, `NAMES_GATE`) and a detail.
 `CompositionRule`:: One rule: an id, a `Condition` over one fact (`Equals`, `In`, `Empty`, `Unset`, `Disjoint`), the prunes (`Prune`) and the bindings (`Binding`).
-`PlanFacts`:: The facts one composition reads: lane, posture, change type, the post-run-only form, the declared footprint, the effective configuration by key, the step and task ids, the variant each level sets on each plan behaviour axis, the text of the plan's `overrides.json`, and the declarations of the axis variants. Its digest is the header's `plan_facts_digest` (<<_the_plan_behaviour_axes>>).
+`PlanFacts`:: The facts one composition reads: lane, posture, the post-run-only form, the realized footprint (`realized_footprint`, absent where it could not be read; `withoutRealizedFootprint()` is the masked copy the composer reads where the event reads none), the effective configuration by key, the step and task ids, the variant each level sets on each plan behaviour axis, the text of the plan's `overrides.json`, and the declarations of the axis variants. Its digest is the header's `plan_facts_digest` (<<_the_plan_behaviour_axes>>).
 `PlanFacts.Axis`:: The three plan behaviour axes `landing`, `method` and `asking`, each with its closed list of variants and its shipped plan default (`landing.pull-request`, `method.tests-after`, `ask.questions-only`).
 `PlanFacts.Level`:: The levels that set an axis, from the nearest: `plan`, `project`, `machine`, and `shipped` for the plan default where no level sets it.
 `PlanFacts.BoundVariant`:: The variant bound on an axis and the level that set it; its source fact is `<level>.axes.<axis>`, for example `plan.axes.asking`.
@@ -61,7 +61,7 @@ A header or a log line with a value outside them, such as the former `recipe_ove
 === Composition and storage
 
 [horizontal]
-`CompositionRequest`:: Everything one composition reads, as values: plan id, event, plan template, the templates by digest, the sub-units (`SubUnit`: reference and tree), facts, configuration hash, the optional digests, the waivers in force, the position, the version in force, the Phase 5 verification steps and the Phase 6 steps with their order (`Step`). `start` has no previous version, every other event needs one. The event and the `post_run` fact of the facts agree: `fallback` needs `returned` or `handed_back`, `empty_harvest` needs `empty_harvest`, every other event, `override` among them, leaves the fact unset.
+`CompositionRequest`:: Everything one composition reads, as values: plan id, event, plan template, the templates by digest, the sub-units (`SubUnit`: reference and tree), facts, configuration hash, the optional digests, the waivers in force, the position, the version in force, the Phase 5 verification steps and the Phase 6 steps with their order (`Step`). `start` has no previous version, every other event needs one. The event and the `post_run` fact of the facts agree: `fallback` needs `returned` or `handed_back`, `empty_harvest` needs `empty_harvest`, every other event, `override` among them, leaves the fact unset. A carrying event (`config_adopted`, `waiver`, `override`, `fallback`, `empty_harvest`) after a version that read a realized footprint supplies the same footprint; a request whose footprint is missing or has another digest is refused with an `IllegalArgumentException` (<<_the_realized_footprint>>).
 `Waiver`:: A waiver in force: `met` marks its gate waived, `raise` names `<argument>:<policy>` and the new ceiling.
 `InstancePosition`:: The unit and state the plan is in, and the calling unit and state of every call-stack frame (`UnitState`).
 `PlanInstanceComposer`:: `compose(request)` returns a `CompositionResult`. Constructed with the `VerificationContext`, the verified default units, the default finalize roster, the rules, the `CompositionChecks` and a `Clock`.
@@ -109,6 +109,7 @@ _Requirements: link:../../../../plan-marshall-documentation/doc/requirements/14-
 
 `PlanInstanceComposer.compose` runs these steps in order:
 
+. *Decide the facts read.* The event decides whether the realized footprint of the request's facts is read, carried or masked (<<_the_realized_footprint>>).
 . *Read the variant declarations.* The declarations of every axis variant among the request's sub-units are taken from its tree into the facts, so a rule can read them (<<_the_plan_behaviour_axes>>).
 . *Evaluate the rules.* `CompositionRuleEvaluator` evaluates every rule against the facts. An absent fact is unknown: every condition over it is false, except `unset`.
 . *Prune, bind, waive.* `InstancePruner` resolves each prune selector against the template and the step lists:
@@ -367,7 +368,7 @@ Its shape is closed: `format_version` 1, a non-empty `revision` and the list `ru
 A registered fact is a name of one of the sets `CompositionRules` checks a `when` against: the plan facts `PlanFacts.PLAN_FACT_NAMES`, the axis facts `PlanFacts.AXIS_FACT_NAMES` (the bound variant of each axis and the declarations of the compiled schemas of its variants, derived from those schemas), and the configuration keys `CompositionRules.CONFIGURATION_FACTS` and those starting with `CompositionRules.PROVIDER_FACT_PREFIX`.
 A rule over any other name, the former `merge.auto_merge` and `recipe_id` among them, is refused as `MALFORMED`.
 
-The shipped rules, revision `2`, in file order:
+The shipped rules, revision `3`, in file order:
 
 [cols="2,3,3"]
 |===
@@ -381,13 +382,35 @@ The shipped rules, revision `2`, in file order:
 |`posture-standard` |`posture` = `standard` |prune `default:finalize-step-security-audit` (`posture`)
 |`posture-default-off` |`posture` in `minimal`, `standard`, `full` |prune `default:adr-propose`, `default:plan-retrospective` (`posture`)
 |`analysis-provider-unconfigured` |`integrations.sonar` unset |prune `default:analysis-roundtrip` (`provider_unconfigured`)
-|`no-code-delta` |`footprint` disjoint from the code and build globs |prune `default:finalize-step-simplify`, `default:adr-propose` (`footprint_disjoint`)
-|`report-change-type` |`change_type` in `analysis`, `verification` |prune `default:finalize-step-simplify` (`change_type_exempt`)
+|`no-code-delta` |`realized_footprint` disjoint from the code and build globs |prune `default:finalize-step-simplify`, `default:adr-propose` (`no_code_delta`)
 |`post-run-returned`, `post-run-handed-back`, `post-run-empty-harvest` |`post_run` = the form |prune `order<900` (the form's reason)
 |===
 
-The targets of the provider, footprint and change-type rules are derived from the step catalogue (link:../adr/workflow-plan/008-rule-family-targets-derived.adoc[ADR 008]).
+The targets of the provider and code-delta rules are derived from the step catalogue; the rule `no-code-delta` reads the realized footprint, which only the event `realized` reads and the later carrying events carry (<<_the_realized_footprint>>, link:../adr/workflow-plan/029-the-composition-reads-the-realized-change.adoc[ADR 029], which supersedes link:../adr/workflow-plan/008-rule-family-targets-derived.adoc[ADR 008]).
+No rule reads a change type: the rule `report-change-type` and the prune reasons `footprint_disjoint` and `change_type_exempt` are gone, and neither the facts nor the header's inputs carry `change_type`.
 The `plan_default` prunes of the axis variants and the `other_lane` prunes are not rules of the file: the composer derives them from the bound variants and the lane (<<_the_plan_behaviour_axes>>, <<_lane_pruning>>).
+
+=== The realized footprint
+
+The fact `realized_footprint` is the list of repository-relative paths of the plan's diff against its base, absent where it could not be read.
+An absent list is indeterminate for `disjoint`, never disjoint, so the rule `no-code-delta` holds only where the fact is present; the rule grammar knows no events.
+`PlanInstanceComposer` decides per event, before it evaluates the rules, whether the facts it reads carry the footprint:
+
+[cols="2,3"]
+|===
+|Event |The realized footprint read
+
+|`realized`
+|As the request supplies it; an unreadable footprint is supplied as absent and keeps the steps.
+
+|`config_adopted`, `waiver`, `override`, `fallback`, `empty_harvest`
+|Carried: as supplied where the previous version read one (its `inputs.realized_footprint_digest` is set), and `CompositionRequest` refuses a request whose footprint is missing or has another digest; masked where the previous version read none.
+
+|`start`, `outline`, `plan`, `replan`
+|Masked (`PlanFacts.withoutRealizedFootprint()`), whatever the request supplies; a loop-back to the outline re-runs `outline` and `plan` and so restores the steps until the next `realized`.
+|===
+
+The header's `inputs.realized_footprint_digest` is the SHA-256 over the canonical JSON list of the footprint the composition read (`PlanFacts.realizedFootprintDigest()`), `null` where it read none, and its `plan_facts_digest` is the digest of the facts read, so a masked footprint never reaches either (link:../adr/workflow-plan/029-the-composition-reads-the-realized-change.adoc[ADR 029]).
 
 === Adding a rule
 

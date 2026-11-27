@@ -125,7 +125,7 @@ class PlanProcessStatesTest {
         var planId = Generators.letterStrings(3, 20).next().toLowerCase(Locale.ROOT);
         var inputs = new CompositionInputs(Generators.letterStrings(1, 8).next(), List.of(), List.of(),
                 Generators.letterStrings(1, 8).next(), Generators.letterStrings(1, 8).next(),
-                Generators.letterStrings(1, 8).next(), null, null, null);
+                Generators.letterStrings(1, 8).next(), null, null);
         var header = new PlanInstanceHeader(planId, unit.version(), CompositionEvent.PLAN, T0, inputs, null, null,
                 new PlanInstanceHeader.Steps(List.of(), List.of()), List.of(), List.of(), List.of());
         var instance = new PlanInstance(unit.version(), header, unit, text, List.of(), null);

@@ -38,7 +38,7 @@ class PlanInstanceHeaderRecordsTest {
         var composedAt = Instant.ofEpochMilli(Generators.longs(0, 2_000_000_000L).next());
         var inputs = new CompositionInputs(Generators.letterStrings(1, 40).next(), List.of(), List.of(),
                 Generators.letterStrings(1, 20).next(), Generators.letterStrings(1, 64).next(),
-                Generators.letterStrings(1, 64).next(), null, null, null);
+                Generators.letterStrings(1, 64).next(), null, null);
         var steps = new PlanInstanceHeader.Steps(List.of(), List.of());
         var lane = Generators.enumValues(PlanInstanceHeader.Lane.class).next();
         var posture = Generators.enumValues(PlanInstanceHeader.Posture.class).next();
@@ -77,7 +77,7 @@ class PlanInstanceHeaderRecordsTest {
     void planInstanceHeaderBuilderRefusesMissingPlanId() {
         var inputs = new CompositionInputs(Generators.letterStrings(1, 40).next(), List.of(), List.of(),
                 Generators.letterStrings(1, 20).next(), Generators.letterStrings(1, 64).next(),
-                Generators.letterStrings(1, 64).next(), null, null, null);
+                Generators.letterStrings(1, 64).next(), null, null);
 
         var builder = PlanInstanceHeader.builder()
                 .version(1)

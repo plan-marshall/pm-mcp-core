@@ -269,7 +269,7 @@ class ProductRegistriesWiringTest {
                 .templates(List.of(new UnitReference(template.id(), ROOT + fixture, DIGEST, UnitOrigin.DEFAULT)))
                 .subUnits(List.of())
                 .facts(PlanFacts.builder().lane(PlanInstanceHeader.Lane.DEEP).posture(PlanInstanceHeader.Posture.FULL)
-                        .changeType("feature").build())
+                        .build())
                 .configHash(DIGEST)
                 .waivers(List.of())
                 .position(InstancePosition.at("verify.entry"))

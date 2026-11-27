@@ -484,13 +484,256 @@ class PlanInstanceComposerTest {
         @Test
         @DisplayName("an element two rules prune is listed once, with the reason of the first rule")
         void prunedOnce() {
-            var instance = composed(composer().compose(start(facts().lane(Lane.LAND).changeType("analysis")
-                    .build())));
+            var instance = composed(composer().compose(start(facts().lane(Lane.LAND)
+                    .posture(PlanInstanceHeader.Posture.MINIMAL).build())));
 
             assertEquals(List.of(PruneReason.LAND_LANE), instance.header().pruned().stream()
                             .filter(prune -> "default:finalize-step-simplify".equals(prune.id()))
                             .map(PrunedElement::reason).toList(),
                     "the first rule's reason names a twice-pruned element");
+        }
+    }
+
+    /**
+     * The composition reads the realized change (ADR {@code workflow-plan/029}): only the event {@code realized} reads
+     * the realized footprint as supplied, so the rule {@code no-code-delta} prunes simplify and the ADR proposal with
+     * {@code no_code_delta} there; {@code start}, {@code outline}, {@code plan} and {@code replan} mask it; the operator
+     * and post-run events after a version that read one carry it and must supply the same footprint. The facts here
+     * set no posture, so the ADR proposal is pruned by no posture rule before {@code no-code-delta}, and the steps
+     * name the ADR proposal beside the fixture's steps.
+     */
+    @Nested
+    @DisplayName("Realized change")
+    class RealizedChange {
+
+        private static final String SIMPLIFY = "default:finalize-step-simplify";
+
+        private static final String ADR_PROPOSE = "default:adr-propose";
+
+        private static PlanFacts.Builder unpostured() {
+            return PlanFacts.builder().lane(Lane.DEEP).configuration("integrations.sonar", "sonarcloud")
+                    .configuration("derived.push_remote", "origin");
+        }
+
+        private static List<String> documentation() {
+            return List.of("doc/" + Generators.letterStrings(1, 12).next() + ".adoc",
+                    Generators.letterStrings(1, 12).next() + ".adoc");
+        }
+
+        /** @return the request of the fixture with the ADR proposal among its Phase 6 steps */
+        private static CompositionRequest withAdrPropose(CompositionRequest request) {
+            var steps = new ArrayList<CompositionRequest.Step>();
+            for (var step : request.finalizeSteps()) {
+                steps.add(step);
+                if ("default:branch-cleanup".equals(step.id())) {
+                    steps.add(new CompositionRequest.Step(ADR_PROPOSE, 80));
+                }
+            }
+            return new CompositionRequest(request.planId(), request.event(), request.template(), request.templates(),
+                    request.subUnits(), request.facts(), request.configHash(), request.providersDigest(),
+                    request.waivers(), request.position(), request.previous(), request.verificationSteps(), steps);
+        }
+
+        private static PlanInstance compose(CompositionEvent event, PlanFacts facts, PlanInstance previous) {
+            return composed(composer().compose(withAdrPropose(request(event, facts, previous, List.of(),
+                    AT_START))));
+        }
+
+        private static PlanInstance startVersion() {
+            return composed(composer().compose(withAdrPropose(start(unpostured().build()))));
+        }
+
+        private static PlanInstance realized(List<String> footprint) {
+            return compose(CompositionEvent.REALIZED, unpostured().realizedFootprint(footprint).build(),
+                    startVersion());
+        }
+
+        private static List<PrunedElement> noCodeDelta(PlanInstance instance) {
+            return instance.header().pruned().stream().filter(prune -> prune.reason() == PruneReason.NO_CODE_DELTA)
+                    .toList();
+        }
+
+        @Test
+        @DisplayName("a realized version over a documentation-only footprint prunes simplify and the ADR proposal "
+                + "with no_code_delta")
+        void realizedPrunesWithoutCode() {
+            var facts = unpostured().realizedFootprint(documentation()).build();
+
+            var instance = compose(CompositionEvent.REALIZED, facts, startVersion());
+
+            assertAll(
+                    () -> assertEquals(CompositionEvent.REALIZED, instance.header().event(),
+                            "the header records the realized event"),
+                    () -> assertEquals(List.of(
+                                    new PrunedElement(Kind.STEP, SIMPLIFY, PruneReason.NO_CODE_DELTA,
+                                            PlanFacts.REALIZED_FOOTPRINT_FACT),
+                                    new PrunedElement(Kind.STEP, ADR_PROPOSE, PruneReason.NO_CODE_DELTA,
+                                            PlanFacts.REALIZED_FOOTPRINT_FACT)), noCodeDelta(instance),
+                            "the two steps are pruned no_code_delta"),
+                    () -> assertFalse(instance.header().steps().phase6().contains(SIMPLIFY),
+                            "simplify leaves the Phase 6 steps"),
+                    () -> assertFalse(instance.header().steps().phase6().contains(ADR_PROPOSE),
+                            "the ADR proposal leaves the Phase 6 steps"),
+                    () -> assertEquals(facts.realizedFootprintDigest().orElseThrow(),
+                            instance.header().inputs().realizedFootprintDigest(),
+                            "the header digest is that of the fact read"),
+                    () -> assertEquals(facts.digest(), instance.header().inputs().planFactsDigest(),
+                            "the plan facts digest is that of the facts read"),
+                    () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header()),
+                            "the realized header passes its schema"));
+        }
+
+        @Test
+        @DisplayName("a realized footprint with a code file keeps simplify and the ADR proposal")
+        void realizedWithCodeKeeps() {
+            var footprint = new ArrayList<>(documentation());
+            footprint.add("src/main/java/" + Generators.letterStrings(1, 12).next() + ".java");
+
+            var instance = realized(footprint);
+
+            assertAll(
+                    () -> assertEquals(List.of(), noCodeDelta(instance), "a change with code prunes nothing"),
+                    () -> assertTrue(instance.header().steps().phase6().containsAll(List.of(SIMPLIFY, ADR_PROPOSE)),
+                            "both steps stay among the Phase 6 steps"),
+                    () -> assertEquals(PlanFacts.builder().realizedFootprint(footprint).build()
+                                    .realizedFootprintDigest().orElseThrow(),
+                            instance.header().inputs().realizedFootprintDigest(),
+                            "the header digest is that of the fact read"));
+        }
+
+        @Test
+        @DisplayName("an absent (unreadable) realized footprint keeps both steps and records no digest")
+        void realizedWithoutFootprintKeeps() {
+            var instance = compose(CompositionEvent.REALIZED, unpostured().build(), startVersion());
+
+            assertAll(
+                    () -> assertEquals(List.of(), noCodeDelta(instance), "an absent footprint prunes nothing"),
+                    () -> assertTrue(instance.header().steps().phase6().containsAll(List.of(SIMPLIFY, ADR_PROPOSE)),
+                            "both steps stay among the Phase 6 steps"),
+                    () -> assertNull(instance.header().inputs().realizedFootprintDigest(),
+                            "no footprint digest is recorded"));
+        }
+
+        @ParameterizedTest(name = "{0}")
+        @EnumSource(value = CompositionEvent.class, names = {"START", "OUTLINE", "PLAN", "REPLAN"})
+        @DisplayName("the start, outline, plan and replan versions prune nothing by code delta even when the request "
+                + "supplies a footprint")
+        void maskingEventsPruneNothing(CompositionEvent event) {
+            var facts = unpostured().realizedFootprint(documentation()).build();
+            var previous = event == CompositionEvent.START ? null : startVersion();
+
+            var instance = composed(composer().compose(withAdrPropose(request(event, facts, previous, List.of(),
+                    AT_START))));
+
+            assertAll(
+                    () -> assertEquals(List.of(), noCodeDelta(instance), "the masking event prunes nothing"),
+                    () -> assertTrue(instance.header().steps().phase6().containsAll(List.of(SIMPLIFY, ADR_PROPOSE)),
+                            "both steps stay among the Phase 6 steps"),
+                    () -> assertNull(instance.header().inputs().realizedFootprintDigest(),
+                            "a masking event records no footprint digest"),
+                    () -> assertEquals(facts.withoutRealizedFootprint().digest(),
+                            instance.header().inputs().planFactsDigest(),
+                            "the plan facts digest is over the masked facts"));
+        }
+
+        @Test
+        @DisplayName("a change_type of analysis prunes nothing: the change type is no fact")
+        void changeTypeAnalysisPrunesNothing() {
+            var footprint = new ArrayList<>(documentation());
+            footprint.add("src/main/java/" + Generators.letterStrings(1, 12).next() + ".java");
+            // "change_type" and "analysis" are the removed fact and its exempting value, the contract of this control
+            var facts = unpostured().configuration("change_type", "analysis").realizedFootprint(footprint).build();
+
+            var instance = compose(CompositionEvent.REALIZED, facts, startVersion());
+
+            assertAll(
+                    () -> assertEquals(List.of(), rulePrunes(instance.header()),
+                            "a change type of analysis prunes nothing"),
+                    () -> assertTrue(instance.header().steps().phase6().contains(SIMPLIFY),
+                            "simplify stays among the Phase 6 steps"));
+        }
+
+        @Test
+        @DisplayName("a waiver after the realized version keeps the prunes when it supplies the same footprint")
+        void waiverCarriesTheFootprint() {
+            var footprint = documentation();
+            var realized = realized(footprint);
+
+            var waived = compose(CompositionEvent.WAIVER, unpostured().realizedFootprint(footprint).build(),
+                    realized);
+
+            assertAll(
+                    () -> assertEquals(noCodeDelta(realized), noCodeDelta(waived),
+                            "the waiver keeps the no_code_delta prunes"),
+                    () -> assertEquals(realized.header().inputs().realizedFootprintDigest(),
+                            waived.header().inputs().realizedFootprintDigest(),
+                            "the waiver carries the footprint digest"),
+                    () -> assertEquals(3, waived.version(), "the waiver composes version 3"));
+        }
+
+        @Test
+        @DisplayName("a waiver after the realized version is refused when its footprint is missing or differs")
+        void waiverWithoutTheFootprintRefused() {
+            var realized = realized(documentation());
+            var missing = unpostured().build();
+            var differing = unpostured().realizedFootprint(documentation()).build();
+
+            var refusedMissing = assertThrows(IllegalArgumentException.class, () -> request(CompositionEvent.WAIVER,
+                    missing, realized, List.of(), AT_START), "a waiver without the footprint is refused");
+            var refusedDiffering = assertThrows(IllegalArgumentException.class, () -> request(
+                    CompositionEvent.WAIVER, differing, realized, List.of(), AT_START),
+                    "a waiver with another footprint is refused");
+
+            assertAll(
+                    () -> assertTrue(refusedMissing.getMessage().contains(PlanFacts.REALIZED_FOOTPRINT_FACT),
+                            "the refusal names the realized footprint"),
+                    () -> assertTrue(refusedDiffering.getMessage().contains(
+                                    Objects.requireNonNull(realized.header().inputs().realizedFootprintDigest())),
+                            "the refusal names the digest read before"));
+        }
+
+        @Test
+        @DisplayName("a waiver after a version that read no footprint is accepted and prunes nothing by code delta")
+        void waiverAfterUnreadFootprintControl() {
+            var waived = compose(CompositionEvent.WAIVER, unpostured().realizedFootprint(documentation()).build(),
+                    startVersion());
+
+            assertAll(
+                    () -> assertEquals(List.of(), noCodeDelta(waived), "the waiver reads no footprint"),
+                    () -> assertNull(waived.header().inputs().realizedFootprintDigest(),
+                            "the waiver records no footprint digest"));
+        }
+
+        @Test
+        @DisplayName("a replan after the realized version restores simplify and the ADR proposal")
+        void replanRestores() {
+            var footprint = documentation();
+            var realized = realized(footprint);
+
+            var replanned = compose(CompositionEvent.REPLAN, unpostured().realizedFootprint(footprint).build(),
+                    realized);
+
+            assertAll(
+                    () -> assertEquals(List.of(), noCodeDelta(replanned), "the replan prunes nothing by code delta"),
+                    () -> assertTrue(replanned.header().steps().phase6().containsAll(List.of(SIMPLIFY, ADR_PROPOSE)),
+                            "both steps return to the Phase 6 steps"),
+                    () -> assertNull(replanned.header().inputs().realizedFootprintDigest(),
+                            "the replan records no footprint digest"));
+        }
+
+        @Test
+        @DisplayName("the lane rule composes before no-code-delta at the realized event, so it names simplify")
+        void otherRulesComposeAsBefore() {
+            var facts = unpostured().lane(Lane.LAND).realizedFootprint(documentation()).build();
+
+            var instance = compose(CompositionEvent.REALIZED, facts, startVersion());
+            var stepPrunes = instance.header().pruned().stream().filter(prune -> prune.element() == Kind.STEP)
+                    .toList();
+
+            assertEquals(List.of(new PrunedElement(Kind.STEP, SIMPLIFY, PruneReason.LAND_LANE, "lane"),
+                            new PrunedElement(Kind.STEP, ADR_PROPOSE, PruneReason.NO_CODE_DELTA,
+                                    PlanFacts.REALIZED_FOOTPRINT_FACT)), stepPrunes,
+                    "the land rule wins simplify, no-code-delta the ADR");
         }
     }
 
@@ -1131,9 +1374,8 @@ class PlanInstanceComposerTest {
                             && !"phase-execute-light".equals(subUnit.definition().id())).toList();
             var instance = composed(PlanFixtures.perLaneComposer().compose(new CompositionRequest(
                     outline.planId(), outline.event(), outline.template(), outline.templates(), withoutLightCalves,
-                    outline.facts(), outline.configHash(), outline.realizedFootprintDigest(),
-                    outline.providersDigest(), outline.waivers(), outline.position(), outline.previous(),
-                    outline.verificationSteps(), outline.finalizeSteps())));
+                    outline.facts(), outline.configHash(), outline.providersDigest(), outline.waivers(),
+                    outline.position(), outline.previous(), outline.verificationSteps(), outline.finalizeSteps())));
 
             assertAll(
                     () -> assertFalse(instance.unit().states().containsKey("phases.plan-light"),
@@ -1183,9 +1425,8 @@ class PlanInstanceComposerTest {
                     .filter(subUnit -> !"land".equals(subUnit.definition().id())).toList();
             var refused = refused(PlanFixtures.mergedComposer().compose(new CompositionRequest(request.planId(),
                     request.event(), request.template(), request.templates(), withoutLand, request.facts(),
-                    request.configHash(), request.realizedFootprintDigest(), request.providersDigest(),
-                    request.waivers(), request.position(), request.previous(), request.verificationSteps(),
-                    request.finalizeSteps())));
+                    request.configHash(), request.providersDigest(), request.waivers(), request.position(),
+                    request.previous(), request.verificationSteps(), request.finalizeSteps())));
 
             assertAll(
                     () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal(),

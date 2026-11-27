@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "revision": "2",
+  "revision": "3",
   "rules": [
     {
       "id": "land-lane",
@@ -95,7 +95,7 @@
     {
       "id": "no-code-delta",
       "when": {
-        "fact": "footprint",
+        "fact": "realized_footprint",
         "disjoint": [
           "**.java", "**.kt", "**.kts", "**.groovy", "**.gradle", "**.scala",
           "**.js", "**.mjs", "**.cjs", "**.jsx", "**.ts", "**.tsx",
@@ -106,17 +106,8 @@
       },
       "then": {
         "prune": [
-          { "element": "step", "id": "default:finalize-step-simplify", "reason": "footprint_disjoint" },
-          { "element": "step", "id": "default:adr-propose", "reason": "footprint_disjoint" }
-        ]
-      }
-    },
-    {
-      "id": "report-change-type",
-      "when": { "fact": "change_type", "in": ["analysis", "verification"] },
-      "then": {
-        "prune": [
-          { "element": "step", "id": "default:finalize-step-simplify", "reason": "change_type_exempt" }
+          { "element": "step", "id": "default:finalize-step-simplify", "reason": "no_code_delta" },
+          { "element": "step", "id": "default:adr-propose", "reason": "no_code_delta" }
         ]
       }
     },

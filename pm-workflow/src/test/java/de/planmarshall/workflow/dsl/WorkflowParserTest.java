@@ -103,7 +103,7 @@ class WorkflowParserTest {
     private static final String TEMPLATE_DIGEST = "f".repeat(64);
 
     private static final String INSTANCE_JSON = "{\"composed_at\":\"2026-10-10T12:00:00Z\",\"event\":\"plan\","
-            + "\"format_version\":1,\"inputs\":{\"change_type\":\"feature\",\"composition_rules\":{\"digest\":\""
+            + "\"format_version\":1,\"inputs\":{\"composition_rules\":{\"digest\":\""
             + RULES_DIGEST + "\",\"revision\":\"r#3\"},\"config_hash\":\"" + CONFIG_HASH
             + "\",\"plan_facts_digest\":\"" + PLAN_FACTS_DIGEST + "\",\"providers_digest\":null,"
             + "\"sub_units\":[{\"digest\":\"" + COMMIT_DIGEST
@@ -482,8 +482,7 @@ class WorkflowParserTest {
                                     "default"),
                             new InstanceInputs.UnitRef("remediation.ci-failure", null, REMEDIATION_DIGEST,
                                     "default")),
-                    new InstanceInputs.CompositionRules("r#3", RULES_DIGEST), PLAN_FACTS_DIGEST, null,
-                    "feature", null);
+                    new InstanceInputs.CompositionRules("r#3", RULES_DIGEST), PLAN_FACTS_DIGEST, null, null);
             var expected = new WorkflowDefinition(frontmatter("Parser plan instance",
                     "A plan instance written for the parser tests.", UnitType.INSTANCE, "unit.plan"), "plan", 4,
                     WorkflowScope.PLAN,
@@ -1067,8 +1066,6 @@ class WorkflowParserTest {
             return Stream.of(
                     Arguments.of("realized_footprint_digest",
                             (Function<InstanceInputs, @Nullable String>) InstanceInputs::realizedFootprintDigest),
-                    Arguments.of("change_type",
-                            (Function<InstanceInputs, @Nullable String>) InstanceInputs::changeType),
                     Arguments.of("providers_digest",
                             (Function<InstanceInputs, @Nullable String>) InstanceInputs::providersDigest));
         }

@@ -140,7 +140,7 @@ class AstNodeModelTest {
             var inputs = new InstanceInputs(Generators.letterStrings(1, 8).next(), templates, subUnits,
                     new InstanceInputs.CompositionRules(Generators.letterStrings(1, 8).next(),
                             Generators.letterStrings(1, 8).next()),
-                    Generators.letterStrings(1, 8).next(), null, null, null);
+                    Generators.letterStrings(1, 8).next(), null, null);
             // "default" is the origin wire name, "plan" the composition event and "{}" the header JSON document
             var header = new InstanceHeader(Generators.letterStrings(1, 8).next(),
                     Generators.integers(1, 100_000).next(), "plan", inputs, "{}");
@@ -381,16 +381,15 @@ class AstNodeModelTest {
     class AbsentComponents {
 
         @Test
-        @DisplayName("the instance inputs keep a null footprint digest, change type, providers digest and unit file")
+        @DisplayName("the instance inputs keep a null footprint digest, providers digest and unit file")
         void instanceInputsKeepNull() {
             var unit = new InstanceInputs.UnitRef(text(), null, text(), "default");
             var inputs = new InstanceInputs(text(), List.of(unit), List.of(),
-                    new InstanceInputs.CompositionRules(text(), text()), text(), null, null, null);
+                    new InstanceInputs.CompositionRules(text(), text()), text(), null, null);
 
             assertAll(
                     () -> assertNull(unit.file(), "a unit reference without a file keeps null"),
                     () -> assertNull(inputs.realizedFootprintDigest(), "an absent footprint digest stays null"),
-                    () -> assertNull(inputs.changeType(), "an absent change type stays null"),
                     () -> assertNull(inputs.providersDigest(), "an absent providers digest stays null"));
         }
 

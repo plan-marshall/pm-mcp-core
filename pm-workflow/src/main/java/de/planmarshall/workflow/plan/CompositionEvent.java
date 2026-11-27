@@ -20,7 +20,8 @@ import java.util.Optional;
  * event is composed in the transaction that enters its target state and is in force for the rest of its composing
  * chain, a version of an {@linkplain Trigger#OPERATOR operator or configuration} event is in force from the next
  * transition, never mid-state. {@link #START}, version 1, is composed in the transaction that creates the plan and is
- * in force from the plan's first state.
+ * in force from the plan's first state. The server events are {@link #START}, {@link #OUTLINE}, {@link #PLAN},
+ * {@link #REALIZED}, {@link #FALLBACK}, {@link #EMPTY_HARVEST} and {@link #REPLAN}.
  *
  * @since 0.1
  */
@@ -35,8 +36,15 @@ public enum CompositionEvent {
      * {@code deep} version holds no state of the light route.
      */
     OUTLINE("outline", Trigger.SERVER),
-    /** Steps and tasks are known: provider and footprint prunes, budgets bound. */
+    /** Steps and tasks are known: provider prunes, budgets bound. */
     PLAN("plan", Trigger.SERVER),
+    /**
+     * The plan's change is realized: composed in the transaction that enters {@code execute.verify-sweep} after the
+     * last plan task committed, and again when a loop-back or a re-planning added tasks and the last of them committed.
+     * Only this event reads the realized footprint as supplied, so the prunes that read the plan's change (reason
+     * {@code no_code_delta}) are evaluated here; the operator and post-run events after it carry the footprint it read.
+     */
+    REALIZED("realized", Trigger.SERVER),
     /** An adopted configuration or template change. */
     CONFIG_ADOPTED("config_adopted", Trigger.OPERATOR),
     /** A {@code met} waiver, a {@code raise}, or an {@code unwaive}. */
@@ -47,7 +55,10 @@ public enum CompositionEvent {
     FALLBACK("fallback", Trigger.SERVER),
     /** The post-run-only form of a harvest that yielded no targets. */
     EMPTY_HARVEST("empty_harvest", Trigger.SERVER),
-    /** A re-planning revised the outline or the plan tasks of a running plan. */
+    /**
+     * A re-planning revised the outline or the plan tasks of a running plan; it evaluates no prune that reads the
+     * plan's change.
+     */
     REPLAN("replan", Trigger.SERVER);
 
     private final String wireName;

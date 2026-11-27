@@ -38,7 +38,7 @@ class CompositionRequestRecordsTest {
         var position = InstancePosition.at(Generators.letterStrings(1, 20).next());
 
         var constructed = new CompositionRequest(planId, CompositionEvent.START, template, List.of(), List.of(), facts,
-                configHash, null, null, List.of(), position, null, List.of(), List.of());
+                configHash, null, List.of(), position, null, List.of(), List.of());
         var built = CompositionRequest.builder()
                 .planId(planId)
                 .event(CompositionEvent.START)
