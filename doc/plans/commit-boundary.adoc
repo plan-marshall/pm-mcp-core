@@ -1,11 +1,11 @@
-= The commit boundary: the protected-path decision at the commit check
+= The commit boundary: the protected-path decision at the commit check and the lift removal
 :nofooter:
 
 link:README.adoc[Work packages of `pm-mcp-core`] » `commit-boundary`
 
 [horizontal]
-Roadmap item:: none of its own: the commit boundary's decision follows the merged specification (the protected-path decision at the commit check; link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
-Where:: pm-workflow (the commit check's operator question, its `accept`/`refuse` and its `fix` task)
+Roadmap item:: none of its own: the commit boundary's decisions follow the merged specification (the protected-path decision at the commit check, the lift removal; link:../../../plan-marshall-documentation/doc/roadmap.adoc[Roadmap])
+Where:: pm-workflow (the commit check's operator question, its `accept`/`refuse` and its `fix` task); pm-core (`core.store`: the protected-path matcher `ProtectedPaths`)
 Status, milestone and dependencies:: in the link:README.adoc#packages[index], the only place that states them
 
 == Tasks
@@ -13,8 +13,9 @@ Status, milestone and dependencies:: in the link:README.adoc#packages[index], th
 The specification sections named are the single statement of what each task builds.
 
 . *The protected-path decision at the commit check*: the server asks the operator one question over the diff of exactly the touched protected paths, `accept` or `refuse`, and a `refuse` leads to a `fix` task; the family of protected paths is unchanged: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths].
+. *The lift removal*: a path the outline declares lifts no protection, so a declared protected path is decided at the commit check like any other, and the family stays what it was. The matcher `ProtectedPaths` still drops a path named in `declaredFiles` from its result; the change removes that lift from the matcher and its test `ProtectedPathsTest`, from the link:../../pm-core/doc/developer/core-store.adoc#_protected_paths[Scope Stores Developer Guide § Protected Paths] and from link:../../pm-core/doc/adr/core-store/071-the-protected-path-matcher-is-a-pure-core-class.adoc[ADR core-store/071]: link:../specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows § Protected Paths].
 
-Left out: the main-checkout clause made conditional on confinement (link:../specification/job-runtime/02-confinement-and-environment.adoc#_linux_filesystem_confinement_landlock[Job Runtime § Linux Filesystem Confinement]) and the lift removal of a declared path (§ Protected Paths), which build nothing of their own here: their code is the main-checkout guard of the commit primitive in `pm-provider-git` (`FootprintBoundary` and `CommitSite`, documented in `provider-git-primitive.adoc` and `pm-provider-git` ADR `provider-git-primitive/006`) and the protected-path matcher `ProtectedPaths` in `pm-core`.
+Left out: the main-checkout clause made conditional on confinement (link:../specification/job-runtime/02-confinement-and-environment.adoc#_linux_filesystem_confinement_landlock[Job Runtime § Linux Filesystem Confinement]), which builds nothing of its own here: its code is the main-checkout guard of the commit primitive in `pm-provider-git` (`FootprintBoundary` and `CommitSite`, documented in `provider-git-primitive.adoc` and `pm-provider-git` ADR `provider-git-primitive/006`).
 
 == Trace
 
@@ -26,5 +27,5 @@ The starting set of the trace matrix of the project skill `traced-implementation
 
 == Done When
 
-* Watch: the items of link:../implementation-watch/phase-workflows.adoc[Phase Workflows] anchored to the section the task names.
-* Tests: one operator question over the diff of exactly the touched protected paths, with `accept` letting the commit through and `refuse` leading to a `fix` task; a touched protected path without a decision blocking the commit.
+* Watch: the items of link:../implementation-watch/phase-workflows.adoc[Phase Workflows] anchored to the section the tasks name.
+* Tests: one operator question over the diff of exactly the touched protected paths, with `accept` letting the commit through and `refuse` leading to a `fix` task; a touched protected path without a decision blocking the commit; a protected path the outline declares still raising `footprint_violation` of kind `protected_path` unless the operator accepts it, and the same declared path accepted by the operator passing (control).

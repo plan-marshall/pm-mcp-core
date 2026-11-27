@@ -304,7 +304,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 10
 
 |link:commit-boundary.adoc[`commit-boundary`]
-|The commit boundary: the protected-path decision at the commit check
+|The commit boundary: the protected-path decision at the commit check and the lift removal (a path the outline declares lifts no protection)
 |`open`
 |nothing
 |Milestone 10
