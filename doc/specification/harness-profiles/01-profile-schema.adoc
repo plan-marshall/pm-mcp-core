@@ -84,6 +84,14 @@ undefined (link:../model-work/01-roles-and-configuration.adoc[Model Work Specifi
 profile with `headless: null` is shown in the harness lists, marked, and never offered for workers or as the default
 harness (<<harness-scan>>). Values the evaluation did not measure stay _(provisional)_ like the other harness facts.
 
+[[headless-adjacent-slots]]*No two adjacent slots*: profile validation refuses an item of an argument list it checks as
+launch arguments (`headless.argv`, the `args` of a class, `headless.resumability.resume.argv`, the probe and login
+argument lists) in which one placeholder ends where the next begins (`{{model}}{{effort}}`). The refusal points at the item
+and gives the reason that two slots are adjacent in one argument. The composed vector of a launch is read back slot by
+slot before the spawn (link:../model-work/04-worker-launch.adoc#launch-contract[Model Work Specification, Launch
+Contract]), and two slots that touch leave no literal to bound the first
+(link:../../../pm-core/doc/developer/core-profile.adoc[Harness Profiles Developer Guide]).
+
 [#headless-usage]
 *Usage pointers*: Usage is read from the harness output through `headless.usage`, never asked from a model. The same per-turn figures give the supervisor a warm worker's context size for its token budget (link:../model-work/03-supervision-and-recycling.adoc[Model Work Specification, Supervision & Recycling]).
 

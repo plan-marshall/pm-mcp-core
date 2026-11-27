@@ -1244,18 +1244,34 @@ Implementation (the argument-schema validation of a composed worker vector: the 
 is parsed back against the profile's `headless` template and the closed grammar of each typed slot, and a vector that
 does not conform refuses the launch as `argument_rejected` with the job record's fate `refused`; the check runs at the
 end of the composition, not as a stage of the pipeline, because a worker's vector is composed from the profile's
-template and the role and is no caller's request):
+template and the role and is no caller's request. A slot value is read by a bound, never by a search: the only slot of
+an element between the literals at both ends, `{{model}}` and `{{cwd}}` by the value the check holds, the last slot to
+the end of its element; only the value of a JSON slot is exempt from the metacharacter rule, and `{{tools}}` names each
+tool of the role once. The residual — an unknown-value slot followed by a literal in an element of two or more slots —
+refuses fail-closed; the profile validation refuses two adjacent slots in one launch argument):
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/WorkerVectorCheck.java[WorkerVectorCheck],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchComposer.java[LaunchComposer],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchRefusal.java[LaunchRefusal]
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchRefusal.java[LaunchRefusal],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java[ProfileValidator]
 
 Verified by (the composed worker vector):
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/WorkerVectorCheckTest.java[WorkerVectorCheckTest],
-link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/LaunchComposerTest.java[LaunchComposerTest]
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/WorkerVectorCheckTest.java[WorkerVectorCheckTest]
+(the four template shapes, one refusal per rule, and the limits of the parse back: a known value containing the literal
+after it, the literals around a JSON slot, the only slot of an element bounded from both ends, the tool rule, the
+presence of a slot and the residual),
+link:../pm-runtime/src/test/java/de/planmarshall/runtime/launch/LaunchComposerTest.java[LaunchComposerTest],
+link:../pm-core/src/test/java/de/planmarshall/core/profile/ProfileValidatorTest.java[ProfileValidatorTest] (two adjacent
+slots in one launch argument refused with its pointer and reason, and the controls),
+link:../pm-core/src/test/java/de/planmarshall/core/profile/ShippedProfilesTest.java[ShippedProfilesTest] (every profile
+`pm-api` ships still validates)
 
 Documentation (the composed worker vector):
 link:../pm-runtime/doc/developer/runtime-launch.adoc#_the_composed_vector_check[Worker Launch Developer Guide § The
-Composed-Vector Check]
+Composed-Vector Check],
+link:../pm-runtime/doc/adr/runtime-launch/010-the-composed-vector-is-parsed-back.adoc[ADR runtime-launch/010],
+link:../pm-runtime/doc/adr/runtime-launch/014-the-vector-check-bounds-a-slot-by-known-values-and-both-ends.adoc[ADR
+runtime-launch/014],
+link:../pm-core/doc/developer/core-profile.adoc[Harness Profiles Developer Guide]
 
 [#PM-EXEC-2]
 === PM-EXEC-2: Operator Enrolment & Verify-Not-Resolve Contract
@@ -2330,11 +2346,16 @@ Implementation (the load directive's one slot: `skill_loading.load_directive_tem
 link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java[ProfileValidator]
 
 Implementation (the launch contract of the profile's `headless` block: the composed argument vector is parsed back
-against the template and the closed grammar of each typed slot before the worker spawns, and a vector that does not
-conform refuses the launch as `argument_rejected`, recorded `refused`):
+against the template and the closed grammar of each typed slot before the worker spawns, each slot value read by its
+bound — the only slot of an element between the literals at both ends, `{{model}}` and `{{cwd}}` by the value the check
+holds, the last slot to the end of its element — with only the value of a JSON slot exempt from the metacharacter rule
+and every tool of `{{tools}}` once; a vector that does not conform refuses the launch as `argument_rejected`, recorded
+`refused`; the profile validation refuses two adjacent slots in one launch argument, so every slot of a validated
+profile has a bound):
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/WorkerVectorCheck.java[WorkerVectorCheck],
 link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/HeadlessBlock.java[HeadlessBlock],
-link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchComposer.java[LaunchComposer]
+link:../pm-runtime/src/main/java/de/planmarshall/runtime/launch/LaunchComposer.java[LaunchComposer],
+link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileValidator.java[ProfileValidator]
 
 Verified by: link:../pm-core/src/test/java/de/planmarshall/core/role/RoleValidationTableTest.java[RoleValidationTableTest],
 link:../pm-core/src/test/java/de/planmarshall/core/role/RoleEffectiveConfigurationTest.java[RoleEffectiveConfigurationTest],
@@ -2354,7 +2375,10 @@ link:../pm-core/doc/developer/core-profile.adoc#_reading_and_validation[Profile 
 § Reading and Validation], link:../pm-core/doc/developer/core-profile.adoc#_endpoint_profiles[§ Endpoint profiles],
 link:../pm-runtime/doc/developer/runtime-endpoint.adoc[Endpoint Harness Developer Guide],
 link:../pm-runtime/doc/developer/runtime-launch.adoc#_the_composed_vector_check[Worker Launch Developer Guide § The
-Composed-Vector Check]
+Composed-Vector Check],
+link:../pm-runtime/doc/adr/runtime-launch/010-the-composed-vector-is-parsed-back.adoc[ADR runtime-launch/010],
+link:../pm-runtime/doc/adr/runtime-launch/014-the-vector-check-bounds-a-slot-by-known-values-and-both-ends.adoc[ADR
+runtime-launch/014]
 
 Implementation (the usage model pointer of `headless.usage`: a required member beside the seven numeric figures, `null`
 or a JSON Pointer of at most 256 characters, which the runtime reads per line of the output stream):
@@ -2375,7 +2399,8 @@ link:../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-5[PM-CLIE
 
 Implementation (the whole-document loader of the shipped, machine and project sets with the nearest set in force; the
 closed schema and the hardening rules with the refusing pointer; the verification record and its HMAC sidecar; the
-supported version range; the role-class, update-evidence, path and resume rules; and the recorded results of the stages
+supported version range; the role-class, update-evidence, path and resume rules and the refusal of two adjacent slots in
+one launch argument; and the recorded results of the stages
 `isolation`, `egress` and `usage`, including the field-by-field comparison with the harness's own record. Not implemented
 here: writing the sets, the scan, the login probe and the stages themselves, which are the onboarding's and the
 verification's): link:../pm-core/src/main/java/de/planmarshall/core/profile/ProfileLoader.java[ProfileLoader],
