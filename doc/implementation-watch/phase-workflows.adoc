@@ -535,6 +535,21 @@ condition's own bounded retry re-evaluates the guard and its budget ends in the 
 the build.
 Source:: design review.
 
+[#PM-WATCH-PHASE-133]
+=== PM-WATCH-PHASE-133: Two plans never wait on each other as prerequisites
+
+Anchor:: link:../specification/phase-workflows/08-dynamic-re-planning.adoc#replan-actions[Phase Workflows § Dynamic Re-Planning, Actions & Guards] (`wait_for_prerequisite`),
+link:../specification/workflow-dsl/04-ast-node-model.adoc#liveness-guarantee[Workflow DSL § Liveness Guarantee],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-17[PM-WF-17]
+Hazard:: Plan A waits for plan B to land while B waits for A: both rest in `replan.await-prerequisite` until the
+prerequisite wait expires, up to seven days, and neither is ever `stalled`, because each awaits an event. The cycle can
+run through a third plan, so a check of the named plan alone misses it.
+Guard:: Fixtures with a two-plan cycle (A waits on B, then B submits `wait_for_prerequisite plan:A`) and a three-plan
+cycle (A on B, B on C, then C on A): the closing submit is answered `rejected` with the reason `prerequisite_cycle`
+naming the plans of the cycle, nothing is applied, and the task continues; matched control: a chain without a cycle
+(A on B, B on C) is accepted and each plan resumes when its prerequisite lands.
+Source:: design review (liveness guarantee).
+
 == Phase 6 Finalize Step Ordering Bands & Descriptor Contract
 
 [#PM-WATCH-PHASE-18]

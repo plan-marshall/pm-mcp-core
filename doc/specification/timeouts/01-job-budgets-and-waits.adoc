@@ -235,20 +235,28 @@ _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH
 |<<model-job-budget>>; xref:02-runtime-leases-operator-web.adoc#model-slot-lease[Model slot lease]
 
 |[[ci-wait]]CI wait
-|No deadline: a CI wait is re-polled window by window and never lapses. When no learned figure exists, the operator budget of the CI key seeds the expected duration recorded with the wait (an operator view, never rendered).
+|No deadline: a CI wait is re-polled window by window and continues, and nothing is decided by time. The expected duration recorded with the wait is the learned figure of the CI key; when no learned figure exists, the operator budget of the CI key seeds it, and without either it is the compiled fallback `3600` (shown to the operator against the elapsed wait, never to a model). A stall clock restarts on every observed change of the head's check runs. The wait for an analysis provider's result for the head, which follows `ci_status: passed`, is a CI wait of the same kind: its own expected duration and stall clock, restarted on every observed change of the provider's analysis of the head.
 |seed via $O$
 |—
-|CI constituents of job and composite job states
-|Window expiry only (as bounded wait).
-|link:../job-runtime/03-parsers-and-gates.adoc#_adaptive_timeout_learning[Job Runtime, Adaptive Timeout Learning] (Seeded Wait Budgets)
+|CI and analysis constituents of job and composite job states
+|Window expiry only (as bounded wait). After no observed change for the xref:02-runtime-leases-operator-web.adoc#overdue-factor[Overdue factor] times the expected duration, the scope is shown as the hold `overdue` (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#overdue-waits[Runtime Lifecycle, Overdue Waits]); the route is unchanged and the wait continues.
+|link:../job-runtime/03-parsers-and-gates.adoc#_adaptive_timeout_learning[Job Runtime, Adaptive Timeout Learning] (Seeded Wait Budgets); _Implementation watch: link:../../implementation-watch/runtime-lifecycle.adoc#PM-WATCH-LIFE-2[PM-WATCH-LIFE-2]_
 
 |[[ci-repoll-cadence]]Provider re-poll cadence inside a window
-|`30` between two observations of the same provider resource (check runs of a head, reviews and comments of a pull request, merge-queue membership). Conditional requests (`ETag` / `If-None-Match`, answered `304`) are used wherever the provider supports them. One shared poll per `(credential, resource)` serves every wait of the runtime that observes that resource. A provider `Retry-After` or rate-limit reset instant defers the next poll to that instant.
+|`30` between two observations of the same provider resource (check runs of a head, reviews and comments of a pull request, merge-queue membership). Conditional requests (`ETag` / `If-None-Match`, answered `304`) are used wherever the provider supports them. One shared poll per `(credential, resource)` serves every wait of the runtime that observes that resource. A provider `Retry-After` or rate-limit reset instant defers the next poll to that instant, up to the <<retry-after-cap>>.
 |fixed
-|never more often than every `30`; never before a stated `Retry-After` or reset instant
+|never more often than every `30`; never before a stated `Retry-After` or reset instant within the <<retry-after-cap>>
 |CI waits, the provider observations of review-bot waits, <<merge-queue-wait>>
 |A provider rate limit is recorded as the wait slice reason `provider_rate_limit` (link:../job-runtime/01-pipeline-and-subprocesses.adoc#_bounded_long_poll_progress_reset_waiting_primitives_pm_wf_8_pm_impl_4[Job Runtime, Wait Attribution]) and the wait continues; it is never a timeout and never a failure.
 |link:../phase-workflows.adoc[Phase Workflows], Phase 6; link:../hypermedia-format/03-composite-wait-and-encoder.adoc#short-circuit-matrix[Hypermedia Format, Short-Circuit Matrix]; _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH-JOB-19[PM-WATCH-JOB-19]_
+
+|[[retry-after-cap]]`Retry-After` cap
+|`3600`: a stated `Retry-After` or rate-limit reset instant is honoured up to this span from the observation that stated it; the next poll runs at the cap at the latest.
+|fixed (compiled constant)
+|—
+|every deferral of the <<ci-repoll-cadence>>
+|The deferred time counts toward the stall clock of the CI wait (<<ci-wait>>), so a provider that keeps deferring shows the scope as the hold `overdue` like any other span without an observed change; it is never a timeout and never a failure.
+|<<ci-repoll-cadence>>; link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#overdue-waits[Runtime Lifecycle, Overdue Waits]
 
 |[[review-bot-windows]]Review-bot rate windows, re-review timeout, attempt ceiling
 a|* *Rate window*: `reset_at` is the bot-stated reset ETA when one is published and parsed (a floor to re-check, never a deadline); otherwise `claimed_at + rate_interval_seconds` of the bot's registry record; otherwise, for a record without an interval, the compiled rate-window floor `3600`.
@@ -283,6 +291,99 @@ a|* *Rate window*: `reset_at` is the bot-stated reset ETA when one is published 
 |every wait
 |Jobs, workers, and tasks keep running; only the engine cancels a job, and only the supervisor ends a worker.
 |link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/runtime-model/03-relay.adoc#_cancellation[Runtime Model, Cancellation]
+|===
+
+[#awaiting-bounds]
+== Bounds of Awaiting Primitives
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-8[PM-WF-8: Asynchronous Job Links & Wait Transitions]_
+
+_Implementation watch: link:../../../../plan-marshall-documentation/doc/implementation-watch/cross-cutting.adoc#PM-WATCH-GEN-63[PM-WATCH-GEN-63], link:../../implementation-watch/workflow-dsl.adoc#PM-WATCH-DSL-49[PM-WATCH-DSL-49]_
+
+Every primitive whose awaited event (`awaitedEvent()`, link:../workflow-dsl/04-ast-node-model.adoc#static-verification-rules[Workflow DSL Specification], Rule 11) is not `NONE` has a row here; primitives that wait alike share one. The row names where the bound of the wait comes from, from a closed list, and what happens when it is reached, so every bounded wait of the liveness guarantee has a listed bound (link:../workflow-dsl/04-ast-node-model.adoc#liveness-guarantee[Workflow DSL Specification, Liveness Guarantee]):
+
+* `job budget`: the allocated budget of the job or operation (<<job-budgets>>);
+* `counter <name>`: a compiled or declared counter whose last unit takes a declared exhaustion outcome;
+* `deadline <key>`: an instant or span of this specification, named by its key;
+* `holder lease`: the wait ends with the job or lease of the holder it queues behind;
+* `operator`: no bound; an operator position, counted in `needs_operator` and always offering a way out;
+* `resident`: no bound; the resident rest of an epic, the workspace, or the machine;
+* `stall-watched`: no deadline; a stall clock shows the scope as the hold `overdue` and nothing is decided by time (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#overdue-waits[Runtime Lifecycle Specification, Overdue Waits]).
+
+The registered primitives are the authority on which rows are needed: a registry test pins that every registered primitive with an awaited event other than `NONE` has a row and that no row is unbounded.
+
+[cols="3,2,3,4"]
+|===
+|Primitive |Awaited event |Bound source |At the bound
+
+|`job` states and the primitives that start their jobs (build, `git`, `ci`, `project_script`, probe, and speech jobs)
+|`JOB_SETTLED`
+|`job budget` (<<budget-allocation>>, <<probe-budget>>, <<speech-budget>>)
+|The job ends `timed_out` (<<no-verdict-rule>>) and its state routes the outcome.
+
+|Admission of a job recorded `queued` for a build or model slot
+|`JOB_SETTLED`
+|`holder lease`: every held slot ends with its job (<<build-slot-wait>>, <<model-slot-wait>>)
+|The next queued job is admitted in FIFO order.
+
+|`job llm` states, each task of a fan-out state, and a worker's `submit`-form links
+|`TASK_SETTLED`, `MODEL_SUBMIT`
+|`job budget` (<<model-job-budget>>) with the supervision limits (<<ack-deadline>>, <<silence-limit>>); `counter re_offers` (<<task-reoffer-budget>>)
+|An attempt without a result ends and the task is offered again; once the re-offer budget is spent the task closes `lost` and its state takes its conservative fallback.
+
+|The vote tasks of a quorum (`adjudicate.vote`)
+|`TASK_SETTLED`
+|`deadline vote_wait_seconds` (<<vote-wait>>)
+|Every open vote task closes `lost`; a decision the quorum does not decide goes to the operator.
+
+|A task waiting for the answer to its question (`task.await-answer`)
+|`QUESTION_ANSWER`, `TIME`
+|`deadline questions.hold_seconds` (<<question-hold>>), then `deadline questions.resume_within_seconds` (<<question-resume-window>>)
+|The task is suspended where it may resume, else it closes `asked`; a suspended task past its window closes `asked` (`resume_expired`).
+
+|The CI and analysis constituents of `finalize.watch-ci-and-bots` (`finalize.concurrent-wait`, `finalize.merge-evidence-wait`)
+|`JOB_SETTLED`
+|`stall-watched` (<<ci-wait>>, <<retry-after-cap>>)
+|The scope is shown as the hold `overdue`; the route is unchanged and the wait continues.
+
+|The review-bot constituent of `finalize.watch-ci-and-bots`, and `finalize.review-window-wait`
+|`JOB_SETTLED`, `TIME`
+|`deadline` of the bot's rate window and re-review timeout; `counter attempt_ceiling` (<<review-bot-windows>>)
+|The bot resolves `unproven`.
+
+|`finalize.merge-queue-wait` and an epic's landing through the merge queue
+|`JOB_SETTLED`
+|`deadline` of the queue's stall clock (<<merge-queue-wait>>); `counter watch_restarts` (<<watch-restart-budget>>)
+|`timed_out` enters `finalize.merge-queue-exit`; the spent budget enters `finalize.hand-back`.
+
+|`merge.acquire-lease` of `finalize.merge-lease`
+|`JOB_SETTLED`
+|`holder lease` (xref:02-runtime-leases-operator-web.adoc#merge-lease[Merge holder lease], xref:02-runtime-leases-operator-web.adoc#merge-mutex-admission-wait[Merge-mutex admission wait])
+|The plan holds the lease; a fate of the lease job other than success enters `finalize.merge-lease-interrupted`.
+
+|The server's retry waits (`finalize.open-pr`, `git.push-retry-wait`, `finalize.archive-unobserved`, `finalize.adopt-blocked`, `remediation.rerun-integration`, `sanity.retry-wait`) and the self-remedy retries of a condition
+|`TIME`, `EXTERNAL_STATE`
+|`deadline` of the <<server-retry-backoff>>; `counter` of its rule (<<server-rule-retry>>, <<condition-budget>>, the unit's <<retry-budget>>); in an epic, the workspace, and the machine, whose condition retries have no budget: `operator`
+|The spent outcome takes the state's fallback; a condition of a scope without a fallback is shown as a hold.
+
+|The re-observing primitives (`ci.pr-observe`, `finalize.archive-plan`, `finalize.retry-emit-landing`, `finalize.adopt-pr`, `merge.sync-base`)
+|`EXTERNAL_STATE`
+|`job budget` of the operation (<<ci-query-budget>>, <<git-network-budget>>); the `counter` of the retry wait it falls back to
+|A failed observation enters its retry wait (row above).
+
+|`replan.await-prerequisite`
+|`JOB_SETTLED`
+|`deadline prerequisite_wait_seconds` (<<replan-budget>>)
+|`expired` enters `replan.hand-back`.
+
+|Operator waits: link states, the operator states of the decision unit, and the waiver wait
+|`OPERATOR_ACT`, `QUESTION_ANSWER`, `OPERATOR_WAIVER`
+|`operator` (xref:02-runtime-leases-operator-web.adoc#operator-wait[Operator wait])
+|None; the wait ends by an act of the operator or an act that ends its scope.
+
+|The watch of an epic (`epic.await-event`) and the resting states of the workspace and machine units
+|`JOB_SETTLED`, `OPERATOR_ACT`
+|`resident`
+|None; the scope rests until its next event.
 |===
 
 [#worker-supervision]

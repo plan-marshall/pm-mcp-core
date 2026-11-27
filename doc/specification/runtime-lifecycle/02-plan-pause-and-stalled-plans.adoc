@@ -12,7 +12,7 @@ link:../../Specification.adoc[Specification] » link:../runtime-lifecycle.adoc[R
 == Pausing and Starting a Plan
 _See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-23[PM-WF-23: Operator Acts on Plans and Epics]_
 
-A plan that exists always runs until the operator pauses it: starting a plan, by the operator or by its epic, creates and runs it in one act, and an epic never creates a plan to wait. Beside its terminal states a plan's *activity* is one of `running`, `pausing` (running until the point its pause names), and `paused`; it is derived on read from the plan's persisted `pause` record, never stored separately (link:../store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas Specification, Workflow State Store]), and shown by both clients, never as a kind of `needs_operator`. An operator wait is expressed by `needs_operator` and a stalled plan by its hold `stalled` (<<stalled-plans>>), not by the activity (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#needs-operator[What Needs the Operator]).
+A plan that exists always runs until the operator pauses it: starting a plan, by the operator or by its epic, creates and runs it in one act, and an epic never creates a plan to wait. Beside its terminal states a plan's *activity* is one of `running`, `pausing` (running until the point its pause names), and `paused`; it is derived on read from the plan's persisted `pause` record, never stored separately (link:../store-schemas/02-workflow-state-store.adoc#_workflow_state_store_mcpstatus_json[Store Schemas Specification, Workflow State Store]), and shown by both clients, never as a kind of `needs_operator`. An operator wait is expressed by `needs_operator`, a stalled plan by its hold `stalled` (<<stalled-plans>>), and an overdue wait by the hold `overdue` (<<overdue-waits>>), not by the activity (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#needs-operator[What Needs the Operator]).
 
 * *Pause*: the action `pause` of the plan (`POST /api/v1/plans/{plan_id}/actions/pause`) with the point where the plan holds, `point`, an operator act of either client:
 ** *after the current task* (`task`, the default): what runs finishes and its result is kept; the engine starts no new task and no new job and takes no transition beyond the state the plan reaches, and the plan is `paused` once nothing of it runs.
@@ -22,6 +22,18 @@ A plan that exists always runs until the operator pauses it: starting a plan, by
 * *Start*: the action `start` (`POST /api/v1/plans/{plan_id}/actions/start`) resumes a paused plan from its current state: a withdrawn task is offered again, a job state whose job the pause cancelled enters its job again, and a retry backoff runs on from its persisted instant. On a pausing plan it withdraws the pause. Start and pause on a plan whose activity does not offer them are refused `act_not_available`, on an ended plan `plan_ended`.
 * *A pause survives a restart*: the pause and its point are part of the plan's state; after a restart of the runtime a paused plan stays paused, and a pausing plan holds at its point (link:01-startup-recovery-drain.adoc#per-project-recovery[Per-Project Recovery]).
 * Every pause and start is audited with its channel and announced (`activity.changed`, link:https://github.com/plan-marshall/pm-mcp-clients/blob/main/doc/specification/runtime-model/06-event-catalogue.adoc[Event Catalogue]); the plan's epic is told by its inbox (link:../model-work/08-epic-coordination.adoc#epic-informed[Model Work Specification, The Epic Is Told]). Cancelling and abandoning a plan are specified in link:../state-catalogue/04-plan-finalize-terminal.adoc#plan-end[State Catalogue Specification, Cancelling and Abandoning].
+
+[#liveness-classes]
+== Liveness Classes at Run Time
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7: Runtime & Relay Lifecycle, Crash Recovery & Job Drain]_
+
+The verifier proves that every non-terminal position of a scope is engine-progressing, a bounded wait, an operator position, or a resident rest (link:../workflow-dsl/04-ast-node-model.adoc#liveness-guarantee[Workflow DSL Specification, Liveness Guarantee]). At run time the classes tell a scope that waits as designed from one that is stuck:
+
+* *Engine-progressing and bounded waits* move by themselves; a scope that awaits nothing and does not move is `stalled` (<<stalled-plans>>), and a scope whose stall-watched wait passes its bound is `overdue` (<<overdue-waits>>).
+* *Operator positions* are shown as waiting for the operator, in `needs_operator`, never as `stalled` or `overdue`.
+* *Resident rest* is legitimate idling without a bound: an epic resting in its watch, the workspace, and the machine are never `stalled` and never `overdue`.
+
+Both holds are derived on read, never stored as workflow state, and neither changes the scope's route.
 
 [#stalled-plans]
 == Stalled Plans
@@ -36,8 +48,33 @@ The runtime continues every plan and epic itself, so a scope that does not move 
 * *Record*: The first time a scope is found stalled in an episode (an episode ends with the scope's next transition or task progress), the runtime appends one `plan_stalled` audit record with the scope and the cause; metrics count the gap as idle time.
 * *Minimality*: `stalled`, its cause, and `plan_stalled` never appear in a model-facing representation (link:../hypermedia-format/01-representation-and-link-forms.adoc#model-facing-minimality[Hypermedia Format Specification, Model-Facing Minimality]).
 
+[#overdue-waits]
+== Overdue Waits
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7: Runtime & Relay Lifecycle, Crash Recovery & Job Drain]_
+
+_Implementation watch: link:../../implementation-watch/runtime-lifecycle.adoc#PM-WATCH-LIFE-2[PM-WATCH-LIFE-2]_
+
+A wait that has no deadline of its own, the CI wait, is *stall-watched*: it continues until what it awaits changes, and a stall clock that restarts on every observed change shows when it has waited far longer than expected, to the operator, never to a model:
+
+* *Definition*: A non-terminal plan or epic is `overdue` when it rests in a stall-watched wait (link:../timeouts/01-job-budgets-and-waits.adoc#ci-wait[Timeouts & Budgets Specification, CI Wait]) and no change of what it awaits has been observed for the overdue factor times the expected duration recorded with the wait (link:../timeouts/02-runtime-leases-operator-web.adoc#overdue-factor[Timeouts & Budgets Specification, Overdue Factor]); time a provider deferred the next observation counts (link:../timeouts/01-job-budgets-and-waits.adoc#retry-after-cap[Timeouts & Budgets Specification, `Retry-After` Cap]). A paused or pausing plan, a scope in an operator wait, and a scope under an integrity hold are never `overdue`. Overdue is derived on read from the wait's record and its observations, never stored as workflow state.
+* *A hold*: an overdue scope is shown as the hold `overdue` with what it awaits and its acts (link:../state-catalogue/01-conventions-generic-conditions.adoc#holds[State Catalogue Specification, Holds and Their Acts]); the hold clears by itself with the next observed change or the scope's next transition, and its event says so. The route is unchanged: the wait continues, nothing is decided by time, and no act is taken by itself.
+* *Cause*: Every overdue scope names its cause; the closed cause set is `no_change` (with the span since the last observed change and the expected duration).
+* *Visibility*: as for `stalled`: both clients, `pm-operator status`, and the epic's resource show `overdue` with its cause and count it in `needs_operator`; the runtime announces it on the event streams with the events of every hold (link:../../../../plan-marshall-documentation/doc/specification/runtime-model/01-processes-and-transport.adoc#event-streams[Events per Scope]).
+* *Record*: The first time a scope is found overdue in an episode (an episode ends with the next observed change or the scope's next transition), the runtime appends one `plan_overdue` audit record with the scope, the wait, and what it awaits (link:../store-schemas/12-machine-stores.adoc#audit-log[Store Schemas Specification, Security & Transition Audit Log]).
+* *Minimality*: `overdue`, its cause, the expected duration, and `plan_overdue` never appear in a model-facing representation (link:../hypermedia-format/01-representation-and-link-forms.adoc#model-facing-minimality[Hypermedia Format Specification, Model-Facing Minimality]).
+
+[#clock-gap]
+== Clock Gap
+_See Requirement link:../../../../plan-marshall-documentation/doc/Requirements.adoc#PM-ARCH-7[PM-ARCH-7: Runtime & Relay Lifecycle, Crash Recovery & Job Drain]_
+
+_Implementation watch: link:../../implementation-watch/runtime-lifecycle.adoc#PM-WATCH-LIFE-4[PM-WATCH-LIFE-4]_
+
+The stall clocks measure the runtime's own idle spans, while deadlines run on the monotonic clock and persisted instants on the wall clock. When the wall clock and the monotonic clock diverge by more than the clock gap threshold over one observation interval (link:../timeouts/02-runtime-leases-operator-web.adoc#clock-gap-threshold[Timeouts & Budgets Specification, Clock Gap Threshold]), the machine slept: the runtime restarts the stall clocks of `stalled`, `overdue`, and its heartbeat (link:01-startup-recovery-drain.adoc#runtime-self-watch[Runtime Self-Watch]), so no scope is reported stalled or overdue for the sleep, and attributes the span as a pause in the wait slices of the metrics (link:../job-runtime/01-pipeline-and-subprocesses.adoc#_bounded_long_poll_progress_reset_waiting_primitives_pm_wf_8_pm_impl_4[Job Runtime Specification, Wait Attribution]). Deadlines and budgets keep their own rules.
+
 [#pause-stalled-verification]
 == Verification
 
 * *Pause tests*: A pause with each point holds where its point names (`phase` also when the phase ends in a loop-back), a pause with `now` withdraws a running task and offers it again on start without spending its re-offer budget, a paused plan holds no slot and is never reported `stalled`, and an answer to an operator wait of a paused plan is recorded and taken on start.
 * *Stalled tests*: An aged fixture (a non-terminal plan without pending condition or awaited event whose last transition is older than the stalled threshold) is reported as the hold `stalled` with cause `no_progress` in both clients and on the event stream, produces exactly one `plan_stalled` record per episode, and changes no model-facing representation; a plan in an operator wait is shown as waiting for the operator, and a paused plan by its activity, never as `stalled`.
+* *Overdue tests*: A CI wait fixture whose check runs show no change for the overdue factor times the expected duration is reported as the hold `overdue` with cause `no_change` in both clients and on the event stream, produces exactly one `plan_overdue` record per episode, keeps its route, and clears with the next observed change; a provider that keeps deferring with `Retry-After` reaches `overdue` the same way; matched control: a CI wait whose check runs change within the span is never `overdue`.
+* *Clock-gap tests*: On a test clock whose wall clock jumps ahead of the monotonic clock by more than the clock gap threshold, an idle plan and a CI wait are reported neither `stalled` nor `overdue` for the gap, the span is attributed as a pause, and a deadline due within the gap is processed as its own rule says; matched control: the same idle span without the jump reports `stalled`.

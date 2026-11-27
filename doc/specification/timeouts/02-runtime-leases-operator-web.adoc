@@ -57,6 +57,30 @@ since the last transition or task progress of a non-terminal scope that is neith
 |The scope is shown as the hold `stalled` in both clients of the operator, and one `plan_stalled` audit record is appended per episode; nothing changes in a model-facing representation.
 |link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#stalled-plans[Runtime Lifecycle, Stalled Plans]
 
+|[[overdue-factor]]Overdue factor
+|`3` times the expected duration recorded with a stall-watched wait, since the last observed change of what it awaits (the CI wait: xref:01-job-budgets-and-waits.adoc#ci-wait[CI wait]).
+|fixed (a property of `pm-runtime` like the stalled threshold; the `plan_overdue` record feeds metrics, which must stay comparable across machines)
+|—
+|plans and epics in a stall-watched wait
+|The scope is shown as the hold `overdue` in both clients of the operator, and one `plan_overdue` audit record is appended per episode; the route is unchanged, the wait continues, and nothing changes in a model-facing representation.
+|link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#overdue-waits[Runtime Lifecycle, Overdue Waits]
+
+|[[heartbeat-threshold]]Heartbeat threshold
+|`60` since the last heartbeat the drive loop or the periodic sweep stamped.
+|fixed (a property of `pm-runtime`)
+|—
+|the runtime's self-watch
+|The watchdog writes one thread dump to the runtime log per episode; `pm-operator status` reports the age of the last heartbeat. Nothing is stopped or restarted.
+|link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-self-watch[Runtime Lifecycle, Runtime Self-Watch]
+
+|[[clock-gap-threshold]]Clock gap threshold
+|`30` of divergence between the wall clock and the monotonic clock over one observation interval (the machine slept).
+|fixed (a property of `pm-runtime`)
+|—
+|the stall clocks of `stalled`, `overdue`, and the heartbeat
+|The stall clocks restart and the span is attributed as a pause in the wait slices; deadlines and budgets keep their own rules.
+|link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#clock-gap[Runtime Lifecycle, Clock Gap]
+
 |[[pending-entry-max-age]]Pending entry
 |No maximum age: a pending entry of a start or a project onboarding never expires and is never discarded by time; it stays among the project's open entries until it is started or abandoned, or deleted with the release of its project.
 |—
@@ -210,7 +234,7 @@ since the last transition or task progress of a non-terminal scope that is neith
 |link:../store-schemas/13-leases-integrity-testing.adoc#machine-lease-stores[Store Schemas, Machine Lease Stores]
 
 |[[orphaned-lease-release]]Orphaned lease release
-|Positive evidence only: owning scope terminal, archived, or gone; or `lease_expires_at` passed without adoption; or (build or model slot) its job recorded `killed`. Task leases are never orphaned: the restart releases them (<<task-lease>>).
+|Positive evidence only: owning scope terminal, archived, or gone; or `lease_expires_at` passed without adoption; or (build or model slot) its job recorded `killed` or carrying any other end fate. Task leases are never orphaned: the restart releases them (<<task-lease>>).
 |—
 |—
 |every lease marked `orphaned_at`
