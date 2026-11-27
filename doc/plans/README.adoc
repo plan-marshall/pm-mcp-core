@@ -76,7 +76,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestones 3, 7, 8, 9 and 10, per task; the client work of `pm-mcp-clients`
 
 |link:process-and-overview.adoc[`process-and-overview`]
-|The plan's process, what needs the operator, running work and the overview, the events per scope, and ended work as resources
+|The plan's process, what needs the operator, running work and the overview, the events per scope, the plan's timeline, and ended work as resources
 |`open`
 |`phase-sub-workflows` (the plan's history); `plan-and-epic-control` (the activity, the holds)
 |Milestones 7 and 10; the client work of `pm-mcp-clients`
@@ -150,7 +150,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:plan-and-epic-control.adoc[`plan-and-epic-control`]
 |Controlling plans: a plan's acts (pause, start, cancel, abandon), a plan's settings, the epic told, holds and their acts
 |`open`
-|`project-onboarding-unit`
+|`project-onboarding-unit`; `stall-clocks-and-overdue-waits` (the engine side of the hold record and of the hold `overdue` whose acts are built here)
 |Milestones 10 and 12; the client work of `pm-mcp-clients`
 
 |link:epic-resource-and-release.adoc[`epic-resource-and-release`]
@@ -184,9 +184,9 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |Milestone 7; the client work of `pm-mcp-clients`
 
 |link:runtime-control.adoc[`runtime-control`]
-|Controlling the runtime from the clients: stop now or after a drain, the withdrawable drain, restart
+|Controlling the runtime from the clients: stop now or after a drain, the withdrawable drain, restart, and a runtime reported "not responding"
 |`open`
-|nothing
+|`stall-clocks-and-overdue-waits` (the heartbeats the "not responding" report reads)
 |Milestone 2; the client work of `pm-mcp-clients`
 
 |`runtime-update`
@@ -200,6 +200,24 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |`open`
 |`plan-and-epic-control` (held and paused)
 |Milestone 2; the client work of `pm-mcp-clients`
+
+|link:stall-clocks-and-overdue-waits.adoc[`stall-clocks-and-overdue-waits`]
+|The run-time side of the liveness guarantee: the hold record's `awaited`, position and correlation ids, the stall clocks on awake time with the clock gap, the hold `overdue` with its `plan_overdue` record, and the runtime's self-watch with its heartbeats and thread dump
+|`open`
+|nothing
+|Milestone 2; Milestone 6 (the CI wait the hold watches)
+
+|link:awaiting-bounds.adoc[`awaiting-bounds`]
+|A listed bound for every primitive that awaits an event, and the registry test that pins it
+|`open`
+|nothing
+|Milestone 3
+
+|link:model-slot-release.adoc[`model-slot-release`]
+|The model slot of a job whose record already carries an end fate released in recovery, with its audit record
+|`open`
+|nothing
+|Milestone 4
 
 |link:process-designer.adoc[`process-designer`]
 |Designing a plan's process: the machine level of workflow units and its precedence, the validation with its composition dry-run, placing and removing at machine and project level (the project's as a short landing) with their audit, the catalogue of building blocks
@@ -270,7 +288,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:finalize-pipeline-and-merge.adoc[`finalize-pipeline-and-merge`]
 |The finalize pipeline from re-entry to merge: verdict currency and the step records of a firing, the merge path's states with the gate entry's observation of the pull request and the adoption of a pull request (`finalize.adopt-pr`), the Pre-Merge Review Barrier and its waivable gates, the composite wait, the pull-request author's title, the compiled-in review-bot records, and the phase `sanity-check`
 |`open`
-|`phase-sub-workflows` (the default units as phase sub-workflows, the simplify step); `domain-extensions-and-architecture`; `re-planning` (the `finalize.replan` call and the triggers it consumes); `ci-contract-finalize-operations` (the pull-request observation, `ci.merge`, `ci.enqueue` and the refusal class); `build-parsers-and-gate-honesty` (the build-neutral freshness derivation)
+|`phase-sub-workflows` (the default units as phase sub-workflows, the simplify step); `domain-extensions-and-architecture`; `re-planning` (the `finalize.replan` call and the triggers it consumes); `ci-contract-finalize-operations` (the pull-request observation, `ci.merge`, `ci.enqueue` and the refusal class); `build-parsers-and-gate-honesty` (the build-neutral freshness derivation); `stall-clocks-and-overdue-waits` (the hold `overdue` of the stall-watched CI and analysis waits)
 |Milestone 10
 
 |link:ci-contract-finalize-operations.adoc[`ci-contract-finalize-operations`]
