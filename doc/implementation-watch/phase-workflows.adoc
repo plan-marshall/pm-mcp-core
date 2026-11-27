@@ -543,9 +543,11 @@ link:../specification/workflow-dsl/04-ast-node-model.adoc#liveness-guarantee[Wor
 link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-WF-17[PM-WF-17]
 Hazard:: Plan A waits for plan B to land while B waits for A: both rest in `replan.await-prerequisite` until the
 prerequisite wait expires, up to seven days, and neither is ever `stalled`, because each awaits an event. The cycle can
-run through a third plan, so a check of the named plan alone misses it.
+run through a third plan, so a check of the named plan alone misses it, or through the pull request of a running plan
+named as `pull_request:<number>`, so a check of `plan:` prerequisites alone misses it.
 Guard:: Fixtures with a two-plan cycle (A waits on B, then B submits `wait_for_prerequisite plan:A`) and a three-plan
-cycle (A on B, B on C, then C on A): the closing submit is answered `rejected` with the reason `prerequisite_cycle`
+cycle (A on B, B on C, then C on A) and a cycle through a pull request (A on B, then B submits
+`wait_for_prerequisite pull_request:<A's pull request>`): the closing submit is answered `rejected` with the reason `prerequisite_cycle`
 naming the plans of the cycle, nothing is applied, and the task continues; matched control: a chain without a cycle
 (A on B, B on C) is accepted and each plan resumes when its prerequisite lands.
 Source:: design review (liveness guarantee).

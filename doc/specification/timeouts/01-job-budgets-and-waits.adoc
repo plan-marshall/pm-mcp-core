@@ -239,7 +239,7 @@ _Implementation watch: link:../../implementation-watch/job-runtime.adoc#PM-WATCH
 |seed via $O$
 |—
 |CI and analysis constituents of job and composite job states
-|Window expiry only (as bounded wait). After no observed change for the xref:02-runtime-leases-operator-web.adoc#overdue-factor[Overdue factor] times the expected duration, the scope is shown as the hold `overdue` (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#overdue-waits[Runtime Lifecycle, Overdue Waits]); the route is unchanged and the wait continues.
+|Window expiry only (as bounded wait). After no observed change for the xref:02-runtime-leases-operator-web.adoc#overdue-factor[Overdue factor] times the expected duration, or after the wait lasted the xref:02-runtime-leases-operator-web.adoc#long-wait-factor[Long-wait factor] times it whatever changed, the scope is shown as the hold `overdue` (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#overdue-waits[Runtime Lifecycle, Overdue Waits]); the route is unchanged and the wait continues.
 |link:../job-runtime/03-parsers-and-gates.adoc#_adaptive_timeout_learning[Job Runtime, Adaptive Timeout Learning] (Seeded Wait Budgets); _Implementation watch: link:../../implementation-watch/runtime-lifecycle.adoc#PM-WATCH-LIFE-2[PM-WATCH-LIFE-2]_
 
 |[[ci-repoll-cadence]]Provider re-poll cadence inside a window
@@ -307,7 +307,7 @@ Every primitive whose awaited event (`awaitedEvent()`, link:../workflow-dsl/04-a
 * `holder lease`: the wait ends with the job or lease of the holder it queues behind;
 * `operator`: no bound; an operator position, counted in `needs_operator` and always offering a way out;
 * `resident`: no bound; the resident rest of an epic, the workspace, or the machine;
-* `stall-watched`: no deadline; a stall clock shows the scope as the hold `overdue` and nothing is decided by time (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#overdue-waits[Runtime Lifecycle Specification, Overdue Waits]).
+* `stall-watched`: no deadline; a stall clock and the wait's own duration show the scope as the hold `overdue` and nothing is decided by time (link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#overdue-waits[Runtime Lifecycle Specification, Overdue Waits]).
 
 The registered primitives are the authority on which rows are needed: a registry test pins that every registered primitive with an awaited event other than `NONE` has a row and that no row is unbounded.
 
@@ -343,7 +343,7 @@ The registered primitives are the authority on which rows are needed: a registry
 |The CI and analysis constituents of `finalize.watch-ci-and-bots` (`finalize.concurrent-wait`, `finalize.merge-evidence-wait`)
 |`JOB_SETTLED`
 |`stall-watched` (<<ci-wait>>, <<retry-after-cap>>)
-|The scope is shown as the hold `overdue`; the route is unchanged and the wait continues.
+|The scope is shown as the hold `overdue` (`no_change`, or `long_running` past the long-wait factor); the route is unchanged and the wait continues.
 
 |The review-bot constituent of `finalize.watch-ci-and-bots`, and `finalize.review-window-wait`
 |`JOB_SETTLED`, `TIME`

@@ -65,8 +65,16 @@ since the last transition or task progress of a non-terminal scope that is neith
 |The scope is shown as the hold `overdue` in both clients of the operator, and one `plan_overdue` audit record is appended per episode; the route is unchanged, the wait continues, and nothing changes in a model-facing representation.
 |link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#overdue-waits[Runtime Lifecycle, Overdue Waits]
 
+|[[long-wait-factor]]Long-wait factor
+|`10` times the expected duration recorded with a stall-watched wait, since the wait began, whatever changed meanwhile.
+|fixed (a property of `pm-runtime`, like the overdue factor)
+|—
+|plans and epics in a stall-watched wait
+|The scope is shown as the hold `overdue` with cause `long_running` until the wait ends; the route is unchanged, the wait continues, and nothing changes in a model-facing representation.
+|link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#overdue-waits[Runtime Lifecycle, Overdue Waits]
+
 |[[heartbeat-threshold]]Heartbeat threshold
-|`60` since the last heartbeat the drive loop or the periodic sweep stamped.
+|`60` since the last stamp of a heartbeat, the drive loop's and the periodic sweep's each judged by its own stamps.
 |fixed (a property of `pm-runtime`)
 |—
 |the runtime's self-watch
@@ -74,11 +82,11 @@ since the last transition or task progress of a non-terminal scope that is neith
 |link:../runtime-lifecycle/01-startup-recovery-drain.adoc#runtime-self-watch[Runtime Lifecycle, Runtime Self-Watch]
 
 |[[clock-gap-threshold]]Clock gap threshold
-|`30` of divergence between the wall clock and the monotonic clock over one observation interval (the machine slept).
+|`30` of divergence over one observation interval between the monotonic clock that counts while the machine sleeps and the one that does not (the machine slept); the wall clock is never the signal.
 |fixed (a property of `pm-runtime`)
 |—
 |the stall clocks of `stalled`, `overdue`, and the heartbeat
-|The stall clocks restart and the span is attributed as a pause in the wait slices; deadlines and budgets keep their own rules.
+|The span is excluded from the stall clocks, a hold already open stays open, and the span is attributed as a pause in the wait slices; deadlines and budgets keep their own rules.
 |link:../runtime-lifecycle/02-plan-pause-and-stalled-plans.adoc#clock-gap[Runtime Lifecycle, Clock Gap]
 
 |[[pending-entry-max-age]]Pending entry
