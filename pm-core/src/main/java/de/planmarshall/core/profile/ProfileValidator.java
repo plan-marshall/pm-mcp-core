@@ -1398,6 +1398,19 @@ public class ProfileValidator {
             launchArguments(arguments, pointer, name, slots, 1);
         }
 
+        /**
+         * An argument list of a launch: every item is a launch argument ({@link #launchItem}), and no item holds two
+         * slots that touch — the check of the composed vector reads a slot value back up to the literal after it, so a
+         * slot that ends where the next begins has no bound (PM-CLIENT-5, PM-EXEC-5). The adjacency refusal lives here,
+         * not in {@code launchItem}, because only an argument list enters the composed vector; an environment value
+         * never does.
+         *
+         * @param arguments the argument list
+         * @param pointer   the JSON Pointer of the list
+         * @param name      the name of the list in a refusal
+         * @param slots     the slots an argument may name
+         * @param min       the least number of arguments the list holds
+         */
         private void launchArguments(JsonNode arguments, String pointer, String name, Set<String> slots, int min) {
             var elements = list(arguments, pointer, name, min, 128);
             for (var index = 0; index < elements.size(); index++) {
@@ -1406,9 +1419,19 @@ public class ProfileValidator {
                     throw invalid(pointer + "/" + index, "an argument is not empty");
                 }
                 launchItem(item, pointer + "/" + index, slots);
+                noAdjacentSlots(item, pointer + "/" + index);
             }
         }
 
+        /**
+         * The rules of one launch item, an argument or an environment value: it names no URL, no absolute path and no
+         * home path, and every placeholder is a slot of the closed set (PM-CLIENT-5, PM-EXEC-5). Two adjacent slots are
+         * refused by {@link #launchArguments} for argument lists only.
+         *
+         * @param item    the argument or value
+         * @param pointer the JSON Pointer of the item
+         * @param slots   the slots the item may name
+         */
         private void launchItem(String item, String pointer, Set<String> slots) {
             if (item.contains("://") || item.startsWith("http:") || item.startsWith("https:")) {
                 throw invalid(pointer, "an argument names a URL: '%s'".formatted(item));
@@ -1423,6 +1446,20 @@ public class ProfileValidator {
                 if (!slots.contains(placeholder.group(1))) {
                     throw invalid(pointer, "not a closed slot: '{{%s}}'".formatted(placeholder.group(1)));
                 }
+            }
+        }
+
+        /**
+         * @param item    an argument of a launch argument list
+         * @param pointer the JSON Pointer of the argument
+         */
+        private void noAdjacentSlots(String item, String pointer) {
+            var previousEnd = -1;
+            for (var placeholder = PLACEHOLDER.matcher(item); placeholder.find(); ) {
+                if (placeholder.start() == previousEnd) {
+                    throw invalid(pointer, "two slots are adjacent in one argument: '%s'".formatted(item));
+                }
+                previousEnd = placeholder.end();
             }
         }
 

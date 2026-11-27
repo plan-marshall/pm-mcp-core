@@ -112,6 +112,12 @@ received, a profile offered for a later release. Validation then accepts exactly
   names the skill it loads and never a near-synonym of the slot;
 * `argv`, `args` and `env` values hold literals and the closed slot set only; a URL, an absolute path or a home path
   refuses the profile, and `env` may set no job, interpreter or credential variable;
+* no item of an argument list the validator checks as launch arguments (`argv`, a class's `args`, the resume `argv`,
+  the probe and login argument lists) carries two slots that touch, one placeholder ending where the next begins
+  (`{{model}}{{effort}}`): the refusal points at the item and says that two slots are adjacent in one argument. The composed vector check of `pm-runtime` reads each slot value back
+  between the literals around it, and two adjacent slots leave no literal to bound the first
+  (link:../../../pm-runtime/doc/adr/runtime-launch/014-the-vector-check-bounds-a-slot-by-known-values-and-both-ends.adoc[ADR
+  runtime-launch/014]);
 * `writable_paths`, `mcp_config.path` and `data_home.login_file` are relative, hold no `..`, and never cover a
   bundle-managed file or a harness home as a whole;
 * `identity.version_pattern` is the only regular expression: at most 128 characters, exactly one capture group, no

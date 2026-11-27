@@ -38,13 +38,17 @@ correspondence pass decides (b) and (e) together, so the answer reports (a) firs
 . (a) element 0 is the enrolled executable path;
 . (b) every element of the vector corresponds to one element of the template — the elements the template skips are the
   only gaps and the literal parts of a template element are reproduced exactly;
-. (c) every typed slot value matches the closed grammar of its slot;
-. (d) no element outside the two JSON slots contains a shell metacharacter;
+. (c) every typed slot value matches the closed grammar of its slot; for `{{tools}}` every member of the comma list is
+  a tool of the role's set, no member occurs twice and none is empty, in any order;
+. (d) no element carries a shell metacharacter outside the value of a JSON slot — the literals of an element that
+  carries `{{mcp_config}}` or `{{agent}}` are checked like any other;
 . (e) the vector carries no element that is neither a template element nor a slot value.
 
 **The check parses the vector back instead of rendering it again.** It splits each template element into its literal
-fragments and its slot markers, requires every fragment at the position the previous one ended, and reads the text
-between two fragments as the value that slot carries. Re-running `fill` with the same slots would exercise the composer's
+fragments and its slot markers, requires every fragment at the position the previous one ended, and reads the text a
+slot carries by the bounds ADR link:014-the-vector-check-bounds-a-slot-by-known-values-and-both-ends.adoc[014]
+records: the only slot of its element between the literals at both ends, a model or working directory by the value the
+check holds, the last slot of an element up to its end. Re-running `fill` with the same slots would exercise the composer's
 own replacement code, so a defect in that code would be invisible to it: it would compare the composition with itself.
 Reading the *rendered* element back gives an independent witness — a dropped element, an altered literal, a duplicated
 element or a value substituted for another slot all fail rule (b) or (e), and each slot value is then checked against the
@@ -64,7 +68,8 @@ for the flag.
 carry a canonical JSON object the composer serialised itself; a JSON object contains characters a shell metacharacter
 rule would refuse, and the shape that matters there is the object's structure. They are parsed and required to be an
 object of the composed shape — `{"mcpServers":{"pm-job":{…}}}` for the MCP configuration, `{"pm-job":{…}}` for the
-inline agent — and every other element is refused when it contains `|`, `;`, `&`, `$`, `` ` ``, `>` or `<`, the rule
+inline agent. The exemption covers the span the value occupies and nothing else: a literal written around the slot in
+the same element, and every other element, is refused when it contains `|`, `;`, `&`, `$`, `` ` ``, `>` or `<`, the rule
 `ArgumentCheck` applies to every caller-supplied argument of every other job kind.
 
 == Alternatives Considered
@@ -119,6 +124,24 @@ that composition fills, and the check's grammar is the independent witness the d
 last from the others would make the witness agree with the code it checks by construction. A shared registry of the slot
 names would remove the hand-synchronisation without merging the three roles; that is a change of `pm-core` and belongs to
 a plan that owns it.
+
+The check is independent of the composer for the values, not for presence. Which template elements the vector must
+carry — an element that names a slot with no value is skipped with the flag element before it — is decided by
+`WorkerVectorCheck.keptIndices`, a copy of the presence rule of `LaunchComposer.fill`, from the absent slots the
+composition reports. The tests that place an absent slot first, in the middle, last, after a flag and after an element
+with its own value bind the two; a change of one that the other does not follow refuses every launch of that shape.
+
+The parse back has a named residual (ADR link:014-the-vector-check-bounds-a-slot-by-known-values-and-both-ends.adoc[014]):
+in an element of two or more slots, a slot whose value the check does not hold and that a literal follows is bounded by
+the earliest occurrence of that literal, the one place the check searches. A value containing the literal is cut short;
+the vector is refused only when the cut-short value or the rest of the element then fails its slot grammar (rule (c)) or
+the element no longer matches its template (rule (b)). A path-typed slot and the session id accept any value of their
+grammar, so a different split can pass and be accepted with a wrong value: `{{prompt_file}}-{{result_schema}}` rendered
+as `/tmp/job/prompt-/tmp/job/schema-/tmp/job/result` reads as `/tmp/job/prompt` and `/tmp/job/schema-/tmp/job/result`.
+The composer gives a path-typed slot the job-private directory with a fixed file name, so a composed launch parses back
+to its own values unless that directory or the file name contains the literal. No template of the fixture profiles or
+of the profiles `pm-api` ships has that shape, and a profile that adds it must be corrected. The profile validator
+refuses two slots that touch, so every slot of a validated profile has a literal or an end of its element to bound it.
 
 == Source
 

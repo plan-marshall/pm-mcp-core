@@ -616,6 +616,67 @@ class ProfileValidatorTest {
         }
     }
 
+    /**
+     * Two slots of one launch argument never touch: the composed vector check bounds a slot by the literal after it, so
+     * an argument whose slot ends where the next begins has no literal to bound it (PM-CLIENT-5, PM-EXEC-5).
+     */
+    @Nested
+    @DisplayName("two slots in one launch argument")
+    class AdjacentSlots {
+
+        // The argument shapes are the contract: two placeholders that touch, and the controls that keep them apart.
+        static Stream<Arguments> adjacentArguments() {
+            return Stream.of(
+                    Arguments.of("/headless/argv/1", "{{prompt_file}}{{model}}"),
+                    Arguments.of("/headless/argv/1", "--task={{prompt_file}}{{effort}}.md"),
+                    Arguments.of("/headless/classes/writer/args/1", "{{tools}}{{tools}}"));
+        }
+
+        static Stream<Arguments> separatedArguments() {
+            return Stream.of(
+                    Arguments.of("/headless/argv/1", "{{prompt_file}}"),
+                    Arguments.of("/headless/argv/1", "{{prompt_file}}-{{model}}"),
+                    Arguments.of("/headless/classes/writer/args/1", "--tools={{tools}}"));
+        }
+
+        @ParameterizedTest(name = "{1}")
+        @MethodSource("adjacentArguments")
+        @DisplayName("an argument with two adjacent slots is refused at its pointer, naming the adjacency")
+        void adjacentSlotsAreRefused(String pointer, String argument) {
+            var bytes = ProfileFixtures.valid().set(pointer, argument).bytes();
+            var rules = ProfileRules.none();
+
+            var refusal = assertThrows(ProfileRefusal.class, () -> ProfileValidator.validate(bytes, DOCUMENT, rules),
+                    "an argument with adjacent slots is refused");
+
+            assertAll("the adjacent-slot refusal",
+                    () -> assertEquals(ProfileRefusal.Outcome.PROFILE_INVALID, refusal.outcome(),
+                            "the refusal's outcome is profile invalid"),
+                    () -> assertEquals(pointer, refusal.pointer(), "the refusal points at the argument"),
+                    () -> assertTrue(refusal.detail().contains("adjacent"), "the reason names the adjacency"));
+        }
+
+        @ParameterizedTest(name = "{1}")
+        @MethodSource("separatedArguments")
+        @DisplayName("one slot per argument, or slots separated by a literal, load")
+        void separatedSlotsLoad(String pointer, String argument) {
+            var bytes = ProfileFixtures.valid().set(pointer, argument).bytes();
+
+            assertDoesNotThrow(() -> ProfileValidator.validate(bytes, DOCUMENT, ProfileRules.none()),
+                    "an argument without adjacent slots loads");
+        }
+
+        // The value shape is the contract: two placeholders that touch, in an environment value instead of an argument.
+        @Test
+        @DisplayName("an environment value with two adjacent slots loads, because the composed vector never carries it")
+        void adjacentSlotsInAnEnvironmentValueLoad() {
+            var bytes = ProfileFixtures.valid().set("/headless/env", Map.of("ACME_MODE", "{{model}}{{effort}}")).bytes();
+
+            assertDoesNotThrow(() -> ProfileValidator.validate(bytes, DOCUMENT, ProfileRules.none()),
+                    "an env value with adjacent slots loads");
+        }
+    }
+
     @Test
     @DisplayName("an empty class args is a schema-valid launch, and a turn carries a null or a pointer stop reason")
     void emptyArgsAndBothStopReasonsAccepted() {

@@ -115,10 +115,31 @@ link:../adr/runtime-launch/010-the-composed-vector-is-parsed-back.adoc[runtime-l
 
 The check **parses the rendered vector back** against the template it was rendered from. It splits each template element
 into its literal fragments and its slot markers, requires every fragment at the position the previous one ended, and
-reads the text between two fragments as the value of the slot the template names. It never renders again: re-running
-`fill` would compare the composition with itself. The answer is the first violated rule and the position of the element,
-never the value, so the refusal can be recorded and shown without the vector in it. The correspondence pass decides (b)
-and (e) together, so the answer reports (a), then (b) and (e), then (c), then (d).
+reads the value of each slot the template names by one of three bounds, none of them a search for the literal after it,
+wherever the element allows one; the residual below is the one place the check searches (ADR link:../adr/runtime-launch/014-the-vector-check-bounds-a-slot-by-known-values-and-both-ends.adoc[runtime-launch/014]):
+
+* the **only slot of its element** lies between the literal before it, matched up to the cursor, and the literal after
+  it, which must end the element; the value is what lies between, whatever it contains;
+* a slot whose value the check **already holds**, `{{model}}` and `{{cwd}}`, is matched with that value at the cursor;
+* the **last slot** of an element carries the rest of it.
+
+Two slots that touch in one element (`{{model}}{{effort}}`) leave no literal to bound the first: the profile validator
+of `pm-core` refuses such an argument, and the check refuses the element too, so a template that reaches it unvalidated
+fails closed. The one shape still bounded by a search is the **residual**: in an element of two or more slots, a slot
+of unknown value that a literal follows ends at the earliest occurrence of that literal. A value that contains the
+literal is cut short there. The vector is refused only when the cut-short value or the rest of the element then fails
+its slot grammar (rule (c)) or the element no longer matches its template (rule (b)). A path-typed slot
+(`{{prompt_file}}`, `{{result_schema}}`) and the session id accept any value of their grammar, so a different split can
+pass and be accepted with a wrong value: the template `{{tools}}_{{session_id}}` with the rendered element
+`read_bad_abc` reads as `read` and `bad_abc`. The composer gives a path-typed slot the job-private directory with a
+fixed file name (`prompt.md`, `result-schema.json`), so a composed launch parses back to its own values unless that
+directory or the file name contains the literal. No template of the fixture profiles or of the profiles `pm-api` ships
+has that shape; a profile that adds it must be corrected.
+
+The check never renders again: re-running `fill` would compare the composition with itself. The answer is the first
+violated rule and the position of the element, never the value, so the refusal can be recorded and shown without the
+vector in it. The correspondence pass decides (b) and (e) together, so the answer reports (a), then (b) and (e), then
+(c), then (d).
 
 [cols="1,2,3"]
 |===
@@ -127,7 +148,7 @@ and (e) together, so the answer reports (a), then (b) and (e), then (c), then (d
 |(a) |element 0 is the enrolled executable path |another executable, or an empty vector
 |(b) |every element corresponds to one template element; the literal parts are reproduced exactly |an altered literal, a dropped or inserted element, an unreproducible gap
 |(c) |every typed slot value matches the closed grammar of its slot |see the grammar table below
-|(d) |no element outside the two JSON slots contains a shell metacharacter |`\|`, `;`, `&`, `$`, `` ` ``, `>`, `<` outside `{{mcp_config}}` and `{{agent}}`
+|(d) |no element carries a shell metacharacter outside the value of a JSON slot |`\|`, `;`, `&`, `$`, `` ` ``, `>`, `<` anywhere but in the value of `{{mcp_config}}` or `{{agent}}`, the literals of their element included
 |(e) |no element that is neither a template element nor a slot value |an element a profile edit or a composer defect added
 |===
 
@@ -142,9 +163,9 @@ The closed grammar of each typed slot:
 |`{{prompt_file}}`, `{{result_schema}}` |an absolute normalized path below the job-private directory
 |`{{cwd}}` |the working directory the composer fixed for the launch
 |`{{session_id}}` |a harness session id, `[A-Za-z0-9._-]{1,128}`
-|`{{tools}}` |a comma list whose every element is one of the role's tools, the harness's resource tools included
-|`{{mcp_config}}` |a JSON object of the composed shape, `\{"mcpServers":\{"pm-job":\{…\}\}}`; exempt from rule (d)
-|`{{agent}}` |a JSON object of the composed shape, `\{"pm-job":\{…\}\}`; exempt from rule (d)
+|`{{tools}}` |a comma list whose every member is one of the role's tools, the harness's resource tools included; no member occurs twice and none is empty; the order is not checked
+|`{{mcp_config}}` |a JSON object of the composed shape, `\{"mcpServers":\{"pm-job":\{…\}\}}`; the value, not its element, is exempt from rule (d)
+|`{{agent}}` |a JSON object of the composed shape, `\{"pm-job":\{…\}\}`; the value, not its element, is exempt from rule (d)
 |===
 
 `{{shim_dir}}` is a member of the profile schema's closed slot set
@@ -159,8 +180,17 @@ role that may resume must not receive is withheld from the **template** before i
 vector: the template and the vector therefore correspond element for element, no gap is left to explain, and a slot value
 that happens to contain the flag's text is never mistaken for the flag.
 
+The check is independent of the composer for the values, not for **presence**. Which template elements the vector must
+carry is decided by `WorkerVectorCheck.keptIndices` from the absent slots the composition reports, and `keptIndices` is
+a copy of the presence rule of `LaunchComposer.fill`: an element that names a slot with no value is skipped, and the
+flag element before it with it. The presence tests (an absent slot first, in the middle, last, after a flag and after an
+element with its own value) bind the two, so a change of one that the other does not follow refuses every launch of
+that shape.
+
 Tested by `WorkerVectorCheckTest` (the four template shapes of the fixture profile, one refusing vector per rule, a slot
-grammar per slot, a metacharacter per character, and the path through a real `LaunchComposer` and a recording starter) and
+grammar per slot, a metacharacter per character, the path through a real `LaunchComposer` and a recording starter, and
+the limits of the parse back: a known value that contains the literal after it, the literals around a JSON slot, the
+only slot of an element bounded from both ends, the tool rule, the presence of a slot and the residual) and
 `LaunchComposerTest` (the `argument_rejected` refusal of a template that renders a metacharacter into a slot, the files a
 refused composition leaves behind, and the digest of the conforming fixture vector).
 
@@ -203,7 +233,7 @@ the refused duplicates and a writer without a plan).
 * A launch never runs with a required skill missing: a skill that does not resolve, renders empty, or whose digest
   changed after the role was read fails the composition (`prompt_composition_failed`).
 * A launch never runs a vector the composition cannot account for: every element corresponds to a template element, each
-  typed slot value matches the grammar of its slot, and no element outside the two JSON slots carries a shell
+  typed slot value matches the grammar of its slot, and no character outside the value of a JSON slot is a shell
   metacharacter (`argument_rejected`).
 * The shared prefix contains nothing per launch: the job token, an identifier, a time and a fact of a task follow it.
 * A `zero_tool` worker has no tool, no MCP configuration, no `job_token_sha256`, and runs in the empty `cwd/` of its

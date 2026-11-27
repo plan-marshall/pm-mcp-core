@@ -639,6 +639,37 @@ Fixture:: the skill tool returned `ripgrep execution failed` on 2 consecutive at
 continued.
 Source:: plan-marshall process-compliance inbox opencode-bootstrap-executor-fix-001 § Violations item 1.
 
+[#PM-WATCH-DISP-85]
+=== PM-WATCH-DISP-85: The composed-vector check reads every slot value back by a bound
+
+Anchor:: link:../specification/model-work/04-worker-launch.adoc#launch-contract[Model Work § Launch Contract],
+link:../specification/model-work/04-worker-launch.adoc#agent-composition[§ Agent Composition per Harness],
+link:../specification/harness-profiles/01-profile-schema.adoc#headless-adjacent-slots[Harness Profiles § No Two Adjacent Slots],
+link:../../../plan-marshall-documentation/doc/Requirements.adoc#PM-CLIENT-2[PM-CLIENT-2]
+Hazard:: The check that parses the composed worker vector back reads a slot value up to the earliest occurrence of the
+literal after it: a model name, a working directory or a path that contains that literal refuses a conforming launch,
+two slots that touch in one element have no bound at all, a metacharacter in a literal around a JSON slot passes, and a
+tool named twice in `{{tools}}` is accepted.
+Guard:: `WorkerVectorCheck` reads the only slot of an element between the literals at both ends, `{{model}}` and
+`{{cwd}}` by the value the check holds, and the last slot of an element to its end; rule (d) exempts only the value of a
+JSON slot; rule (c) refuses a duplicate and an empty member of `{{tools}}`; `ProfileValidator` refuses two adjacent
+slots in one launch argument (`WorkerVectorCheckTest`, `ProfileValidatorTest`, `ShippedProfilesTest`; ADR
+link:../../pm-runtime/doc/adr/runtime-launch/014-the-vector-check-bounds-a-slot-by-known-values-and-both-ends.adoc[runtime-launch/014]).
+Matched control: every template shape of the fixture profile and every profile `pm-api` ships still conforms.
+Remaining: the residual the check keeps, the one place it searches — in an element of two or more slots, a slot of
+unknown value followed by a literal ends at the earliest occurrence of that literal. A value containing it is cut short
+and refused (`argument_rejected`) only when the cut-short value or the rest of the element fails its slot grammar
+(rule (c)) or the element no longer matches its template (rule (b)); a path-typed slot and the session id accept any
+value of their grammar, so a different split can pass with a wrong value (`{{prompt_file}}-{{result_schema}}` with
+`/tmp/job/prompt-/tmp/job/schema-/tmp/job/result` reads as `/tmp/job/prompt` and `/tmp/job/schema-/tmp/job/result`).
+The composer gives a path-typed slot the job-private directory with a fixed file name, so a composed launch parses back
+to its own values unless that directory or the file name contains the literal. No template of the fixture profiles or
+of the profiles `pm-api` ships has that shape; a profile that adds it must be corrected.
+The profiles `plan-marshall-mcp` ships are checked against the adjacent-slot rule and that shape by its own build
+against the deployed `SNAPSHOT`, not here. The presence of a slot stays a copy of `LaunchComposer.fill`, bound by the
+presence tests.
+Source:: PLAN-V2-200 (item 30(c) of the landing of PLAN-V2-162, #567).
+
 == Screener
 
 [#PM-WATCH-DISP-25]
