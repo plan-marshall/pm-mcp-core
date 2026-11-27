@@ -102,7 +102,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:forgejo-provider.adoc[`forgejo-provider`]
 |Codeberg and Forgejo as a provider
 |`open`
-|nothing
+|`ci-contract-finalize-operations` (the `behind` member of `ci.pr-observe`)
 |Milestone 6; the client work of `pm-mcp-clients`
 
 |link:recipe-workflows.adoc[`recipe-workflows`]

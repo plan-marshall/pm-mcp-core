@@ -12,7 +12,7 @@ Status, milestone and dependencies:: in the link:README.adoc#packages[index], th
 
 The specification sections named are the single statement of what each task builds.
 
-. *The CI contract over the Forgejo API*, the issue source first, and the findings contract for its pull request reviews: link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#forgejo[Module Structure § Codeberg and Forgejo].
+. *The CI contract over the Forgejo API*, the issue source first, and the findings contract for its pull request reviews, with the Forgejo mapping of `behind` in `ci.pr-observe` (`true`, `false`, or `null` where the forge reports none) to the contract of link:ci-contract-finalize-operations.adoc[`ci-contract-finalize-operations`]: link:../../../plan-marshall-documentation/doc/specification/module-structure.adoc#forgejo[Module Structure § Codeberg and Forgejo]; link:../specification/store-schemas/02-workflow-state-store.adoc#merge-outcome-mapping[Store Schemas § Merge Outcome Mapping].
 . *The host detection* for the derived fact `ci_provider`: link:../specification/store-schemas/09-derived-facts-and-build-timings.adoc#derived-facts[Store Schemas § Derived Facts Store].
 . *The value `forgejo` in the closed lists*: link:../specification/store-schemas/07-project-configuration.adoc[Store Schemas § Project Configuration], link:../specification/store-schemas/12-machine-stores.adoc#provider-defaults[§ Machine Provider Defaults], link:../specification/store-schemas/08-project-configuration-local.adoc#local-config[§ Operator Local Configuration], and the integration records of link:../specification/store-schemas/12-machine-stores.adoc#audit-log[§ Audit Log].
 . *The credential key `forgejo`*: link:../specification/identifiers/02-registry-stores-to-web.adoc#id-credential-key[Identifier Registry, `credential_key`]; link:../specification/credentials-and-enrolment/01-provider-credentials.adoc#agent-credentials[Credentials & Enrolment § Agent Credentials].
@@ -30,4 +30,4 @@ The starting set of the trace matrix of the project skill `traced-implementation
 == Done When
 
 * Watch: none anchored to the sections.
-* Tests: against a recorded Forgejo API, an issue of a public and of a private repository read; Codeberg and a self-hosted Forgejo detected.
+* Tests: against a recorded Forgejo API, an issue of a public and of a private repository read; Codeberg and a self-hosted Forgejo detected; against a recorded Forgejo API, `ci.pr-observe` mapping `behind` to `true`, to `false`, and to `null` where the forge reports none.
