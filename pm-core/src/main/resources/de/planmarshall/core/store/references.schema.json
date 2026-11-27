@@ -26,7 +26,7 @@
     },
     "unplanned_changes": {
       "type": "array",
-      "description": "Paths of realized_files \\ declared_files, recorded by the server with provenance when a task submit or a loop-back commit changed them; accepted and recorded, never reviewed and never blocking. Listed in the PR body and the landing record; for an epic plan an overlap with a sibling plan's declared surface is noted in the landing record only. Boundary breaches (outside the worktree, the main checkout, protected paths) are refused by the non-waivable guards and never recorded here.",
+      "description": "Paths of realized_files \\ declared_files, recorded by the server with provenance when a task submit or a loop-back commit changed them; accepted and recorded, never reviewed and never blocking. Listed in the PR body and the landing record; for an epic plan an overlap with a sibling plan's declared surface is noted in the landing record only. Boundary breaches (outside the worktree, the main checkout) are refused by the non-waivable guards and never recorded here; a change of a protected path waits for the operator's decision on its diff whether or not the plan declared it (phase-workflows/03, Protected Paths), and declared_files never admits a protected path (store-schemas/13).",
       "items": {
         "type": "object",
         "required": ["path", "provenance", "phase", "recorded_at"],
