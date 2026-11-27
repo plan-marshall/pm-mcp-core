@@ -28,7 +28,7 @@ import de.planmarshall.core.SchemaResource;
  * The members and enumeration values the merged specification dropped are absent from their schema files, and the
  * object that held each of them is still closed, so a stored document carrying the dropped member fails the schema
  * instead of being tolerated (PLAN-V2-188; the scope estimate of the status metadata and of the outline record and
- * the added dependencies of an outline deliverable, PLAN-V2-189). Each negative control on a member or an enumeration value is matched with a
+ * the added dependencies of an outline deliverable and the three pre-merge finding sources, PLAN-V2-189). Each negative control on a member or an enumeration value is matched with a
  * positive one beside it: a sibling member or value of the same enumeration stays, so the assertion cannot pass because
  * the reader lost the file. The deleted schema file has no such sibling; it is checked against the resource tree with a
  * surviving sibling resource as witness.
@@ -154,6 +154,47 @@ class RemovedSchemaMembersTest {
                             "the deliverable item should stay closed"),
                     () -> assertTrue(required.contains("satisfies"),
                             "the satisfies entries should stay required"));
+        }
+    }
+
+    @Nested
+    @DisplayName("Finding record schema")
+    class FindingRecordSchema {
+
+        @Test
+        @DisplayName("the three pre-merge sources are gone and code_review and ci stay")
+        void preMergeSourcesAreGone() {
+            var source = object(properties(schema(FINDINGS + "finding-record.schema.json")).get("source"));
+            var sources = strings(source, "enum");
+
+            assertAll("The pre-merge sources are gone",
+                    () -> assertFalse(sources.contains("dependency_delta"),
+                            "the dependency delta source should be absent"),
+                    () -> assertFalse(sources.contains("fix_proof"),
+                            "the fix proof source should be absent"),
+                    () -> assertFalse(sources.contains("added_lines"),
+                            "the added lines source should be absent"),
+                    () -> assertTrue(sources.contains("code_review"),
+                            "the code review source should stay declared"),
+                    () -> assertTrue(sources.contains("ci"),
+                            "the ci source should stay declared"));
+        }
+
+        @Test
+        @DisplayName("the source description names none of the three and still describes ci")
+        void sourceDescriptionDropsThePreMergeSources() {
+            var source = object(properties(schema(FINDINGS + "finding-record.schema.json")).get("source"));
+            var description = String.valueOf(source.get("description"));
+
+            assertAll("The source description drops the three",
+                    () -> assertFalse(description.contains("dependency_delta"),
+                            "the description should not name dependency_delta"),
+                    () -> assertFalse(description.contains("fix_proof"),
+                            "the description should not name fix_proof"),
+                    () -> assertFalse(description.contains("added_lines"),
+                            "the description should not name added_lines"),
+                    () -> assertTrue(description.contains("ci is a failed CI check"),
+                            "the description should still describe ci"));
         }
     }
 

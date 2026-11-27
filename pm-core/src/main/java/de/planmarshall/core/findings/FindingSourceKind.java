@@ -43,13 +43,7 @@ public enum FindingSourceKind {
     /** A security audit. */
     SECURITY_AUDIT("security_audit"),
     /** A code review. */
-    CODE_REVIEW("code_review"),
-    /** The server's pre-merge dependency delta check. */
-    DEPENDENCY_DELTA("dependency_delta"),
-    /** The server's pre-merge fix proof guard. */
-    FIX_PROOF("fix_proof"),
-    /** The server's pre-merge added-line scan. */
-    ADDED_LINES("added_lines");
+    CODE_REVIEW("code_review");
 
     private final String wireName;
 
