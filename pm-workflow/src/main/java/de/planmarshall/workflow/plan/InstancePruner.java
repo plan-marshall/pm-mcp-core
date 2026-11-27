@@ -66,12 +66,14 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * From the {@code outline} event on, the lane is known, and the states of the other lane are pruned after the prunes
  * of the rules, each a pruned state with the reason {@code other_lane} and the source fact {@code lane}: the lanes
- * split at the two exits of {@value #LANE_SPLIT}, the deep one entering {@link LaneEntryIds#DEEP_ENTRY} and the light
- * one {@link LaneEntryIds#LIGHT_ENTRY}; pruned are exactly the states reachable from the entry of the other lane and not
- * from the entry of the chosen lane, both over all transitions, escalation included. The shared states before the split, those
- * reachable from a starting state without taking a lane exit of {@value #LANE_SPLIT}, belong to no lane and are never
- * pruned by lane. A light version keeps the deep route, the target of its escalation, and so prunes nothing by lane;
- * a deep version holds no state of the light route.
+ * split at the two exits of {@value #LANE_SPLIT}, the deep one entering {@link LaneEntryIds#DEEP_ENTRY}
+ * ({@code refine.analyze}) and the light one {@link LaneEntryIds#LIGHT_ENTRY} ({@code outline.light}); pruned are
+ * exactly the states reachable from the entry of the other lane and not from the entry of the chosen lane, both over
+ * all transitions, escalation included. The shared states before the split, those reachable from a starting state
+ * without taking a lane exit of {@value #LANE_SPLIT}, belong to no lane and are never pruned by lane. A light version
+ * keeps the deep route, which its escalation from {@code outline.light} or {@link LaneEntryIds#LIGHT_GATE}
+ * ({@code outline.light-gate}) enters at {@code refine.analyze}, and so prunes nothing by lane; a deep version holds no
+ * state of the light route.
  */
 @UtilityClass
 final class InstancePruner {

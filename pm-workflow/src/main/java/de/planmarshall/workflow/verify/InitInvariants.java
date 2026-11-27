@@ -29,10 +29,13 @@ import lombok.experimental.UtilityClass;
  * question state of phase {@code init} returns every resolution to {@code init.classify}; and every state that lies on
  * every path of the default unit into {@code init.ready}, the stamp of {@code main_sha} included, lies on every path
  * of the unit into it.</li>
- * <li>{@link InvariantId#INV_INIT_2}, per lane: wherever {@code outline.light} is a state of the unit, every path into
- * it passes {@code init.light-gate} and every path from it into {@code outline.gate} passes
- * {@code outline.light-regate}; and for the lane {@code light} or an unknown lane, every transition of the default
- * unit that leaves {@code init.light-gate} or {@code outline.light-regate} (the {@code light -> deep} ratchet) is a
+ * <li>{@link InvariantId#INV_INIT_2}, per lane (Workflow DSL Specification, Compiled Invariants): wherever the light
+ * envelope {@link LaneEntryIds#LIGHT_ENTRY} ({@code outline.light}) is a state of the unit, every path from it into
+ * {@code outline.gate} passes the light gate {@link LaneEntryIds#LIGHT_GATE} ({@code outline.light-gate}); a path that
+ * escalates passes the deep entry {@link LaneEntryIds#DEEP_ENTRY} ({@code refine.analyze}) and is a path of the deep
+ * lane, and a path through a fallback ({@code plan.return}, {@code finalize.hand-back}) leaves the lane; neither owes
+ * the light gate. For the lane {@code light} or an unknown lane, every transition of the default unit
+ * that leaves {@code outline.light} or {@code outline.light-gate}, the {@code light -> deep} ratchet among them, is a
  * transition of the unit. A version of another lane, such as a {@code deep} version that holds no state of the light
  * route, owes no ratchet.</li>
  * </ul>
@@ -48,11 +51,12 @@ final class InitInvariants {
     /** The last state of the init phase. */
     static final String READY = "init.ready";
 
-    /** The authoring state of the light lane. */
-    static final String OUTLINE_LIGHT = "outline.light";
-
-    /** The re-gate of every new task of the light lane. */
-    static final String LIGHT_REGATE = "outline.light-regate";
+    /**
+     * The states that end a path of the light lane from {@code outline.light}: the light gate, the deep entry its
+     * escalation enters, and the fallbacks, by which the plan leaves its lane altogether.
+     */
+    private static final Set<String> LIGHT_PATH_ENDS = Set.of(LaneEntryIds.LIGHT_GATE, LaneEntryIds.DEEP_ENTRY,
+            CompiledInvariants.PLAN_RETURN, CompiledInvariants.HAND_BACK, CompiledInvariants.PLAN_ABORTED);
 
     /** The phase value of the init phase. */
     private static final String PHASE_INIT = "init";
@@ -84,41 +88,33 @@ final class InitInvariants {
 
     private static void lightLane(Context context) {
         var id = InvariantId.INV_INIT_2;
-        if (context.state(OUTLINE_LIGHT).isPresent()) {
-            if (context.state(LaneEntryIds.LIGHT_ENTRY).isEmpty()) {
-                context.reportUnit(id, "the unit has '%s' but no '%s'".formatted(OUTLINE_LIGHT,
-                        LaneEntryIds.LIGHT_ENTRY));
-            } else if (!context.dominates(LaneEntryIds.LIGHT_ENTRY, OUTLINE_LIGHT)) {
-                context.reportState(id, context.state(OUTLINE_LIGHT).orElseThrow(),
-                        "a path reaches '%s' without passing '%s'".formatted(OUTLINE_LIGHT,
-                                LaneEntryIds.LIGHT_ENTRY));
-            }
-            regate(context);
+        if (context.state(LaneEntryIds.LIGHT_ENTRY).isPresent()) {
+            lightGate(context);
         }
         if (context.lane().filter(lane -> !LANE_LIGHT.equals(lane)).isPresent()) {
             return;
         }
-        for (var gate : List.of(LaneEntryIds.LIGHT_ENTRY, LIGHT_REGATE)) {
-            context.referenceState(gate).ifPresent(ratchet -> Context.transitions(ratchet).stream()
-                    .filter(transition -> !context.hasTransition(gate, transition.outcomeName(),
+        for (var light : List.of(LaneEntryIds.LIGHT_ENTRY, LaneEntryIds.LIGHT_GATE)) {
+            context.referenceState(light).ifPresent(ratchet -> Context.transitions(ratchet).stream()
+                    .filter(transition -> !context.hasTransition(light, transition.outcomeName(),
                             transition.targetStateId()))
-                    .forEach(transition -> context.report(id, gate, context.state(gate)
+                    .forEach(transition -> context.report(id, light, context.state(light)
                                     .map(StateNode::location).orElse(context.unit().location()),
                             "the ratchet transition '%s' -> '%s' of '%s' is missing".formatted(
-                                    transition.outcomeName(), transition.targetStateId(), gate))));
+                                    transition.outcomeName(), transition.targetStateId(), light))));
         }
     }
 
-    private static void regate(Context context) {
-        var id = InvariantId.INV_INIT_2;
+    private static void lightGate(Context context) {
         var gate = context.state(OutlineInvariants.GATE);
         if (gate.isEmpty()) {
             return;
         }
-        var unregated = Context.avoiding(context.graph(), OUTLINE_LIGHT, Set.of(LIGHT_REGATE));
-        if (unregated.contains(OutlineInvariants.GATE)) {
-            context.reportState(id, gate.get(), "a path from '%s' reaches '%s' without passing '%s'"
-                    .formatted(OUTLINE_LIGHT, OutlineInvariants.GATE, LIGHT_REGATE));
+        var ungated = Context.avoiding(context.graph(), LaneEntryIds.LIGHT_ENTRY, LIGHT_PATH_ENDS);
+        if (ungated.contains(OutlineInvariants.GATE)) {
+            context.reportState(InvariantId.INV_INIT_2, gate.get(),
+                    "a path from '%s' reaches '%s' without passing '%s'".formatted(LaneEntryIds.LIGHT_ENTRY,
+                            OutlineInvariants.GATE, LaneEntryIds.LIGHT_GATE));
         }
     }
 }

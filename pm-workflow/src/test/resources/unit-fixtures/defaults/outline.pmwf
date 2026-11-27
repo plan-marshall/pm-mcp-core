@@ -8,16 +8,20 @@ entry: light
 entry: rework
 exit: done
 exit: returned
+exit: escalate_to_deep
 modification_date: 2026-01-15
 version: 0.1.0
 author: plan-marshall
 ---
 # The outline phase as its own unit, written for the invariant and unit-loader tests, never copied from the product.
-# The deep lane passes outline.qgate before outline.gate; the light lane passes outline.light-regate, whose deep
-# outcome is the light -> deep ratchet; only outline.gate enters Phase 4, through the `done` exit. Each lane routes
-# its rework to its own authoring entry, no router reads the lane: the deep Q-Gate remediation re-enters outline.deep,
-# a failed check of the light outline re-enters outline.light-regate, so the deep route reaches no state of the light
-# route. Every rework cycle passes a job, its awaited event. The plan unit re-enters the phase through `entry rework`.
+# The deep lane passes outline.qgate before outline.gate. The light lane enters the light envelope outline.light, whose
+# accepted outline passes the light gate outline.light-gate before outline.gate; the gate's deep outcome is the
+# light -> deep ratchet, which leaves the phase on its `escalate_to_deep` exit for refine. The envelope's own judgment
+# escalation is not modelled: its entity kind `change` of the tests evaluates `approved` alone.
+# Only outline.gate enters Phase 4, through the `done` exit. Each lane routes its rework to its own authoring entry, no
+# router reads the lane: the deep Q-Gate remediation re-enters outline.deep, a light rework re-enters outline.light
+# through the entry `light`, so the deep route reaches no state of the light route. Every rework cycle passes a job,
+# its awaited event. The plan unit re-enters the phase through `entry rework`.
 workflow phase-3-outline version 1 format 1
 scope subworkflow
 entry start -> outline.deep
@@ -43,19 +47,14 @@ state outline.remediate
         stepped_out -> outline.return-exit
 
 state outline.light
-    auto test.proceed
-        done -> outline.light-regate
+    job llm change role outline
+        approved -> outline.light-gate
+        lost -> outline.return-exit
 
-state outline.light-regate
+state outline.light-gate
     auto test.gate
-        pass -> outline.light-review
-        deep -> outline.deep
-
-state outline.light-review
-    job test.build
-        succeeded -> outline.gate
-        failed -> outline.light-regate
-        cancelled -> outline.return-exit
+        pass -> outline.gate
+        deep -> outline.escalate-exit
 
 state outline.gate
     auto test.proceed
@@ -68,3 +67,5 @@ state outline.rework-entry
 state outline.done-exit terminal done success
 
 state outline.return-exit terminal returned failure
+
+state outline.escalate-exit terminal escalate_to_deep success

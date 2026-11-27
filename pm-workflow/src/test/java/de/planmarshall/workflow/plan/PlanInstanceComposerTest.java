@@ -122,12 +122,13 @@ class PlanInstanceComposerTest {
         return new PrunedElement(Kind.CALL, ASK_SITE + "/" + variant, PruneReason.PLAN_DEFAULT, sourceFact);
     }
 
-    /** @return whether the auto, job or call state of the instance routes the outcome to the target */
+    /** @return whether the auto, job, call or question state of the instance routes the outcome to the target */
     private static boolean routes(PlanInstance instance, String state, String outcome, String target) {
         var transitions = switch (instance.unit().states().get(state).behavior()) {
             case StateBehavior.AutoStep step -> step.transitions();
             case StateBehavior.JobStep job -> job.transitions();
             case StateBehavior.SubWorkflowCall call -> call.transitions();
+            case StateBehavior.QuestionWait question -> question.transitions();
             default -> List.<OutcomeTransition>of();
         };
         return transitions.stream().anyMatch(transition -> outcome.equals(transition.outcomeName())
@@ -833,8 +834,8 @@ class PlanInstanceComposerTest {
             assertAll(
                     () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal(),
                             "the light version without the ratchet is refused"),
-                    () -> assertTrue(refused.violations().contains("INV-INIT-2 in 'init.light-gate': the ratchet"
-                            + " transition 'deep' -> 'init.deep-exit' of 'init.light-gate' is"
+                    () -> assertTrue(refused.violations().contains("INV-INIT-2 in 'outline.light-gate': the ratchet"
+                            + " transition 'deep' -> 'outline.escalate-exit' of 'outline.light-gate' is"
                             + " missing"), "the violations name the missing ratchet"));
         }
 
@@ -847,8 +848,8 @@ class PlanInstanceComposerTest {
             assertAll(
                     () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal(),
                             "the start version without the ratchet is refused"),
-                    () -> assertTrue(refused.violations().contains("INV-INIT-2 in 'init.light-gate': the ratchet"
-                            + " transition 'deep' -> 'init.deep-exit' of 'init.light-gate' is"
+                    () -> assertTrue(refused.violations().contains("INV-INIT-2 in 'outline.light-gate': the ratchet"
+                            + " transition 'deep' -> 'outline.escalate-exit' of 'outline.light-gate' is"
                             + " missing"), "the violations name the missing ratchet"));
         }
 
@@ -862,7 +863,7 @@ class PlanInstanceComposerTest {
                     () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal(),
                             "the deep version is refused for the opened route"),
                     () -> assertTrue(refused.violations().stream().anyMatch(violation -> violation.startsWith(
-                            "INV-OUTLINE-2 in 'init.light-gate'")), "the violations name INV-OUTLINE-2"),
+                            "INV-OUTLINE-2 in 'outline.light-gate'")), "the violations name INV-OUTLINE-2"),
                     () -> assertFalse(refused.violations().stream()
                                     .anyMatch(violation -> violation.startsWith("INV-INIT-2")),
                             "no violation names INV-INIT-2"));
@@ -873,7 +874,7 @@ class PlanInstanceComposerTest {
      * The per-lane rework of the plan unit's phase calls, over {@code plan/per-lane-rework.pmwf}: a {@code deep}
      * version prunes the light call states and the light outline route with {@code other_lane} while its own calls keep
      * routing their rework to {@code outline.deep}, a {@code light} version keeps both routes and routes the light
-     * calls' rework to {@code outline.light-regate}.
+     * calls' rework to the light envelope {@code outline.light}.
      */
     @Nested
     @DisplayName("Per-lane rework")
@@ -905,13 +906,12 @@ class PlanInstanceComposerTest {
             assertAll(
                     () -> assertEquals(CompositionEvent.OUTLINE, instance.header().event(),
                             "the outline event composes the deep version"),
-                    () -> assertEquals(List.of("init.light-gate", "outline.light", "outline.light-regate",
-                                    "outline.light-review", "outline.light-approve", "phases.plan-light",
-                                    "phases.execute-light"),
+                    () -> assertEquals(List.of("outline.light", "outline.light-gate", "outline.light-approve",
+                                    "phases.plan-light", "phases.execute-light"),
                             otherLane(instance.header()).stream().map(PrunedElement::id).toList(),
                             "the deep version prunes every light call state"),
                     () -> assertTrue(instance.unit().states().keySet().containsAll(List.of("phases.plan",
-                                    "phases.execute", "outline.deep", "refine.baseline-reconcile")),
+                                    "phases.execute", "outline.deep", "refine.analyze")),
                             "the deep route keeps its own call states"),
                     () -> assertTrue(routes(instance, "phases.plan", "fix_requested", "outline.deep"),
                             "the deep plan call re-enters the deep authoring entry"),
@@ -922,7 +922,7 @@ class PlanInstanceComposerTest {
         }
 
         @Test
-        @DisplayName("a light version keeps both routes and routes the light calls' rework to outline.light-regate")
+        @DisplayName("a light version keeps both routes and routes the light calls' rework to outline.light")
         void lightKeepsBothRoutes() {
             var instance = outline(Lane.LIGHT);
 
@@ -931,12 +931,14 @@ class PlanInstanceComposerTest {
                             "the light version prunes no state by lane"),
                     () -> assertTrue(routes(instance, "phases.plan", "fix_requested", "outline.deep"),
                             "the deep call state keeps its own rework entry"),
-                    () -> assertTrue(routes(instance, "phases.plan-light", "fix_requested", "outline.light-regate"),
+                    () -> assertTrue(routes(instance, "phases.plan-light", "fix_requested", "outline.light"),
                             "the light plan call re-enters the light authoring entry"),
-                    () -> assertTrue(routes(instance, "phases.execute-light", "loop_back", "outline.light-regate"),
+                    () -> assertTrue(routes(instance, "phases.execute-light", "loop_back", "outline.light"),
                             "the light execute call re-enters the light authoring entry"),
-                    () -> assertTrue(routes(instance, "outline.light-review", "failed", "outline.light-regate"),
-                            "the light review re-enters the light re-gate"),
+                    () -> assertTrue(routes(instance, "outline.light-approve", "revise", "outline.light"),
+                            "the revise answer re-enters the light envelope"),
+                    () -> assertTrue(routes(instance, "outline.light-gate", "deep", "refine.analyze"),
+                            "the light gate escalates into refine.analyze"),
                     () -> assertEquals(List.of(), HeaderSchemaCheck.check(instance.header()),
                             "the light per-lane version verifies"));
         }
@@ -1050,10 +1052,10 @@ class PlanInstanceComposerTest {
             var light = perLane(CompositionEvent.OUTLINE, Lane.LIGHT, "outline.light");
 
             assertAll(
-                    () -> assertTrue(deep.unit().states().containsKey("refine.baseline-reconcile"),
-                            "the deep version keeps the shared state"),
-                    () -> assertTrue(light.unit().states().containsKey("refine.baseline-reconcile"),
-                            "the light version keeps the shared state"),
+                    () -> assertTrue(deep.unit().states().containsKey("refine.analyze"),
+                            "the deep version keeps its deep entry"),
+                    () -> assertTrue(light.unit().states().containsKey("refine.analyze"),
+                            "the light version keeps its escalation target"),
                     () -> assertTrue(deep.unit().states().containsKey("outline.deep"),
                             "the deep version keeps the deep route"),
                     () -> assertTrue(light.unit().states().containsKey("outline.deep"),
@@ -1389,7 +1391,7 @@ class PlanInstanceComposerTest {
 
         /**
          * @return the composition, after the version in force, of a light plan whose adopted template lacks the
-         *         {@code light -> deep} ratchet of {@code init.light-gate}, which INV-INIT-2 refuses
+         *         {@code light -> deep} ratchet of {@code outline.light-gate}, which INV-INIT-2 refuses
          */
         private static CompositionResult withoutRatchet(PlanInstance inForce) {
             return PlanFixtures.mergedComposer().compose(PlanFixtures.mergedRequest(CompositionEvent.CONFIG_ADOPTED,
@@ -1434,7 +1436,7 @@ class PlanInstanceComposerTest {
                     () -> assertEquals(Refusal.INVARIANT_FAILED, refused.refusal(),
                             "the broken compiled invariant is refused"),
                     () -> assertTrue(refused.violations().stream()
-                                    .anyMatch(violation -> violation.startsWith("INV-INIT-2 in 'init.light-gate'")),
+                                    .anyMatch(violation -> violation.startsWith("INV-INIT-2 in 'outline.light-gate'")),
                             "a violation names INV-INIT-2 at the gate"));
         }
 

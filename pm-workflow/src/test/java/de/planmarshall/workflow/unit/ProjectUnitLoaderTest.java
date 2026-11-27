@@ -340,8 +340,8 @@ class ProjectUnitLoaderTest {
         }
 
         @Test
-        @DisplayName("a plan unit whose light gate lacks the light -> deep ratchet is refused with INV-INIT-2, since a"
-                + " template's lane is unknown")
+        @DisplayName("a project unit without the light -> deep ratchet out of outline.light-gate is refused with"
+                + " INV-INIT-2, since a template's lane is unknown")
         void ratchetOwedForUnknownLane() {
             var ratchet = InvariantFixtures.WITHOUT_RATCHET;
             var mutation = new UnitFixtures.Mutation(ratchet.name(), ratchet.file(), ratchet.find(),
@@ -350,7 +350,7 @@ class ProjectUnitLoaderTest {
             var result = load(mutation);
 
             assertRefused(result, UnitFinding.Kind.INVARIANT, InvariantId.INV_INIT_2.wireId(),
-                    configPath(mutation.file()), mutation.lineOf("state init.light-gate"));
+                    configPath(mutation.file()), mutation.lineOf("state outline.light-gate"));
         }
 
         @Test
