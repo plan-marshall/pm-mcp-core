@@ -72,15 +72,25 @@ The generator conversion of the `pm-runtime` and provider tests was accepted by 
 ## Claim Labels
 
 - OBSERVED: "Every datum of this test is a contract" at `WorkerDrainParticipantTest:43` and `WorkerSupervisorLaunchTest:42`. 26 files of `pm-runtime/src/test` carry "every datum" at 3ba79c4f.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: WorkerDrainParticipantTest:43 and WorkerSupervisorLaunchTest:42 'Every datum of this test is a contract'; git grep -il 'every datum' pm-runtime/src/test = 26 files (the capitalised 'Every datum', case-insensitive).
 - OBSERVED: `SupervisorTestFixture` draws the ids from `RuntimeGenerators` (`:99-106`).
+  - verdict: contradicted | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: SupervisorTestFixture draws ids from RuntimeGenerators (projectIds, planIds, sha256Digests, jobIds) but at :103-110 at the head, not :99-106 (file changed after 3ba79c4f); substance holds.
 - OBSERVED: the four killed-runtime ITs and `ProbeBudgetTest` carry the controller annotation and no `Generators.` call. `RemotePolicyTest`, `UnservedWantTest`, `GitHubOperationTest`, `SonarProviderTest` have no `Generators.` call.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: BoundedVerificationKilledRuntimeIT, ProjectRecoveryKilledRuntimeIT, RelayVersionCheckKilledRuntimeIT, RuntimeDrainKilledRuntimeIT, ProbeBudgetTest, RemotePolicyTest, UnservedWantTest, GitHubOperationTest, SonarProviderTest each have @EnableGeneratorController once and zero 'Generators.' references.
 - OBSERVED: `FileSecretStoreTest:66-70`, `SecretServiceStoreTest:68-71`, `KeychainSecretStoreTest:69-72`, `SecretServiceIT:70-73` draw with independent `letterStrings(1, 20)`.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: FileSecretStoreTest:66-70, SecretServiceStoreTest:68-71, KeychainSecretStoreTest:69-72, SecretServiceIT:70-73 each draw the secrets/values with independent Generators.letterStrings(1, 20).next().
 - OBSERVED: `EndpointHarnessReadinessTest` has `@EnableTestLogger` (`:32`) and a `ServerSocket` (`:50`); only the comment is open.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: EndpointHarnessReadinessTest.java:32 @EnableTestLogger, :50 new ServerSocket(0, 1, ...); no comment naming the closed-port race or ADR 017 present (grep), so only the comment is open.
 - OBSERVED: `StalledScopeDetectorTest:76-83` static finals, `JobRecoveryStepTest:84-86`, `RecoveryStepFixtures:68`, `MachineConfigurationStoreTest:58-60`.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: StalledScopeDetectorTest:76-83 static finals (LAST_PROGRESS :76-77, PROJECT/PLAN_ID/EPIC_ID :78-80 drawn via name(); :83 STATE is a literal), JobRecoveryStepTest:84-86 BOOT/CREATED_AT/NOW, RecoveryStepFixtures:68 COPY_RULE, MachineConfigurationStoreTest:58-60 instance-field draws.
 - OBSERVED (drift): `ActivityEventMapperTest` generates `toolName` (`:74`) while its Javadoc calls the tool names the wire contract (`:37`).
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ActivityEventMapperTest Javadoc :36-37 'the tool names and the measured usage numbers are the wire contract' while :74 toolName = Generators.letterStrings(3, 12).next() and :76 argumentValue are drawn.
 - HYPOTHESIS: instance-field draws before the seed are not reproduced by a `@GeneratorSeed` replay (mechanism read by an earlier landing, impact never shown). Confirm with one scratch test at the outline.
+  - verdict: unverifiable | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Needs a scratch test run (does a @GeneratorSeed replay reproduce instance-field draws); the library behaviour is outside the checkout and no run is allowed.
 - HYPOTHESIS: `SupervisorEnvironmentTest:36` ("the task id and both digests are generated") and the other `EnrolmentFileCheckTest` literals are as the landing of PLAN-V2-91 says. Confirm at those files.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: SupervisorEnvironmentTest.java:36 says 'The task id and both digests are generated' (draw() :58-59 draws one task id and one digest reused for three members, so 'both' is loose); EnrolmentFileCheckTest:46 'Every datum ... is a contract' over literals someone-else (:133,:223) and link.json (:115,:211). PLAN-V2-91 landing text not opened (.plan).
 - Verify-first clause: D1 (#612) changed many test files; re-read every site. A refutation loops back to re-scope.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: D1 1ae69d3f changed 23 files; pm-runtime test files were also changed after 3ba79c4f (SupervisorTestFixture, ProbeBudgetTest, HarnessEnrolmentStoreTest and others), and the cited sites were re-read: only SupervisorTestFixture's lines moved (claim 1).
 
 ## Expected Surface
 
@@ -109,3 +119,9 @@ About 40 existing files; about 50 if the scan finds more statement classes.
 ## Write-Boundary
 
 The plan touches only its own repository source and tests. It creates and edits NO file under `.plan/orchestrator/` other than its own `inbox/{sender}-{seq}` message. See `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Re-Ground Record of 2026-11-27 (cleanup, head 115d5987)
+
+Binding, like every earlier record: where a claim above and this record disagree, the record is what is true at the head; the claim bullets are not rewritten. Read by read-only leaves (R21) from the head `origin/main` 115d5987; each contradicted claim is absorbed here (`rescoped: yes`).
+
+- Claim 1: SupervisorTestFixture draws ids from RuntimeGenerators (projectIds, planIds, sha256Digests, jobIds) but at :103-110 at the head, not :99-106 (file changed after 3ba79c4f); substance holds.

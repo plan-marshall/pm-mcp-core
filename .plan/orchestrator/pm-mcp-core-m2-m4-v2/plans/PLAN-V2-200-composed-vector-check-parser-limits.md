@@ -69,11 +69,17 @@ These are parser changes with their own risk and test surface: adversarial input
 ## Claim Labels
 
 - OBSERVED: at 3ba79c4f `WorkerVectorCheck.carried` uses `rendered.indexOf(next.text(), cursor)` (`:288`) and returns empty when the next segment is a slot (`:283-285`). `named.length == 0` sits at `:334`. `SHELL_METACHARACTERS = "|;&$\`><"` (`:75`).
+  - verdict: contradicted | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: At the head WorkerVectorCheck.java has moved: indexOf(next.text(), cursor) at :292, next.isSlot() empty return at :289-291, SHELL_METACHARACTERS at :76 (value "|;&$`><" holds), and `named.length == 0` no longer exists (toolSet :336-345 only loops over the split). Cited :288, :283-285, :334, :75 are stale.
 - OBSERVED: at 3ba79c4f rule (d) loops from element 0 and exempts the whole JSON-slot element (`:162-168`), and `keptIndices` copies the composer's fill (`:193`). `LaunchComposer.fill` is at `:426`.
+  - verdict: contradicted | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: Rule (d) at the head (WorkerVectorCheck.java:162-175) loops from position 1, so element 0 is already exempt (spec says from element 0); the whole JSON-slot element is still exempted (:166,171); keptIndices is at :197 (not :193) and still copies the composer's fill; LaunchComposer.fill is at :426 (holds).
 - OBSERVED: ADR `runtime-launch/010` states the metacharacter exemption, the three-lists-stay-three rule and the fail-closed direction.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ADR runtime-launch/010: line 63 "The two JSON slots are exempt from the metacharacter rule", lines 110-120 "three lists stay three" (ProfileValidator.SLOTS, composer's map, grammar), line 111 "which is the fail-closed direction".
 - HYPOTHESIS: on the 162 branch element 0 is exempt from rule (d) and the dead empty-split branch is removed. Confirm at `WorkerVectorCheck.java` after #567 merged.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: WorkerVectorCheck.java:168-171 loops from position 1 with the comment that element 0 is the enrolled executable (exempt); the former `named.length == 0` dead branch is gone from toolSet (:336-345). Already on main at the head (via #567).
 - HYPOTHESIS: refusing adjacent slots at profile validation fits `ProfileValidator` (`PLACEHOLDER` at `:289`, slot check at `:1383-1424`). Confirm there.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ProfileValidator.java:289 PLACEHOLDER = Pattern.compile("\\{\\{([^{}]*)\\}\\}") holds; the slot check scans placeholders per element at :1383-1384 and :1422 (inside launchItem), so an adjacent-slot check fits there. File is 1609 lines.
 - Verify-first clause: re-read `WorkerVectorCheck` on main after #567. A line moved or a limit already fixed loops back to re-scope.
+  - verdict: unverifiable | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Process clause (re-read on main, loop back if a line moved); future-tense. Note lines in WorkerVectorCheck have in fact moved (see claims 0 and 1).
 
 ## Expected Surface
 
@@ -99,3 +105,10 @@ These are parser changes with their own risk and test surface: adversarial input
 ## Write-Boundary
 
 The plan touches only its own repository source and tests. It creates and edits NO file under `.plan/orchestrator/` other than its own `inbox/{sender}-{seq}` message. See `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Re-Ground Record of 2026-11-27 (cleanup, head 115d5987)
+
+Binding, like every earlier record: where a claim above and this record disagree, the record is what is true at the head; the claim bullets are not rewritten. Read by read-only leaves (R21) from the head `origin/main` 115d5987; each contradicted claim is absorbed here (`rescoped: yes`).
+
+- Claim 0: At the head WorkerVectorCheck.java has moved: indexOf(next.text(), cursor) at :292, next.isSlot() empty return at :289-291, SHELL_METACHARACTERS at :76 (value "|;&$`><" holds), and `named.length == 0` no longer exists (toolSet :336-345 only loops over the split). Cited :288, :283-285, :334, :75 are stale.
+- Claim 1: Rule (d) at the head (WorkerVectorCheck.java:162-175) loops from position 1, so element 0 is already exempt (spec says from element 0); the whole JSON-slot element is still exempted (:166,171); keptIndices is at :197 (not :193) and still copies the composer's fill; LaunchComposer.fill is at :426 (holds).

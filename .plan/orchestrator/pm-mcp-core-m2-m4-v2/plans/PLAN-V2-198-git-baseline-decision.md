@@ -65,11 +65,17 @@ This plan puts the choice to the operator, records it in an ADR first, and then 
 ## Claim Labels
 
 - OBSERVED: `GitMetadataGuard` stores baselines in `ConcurrentHashMap<Path, SortedMap<String, String>>`. `record` uses `putIfAbsent`, `rebaseline` uses `put`, and `verify` answers `Unchanged` when no baseline exists. Read at 3ba79c4f.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: GitMetadataGuard.java:41 baselines = new ConcurrentHashMap<>() (field typed Map<Path, SortedMap<String,String>>); record uses putIfAbsent :73, rebaseline put :105, verify answers Unchanged when baseline == null :89-91 (a withheld key answers Changed(unreadable) first, :85-87).
 - OBSERVED: callers in `SubprocessJobRunner` at `:560` (verify before a git job), `:1047` (record at spawn), `:1674` (verify after the fate).
+  - verdict: contradicted | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: SubprocessJobRunner.java:560 (verify before a git job) and :1047 (gitMetadataGuard.record(job.projectRoot)) hold, but the verify after the fate is at :1691 (gitMetadataGuard.verify(root) ... reportChange WORKER_END), not :1674.
 - OBSERVED: ADR `runtime-job/019` at main names option C (a file below the project's store) and says "the guard's interface is the seam: a later plan changes only its storage". It also says "accepted because the recovery ends such a worker".
+  - verdict: contradicted | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: ADR runtime-job/019 names option C (file below the project's store) and "the guard's interface is the seam: a later plan changes only its storage" (Alternatives), but the phrase "accepted because the recovery ends such a worker" is absent (git grep "accepted because" empty); the ADR was reworded by 90505ad2 (#567): "ending the worker does not revert its writes".
 - HYPOTHESIS: on the 162 branch the same ADR and the guard Javadoc are reworded to say that ending the worker does not revert its writes. Confirm at `GitMetadataGuard.java` and the ADR once #567 merged.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: GitMetadataGuard.java:28-31 Javadoc "ending the running worker does not revert what that worker wrote"; ADR 019 Alternatives and Consequences carry the same wording ("which does not revert what that worker wrote"); the ADR was last changed by 90505ad2 (#567).
 - HYPOTHESIS: option 1 needs a project-store entry (`ProjectStore`), a schema and codec in `pm-core`, and a parity test. Confirm at `pm-core/src/main/java/de/planmarshall/core/store/ProjectStore.java`.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: pm-core/.../core/store/ProjectStore.java exists (per-project machine store, Directory enum, identity file store.json); sibling stores follow the codec + schema + parity-test pattern (e.g. JobRecordCodec, *SchemaParityTest in pm-core tests), so a new baseline entry needs those pieces.
 - Verify-first clause: the outline reads `SubprocessJobRunner` callers at the head. A caller added since may change which option is cheap.
+  - verdict: unverifiable | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Process instruction for the outline (re-read callers at the head); future-tense. Current callers are :560, :1047, :1691 of SubprocessJobRunner.
 
 ## Expected Surface
 
@@ -95,3 +101,10 @@ This plan puts the choice to the operator, records it in an ADR first, and then 
 ## Write-Boundary
 
 The plan touches only its own repository source and tests. It creates and edits NO file under `.plan/orchestrator/` other than its own `inbox/{sender}-{seq}` message. See `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Re-Ground Record of 2026-11-27 (cleanup, head 115d5987)
+
+Binding, like every earlier record: where a claim above and this record disagree, the record is what is true at the head; the claim bullets are not rewritten. Read by read-only leaves (R21) from the head `origin/main` 115d5987; each contradicted claim is absorbed here (`rescoped: yes`).
+
+- Claim 1: SubprocessJobRunner.java:560 (verify before a git job) and :1047 (gitMetadataGuard.record(job.projectRoot)) hold, but the verify after the fate is at :1691 (gitMetadataGuard.verify(root) ... reportChange WORKER_END), not :1674.
+- Claim 2: ADR runtime-job/019 names option C (file below the project's store) and "the guard's interface is the seam: a later plan changes only its storage" (Alternatives), but the phrase "accepted because the recovery ends such a worker" is absent (git grep "accepted because" empty); the ADR was reworded by 90505ad2 (#567): "ending the worker does not revert its writes".
