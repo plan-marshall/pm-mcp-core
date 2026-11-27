@@ -59,11 +59,17 @@ The tail pump before the exit, the `START_FAILURE` branch, the requested-end bra
 ## Claim Labels
 
 - HYPOTHESIS: `completeEnd` pumps the tail before the monitor, `claimEnd` decides `START_FAILURE` from `detection.startFailure()` when no request exists, and `finishAttempt` calls `pump.finish` then removes the pump. Read on the branch (d5c8da5d). Confirm at `SupervisionPass.java` § `completeEnd`, `claimEnd`, `finishAttempt`.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: SupervisionPass.java: completeEnd :222-247 calls pump(...) (tail read) at :229 before claimEnd/monitor; claimEnd :263-290 does ending.end(generation, EndCause.START_FAILURE) when requested == null && detection.startFailure() (:284-286); finishAttempt :336-349 calls pump.finish then active.remove.
 - HYPOTHESIS: the 30 s hold comes from an unsettled writer in the fixture. Confirm at `SupervisorTestFixture.java` § `stateWriter()`, `WorkerEnding.java` § `exited` and `TerminationProtocol.GRACE_PERIOD`.
+  - verdict: contradicted | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: SupervisorTestFixture.stateWriter() (:482-496) is an anyTimes() EasyMock that only records writes and never blocks; WorkerEnding.exited (:189-250) writes state only if the settled record is empty and waits on nothing; TerminationProtocol.GRACE_PERIOD is 5 s (:56-59), not 30 s. The only 30 s in the area is HarnessStartSpacing.SPACING_BOUND (:45).
 - HYPOTHESIS: a throw after the append in `WorkerActivityPump.finish` (after `recorder.append`, at `recorder.forget`) lets the retry append a second end. Confirm at `WorkerActivityPump.java` § `finish` and `ActivityRecorder.java`.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: WorkerActivityPump.finish (:141-157): recorder.append (:147) then unmapped=0, task=null, recorder.forget (:154); SupervisionPass.finishAttempt (:336-349) does not catch it, recordEnd keeps the claim unfinished, so the retry calls pump.finish again and appends a second end. Caveat: forget (ActivityRecorder.java:136) is an in-memory removeIf; a realistic throw is protocol.offTrack inside append.
 - OBSERVED: `SupervisionPassTest`, `WorkerActivityPumpTest`, `SupervisorTestFixture` and `WorkerEndingTest` exist at 3ba79c4f.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: All four exist: pm-runtime/src/test/java/de/planmarshall/runtime/worker/SupervisionPassTest.java, WorkerActivityPumpTest.java, SupervisorTestFixture.java, WorkerEndingTest.java (also ActivityRecorderTest.java).
 - OBSERVED (drift): the lane's reverted attempt is reported only in the landing; the fixture's `stateWriter()` is an EasyMock writer (read on the branch).
+  - verdict: unverifiable | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: The lane's reverted attempt is reported only in a landing file under .plan (not readable here). The readable half holds: SupervisorTestFixture.stateWriter() :482-496 is an EasyMock mock (createMock(WorkerStateWriter.class)).
 - Verify-first clause: before writing a test, list the existing tests that already exercise the branch. A refutation loops back to re-scope.
+  - verdict: unverifiable | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Process clause about what the lane does before writing a test; future-tense.
 
 ## Expected Surface
 
@@ -89,3 +95,10 @@ The tail pump before the exit, the `START_FAILURE` branch, the requested-end bra
 ## Write-Boundary
 
 The plan touches only its own repository source and tests. It creates and edits NO file under `.plan/orchestrator/` other than its own `inbox/{sender}-{seq}` message. See `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Re-Ground Record of 2026-11-27 (cleanup, head 115d5987)
+
+Binding, like every earlier record: where a claim above and this record disagree, the record is what is true at the head; the claim bullets are not rewritten. Read by read-only leaves (R21) from the head `origin/main` 115d5987; each contradicted claim is absorbed here (`rescoped: yes`).
+
+- Claim 1: SupervisorTestFixture.stateWriter() (:482-496) is an anyTimes() EasyMock that only records writes and never blocks; WorkerEnding.exited (:189-250) writes state only if the settled record is empty and waits on nothing; TerminationProtocol.GRACE_PERIOD is 5 s (:56-59), not 30 s. The only 30 s in the area is HarnessStartSpacing.SPACING_BOUND (:45).
+- **Verify first, before any fixture is written (binding):** the 30 s hold named in the Objective is NOT from an unsettled writer of the fixture at the head (claim 1 above). The only 30 s in the area is `HarnessStartSpacing.SPACING_BOUND` (`HarnessStartSpacing.java:45`), and PLAN-V2-162's follow-up #625 moved the spacing wait outside the monitor. The outline first re-runs the reverted START_FAILURE test at the head and reads where its time goes; if the hold is gone, the fixture of deliverable 1 shrinks to what the four tests need, and the landing says which part of the objective the head settled.

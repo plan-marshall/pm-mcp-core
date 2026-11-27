@@ -61,14 +61,23 @@ Three `pm-runtime` test helpers (`HostToolCalls`, `ProcessLiveness`, `JsonDocume
 ## Claim Labels
 
 - OBSERVED: `StalledScopeDetector.THRESHOLD_KEY` (package-private, `:51`) and `THRESHOLD` (`public static final Duration`, `:57`, initialised from `LimitProperties.read(LIMITS, THRESHOLD_KEY)`). `StalledScopeDetectorTest:648` and `:656` are the two limits tests. Read at 3ba79c4f.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: StalledScopeDetector.java:51 THRESHOLD_KEY package-private, :57 public static final Duration THRESHOLD = Duration.ofSeconds(LimitProperties.read(LIMITS, THRESHOLD_KEY)); StalledScopeDetectorTest:648 thresholdIsReadFromTheLimitsResource, :656 readsAnAlternateResource. (3ba79c4f itself not checked.)
 - OBSERVED: `HostToolCalls:21`, `ProcessLiveness:18`, `JsonDocuments:21` are `public final class` with a private constructor.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: HostToolCalls.java:21, ProcessLiveness.java:18, JsonDocuments.java:21 are public final class with private constructor (:23 each); no @UtilityClass present.
 - OBSERVED: `LspClientTest:57` (`WAITED_BOUND = 2 s`) and `:128` (`stubborn`).
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: LspClientTest.java:57 WAITED_BOUND = Duration.ofSeconds(2); :128 void stubborn().
 - OBSERVED: `pm-runtime/README.adoc` (generator sentence at `:49-53`; the `cui-test-generator` need at `:61-65`) and ADR 012 `:86`.
+  - verdict: contradicted | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: ADR 012:86 holds ('The five generator artifacts package only their generator package'), but pm-runtime/README.adoc moved: the generator sentence is at :60-62 (section 'Test artifact' :56-64), the cui-test-generator need at :66-68, not :49-53 / :61-65 (:49-53 is the build-commands/mock-server text).
 - OBSERVED: `pm-core/pom.xml:144-148` includes the generators, assertions and `SchemaResource`.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: pm-core/pom.xml:144 <includes>, :145 testing/generators/**, :146 testing/assertions/**, :147-148 SchemaResource.class and SchemaResource$*.class, :149 </includes>; range 144-148 covers them.
 - OBSERVED (drift): the older spec cited `README.adoc:49-52` and `:61-62`; the lines moved by about one. D3 of this series edits CLAUDE.md in a different section; the two edits do not overlap.
+  - verdict: contradicted | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: yes | evidence: Drift is not 'about one': at the head the README generator sentence is :60-62 and the cui-test-generator need :66-68 (README.adoc), i.e. moved by about 11 and 5 lines from the :49-52/:61-62 cited. The CLAUDE.md section-overlap half is not decidable by reading.
 - HYPOTHESIS: the seam plus an alternate class loader is what makes a hard-coded `THRESHOLD` fail. Confirm at `StalledScopeDetector.java` and `LimitProperties.java` at the outline.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: StalledScopeDetector.java:57 THRESHOLD is a static final read at class init; LimitProperties.java (pm-core/.../core/config/, not pm-runtime) read() resolves via LimitProperties.class.getResourceAsStream, so an alternate loader must define LimitProperties too. Mechanism consistent with the hypothesis.
 - HYPOTHESIS: the cause of the `stubborn` flake is the fixed 2 s initialize timeout (not shown by reading). Confirm at `LspClient.java:128` and `FixtureLanguageServer`.
+  - verdict: unverifiable | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: LspClient.java:128 awaits server.initialize with the instance timeout (WAITED_BOUND 2 s) so the bound is read; whether that is the cause of the stubborn flake needs runs, not reading (spec itself says not shown by reading).
 - Verify-first clause: PLAN-V2-125 Deliverable 6(a) decides the same mechanism for `pm-core`. Re-read it if merged, and use the same seam.
+  - verdict: unverifiable | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: Conditional instruction about re-reading PLAN-V2-125 D6(a) if merged; future-tense/directive, not a fact about the head.
 
 ## Expected Surface
 
@@ -94,3 +103,10 @@ About 12 existing files.
 ## Write-Boundary
 
 The plan touches only its own repository source and tests. It creates and edits NO file under `.plan/orchestrator/` other than its own `inbox/{sender}-{seq}` message. See `persona-plan-orchestrator/standards/orchestration-model.md` § Ledger Write-Boundary.
+
+## Re-Ground Record of 2026-11-27 (cleanup, head 115d5987)
+
+Binding, like every earlier record: where a claim above and this record disagree, the record is what is true at the head; the claim bullets are not rewritten. Read by read-only leaves (R21) from the head `origin/main` 115d5987; each contradicted claim is absorbed here (`rescoped: yes`).
+
+- Claim 3: ADR 012:86 holds ('The five generator artifacts package only their generator package'), but pm-runtime/README.adoc moved: the generator sentence is at :60-62 (section 'Test artifact' :56-64), the cui-test-generator need at :66-68, not :49-53 / :61-65 (:49-53 is the build-commands/mock-server text).
+- Claim 5: Drift is not 'about one': at the head the README generator sentence is :60-62 and the cui-test-generator need :66-68 (README.adoc), i.e. moved by about 11 and 5 lines from the :49-52/:61-62 cited. The CLAUDE.md section-overlap half is not decidable by reading.

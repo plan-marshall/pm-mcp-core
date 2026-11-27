@@ -63,14 +63,23 @@ Twelve test classes each hold a hand-written `new ModuleDispatcherElement` with 
 ## Claim Labels
 
 - OBSERVED: the counts of deliverable 2, read at 3ba79c4f with `git grep -c`.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: git grep -c: 'new ModuleDispatcherElement' 1 in each of 12 classes (GitHubCiProvider, GitHubClient, InstallationTokens, GitLabCiProvider, GitLabClient, HttpClient, SonarClient, HuggingFace, LfsBatch, EndpointClient, EndpointHarness, EndpointVerification tests); @MockResponseConfig 60/40/5/3/2 in GitHubCi/GitLabCi/HttpClient/GitLabClient/GitHubClient tests; the other seven have none.
 - OBSERVED: `SonarClient.MAX_PAGES = 20` (`:54`), `PAGE_SIZE = 500` (`:51`), the loop at `:94`, and `pullRequest < 1` at `:88`. `SonarClientTest`: `readsTwoPages` `:255`, `stopsAtTheCap` `:277` (total at `:279`), `unreadablePages` `:416`.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: SonarClient.java:51 PAGE_SIZE=500, :54 MAX_PAGES=20, :88 'if (pullRequest < 1)', :94 loop; SonarClientTest readsTwoPages :255, stopsAtTheCap :277 (total :279), unreadablePages :416; draws at :122 (integers(1,100000)) and :232 (integers(-100,0)).
 - OBSERVED: `pm-provider-http/pom.xml:99-100` includes only `de/planmarshall/provider/http/testing/generators/**`, `pm-core/pom.xml:144-148` includes generators, assertions and `SchemaResource`, and `pm-core/pom.xml` has no mockwebserver dependency (`pm-runtime/pom.xml:96` has it).
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: pm-provider-http/pom.xml:99-100 includes only .../http/testing/generators/**; pm-core/pom.xml:144-148 includes generators, assertions, SchemaResource; grep mockwebserver: pm-core/pom.xml none, pm-runtime/pom.xml:96 present.
 - OBSERVED: `pm-provider-sonar/pom.xml` declares `pm-provider-http` (`:28`) but no test-jar of it.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: pm-provider-sonar/pom.xml:28 declares pm-provider-http without type test-jar; its only test-jar is pm-core (:37-38).
 - OBSERVED: ADR 002 is cited at `provider-github.adoc:233`, `provider-gitlab.adoc:223`, `provider-http.adoc:103,142`, `runtime-corpus.adoc:107`.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: ADR 002 (doc/adr/002-cui-http-...) linked at provider-github.adoc:233, provider-gitlab.adoc:223, provider-http.adoc:103 and :142, runtime-corpus.adoc:107, all as repository ADR 002 without a superseded mark.
 - OBSERVED: `SubprocessJobRunnerTest.java:234` `LoggedWatch extends Handler` is the only `extends Handler` outside prose.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: git grep 'extends Handler' outside .plan: only pm-runtime/.../job/SubprocessJobRunnerTest.java:234 'private static final class LoggedWatch extends Handler'.
 - HYPOTHESIS: ADR 017's Context says a dispatcher "answers whatever request reaches it". Confirm at `doc/adr/017-http-tests-through-mock-response-config-and-module-dispatcher.adoc`.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: doc/adr/017-http-tests-through-mock-response-config-and-module-dispatcher.adoc:17 'Such a dispatcher answers whatever request reaches it, ...' (in the Context).
 - HYPOTHESIS: the helper's package and name (under `pm-providers/pm-provider-http/src/test/java/de/planmarshall/provider/http/testing/`). Decided at the outline.
+  - verdict: unverifiable | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: A future decision of the outline (helper package and name); only the directory pm-provider-http/src/test/java/de/planmarshall/provider/http/testing/ exists (holds generators/ and AssertionMessageScanTest), no helper yet.
 - Verify-first clause: D1 (#612) and any merge since changed test lines. Re-read every site.
+  - verdict: corroborated | checked_at: 115d5987ff625e790ef49df7d2bf2c4163c5870a | by: pm-mcp-core-m2-m4-v2/cleanup | rescoped: n/a | evidence: D1 1ae69d3f changed GitHubCiProviderTest and GitLabCiProviderTest (stat), and EndpointHarness.java changed since 3ba79c4f (its cited lines 79,87,94,116 still hold at head); the cited sites were re-read at head.
 
 ## Expected Surface
 
