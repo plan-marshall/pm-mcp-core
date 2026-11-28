@@ -31,6 +31,10 @@ values that depend on both (the daemon store, the worker's data directory, the j
   configuration directories; a worker adds its profile's writable sub-paths and its `data/` directory; a probe adds the
   checkout root and caches of a script. The base directory is denied and writable only as the daemon store and a
   worker's data directory. The session bus socket and, without the opt-in, the container engine's sockets are denied.
+  _Amendment (PLAN-V2-193)_: a worker's write set is no longer the project root and its `write_paths`; it follows the
+  worker's role class (a `writer` writes its plan worktree and `.marshall/local/temp/`, a `read_only`, chat or
+  `zero_tool` worker no path of the project), see
+  link:020-the-worker-write-set-follows-the-role-class.adoc[ADR 020].
 * `SubprocessJobRunner` composes the confinement for every job and probe it launches and passes it through
   `PmExecLauncher.Launch`. A caller that supplies none keeps today's behaviour (`JobConfinement.none()`).
 * `JobEnvironmentComposer` composes the environment of a job kind from the enrolment and runtime values, and the

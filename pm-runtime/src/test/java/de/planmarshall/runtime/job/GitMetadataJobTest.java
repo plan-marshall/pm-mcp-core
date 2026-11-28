@@ -71,7 +71,8 @@ import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 
 /**
  * The {@code git_metadata} of a job record (PM-SEC-5, PM-EXEC-4): a worker records the launcher's statement, and
- * {@code unenforced} until a report says otherwise; a job of another kind records none, whatever its report says.
+ * {@code unenforced} until a report says otherwise; a job of another kind records none, whatever its report says. The
+ * worker is a writer with a plan worktree, so the assertions run against the role-scoped write set.
  * <p>
  * The launcher is {@link FakePmExec}. Contract literals that stay: the modes of the launcher, the host {@code PATH},
  * the harness {@code claude}, the tool {@code read_file}, the effort {@code high}, the budget key and the role
@@ -368,7 +369,8 @@ class GitMetadataJobTest {
                 JobTokens.sha256Hex(token), "claude", version(), Generators.letterStrings(1, 16).next(), null, null,
                 JsonDocument.parse(workerBlock().getBytes(StandardCharsets.UTF_8), "worker"));
         return new WorkerStart(launch, fixture.enrolment(), PROJECT, "worker:" + role, budgetSeconds,
-                new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null), List.of(), null);
+                new BudgetDerivation(BudgetDerivation.Kind.FLOOR_DEFAULT, null), List.of(), null, RoleClass.WRITER,
+                fixture.root.resolve(Generators.letterStrings(4, 16).next().toLowerCase(Locale.ROOT)));
     }
 
     private String workerBlock() {

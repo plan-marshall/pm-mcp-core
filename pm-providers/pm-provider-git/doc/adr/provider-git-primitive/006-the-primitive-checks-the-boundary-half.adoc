@@ -22,6 +22,9 @@ runtime, which a primitive cannot reach.
 * `FootprintBoundary.check(stagingSet, pinnedFilesChanged, mainCheckoutBreaches)` judges the check: the staging set's
   `outside` paths are part 1; parts 2 and 3 are the answers of `CommitSite.pinnedFilesChanged` and
   `CommitSite.mainCheckoutBreaches`, which the assembly implements, and the check treats them as it treats part 1.
+  _Amendment (PLAN-V2-193)_: part 3 holds only where the platform confines no job; under enforced confinement the site
+  reports no main-checkout breach, see
+  link:012-the-main-checkout-check-holds-only-without-confinement.adoc[ADR 012].
 * The verdict is `Within` or `Violated`, which names the sorted offending files, at most 50, and the total count.
 * `GitStageAndCommitPrimitive` runs the check first, before anything is staged and before the message is read, for
   every scope.

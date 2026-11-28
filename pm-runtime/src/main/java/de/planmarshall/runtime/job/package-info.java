@@ -64,6 +64,12 @@
  * ({@link de.planmarshall.runtime.job.JobEvidence}), never from what the job reports about itself, and
  * {@link de.planmarshall.runtime.job.JobSettlement} writes it in the fixed write order: the fate first, the slot release
  * after it, the steps whose stores do not exist yet as named seams.
+ * <h2>Confinement</h2>
+ * {@link de.planmarshall.runtime.job.JobConfinementComposer} composes the filesystem confinement of a job from the
+ * project's enrolment (PM-SEC-5). A worker's write set follows its role class, which
+ * {@link de.planmarshall.runtime.job.WorkerStart} carries with the plan worktree: a {@code writer} writes its plan
+ * worktree and the project's {@code .marshall/local/temp/}, and a {@code read_only}, chat or {@code zero_tool} worker
+ * writes no path of the project. Every other kind writes the project root and the enrolment's {@code write_paths}.
  * <h2>Git metadata</h2>
  * The git metadata of a project is kept out of a worker's reach (PM-SEC-5, PM-WATCH-JOB-48) when the launcher applies
  * the worker's read-only set: {@link de.planmarshall.runtime.job.GitMetadataPaths} finds the git directory and every

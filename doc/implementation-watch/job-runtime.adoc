@@ -224,7 +224,13 @@ its harness profile declares (`headless.writable_paths`: login or credential fil
 succeed, while its own job-private directory `<PM_MCP_BASE>/run/jobs/<job_id>/` (which it can only read, apart from
 its `data/` subdirectory where its harness declares a per-worker data home), a settings, command, or skill file of
 its harness, the home of another harness, the data directory of another worker, and the rest of `<PM_MCP_BASE>`
-fail; a `build` job writes its project's daemon store and fails to write that of another project.
+fail; a `build` job writes its project's daemon store and fails to write that of another project. The worker's
+project writes are role-scoped: a `writer` worker writes its plan worktree and `.marshall/local/temp/` and fails to
+write the main checkout and another plan's worktree; a `read_only` or chat worker fails every path of the project.
+The composer half of this control is guarded here: `JobConfinementComposerTest` asserts the role-scoped write set
+(a writer's plan worktree and `.marshall/local/temp/` without the project root or a sibling worktree, no project path
+for a `read_only` or `zero_tool` worker, the refusals of a missing role class and a plan worktree at or outside the
+root); the Landlock run of the writes is the launcher's, in `pm-mcp-clients`.
 Source:: design review.
 
 [#PM-WATCH-JOB-38]

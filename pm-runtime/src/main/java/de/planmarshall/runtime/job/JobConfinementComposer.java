@@ -24,6 +24,7 @@ import java.util.SortedMap;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.runtime.log.RuntimeLogMessages;
@@ -31,10 +32,15 @@ import de.planmarshall.runtime.log.RuntimeLogMessages;
 /**
  * Composes the filesystem confinement of a job from the project's enrolment at job start (PM-SEC-5).
  * <p>
- * The write set is the project root, the enrolment's {@code write_paths}, the system temporary directory and the device
- * nodes; a {@code build} or {@code project_script} job and a {@code git} job that runs repository hooks add the
- * project's daemon store; a {@code ci} job adds the configuration directory of its CLI; a worker adds the sub-paths its
- * harness profile declares writable and its own data directory; a probe adds what its kind may write. The write set never
+ * The write set of every kind but a worker is the project root, the enrolment's {@code write_paths}, the system temporary
+ * directory and the device nodes; a {@code build} or {@code project_script} job and a {@code git} job that runs
+ * repository hooks add the project's daemon store; a {@code ci} job adds the configuration directory of its CLI; a probe
+ * adds what its kind may write. A worker's write set follows its role class: a {@code writer} writes its plan worktree
+ * and the project's {@value #PROJECT_TEMP} (only the latter without a plan worktree) and every {@code write_paths}
+ * entry that does not contain the project root, a {@code read_only}, chat or {@code zero_tool} worker writes no path of the project and keeps only the
+ * {@code write_paths} entries that lie outside the project root and do not contain it; every worker adds the system
+ * temporary directory unless it equals or contains the project root (a project below {@code /tmp}, for example), the
+ * device nodes, the sub-paths its harness profile declares writable and its own data directory. The write set never
  * contains the runtime base directory, apart from the project's daemon store and a worker's own data directory, and
  * never {@code ~/.plan-marshall/}.
  * <p>
@@ -44,10 +50,12 @@ import de.planmarshall.runtime.log.RuntimeLogMessages;
  * runtime socket of a worker are named as explicit read paths, because they lie inside the denied base directory.
  * <p>
  * A worker's confinement names the project's git directory and the {@code .git} link file of every linked worktree that
- * lies inside the write set as read-only paths ({@link GitMetadataPaths}), so a launcher that can apply the set leaves
- * the git metadata unwritable for the worker; every other kind keeps the set empty, because a {@code git} job and a
- * build wrapper write the git directory legitimately. A linked worktree outside every write-set entry needs no read-only
- * entry; the digest covers it.
+ * lies inside the project root as read-only paths ({@link GitMetadataPaths}), so a launcher that can apply the set
+ * leaves the git metadata unwritable for the worker; every other kind keeps the set empty, because a {@code git} job and
+ * a build wrapper write the git directory legitimately. A {@code writer} or {@code read_only} worker's write set no
+ * longer holds the project root, so some of these read-only paths lie outside it: they name what stays unwritable even
+ * where a {@code write_paths} entry or the plan worktree would otherwise reach it. A linked worktree outside the project
+ * root needs no read-only entry; the digest covers it.
  * <p>
  * The composer builds the values; the launcher {@code pm-exec} applies them. A platform without a ruleset records
  * {@code confinement: unavailable}, which this type neither claims nor suppresses.
@@ -74,6 +82,9 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
 
     /** The runtime socket, a read path of every worker and of no other job. */
     public static final String RUNTIME_SOCKET = "run/runtime.sock";
+
+    /** The sub-path of the project root a {@code writer} worker writes beside its plan worktree. */
+    public static final String PROJECT_TEMP = ".marshall/local/temp";
 
     /** The per-user runtime directory. */
     private static final String RUN_USER = "/run/user";
@@ -142,21 +153,33 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
 
     /**
      * Composes the confinement of a job.
+     * <p>
+     * The {@code project_root} and every {@code write_paths} entry are validated against the runtime base directory and
+     * {@code ~/.plan-marshall/} for every kind. A job of every kind but a worker writes the project root and every
+     * {@code write_paths} entry. A worker's project writes follow its role class: a {@code writer} writes its plan
+     * worktree and {@code <root>/}{@value #PROJECT_TEMP}, or only the latter without a plan worktree, and every
+     * {@code write_paths} entry that does not contain the project root; a {@code read_only} or {@code zero_tool} worker
+     * writes no path of the project and keeps only the {@code write_paths} entries outside the project root. Every kind
+     * writes the system temporary directory, except a worker when that directory equals or contains the project root.
      *
      * @param enrolment           the verified enrolment of the job's project
      * @param jobId               the id of the job
      * @param harnessWritablePaths the sub-paths a worker's harness profile declares writable; empty for other kinds
+     * @param roleClass           the role class of a worker; {@code null} for every other kind
+     * @param planWorktree        the plan worktree a worker runs in; {@code null} for a worker that runs elsewhere and
+     *                            for every other kind
      * @param runRepositoryHooks  whether a {@code git} job runs repository hooks
      * @return the confinement
+     * @throws IllegalArgumentException if an entry overlaps a protected runtime tree, a worker job has no role class, or
+     *                                  a writer's plan worktree is the project root or lies outside it
      */
     // java:S6916 does not apply: the switch is a statement switch over the enum JobId.Kind, where a `when` guard on a
     // constant label is not expressible; the branch condition is the caller's hook flag.
     @SuppressWarnings("java:S6916")
     public JobConfinement forJob(ProjectEnrolment enrolment, JobId jobId, List<Path> harnessWritablePaths,
-            boolean runRepositoryHooks) {
+            @Nullable RoleClass roleClass, @Nullable Path planWorktree, boolean runRepositoryHooks) {
         Objects.requireNonNull(enrolment, "enrolment");
         Objects.requireNonNull(jobId, "jobId");
-        var write = new ArrayList<Path>();
         var planMarshall = Path.of(System.getProperty("user.home"), ".plan-marshall").toAbsolutePath().normalize();
         var projectRoot = Path.of(enrolment.projectRoot()).toAbsolutePath().normalize();
         requireOutside(projectRoot, planMarshall, "project_root");
@@ -164,14 +187,26 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
             throw new IllegalArgumentException(
                     "A project_root entry contains the protected runtime base directory: " + projectRoot);
         }
-        write.add(projectRoot);
+        var writePaths = new ArrayList<Path>();
         for (var path : enrolment.writePaths()) {
             var candidate = Path.of(path).toAbsolutePath().normalize();
             requireOutside(candidate, base, "write_paths");
             requireOutside(candidate, planMarshall, "write_paths");
-            write.add(candidate);
+            writePaths.add(candidate);
         }
-        write.add(systemTemp);
+        var write = new ArrayList<Path>();
+        if (jobId.kind() == JobId.Kind.LLM) {
+            write.addAll(workerProjectWrites(projectRoot, writePaths, roleClass, planWorktree));
+            // a system temporary directory that equals or contains the project root would make the whole project
+            // writable for the worker, so the role-scoped write set leaves it out
+            if (!projectRoot.startsWith(systemTemp.toAbsolutePath().normalize())) {
+                write.add(systemTemp);
+            }
+        } else {
+            write.add(projectRoot);
+            write.addAll(writePaths);
+            write.add(systemTemp);
+        }
         write.add(deviceRoot);
         var read = new ArrayList<Path>();
         var readOnly = new ArrayList<Path>();
@@ -197,6 +232,48 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
             }
         }
         return new JobConfinement(write, read, readOnly, denied(enrolment));
+    }
+
+    /**
+     * The project paths a worker writes, which follow its role class: a {@code writer} writes its plan worktree and the
+     * project's {@value #PROJECT_TEMP}, or only the latter without a plan worktree, and every {@code write_paths} entry
+     * that does not contain the project root; a {@code read_only} or {@code zero_tool} worker writes no path of the project and keeps only the
+     * {@code write_paths} entries that neither lie inside the project root nor contain it: an entry that contains the
+     * root would make the whole project writable.
+     *
+     * @param projectRoot  the normalized project root
+     * @param writePaths   the validated, normalized {@code write_paths} entries
+     * @param roleClass    the role class of the worker
+     * @param planWorktree the plan worktree the worker runs in; {@code null} when it runs elsewhere. A writer's plan
+     *                     worktree below the project root is taken as given: the composer cannot tell it from another
+     *                     directory of the checkout, so the start is trusted for the path
+     * @throws IllegalArgumentException if the role class is absent, or a writer's plan worktree is the project root or
+     *                                  lies outside it
+     */
+    private static List<Path> workerProjectWrites(Path projectRoot, List<Path> writePaths,
+            @Nullable RoleClass roleClass, @Nullable Path planWorktree) {
+        if (roleClass == null) {
+            throw new IllegalArgumentException("A worker job needs the role class of its worker");
+        }
+        var write = new ArrayList<Path>();
+        if (roleClass == RoleClass.WRITER) {
+            if (planWorktree != null) {
+                var worktree = planWorktree.toAbsolutePath().normalize();
+                if (worktree.equals(projectRoot) || !worktree.startsWith(projectRoot)) {
+                    throw new IllegalArgumentException(
+                            "A plan worktree must lie inside the project root and not be the root itself: "
+                                    + planWorktree);
+                }
+                write.add(worktree);
+            }
+            write.add(projectRoot.resolve(PROJECT_TEMP));
+            writePaths.stream().filter(path -> !projectRoot.startsWith(path)).forEach(write::add);
+        } else {
+            writePaths.stream()
+                    .filter(path -> !path.startsWith(projectRoot) && !projectRoot.startsWith(path))
+                    .forEach(write::add);
+        }
+        return write;
     }
 
     /**
@@ -291,9 +368,11 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
     }
 
     /**
-     * The git metadata paths of a project that lie inside the write set, which is the part the launcher must make
-     * read-only. A linked worktree outside the root is read-only too when one of the write-set entries contains it (the
-     * system temporary directory, for example); the rest is covered by the digest.
+     * The git metadata paths of a project that lie inside the project root, which is the part the launcher must make
+     * read-only. The root is not necessarily in the write set: a {@code writer} or {@code read_only} worker's write set
+     * no longer holds it, so these paths can lie outside the write set. A linked worktree outside the root is read-only
+     * too when one of the write-set entries contains it (the system temporary directory, for example); the rest is
+     * covered by the digest.
      */
     private static List<Path> gitMetadataInside(Path projectRoot, List<Path> writeSet) {
         var root = projectRoot.toAbsolutePath().normalize();

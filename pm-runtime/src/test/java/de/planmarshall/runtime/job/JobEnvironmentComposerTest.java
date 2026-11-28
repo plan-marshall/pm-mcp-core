@@ -112,7 +112,7 @@ class JobEnvironmentComposerTest {
                     null, null, null, null, false);
             var store = Path.of(environment.get("MVND_DAEMON_STORAGE")).getParent();
             var confinement = new JobConfinementComposer(base, TMP, Path.of("/dev"), null)
-                    .forJob(enrolment, job, List.of(), false);
+                    .forJob(enrolment, job, List.of(), null, null, false);
 
             assertAll(
                     () -> assertTrue(confinement.writePaths().contains(store),

@@ -477,8 +477,9 @@ public final class GitStageAndCommitPrimitive
      */
     public enum Reason implements OutcomeReason {
         /**
-         * A dirty path lies outside the staging set, a pinned build file changed, or a plan changed the main checkout;
-         * nothing was staged. The facts name the offending files.
+         * A dirty path lies outside the staging set, a pinned build file changed, or — where the commit site reports
+         * main-checkout breaches, which it does only on a platform that confines no job — a plan changed the main
+         * checkout; nothing was staged. The facts name the offending files.
          */
         FOOTPRINT_VIOLATION("footprint_violation") {
 

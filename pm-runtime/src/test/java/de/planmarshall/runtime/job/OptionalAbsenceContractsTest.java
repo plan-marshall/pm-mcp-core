@@ -12,15 +12,28 @@ package de.planmarshall.runtime.job;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import de.cuioss.test.generator.junit.EnableGeneratorController;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import de.planmarshall.core.profile.JsonDocument;
+import de.planmarshall.core.role.RoleClass;
+import de.planmarshall.core.role.RoleForm;
+import de.planmarshall.core.store.JobId;
+import de.planmarshall.core.store.JobRecord;
+import de.planmarshall.core.testing.generators.CoreGenerators;
 import de.planmarshall.runtime.config.MachineDefaultsValidation;
 import de.planmarshall.runtime.config.ProviderDefault;
 import de.planmarshall.runtime.credentials.CredentialAccount;
 import de.planmarshall.runtime.enrolment.HarnessesSidecarCheck;
+import de.planmarshall.runtime.launch.LaunchPrompt;
+import de.planmarshall.runtime.launch.ResolvedSkill;
+import de.planmarshall.runtime.launch.WorkerLaunch;
+import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 import de.planmarshall.runtime.worker.WorkerRecycling;
 
 /**
@@ -29,6 +42,7 @@ import de.planmarshall.runtime.worker.WorkerRecycling;
  *
  * @since 0.1
  */
+@EnableGeneratorController
 class OptionalAbsenceContractsTest {
 
     @Test
@@ -58,6 +72,22 @@ class OptionalAbsenceContractsTest {
         var composer = new JobConfinementComposer(Path.of("/base"), Path.of("/tmp"), Path.of("/dev"), null);
 
         assertNull(composer.sessionBusSocket(), "a platform without a session bus is absent");
+    }
+
+    @Test
+    @DisplayName("a worker start without a plan worktree keeps null")
+    void workerStartWithoutPlanWorktree() {
+        var prompt = new LaunchPrompt("prompt", ResolvedSkill.sha256("prompt"), List.of(), 6);
+        var launch = new WorkerLaunch(RuntimeGenerators.jobIds(JobId.Kind.LLM).next(), "role", RoleClass.READ_ONLY,
+                RoleForm.FRESH, List.of("/usr/bin/role"), Map.of(), Path.of("/tmp/role"), Path.of("/tmp/role/job"),
+                Path.of("/tmp/role/prompt.md"), prompt, null, null, "token", "digest", "claude", "1.0.0", "frontier",
+                null, null, JsonDocument.parse("{}".getBytes(StandardCharsets.UTF_8), "worker"));
+        var start = new WorkerStart(launch, CoreGenerators.projectEnrolments().next(),
+                new JobRecord.Scope(JobRecord.Scope.Type.PROJECT, null), "worker:role", 60L,
+                new JobRecord.BudgetDerivation(JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT, null), List.of(), null,
+                RoleClass.READ_ONLY, null);
+
+        assertNull(start.planWorktree(), "a start outside a plan worktree has none");
     }
 
     @Test

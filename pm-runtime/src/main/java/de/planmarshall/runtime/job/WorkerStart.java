@@ -16,6 +16,7 @@ import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
 import de.planmarshall.core.role.EffectiveRole;
+import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.runtime.launch.LaunchRefusal;
@@ -34,21 +35,39 @@ import de.planmarshall.runtime.launch.WorkerLaunch;
  * @param budgetDerivation how the budget was derived
  * @param writablePaths the sub-paths the harness's profile declares writable
  * @param egressProxy   the loopback URL of the worker's egress proxy; {@code null} when none
+ * @param roleClass     the role class of the launched role; it must equal the role class of the launch, and the worker's
+ *                      write set follows it
+ * @param planWorktree  the plan worktree the worker runs in, the launch's working directory for a start in a plan
+ *                      worktree; {@code null} for a start in any other working directory
  * @since 0.1
  */
 @Builder
 public record WorkerStart(WorkerLaunch launch, ProjectEnrolment enrolment, JobRecord.Scope scope, String budgetKey,
 long budgetSeconds, JobRecord.BudgetDerivation budgetDerivation, List<Path> writablePaths,
-@Nullable String egressProxy) {
+@Nullable String egressProxy, RoleClass roleClass, @Nullable Path planWorktree) {
 
-    /** Copies the writable paths and validates the scope of a worker. */
+    /**
+     * Copies the writable paths and validates the scope of a worker.
+     *
+     * @throws NullPointerException     if a required component is {@code null}
+     * @throws IllegalArgumentException if the scope is neither a project nor the machine, the role class differs from
+     *                                  the role class of the launch, or the plan worktree is not absolute
+     */
     public WorkerStart {
         Objects.requireNonNull(launch, "launch");
         Objects.requireNonNull(enrolment, "enrolment");
         Objects.requireNonNull(scope, "scope");
+        Objects.requireNonNull(roleClass, "roleClass");
         if (scope.type() != JobRecord.Scope.Type.PROJECT && scope.type() != JobRecord.Scope.Type.MACHINE) {
             throw new IllegalArgumentException("A worker belongs to a project or the machine, not a "
                     + scope.type().wireName());
+        }
+        if (roleClass != launch.roleClass()) {
+            throw new IllegalArgumentException("roleClass must be the role class of the launch: " + roleClass
+                    + " differs from " + launch.roleClass());
+        }
+        if (planWorktree != null && !planWorktree.isAbsolute()) {
+            throw new IllegalArgumentException("planWorktree must be absolute: " + planWorktree);
         }
         writablePaths = List.copyOf(Objects.requireNonNull(writablePaths, "writablePaths"));
     }

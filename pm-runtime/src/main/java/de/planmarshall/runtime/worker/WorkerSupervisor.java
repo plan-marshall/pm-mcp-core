@@ -317,7 +317,7 @@ public final class WorkerSupervisor {
                     environment.slots().release(lease);
                     return new StartOutcome.Declined(WorkerStartRefusal.STOPPED_ADMITTING, null);
                 }
-                var result = startWorker(role, block, launch, lease);
+                var result = startWorker(role, block, launch, lease, request);
                 if (result instanceof JobRunner.StartResult.Refused refused) {
                     environment.slots().release(lease);
                     var report = environment.startGuard().startFailed(role.artifact().name(), harness,
@@ -382,9 +382,12 @@ public final class WorkerSupervisor {
      * releases the slot and the spacing turn, because no worker of the start is left. A started worker keeps the slot
      * for the generation. The release runs in a {@code finally} guarded by whether the start returned, so no failure of
      * the start needs to be caught.
+     * <p>
+     * The start carries the launch's role class and, for a start in a plan worktree, the launch's working directory as
+     * the plan worktree, so the worker's write set follows its role class.
      */
     private JobRunner.StartResult startWorker(EffectiveRole role, HeadlessBlock block, WorkerLaunch launch,
-            ModelSlots.Lease lease) {
+            ModelSlots.Lease lease, WorkerStartRequest request) {
         var returned = false;
         try {
             var result = environment.starter().startWorker(WorkerStart.builder()
@@ -396,6 +399,10 @@ public final class WorkerSupervisor {
                     .budgetDerivation(floorDerivation())
                     .writablePaths(block.writablePaths(environment.home()))
                     .egressProxy(null)
+                    .roleClass(launch.roleClass())
+                    .planWorktree(request.workdirKind() == LaunchRequest.WorkdirKind.PLAN_WORKTREE
+                            ? launch.workingDirectory()
+                            : null)
                     .build());
             returned = true;
             return result;

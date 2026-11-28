@@ -182,7 +182,8 @@ class EgressJobTest {
                 JobTokens.sha256Hex(token), "claude", version(), Generators.letterStrings(1, 16).next(), null, null,
                 JsonDocument.parse(workerBlock().getBytes(StandardCharsets.UTF_8), "worker"));
         return new WorkerStart(launch, fixture.enrolment(), PROJECT, "worker:" + role, budgetSeconds, FLOOR,
-                List.of(), null);
+                List.of(), null, RoleClass.WRITER,
+                fixture.root.resolve(Generators.letterStrings(4, 16).next().toLowerCase(Locale.ROOT)));
     }
 
     private String workerBlock() {

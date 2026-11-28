@@ -30,7 +30,8 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
 
 /**
  * The footprint check before anything is staged: the staging set's outside paths and the site's pinned-file and
- * main-checkout breaches, with the offending files bounded to fifty names.
+ * main-checkout breaches, with the offending files bounded to fifty names. The main-checkout half is conditional: the
+ * site reports breaches only where the platform confines no job, and the judge counts exactly what it receives.
  */
 @EnableGeneratorController
 @DisplayName("FootprintBoundary")
@@ -91,6 +92,27 @@ class FootprintBoundaryTest {
                 () -> assertEquals(List.of(mainCheckout), violated.offendingFiles(),
                         "The main-checkout path is the offender"),
                 () -> assertEquals(1, violated.offendingCount(), "The count names the one main-checkout path"));
+    }
+
+    @Test
+    @DisplayName("under enforced confinement the site reports no main-checkout breach and a plan's commit is within")
+    void confinedPlanCommitIsWithin() {
+        var set = new StagingSet(new TreeSet<>(Set.of(names.next())), new TreeSet<>());
+
+        assertInstanceOf(Within.class, FootprintBoundary.check(set, List.of(), List.of()),
+                "No reported breach keeps the plan within");
+    }
+
+    @Test
+    @DisplayName("without confinement a main-checkout breach the site reports violates a plan's commit")
+    void unconfinedPlanCommitWithBreachIsViolated() {
+        var breach = names.next();
+        var set = new StagingSet(new TreeSet<>(Set.of(names.next())), new TreeSet<>());
+
+        var violated = assertInstanceOf(Violated.class, FootprintBoundary.check(set, List.of(), List.of(breach)),
+                "A reported breach violates the plan's commit");
+
+        assertEquals(List.of(breach), violated.offendingFiles(), "The reported breach is named as offender");
     }
 
     @Test
