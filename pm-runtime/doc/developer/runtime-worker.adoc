@@ -551,9 +551,11 @@ evaluates the off-track signals at it and reports each one to `WorkerProtocol.of
 can fail. The pass then reports the generation's failure and keeps its claim and its pump for the next pass, as for any
 failed end. The end stays appended exactly once because `ActivityRecorder.append` hands the committed entry to its caller
 before it reports a signal, and `WorkerActivityPump.finish` keeps that entry until the finish completes: the retry's
-`finishAttempt` reaches the same pump, which answers the end already in the journal and appends no second one. A
-completion that threw before the commit kept nothing, so its retry appends the end; the signal report that failed is not
-repeated.
+`finishAttempt` reaches the same pump, which answers the end already in the journal and appends no second one. The task
+can also close before that retry, so the retry takes the close path instead: `closeAttempt` calls
+`WorkerActivityPump.close`, which still reads the tail, so the log offset leaves no line for the next task, and then
+answers the kept end instead of appending an `attempt_end` (`closed`) of its own. A completion that threw before the
+commit kept nothing, so its retry appends the end; the signal report that failed is not repeated.
 
 **The end path completes against the store** (ADR 017, which retires the blocker ADR 014 recorded). The runner's
 settlement writes the terminal worker block in the same transaction as the job's fate, derived from the worker block the

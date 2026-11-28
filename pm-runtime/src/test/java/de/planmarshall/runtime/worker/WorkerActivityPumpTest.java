@@ -305,4 +305,40 @@ class WorkerActivityPumpTest {
                 () -> assertEquals(1, attemptEnds(journal.entries(next)).size(),
                         "the next task's finish appends its own end"));
     }
+
+    @Test
+    @DisplayName("a close after a finish that threw after the append answers the committed end and writes no second")
+    void aCloseAfterAFailedFinishAppendsTheEndOnce(@TempDir Path base) {
+        var journal = ActivityJournal.ofScope(base, project,
+                new QueueTaskRecord.Scope(QueueTaskRecord.ScopeType.PLAN, plan),
+                new FileLockManager(_ -> {
+                }));
+        var log = new JobLog(base.resolve("worker.log"));
+        var failure = Generators.letterStrings(8, 24).next();
+        var end = Generators.enumValues(QueueTaskRecord.AttemptEnd.class).next();
+        // At the threshold of outside_footprint, so the end's own append raises the signal and its report throws once
+        // — after the journal committed the entry.
+        var unplanned = (int) Math.ceil(RoleArtifact.OffTrackSignal.OUTSIDE_FOOTPRINT.compiledThreshold());
+        var pump = pump(journal, Map.of(), ServedModelWatch.recordingNothing(), unplanned,
+                offTrackFailingOnce(failure));
+        pump.pump(task, generation, 1, log);
+
+        var thrown = assertThrows(IllegalStateException.class, () -> pump.finish(task, generation, end),
+                "the report of the end's signal fails");
+        var closed = pump.close(generation, log);
+        var ends = attemptEnds(journal.entries(task));
+        var next = RuntimeGenerators.queueTaskIds().next();
+        pump.finish(next, generation, end);
+
+        assertAll(
+                () -> assertEquals(failure, thrown.getMessage(), "the failure is the report's own"),
+                () -> assertEquals(1, ends.size(), "the close appends no second attempt end"),
+                () -> assertTrue(closed.isPresent(), "the close answers an end entry"),
+                () -> assertEquals(ends.getFirst().seq(), closed.orElseThrow().seq(),
+                        "the close answers the committed end"),
+                () -> assertEquals(end.wireName(), closed.orElseThrow().end(),
+                        "the answered end keeps the finish's end"),
+                () -> assertEquals(1, attemptEnds(journal.entries(next)).size(),
+                        "the next task's finish appends its own end"));
+    }
 }

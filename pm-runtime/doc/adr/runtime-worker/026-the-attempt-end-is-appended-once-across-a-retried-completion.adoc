@@ -32,6 +32,10 @@ The append is made idempotent per attempt, and the order is not changed:
 * `WorkerActivityPump.finish` keeps the end it receives that way until the finish completes. A finish of the same task
   that finds a kept end appends nothing, completes the rest of the finish and answers the kept entry. A finish that
   threw before the commit kept nothing, so its retry appends the end.
+* `WorkerActivityPump.close` answers the same kept end when the task closed before the finish was retried
+  (`SupervisionCalls.taskClosed` cleared the lease, so the retry reaches `closeAttempt` instead of `finishAttempt`). It
+  still reads the tail, so the log offset leaves no line for the next task, but it appends no `attempt_end` (`closed`)
+  of its own, and it clears the kept end with the rest of the close.
 
 `SupervisionPass.finishAttempt` is unchanged: it reaches the same pump on the retry, because the pump leaves the pass's
 map only after the finish completed. No generic exception is caught anywhere on the path.
@@ -53,7 +57,11 @@ map only after the finish completed. No generic exception is caught anywhere on 
 == Consequences
 
 * An attempt carries one `attempt_end` however often its completion is retried, whether the completion failed before or
-  after the end was committed.
+  after the end was committed, and whether the retry finishes the attempt or closes it because its task closed first.
+  `WorkerActivityPumpTest.aCloseAfterAFailedFinishAppendsTheEndOnce` reproduced the close path's second end before the
+  fix.
+* A tail line the close reads after a kept end follows that end in the journal: the line is the attempt's, and leaving
+  it unread would attribute it to the next task.
 * The off-track report that failed after the commit is not repeated by the retry: the retry appends no entry, so no
   signal is evaluated again. The signal is lost to the protocol for that attempt, which ends anyway.
 * A retry answers the end as the first finish wrote it, with the unmatched-line count of that moment.
