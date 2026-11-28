@@ -1141,7 +1141,7 @@ class SupervisionPassTest {
 
     @Test
     @DisplayName("an exit before the first call is settled as a start failure, and no wait runs for the start spacing")
-    void anExitBeforeTheFirstCallIsSettledWithoutASpacingWait() throws Exception {
+    void anExitBeforeTheFirstCallIsSettledWithoutASpacingWait() {
         // A tenth of the compiled bound: a run that waited for the spacing could not finish inside it.
         var margin = HarnessStartSpacing.SPACING_BOUND.dividedBy(10);
         var outcome = assertTimeoutPreemptively(margin, () -> settleAsExitBeforeTheFirstCall(generation),

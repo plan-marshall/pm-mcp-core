@@ -88,7 +88,7 @@ public final class ActivityRecorder {
      * @return the entry as the journal wrote it
      * @throws TaskNotOpenException if the task's facts cannot be read
      */
-    public ActivityEntry append(String queueTaskId, String generationId, ActivityEntry.ActivityEntryBuilder builder,
+    ActivityEntry append(String queueTaskId, String generationId, ActivityEntry.ActivityEntryBuilder builder,
             Consumer<ActivityEntry> onWritten) {
         Objects.requireNonNull(onWritten, "onWritten");
         var facts = tasks.facts(queueTaskId).orElseThrow(() -> new TaskNotOpenException(queueTaskId));
