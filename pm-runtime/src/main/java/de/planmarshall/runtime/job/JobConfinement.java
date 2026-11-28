@@ -19,14 +19,15 @@ import lombok.Builder;
 
 /**
  * The filesystem confinement a job is launched with (PM-SEC-5): the write set, the extra read paths, the read-only
- * paths inside the write set and the paths excluded from the read set, as the {@code pm-exec} launcher takes them.
+ * paths and the paths excluded from the read set, as the {@code pm-exec} launcher takes them.
  * <p>
  * The launcher builds the read set as an enumeration of the filesystem at job start, less every {@code --deny-read}
  * path, and grants write access only to the {@code --write} paths. Every {@code --read} path is granted in addition to
  * the enumerated read set; it is how the runtime names the job-private directory of a worker or a probe and the runtime
- * socket of a worker, which lie inside the denied base directory. Every {@code --read-only} path lies inside the write
- * set and is made unwritable for the job: on Linux a read-only mount in the job's own mount namespace, on macOS a
- * sandbox deny of writes; it is how the runtime hides the git metadata of a project from a worker.
+ * socket of a worker, which lie inside the denied base directory. Every {@code --read-only} path is made unwritable for
+ * the job: on Linux a read-only mount in the job's own mount namespace, on macOS a sandbox deny of writes; it is how the
+ * runtime hides the git metadata of a project from a worker. The composer names the git metadata under the project
+ * root, so for a worker whose write set no longer holds the project root some of these paths lie outside the write set.
  * <p>
  * The launcher applies the sets on Linux with Landlock and, where the platform provides it, with its own sandbox
  * profile; on a platform without a ruleset it records {@code confinement: unavailable}. This type only composes the
@@ -37,7 +38,7 @@ import lombok.Builder;
  *
  * @param writePaths    the write set; absolute, normalized, sorted, without duplicates
  * @param readPaths     the paths granted read access in addition to the enumerated read set
- * @param readOnlyPaths the paths inside the write set the launcher makes unwritable for the job
+ * @param readOnlyPaths the paths the launcher makes unwritable for the job
  * @param deniedPaths   the paths excluded from the read set
  * @since 0.1
  */

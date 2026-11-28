@@ -49,10 +49,12 @@ import de.planmarshall.runtime.log.RuntimeLogMessages;
  * runtime socket of a worker are named as explicit read paths, because they lie inside the denied base directory.
  * <p>
  * A worker's confinement names the project's git directory and the {@code .git} link file of every linked worktree that
- * lies inside the write set as read-only paths ({@link GitMetadataPaths}), so a launcher that can apply the set leaves
- * the git metadata unwritable for the worker; every other kind keeps the set empty, because a {@code git} job and a
- * build wrapper write the git directory legitimately. A linked worktree outside every write-set entry needs no read-only
- * entry; the digest covers it.
+ * lies inside the project root as read-only paths ({@link GitMetadataPaths}), so a launcher that can apply the set
+ * leaves the git metadata unwritable for the worker; every other kind keeps the set empty, because a {@code git} job and
+ * a build wrapper write the git directory legitimately. A {@code writer} or {@code read_only} worker's write set no
+ * longer holds the project root, so some of these read-only paths lie outside it: they name what stays unwritable even
+ * where a {@code write_paths} entry or the plan worktree would otherwise reach it. A linked worktree outside the project
+ * root needs no read-only entry; the digest covers it.
  * <p>
  * The composer builds the values; the launcher {@code pm-exec} applies them. A platform without a ruleset records
  * {@code confinement: unavailable}, which this type neither claims nor suppresses.
