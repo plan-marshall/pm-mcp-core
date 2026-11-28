@@ -219,11 +219,24 @@ class FindingTest {
                     .suppressReason(SuppressReason.DUPLICATE)
                     .scopeClass(ScopeClass.IN_FOOTPRINT)
                     .carriedTo(new CarriedTo(CarriedTo.Target.LESSON, lessonRef, CREATED))
-                    .evidence(new Evidence(Evidence.EvidenceClass.SUBSTITUTE, evidenceRef, true))
+                    .evidence(new Evidence(Evidence.EvidenceClass.NONE, evidenceRef, true))
                     .screen(new Screen(Screen.Verdict.SUSPICIOUS, true,
                             List.of(new Screen.Span(spanStart, spanEnd, SPAN_REASON))));
 
             assertDoesNotThrow(builder::build, "a carried and resolved finding builds");
+        }
+
+        @Test
+        @DisplayName("the removed verifier and substitute evidence classes are refused by wire name, none stays")
+        void removedEvidenceClassesAreRefused() {
+            assertAll(
+                    () -> assertTrue(Evidence.EvidenceClass.fromWireName("verifier").isEmpty(),
+                            "the verifier evidence class should be refused"),
+                    () -> assertTrue(Evidence.EvidenceClass.fromWireName("substitute").isEmpty(),
+                            "the substitute evidence class should be refused"),
+                    () -> assertEquals(Evidence.EvidenceClass.NONE,
+                            Evidence.EvidenceClass.fromWireName("none").orElseThrow(),
+                            "the none evidence class should stay"));
         }
     }
 

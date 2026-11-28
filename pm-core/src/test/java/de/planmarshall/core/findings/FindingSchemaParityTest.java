@@ -11,6 +11,7 @@ package de.planmarshall.core.findings;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -199,6 +200,20 @@ class FindingSchemaParityTest {
                 collect(element, types);
             }
         }
+    }
+
+    @Test
+    @DisplayName("the evidence class enumeration lists neither verifier nor substitute, and none stays")
+    void evidenceClassListsNoRemovedValue() {
+        var evidence = SchemaResource.object(SchemaResource.object(schema.get("properties")).get("evidence"));
+        var evidenceClass = SchemaResource.object(SchemaResource.object(evidence.get("properties")).get("class"));
+        var values = SchemaResource.array(evidenceClass.get("enum")).stream().filter(Objects::nonNull)
+                .map(String::valueOf).toList();
+
+        assertAll(
+                () -> assertFalse(values.contains("verifier"), "the verifier class should be absent"),
+                () -> assertFalse(values.contains("substitute"), "the substitute class should be absent"),
+                () -> assertTrue(values.contains("none"), "the none class should stay declared"));
     }
 
     @Test

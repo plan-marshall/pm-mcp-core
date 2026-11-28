@@ -392,8 +392,25 @@ class RemovedSchemaMembersTest {
         }
 
         @Test
-        @DisplayName("the finding record reads the realized footprint, unplanned changes included")
-        void scopeClassReadsTheRealizedFootprint() {
+        @DisplayName("the claim_refuted description names the job-id rule and no verifier sub-state")
+        void claimRefutedNamesTheJobIdRule() {
+            var finding = schema(FINDINGS + "finding-record.schema.json");
+            var evidence = object(properties(finding).get("evidence"));
+            var description = String.valueOf(object(properties(evidence).get("claim_refuted")).get("description"));
+
+            assertAll("The claim refuted rule reads the executed job",
+                    () -> assertTrue(description.contains("job id"),
+                            "the description should name the job id rule"),
+                    () -> assertTrue(description.contains("raised_at_head"),
+                            "the description should name the raised head"),
+                    () -> assertFalse(description.contains("refutation sub-state"),
+                            "the verifier sub-state should be gone"),
+                    () -> assertFalse(description.contains("substitute evidence"),
+                            "the substitute evidence should be gone"));
+        }
+
+        @Test
+        @DisplayName("the finding record reads the realized footprint, unplanned changes included")        void scopeClassReadsTheRealizedFootprint() {
             var finding = schema(FINDINGS + "finding-record.schema.json");
             var description = String.valueOf(object(properties(finding).get("scope_class"))
                     .get("description"));
