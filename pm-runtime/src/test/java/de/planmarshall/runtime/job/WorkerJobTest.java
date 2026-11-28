@@ -50,6 +50,7 @@ import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.core.store.JobRecord.Fate;
 import de.planmarshall.core.store.JobRecord.Scope;
 import de.planmarshall.core.store.JobRecord.Status;
+import de.planmarshall.core.store.JobRecordStore;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.runtime.launch.JobTokenStore;
 import de.planmarshall.runtime.launch.LaunchPrompt;
@@ -97,10 +98,12 @@ class WorkerJobTest {
     private String token;
     private String role;
     private int budgetSeconds;
+    private Path planWorktree;
 
     @BeforeEach
     void setUp() throws IOException {
         fixture = new JobEnrolmentFixture();
+        planWorktree = fixture.root.resolve(Generators.letterStrings(4, 16).next().toLowerCase(Locale.ROOT));
         generation = RuntimeGenerators.jobIds(JobId.Kind.LLM).next();
         token = Generators.letterStrings(16, 32).next();
         role = Generators.letterStrings(4, 16).next().toLowerCase(Locale.ROOT);
@@ -152,6 +155,25 @@ class WorkerJobTest {
     }
 
     @Test
+    @DisplayName("a writer worker is launched with its plan worktree writable and not the project root")
+    void launchedConfinementIsRoleScoped() throws IOException {
+        FakePmExec.install(home, FakePmExec.Mode.REPORT_ARGV);
+
+        var result = runner.startWorker(start("ok"));
+        var jobId = assertInstanceOf(JobRunner.StartResult.Started.class, result, "the worker should be started")
+                .jobId();
+        runner.awaitSettled(jobId, SETTLE_TIMEOUT).orElseThrow();
+
+        var log = Files.readString(JobRecordStore.ofProject(fixture.base, fixture.project).logPath(jobId));
+        assertAll(
+                () -> assertTrue(log.contains("ARGV:"), "the launcher reported its argument vector"),
+                () -> assertTrue(log.contains("--write " + planWorktree + " "),
+                        "the plan worktree is a write path"),
+                () -> assertFalse(log.contains("--write " + fixture.root + " "),
+                        "the project root is no write path"));
+    }
+
+    @Test
     @DisplayName("a descendant that left the process group is ended with the worker")
     void descendantOutsideTheGroupIsEnded() throws Exception {
         var pidFile = fixture.base.resolve("detached.pid");
@@ -194,7 +216,7 @@ class WorkerJobTest {
                 JsonDocument.parse(workerBlock().getBytes(StandardCharsets.UTF_8), "worker"));
         return new WorkerStart(launch, fixture.enrolment(), PROJECT, "worker:" + role, budgetSeconds,
                 new JobRecord.BudgetDerivation(JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT, null), List.of(),
-                null);
+                null, RoleClass.WRITER, planWorktree);
     }
 
     /** @return a generated version of the form major.minor.patch */

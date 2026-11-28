@@ -30,14 +30,15 @@ import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.store.JobRecord;
 import de.planmarshall.runtime.job.WorkerStart;
 import de.planmarshall.runtime.launch.HeadlessBlock;
+import de.planmarshall.runtime.launch.LaunchRequest;
 import de.planmarshall.runtime.launch.SkillSource;
 import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
 
 /**
  * The composed launch of one start (PM-WORK-3, Worker Launch): the landed {@link
  * de.planmarshall.runtime.launch.LaunchComposer} composes it from the role and the profile's block, the refusal path
- * records a failed composition, and the {@link WorkerStart} carries the project, the role's floor budget and the
- * harness's writable paths.
+ * records a failed composition, and the {@link WorkerStart} carries the project, the role's floor budget, the
+ * harness's writable paths, the launch's role class and, for a plan-worktree start, the plan worktree.
  * <p>
  * Every datum of this test is a contract: the fixture profile's client id, executable, model and role name, the
  * composed prompt's heading, the refusal reason code and the role's floor budget.
@@ -128,6 +129,38 @@ class WorkerSupervisorLaunchTest {
                 () -> assertEquals(block.writablePaths(base.resolve("home")), start.writablePaths(),
                         "the start carries the block's writable paths"),
                 () -> assertNull(start.egressProxy(), "a fresh start opens no egress proxy"));
+    }
+
+    @Test
+    @DisplayName("a plan-worktree start carries the launch's role class and its working directory as plan worktree")
+    void planWorktreeStartCarriesRoleClassAndWorktree() {
+        var role = fixture.role(RoleClass.WRITER, RoleForm.FRESH, 1);
+
+        start(role);
+        var start = fixture.starts.getFirst();
+
+        assertAll(
+                () -> assertEquals(start.launch().roleClass(), start.roleClass(),
+                        "the start carries the launch's role class"),
+                () -> assertEquals(RoleClass.WRITER, start.roleClass(), "the start carries the writer class"),
+                () -> assertEquals(start.launch().workingDirectory(), start.planWorktree(),
+                        "the plan worktree is the launch's workdir"));
+    }
+
+    @Test
+    @DisplayName("a project-checkout start carries no plan worktree")
+    void projectCheckoutStartCarriesNoWorktree() {
+        var role = fixture.role(RoleClass.READ_ONLY, RoleForm.FRESH, 1);
+        var request = new WorkerStartRequest(role, LaunchRequest.WorkdirKind.PROJECT_CHECKOUT, null,
+                fixture.workdir, fixture.envelope(), false, List.of(), List.of(), "", null);
+
+        new WorkerSupervisor(fixture.environment(OPEN_GUARD, OPEN_GATE)).start(List.of(request));
+        var start = fixture.starts.getFirst();
+
+        assertAll(
+                () -> assertEquals(RoleClass.READ_ONLY, start.roleClass(),
+                        "the start carries the read-only class"),
+                () -> assertNull(start.planWorktree(), "a project-checkout start has no plan worktree"));
     }
 
     @Test

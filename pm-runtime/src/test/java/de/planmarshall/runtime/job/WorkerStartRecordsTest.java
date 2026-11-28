@@ -57,9 +57,11 @@ class WorkerStartRecordsTest {
         var budgetDerivation = new JobRecord.BudgetDerivation(JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT, null);
         var writablePaths = List.of(Path.of("/tmp", Generators.letterStrings(1, 20).next()));
         var egressProxy = "http://127.0.0.1:" + Generators.integers(1024, 65_535).next();
+        var roleClass = Generators.enumValues(RoleClass.class).next();
+        var planWorktree = launch.workingDirectory();
 
         var constructed = new WorkerStart(launch, enrolment, scope, budgetKey, budgetSeconds, budgetDerivation,
-                writablePaths, egressProxy);
+                writablePaths, egressProxy, roleClass, planWorktree);
         var built = WorkerStart.builder()
                 .launch(launch)
                 .enrolment(enrolment)
@@ -69,6 +71,8 @@ class WorkerStartRecordsTest {
                 .budgetDerivation(budgetDerivation)
                 .writablePaths(writablePaths)
                 .egressProxy(egressProxy)
+                .roleClass(roleClass)
+                .planWorktree(planWorktree)
                 .build();
 
         assertEquals(constructed, built, "the builder builds the same worker start");
@@ -82,6 +86,23 @@ class WorkerStartRecordsTest {
                 "the builder names the missing launch");
 
         assertEquals("launch", refusal.getMessage(), "the refusal names the missing launch");
+    }
+
+    @Test
+    @DisplayName("the worker start refuses a missing role class")
+    void workerStartRefusesMissingRoleClass() {
+        var builder = WorkerStart.builder()
+                .launch(workerLaunch())
+                .enrolment(CoreGenerators.projectEnrolments().next())
+                .scope(new JobRecord.Scope(JobRecord.Scope.Type.PROJECT, null))
+                .budgetKey("worker:" + Generators.letterStrings(1, 16).next())
+                .budgetSeconds(Generators.longs(1, 86_400).next())
+                .budgetDerivation(new JobRecord.BudgetDerivation(JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT, null))
+                .writablePaths(List.of());
+        var refusal = assertThrows(NullPointerException.class, builder::build,
+                "the start names the missing role class");
+
+        assertEquals("roleClass", refusal.getMessage(), "the refusal names the missing role class");
     }
 
     @Test

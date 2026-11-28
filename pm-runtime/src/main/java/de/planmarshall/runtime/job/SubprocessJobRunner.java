@@ -570,6 +570,11 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      * the job id; the record carries the {@code worker} block, the argument vector is digested like every job's, and the
      * job token is registered with its digest and revoked once the settlement has recorded the job's fate.
      * <p>
+     * The worker runs under a role-scoped confinement: its write set follows the request's role class and plan worktree
+     * ({@link JobConfinementComposer#forJob}), so a {@code writer} writes its plan worktree and the project's
+     * {@value JobConfinementComposer#PROJECT_TEMP} and a {@code read_only}, chat or {@code zero_tool} worker writes no
+     * path of the project.
+     * <p>
      * A worker whose id is already taken, or is no worker id, is refused before anything is written.
      *
      * @param request the composed launch and its budget
@@ -612,7 +617,7 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
                 .stdin(null)
                 .log(log)
                 .confinement(confinementComposer.forJob(request.enrolment(), jobId, request.writablePaths(),
-                        false))
+                        request.roleClass(), request.planWorktree(), false))
                 .build());
     }
 
@@ -1017,7 +1022,8 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
         var runningJob = job.get();
         return run(runningJob, log -> Launch.of(verified, environment.of(verified, runningJob.latest.jobId()),
                 request.stdin(), log,
-                confinementComposer.forJob(verified.enrolment(), runningJob.latest.jobId(), List.of(), false)));
+                confinementComposer.forJob(verified.enrolment(), runningJob.latest.jobId(), List.of(), null, null,
+                        false)));
     }
 
     /**

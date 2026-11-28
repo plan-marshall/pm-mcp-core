@@ -24,6 +24,7 @@ import java.util.SortedMap;
 import lombok.Builder;
 import org.jspecify.annotations.Nullable;
 
+import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.runtime.log.RuntimeLogMessages;
@@ -31,10 +32,14 @@ import de.planmarshall.runtime.log.RuntimeLogMessages;
 /**
  * Composes the filesystem confinement of a job from the project's enrolment at job start (PM-SEC-5).
  * <p>
- * The write set is the project root, the enrolment's {@code write_paths}, the system temporary directory and the device
- * nodes; a {@code build} or {@code project_script} job and a {@code git} job that runs repository hooks add the
- * project's daemon store; a {@code ci} job adds the configuration directory of its CLI; a worker adds the sub-paths its
- * harness profile declares writable and its own data directory; a probe adds what its kind may write. The write set never
+ * The write set of every kind but a worker is the project root, the enrolment's {@code write_paths}, the system temporary
+ * directory and the device nodes; a {@code build} or {@code project_script} job and a {@code git} job that runs
+ * repository hooks add the project's daemon store; a {@code ci} job adds the configuration directory of its CLI; a probe
+ * adds what its kind may write. A worker's write set follows its role class: a {@code writer} writes its plan worktree
+ * and the project's {@value #PROJECT_TEMP} (only the latter without a plan worktree) and every {@code write_paths}
+ * entry, a {@code read_only}, chat or {@code zero_tool} worker writes no path of the project and keeps only the
+ * {@code write_paths} entries outside the project root; every worker adds the system temporary directory, the device
+ * nodes, the sub-paths its harness profile declares writable and its own data directory. The write set never
  * contains the runtime base directory, apart from the project's daemon store and a worker's own data directory, and
  * never {@code ~/.plan-marshall/}.
  * <p>
@@ -74,6 +79,9 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
 
     /** The runtime socket, a read path of every worker and of no other job. */
     public static final String RUNTIME_SOCKET = "run/runtime.sock";
+
+    /** The sub-path of the project root a {@code writer} worker writes beside its plan worktree. */
+    public static final String PROJECT_TEMP = ".marshall/local/temp";
 
     /** The per-user runtime directory. */
     private static final String RUN_USER = "/run/user";
@@ -142,21 +150,32 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
 
     /**
      * Composes the confinement of a job.
+     * <p>
+     * The {@code project_root} and every {@code write_paths} entry are validated against the runtime base directory and
+     * {@code ~/.plan-marshall/} for every kind. A job of every kind but a worker writes the project root and every
+     * {@code write_paths} entry. A worker's project writes follow its role class: a {@code writer} writes its plan
+     * worktree and {@code <root>/}{@value #PROJECT_TEMP}, or only the latter without a plan worktree, and every
+     * {@code write_paths} entry; a {@code read_only} or {@code zero_tool} worker writes no path of the project and keeps
+     * only the {@code write_paths} entries outside the project root.
      *
      * @param enrolment           the verified enrolment of the job's project
      * @param jobId               the id of the job
      * @param harnessWritablePaths the sub-paths a worker's harness profile declares writable; empty for other kinds
+     * @param roleClass           the role class of a worker; {@code null} for every other kind
+     * @param planWorktree        the plan worktree a worker runs in; {@code null} for a worker that runs elsewhere and
+     *                            for every other kind
      * @param runRepositoryHooks  whether a {@code git} job runs repository hooks
      * @return the confinement
+     * @throws IllegalArgumentException if an entry overlaps a protected runtime tree, a worker job has no role class, or
+     *                                  a writer's plan worktree is the project root or lies outside it
      */
     // java:S6916 does not apply: the switch is a statement switch over the enum JobId.Kind, where a `when` guard on a
     // constant label is not expressible; the branch condition is the caller's hook flag.
     @SuppressWarnings("java:S6916")
     public JobConfinement forJob(ProjectEnrolment enrolment, JobId jobId, List<Path> harnessWritablePaths,
-            boolean runRepositoryHooks) {
+            @Nullable RoleClass roleClass, @Nullable Path planWorktree, boolean runRepositoryHooks) {
         Objects.requireNonNull(enrolment, "enrolment");
         Objects.requireNonNull(jobId, "jobId");
-        var write = new ArrayList<Path>();
         var planMarshall = Path.of(System.getProperty("user.home"), ".plan-marshall").toAbsolutePath().normalize();
         var projectRoot = Path.of(enrolment.projectRoot()).toAbsolutePath().normalize();
         requireOutside(projectRoot, planMarshall, "project_root");
@@ -164,12 +183,19 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
             throw new IllegalArgumentException(
                     "A project_root entry contains the protected runtime base directory: " + projectRoot);
         }
-        write.add(projectRoot);
+        var writePaths = new ArrayList<Path>();
         for (var path : enrolment.writePaths()) {
             var candidate = Path.of(path).toAbsolutePath().normalize();
             requireOutside(candidate, base, "write_paths");
             requireOutside(candidate, planMarshall, "write_paths");
-            write.add(candidate);
+            writePaths.add(candidate);
+        }
+        var write = new ArrayList<Path>();
+        if (jobId.kind() == JobId.Kind.LLM) {
+            write.addAll(workerProjectWrites(projectRoot, writePaths, roleClass, planWorktree));
+        } else {
+            write.add(projectRoot);
+            write.addAll(writePaths);
         }
         write.add(systemTemp);
         write.add(deviceRoot);
@@ -197,6 +223,43 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
             }
         }
         return new JobConfinement(write, read, readOnly, denied(enrolment));
+    }
+
+    /**
+     * The project paths a worker writes, which follow its role class: a {@code writer} writes its plan worktree and the
+     * project's {@value #PROJECT_TEMP}, or only the latter without a plan worktree, and every {@code write_paths} entry;
+     * a {@code read_only} or {@code zero_tool} worker writes no path of the project and keeps only the
+     * {@code write_paths} entries outside the project root.
+     *
+     * @param projectRoot  the normalized project root
+     * @param writePaths   the validated, normalized {@code write_paths} entries
+     * @param roleClass    the role class of the worker
+     * @param planWorktree the plan worktree the worker runs in; {@code null} when it runs elsewhere
+     * @throws IllegalArgumentException if the role class is absent, or the plan worktree is the project root or lies
+     *                                  outside it
+     */
+    private static List<Path> workerProjectWrites(Path projectRoot, List<Path> writePaths,
+            @Nullable RoleClass roleClass, @Nullable Path planWorktree) {
+        if (roleClass == null) {
+            throw new IllegalArgumentException("A worker job needs the role class of its worker");
+        }
+        var write = new ArrayList<Path>();
+        if (roleClass == RoleClass.WRITER) {
+            if (planWorktree != null) {
+                var worktree = planWorktree.toAbsolutePath().normalize();
+                if (worktree.equals(projectRoot) || !worktree.startsWith(projectRoot)) {
+                    throw new IllegalArgumentException(
+                            "A plan worktree must lie inside the project root and not be the root itself: "
+                                    + planWorktree);
+                }
+                write.add(worktree);
+            }
+            write.add(projectRoot.resolve(PROJECT_TEMP));
+            write.addAll(writePaths);
+        } else {
+            writePaths.stream().filter(path -> !path.startsWith(projectRoot)).forEach(write::add);
+        }
+        return write;
     }
 
     /**

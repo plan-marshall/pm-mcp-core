@@ -27,22 +27,27 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
+import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.store.JobId;
 import de.planmarshall.core.store.ProjectEnrolment;
 import de.planmarshall.core.store.ProjectEnrolment.ContainerEngine;
 
 /**
- * The composition of a job's confinement (PM-SEC-5): the write set holds the project root, the enrolled caches, the
- * temporary directory and the device nodes; the runtime base directory is denied and appears in the write set only as
- * the project's daemon store or a worker's data directory; the session bus and, without the opt-in, the container
- * engine's sockets are denied.
+ * The composition of a job's confinement (PM-SEC-5): the write set of every kind but a worker holds the project root,
+ * the enrolled caches, the temporary directory and the device nodes; a worker's project writes follow its role class
+ * (a writer's plan worktree and {@code .marshall/local/temp/}, nothing of the project for a read-only or zero-tool
+ * worker); the runtime base directory is denied and appears in the write set only as the project's daemon store or a
+ * worker's data directory; the session bus and, without the opt-in, the container engine's sockets are denied.
  * <p>
  * Contract literals that stay: the host directories {@code /tmp} and {@code /dev}, the well-known Docker sockets, the
  * layout of the runtime base ({@code projects}, {@code daemons}, {@code run/jobs}, {@code data},
@@ -80,6 +85,11 @@ class JobConfinementComposerTest {
         return Path.of("/home", words().next(), "." + words().next(), words().next());
     }
 
+    /** @return a generated plan worktree inside the project root */
+    private Path planWorktree() {
+        return project.resolve(words().next());
+    }
+
     private JobConfinementComposer composer() {
         return new JobConfinementComposer(base, TMP, DEV, bus);
     }
@@ -102,7 +112,7 @@ class JobConfinementComposerTest {
             var job = new JobId(jobIds(JobId.Kind.BUILD).next());
 
             var enrolment = enrolment(null, Map.of());
-            var confinement = composer().forJob(enrolment, job, List.of(), false);
+            var confinement = composer().forJob(enrolment, job, List.of(), null, null, false);
 
             var daemonStore = BuildDaemonStore.path(base, enrolment.projectId(), List.of(project, cache, TMP, DEV));
             assertAll(
@@ -123,7 +133,7 @@ class JobConfinementComposerTest {
             var job = new JobId(jobIds(JobId.Kind.BUILD).next());
 
             var enrolment = enrolment(null, Map.of());
-            var confinement = composer().forJob(enrolment, job, List.of(), false);
+            var confinement = composer().forJob(enrolment, job, List.of(), null, null, false);
 
             assertAll(
                     () -> assertTrue(confinement.writePaths().stream()
@@ -175,7 +185,7 @@ class JobConfinementComposerTest {
             var configDirectory = absolute();
 
             var confinement = composer().forJob(
-                    enrolment(null, Map.of("GH_CONFIG_DIR", configDirectory.toString())), job, List.of(), false);
+                    enrolment(null, Map.of("GH_CONFIG_DIR", configDirectory.toString())), job, List.of(), null, null, false);
 
             assertAll(
                     () -> assertTrue(confinement.writePaths().contains(configDirectory),
@@ -191,8 +201,8 @@ class JobConfinementComposerTest {
             var job = new JobId(jobIds(JobId.Kind.GIT).next());
             var enrolment = enrolment(null, Map.of());
 
-            var withoutHooks = composer().forJob(enrolment, job, List.of(), false);
-            var withHooks = composer().forJob(enrolment, job, List.of(), true);
+            var withoutHooks = composer().forJob(enrolment, job, List.of(), null, null, false);
+            var withHooks = composer().forJob(enrolment, job, List.of(), null, null, true);
 
             assertAll(
                     () -> assertFalse(withoutHooks.writePaths().stream()
@@ -203,13 +213,32 @@ class JobConfinementComposerTest {
                             "with hooks the daemon store is writable"));
         }
 
+    }
+
+    @Nested
+    @DisplayName("the write set of a worker follows its role class")
+    class WorkerWriteSet {
+
+        /** The sub-path of the project a writer writes, the specification's contract literal. */
+        private static final String PROJECT_TEMP = ".marshall/local/temp";
+
+        private List<Path> projectWrites(JobConfinement confinement) {
+            return confinement.writePaths().stream().filter(path -> under(project, path)).toList();
+        }
+
+        private ProjectEnrolment enrolmentWith(Path insideRoot) {
+            return ConfinementFixture.enrolment(project, null, List.of(cache.toString(), insideRoot.toString()),
+                    Map.of(), List.of());
+        }
+
         @Test
         @DisplayName("a worker reads its job-private directory and the runtime socket and writes its data directory")
-        void worker() {
+        void readsJobPrivateAndWritesData() {
             var job = new JobId(jobIds(JobId.Kind.LLM).next());
             var harnessPath = absolute();
 
-            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(harnessPath), false);
+            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(harnessPath),
+                    RoleClass.WRITER, planWorktree(), false);
 
             var jobPrivate = base.resolve("run/jobs").resolve(job.value());
             assertAll(
@@ -217,10 +246,129 @@ class JobConfinementComposerTest {
                             "the worker's data directory is writable"),
                     () -> assertTrue(confinement.writePaths().contains(harnessPath),
                             "the harness path is writable"),
+                    () -> assertTrue(confinement.writePaths().contains(TMP), "the temporary directory is writable"),
+                    () -> assertTrue(confinement.writePaths().contains(DEV), "the device nodes are writable"),
                     () -> assertTrue(confinement.readPaths().contains(jobPrivate),
                             "the job-private directory is readable"),
                     () -> assertTrue(confinement.readPaths().contains(base.resolve("run/runtime.sock")),
                             "the runtime socket is readable"));
+        }
+
+        @Test
+        @DisplayName("a writer writes its plan worktree and .marshall/local/temp/, not the root or a sibling worktree")
+        void writerWritesItsWorktree() {
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
+            var worktree = planWorktree();
+            var sibling = project.resolve(worktree.getFileName() + "-sibling");
+
+            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), RoleClass.WRITER,
+                    worktree, false);
+
+            assertAll(
+                    () -> assertTrue(confinement.writePaths().contains(worktree), "the plan worktree is writable"),
+                    () -> assertTrue(confinement.writePaths().contains(project.resolve(PROJECT_TEMP)),
+                            "the project's temp directory is writable"),
+                    () -> assertFalse(confinement.writePaths().contains(project),
+                            "the project root is not writable"),
+                    () -> assertTrue(confinement.writePaths().stream().noneMatch(path -> under(sibling, path)),
+                            "a sibling plan worktree is not writable"),
+                    () -> assertEquals(Set.of(worktree, project.resolve(PROJECT_TEMP)),
+                            Set.copyOf(projectWrites(confinement)), "worktree and temp are the only project writes"));
+        }
+
+        @Test
+        @DisplayName("a writer without a plan worktree writes only .marshall/local/temp/ of the project")
+        void writerWithoutWorktree() {
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
+
+            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), RoleClass.WRITER, null,
+                    false);
+
+            assertEquals(List.of(project.resolve(PROJECT_TEMP)), projectWrites(confinement),
+                    "temp is the only project write without a worktree");
+        }
+
+        @Test
+        @DisplayName("a writer keeps a write_paths entry inside the project root")
+        void writerKeepsInsideRootEntry() {
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
+            var inside = project.resolve(words().next());
+
+            var confinement = composer().forJob(enrolmentWith(inside), job, List.of(), RoleClass.WRITER,
+                    planWorktree(), false);
+
+            assertAll(
+                    () -> assertTrue(confinement.writePaths().contains(inside),
+                            "the inside-root write path is writable"),
+                    () -> assertTrue(confinement.writePaths().contains(cache),
+                            "the outside-root write path is writable"));
+        }
+
+        @ParameterizedTest(name = "a {0} worker")
+        @EnumSource(value = RoleClass.class, names = {"READ_ONLY", "ZERO_TOOL"})
+        @DisplayName("a non-writer holds no project path and keeps only the write_paths outside the root")
+        void nonWriterWritesNoProjectPath(RoleClass roleClass) {
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
+            var inside = project.resolve(words().next());
+
+            var confinement = composer().forJob(enrolmentWith(inside), job, List.of(), roleClass, null, false);
+
+            assertAll(
+                    () -> assertEquals(List.of(), projectWrites(confinement),
+                            "no write-set entry lies inside the project"),
+                    () -> assertFalse(confinement.writePaths().contains(inside),
+                            "the inside-root write path is dropped"),
+                    () -> assertTrue(confinement.writePaths().contains(cache),
+                            "the outside-root write path is kept"),
+                    () -> assertTrue(confinement.writePaths().contains(TMP),
+                            "the temporary directory stays writable"));
+        }
+
+        @Test
+        @DisplayName("a worker job without a role class is refused")
+        void withoutRoleClassRefused() {
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
+            var enrolment = enrolment(null, Map.of());
+            var confinementComposer = composer();
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> confinementComposer.forJob(enrolment, job, List.of(), null, null, false),
+                    "a worker job without a role class is refused");
+        }
+
+        @Test
+        @DisplayName("a plan worktree equal to or outside the project root is refused")
+        void worktreeAtOrOutsideRootRefused() {
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
+            var enrolment = enrolment(null, Map.of());
+            var confinementComposer = composer();
+            var outside = absolute();
+
+            assertAll(
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> confinementComposer.forJob(enrolment, job, List.of(), RoleClass.WRITER, project,
+                                    false),
+                            "a plan worktree equal to the root is refused"),
+                    () -> assertThrows(IllegalArgumentException.class,
+                            () -> confinementComposer.forJob(enrolment, job, List.of(), RoleClass.WRITER, outside,
+                                    false),
+                            "a plan worktree outside the root is refused"));
+        }
+
+        @Test
+        @DisplayName("a build job keeps the project root and an inside-root write_paths entry")
+        void buildJobKeepsProjectRoot() {
+            var job = new JobId(jobIds(JobId.Kind.BUILD).next());
+            var inside = project.resolve(words().next());
+
+            var confinement = composer().forJob(enrolmentWith(inside), job, List.of(), null, null, false);
+
+            assertAll(
+                    () -> assertTrue(confinement.writePaths().contains(project), "the project root is writable"),
+                    () -> assertTrue(confinement.writePaths().contains(inside),
+                            "the inside-root write path is writable"),
+                    () -> assertTrue(confinement.writePaths().contains(cache),
+                            "the outside-root write path is writable"));
         }
     }
 
@@ -234,7 +382,8 @@ class JobConfinementComposerTest {
             var job = new JobId(jobIds(JobId.Kind.LLM).next());
             var linkFile = gitProject();
 
-            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), false);
+            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), RoleClass.WRITER,
+                    planWorktree(), false);
 
             assertAll(
                     () -> assertTrue(confinement.readOnlyPaths().contains(project.resolve(".git")),
@@ -251,7 +400,7 @@ class JobConfinementComposerTest {
 
             assertAll(Stream.of(JobId.Kind.values()).filter(kind -> kind != JobId.Kind.LLM)
                     .map(kind -> () -> assertTrue(composer()
-                                    .forJob(enrolment, new JobId(jobIds(kind).next()), List.of(), false)
+                                    .forJob(enrolment, new JobId(jobIds(kind).next()), List.of(), null, null, false)
                                     .readOnlyPaths().isEmpty(),
                             "a non-worker kind names no read-only path")));
         }
@@ -261,7 +410,8 @@ class JobConfinementComposerTest {
         void projectWithoutGitNamesNone() {
             var job = new JobId(jobIds(JobId.Kind.LLM).next());
 
-            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), false);
+            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), RoleClass.WRITER,
+                    planWorktree(), false);
 
             assertTrue(confinement.readOnlyPaths().isEmpty(), "a project without git names no path");
         }
@@ -273,7 +423,8 @@ class JobConfinementComposerTest {
             var real = Files.createDirectories(project.resolve("git-administration"));
             Files.createSymbolicLink(project.resolve(".git"), real);
 
-            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), false);
+            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(), RoleClass.WRITER,
+                    planWorktree(), false);
 
             assertAll("A symlinked .git is refused and reported",
                     () -> assertTrue(confinement.readOnlyPaths().isEmpty(),
@@ -296,7 +447,7 @@ class JobConfinementComposerTest {
             var unnormalizedHarnessPath = base.resolve("unused").resolve("..");
 
             var confinement = localComposer.forJob(enrolment(null, Map.of()), job,
-                    List.of(unnormalizedHarnessPath), false);
+                    List.of(unnormalizedHarnessPath), RoleClass.WRITER, planWorktree(), false);
 
             assertAll("Only the metadata inside the write set is read-only",
                     () -> assertTrue(confinement.readOnlyPaths().contains(project.resolve(".git")),
@@ -317,7 +468,8 @@ class JobConfinementComposerTest {
             Files.writeString(admin.resolve("gitdir"), outsideLink + "\n");
             var localComposer = new JobConfinementComposer(base, base.resolve("tmp"), base.resolve("dev"), bus);
 
-            var confinement = localComposer.forJob(enrolment(null, Map.of()), job, List.of(), false);
+            var confinement = localComposer.forJob(enrolment(null, Map.of()), job, List.of(), RoleClass.WRITER,
+                    planWorktree(), false);
 
             assertAll("A worktree outside the write set needs no read-only entry",
                     () -> assertTrue(confinement.readOnlyPaths().contains(project.resolve(".git")),
@@ -349,7 +501,7 @@ class JobConfinementComposerTest {
             var rootless = Path.of("/run/user/" + uid + "/docker.sock");
 
             var confinement = composer().forJob(
-                    enrolment(null, Map.of("DOCKER_HOST", "unix://" + rootless)), job, List.of(), false);
+                    enrolment(null, Map.of("DOCKER_HOST", "unix://" + rootless)), job, List.of(), null, null, false);
 
             assertAll(
                     () -> assertTrue(confinement.deniedPaths().contains(Path.of("/var/run/docker.sock")),
@@ -365,7 +517,7 @@ class JobConfinementComposerTest {
         void withOptIn() {
             var job = new JobId(jobIds(JobId.Kind.BUILD).next());
 
-            var confinement = composer().forJob(enrolment(ContainerEngine.DOCKER, Map.of()), job, List.of(), false);
+            var confinement = composer().forJob(enrolment(ContainerEngine.DOCKER, Map.of()), job, List.of(), null, null, false);
 
             assertAll(
                     () -> assertFalse(confinement.deniedPaths().contains(Path.of("/var/run/docker.sock")),
@@ -390,7 +542,7 @@ class JobConfinementComposerTest {
             var confinementComposer = composer();
 
             assertThrows(IllegalArgumentException.class,
-                    () -> confinementComposer.forJob(enrolment, job, List.of(), false),
+                    () -> confinementComposer.forJob(enrolment, job, List.of(), null, null, false),
                     "a write path under the base is refused");
         }
 
@@ -403,7 +555,7 @@ class JobConfinementComposerTest {
             var confinementComposer = composer();
 
             assertThrows(IllegalArgumentException.class,
-                    () -> confinementComposer.forJob(enrolment, job, List.of(), false),
+                    () -> confinementComposer.forJob(enrolment, job, List.of(), null, null, false),
                     "a write path under ~/.plan-marshall is refused");
         }
 
@@ -417,7 +569,7 @@ class JobConfinementComposerTest {
                     List.of(base.resolve(words().next()).toString()), Map.of(), List.of());
 
             assertThrows(IllegalArgumentException.class,
-                    () -> confinementComposer.forJob(enrolment, job, List.of(), false),
+                    () -> confinementComposer.forJob(enrolment, job, List.of(), null, null, false),
                     "a traversed base still protects its tree");
         }
 
@@ -430,7 +582,7 @@ class JobConfinementComposerTest {
             var confinementComposer = composer();
 
             assertThrows(IllegalArgumentException.class,
-                    () -> confinementComposer.forJob(enrolment, job, List.of(), false),
+                    () -> confinementComposer.forJob(enrolment, job, List.of(), null, null, false),
                     "a root containing the base is refused");
         }
     }
