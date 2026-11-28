@@ -30,7 +30,7 @@ import de.planmarshall.core.SchemaResource;
  * instead of being tolerated (PLAN-V2-188; the scope estimate of the status metadata and of the outline record and
  * the added dependencies of an outline deliverable and the three pre-merge finding sources, PLAN-V2-189; the escalation
  * triggers {@code baseline_conflict} and {@code scope_lane_mismatch} of the old lane entries, PLAN-V2-190; the
- * {@code verifier} and {@code substitute} evidence classes, PLAN-V2-211). Each
+ * {@code claim_refuted} description of the finding record, PLAN-V2-211). Each
  * negative control on a member or an enumeration value is matched with a
  * positive one beside it: a sibling member or value of the same enumeration stays, so the assertion cannot pass because
  * the reader lost the file. The deleted schema file has no such sibling; it is checked against the resource tree with a

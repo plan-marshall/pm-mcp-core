@@ -122,7 +122,7 @@ class QuestionRecordRefusalsTest {
             revision as string             | revision       | "1"
             envelope as array              | envelope       | [1]
             envelope as string             | envelope       | "{}"
-            decision without its reversibility | decision   | {"title":"t","header":"h","description":"","evidence":[]}
+            decision without reversibility | decision       | {"title":"t","header":"h","description":"","evidence":[]}
             evidence of unknown kind       | decision       | {"title":"t","header":"h","description":"","evidence":[{"kind":"commit","ref":"x"}],"reversibility":"costly"}
             instant with an offset         | at             | "2026-10-17T11:00:00+02:00"
             version as string              | format_version | "1"

@@ -225,6 +225,11 @@ class FindingTest {
 
             assertDoesNotThrow(builder::build, "a carried and resolved finding builds");
         }
+    }
+
+    @Nested
+    @DisplayName("refusals")
+    class Refusals {
 
         @Test
         @DisplayName("the removed verifier and substitute evidence classes are refused by wire name, none stays")
@@ -238,11 +243,6 @@ class FindingTest {
                             Evidence.EvidenceClass.fromWireName("none").orElseThrow(),
                             "the none evidence class should stay"));
         }
-    }
-
-    @Nested
-    @DisplayName("refusals")
-    class Refusals {
 
         @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.core.findings.FindingTest#requiredMembers")
