@@ -38,8 +38,9 @@ import de.planmarshall.runtime.log.RuntimeLogMessages;
  * adds what its kind may write. A worker's write set follows its role class: a {@code writer} writes its plan worktree
  * and the project's {@value #PROJECT_TEMP} (only the latter without a plan worktree) and every {@code write_paths}
  * entry that does not contain the project root, a {@code read_only}, chat or {@code zero_tool} worker writes no path of the project and keeps only the
- * {@code write_paths} entries that lie outside the project root and do not contain it; every worker adds the system temporary directory, the device
- * nodes, the sub-paths its harness profile declares writable and its own data directory. The write set never
+ * {@code write_paths} entries that lie outside the project root and do not contain it; every worker adds the system
+ * temporary directory unless it equals or contains the project root (a project below {@code /tmp}, for example), the
+ * device nodes, the sub-paths its harness profile declares writable and its own data directory. The write set never
  * contains the runtime base directory, apart from the project's daemon store and a worker's own data directory, and
  * never {@code ~/.plan-marshall/}.
  * <p>
@@ -157,8 +158,9 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      * {@code ~/.plan-marshall/} for every kind. A job of every kind but a worker writes the project root and every
      * {@code write_paths} entry. A worker's project writes follow its role class: a {@code writer} writes its plan
      * worktree and {@code <root>/}{@value #PROJECT_TEMP}, or only the latter without a plan worktree, and every
-     * {@code write_paths} entry; a {@code read_only} or {@code zero_tool} worker writes no path of the project and keeps
-     * only the {@code write_paths} entries outside the project root.
+     * {@code write_paths} entry that does not contain the project root; a {@code read_only} or {@code zero_tool} worker
+     * writes no path of the project and keeps only the {@code write_paths} entries outside the project root. Every kind
+     * writes the system temporary directory, except a worker when that directory equals or contains the project root.
      *
      * @param enrolment           the verified enrolment of the job's project
      * @param jobId               the id of the job
@@ -195,11 +197,16 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
         var write = new ArrayList<Path>();
         if (jobId.kind() == JobId.Kind.LLM) {
             write.addAll(workerProjectWrites(projectRoot, writePaths, roleClass, planWorktree));
+            // a system temporary directory that equals or contains the project root would make the whole project
+            // writable for the worker, so the role-scoped write set leaves it out
+            if (!projectRoot.startsWith(systemTemp.toAbsolutePath().normalize())) {
+                write.add(systemTemp);
+            }
         } else {
             write.add(projectRoot);
             write.addAll(writePaths);
+            write.add(systemTemp);
         }
-        write.add(systemTemp);
         write.add(deviceRoot);
         var read = new ArrayList<Path>();
         var readOnly = new ArrayList<Path>();

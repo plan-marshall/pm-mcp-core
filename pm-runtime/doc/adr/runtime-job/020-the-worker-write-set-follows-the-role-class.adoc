@@ -37,6 +37,10 @@ class of the worker nor the plan worktree it runs in; `WorkerStart` carried neit
 * A `read_only` or `zero_tool` worker, and so the worker of a chat, writes no path of the project and keeps only the
   `write_paths` entries that lie outside the project root and do not contain it: an entry that contains the root would
   make the whole project writable.
+* A worker of every role class leaves the system temporary directory out of its write set when that directory equals
+  or contains the project root (a project below `/tmp`, for example): it would make the whole project writable, the
+  main checkout included. Every other kind keeps the system temporary directory unchanged, and a worker keeps it
+  whenever it lies apart from the root.
 * A worker job without a role class is refused with `IllegalArgumentException`. A `writer` whose plan worktree is the
   project root or lies outside it is refused the same way, so the root itself cannot enter a writer's write set as its
   plan worktree. A plan worktree below the root is taken as given: the composer cannot tell it from another directory of
@@ -61,8 +65,10 @@ class of the worker nor the plan worktree it runs in; `WorkerStart` carried neit
 
 == Consequences
 
-* A confined worker can no longer write the main checkout, so the assembly's main-checkout check of the footprint
-  boundary holds only where the platform confines no job
+* Confinement removes the project root and every entry that contains it from a worker's write set, so the assembly's
+  main-checkout check of the footprint boundary holds only where the platform confines no job. What a confined writer
+  can still reach of the main checkout, and what that check can then no longer see, are its `write_paths` entries
+  inside the project root and a plan worktree below the root, which is taken as given
   (link:../../../../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/012-the-main-checkout-check-holds-only-without-confinement.adoc[ADR provider-git-primitive/012]).
 * The assembly `plan-marshall-mcp` follows the changed `forJob` and `WorkerStart` signatures in its own pull request.
 * A launcher that cannot open a missing `.marshall/local/temp/` refuses a writer's start. Nothing in this repository

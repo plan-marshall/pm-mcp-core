@@ -46,8 +46,9 @@ import de.planmarshall.core.store.ProjectEnrolment.ContainerEngine;
  * The composition of a job's confinement (PM-SEC-5): the write set of every kind but a worker holds the project root,
  * the enrolled caches, the temporary directory and the device nodes; a worker's project writes follow its role class
  * (a writer's plan worktree and {@code .marshall/local/temp/}, nothing of the project for a read-only or zero-tool
- * worker); the runtime base directory is denied and appears in the write set only as the project's daemon store or a
- * worker's data directory; the session bus and, without the opt-in, the container engine's sockets are denied.
+ * worker), and a worker leaves out a system temporary directory that equals or contains the project root; the runtime
+ * base directory is denied and appears in the write set only as the project's daemon store or a worker's data
+ * directory; the session bus and, without the opt-in, the container engine's sockets are denied.
  * <p>
  * Contract literals that stay: the host directories {@code /tmp} and {@code /dev}, the well-known Docker sockets, the
  * layout of the runtime base ({@code projects}, {@code daemons}, {@code run/jobs}, {@code data},
@@ -72,12 +73,14 @@ class JobConfinementComposerTest {
     private int uid;
     private Path bus;
     private Path cache;
+    private Path workerTemp;
 
     @BeforeEach
     void drawHost() {
         uid = Generators.integers(1000, 60000).next();
         bus = Path.of("/run/user/" + uid + "/bus");
         cache = absolute();
+        workerTemp = absolute();
     }
 
     /** @return a generated absolute path outside the runtime base and the project */
@@ -92,6 +95,14 @@ class JobConfinementComposerTest {
 
     private JobConfinementComposer composer() {
         return new JobConfinementComposer(base, TMP, DEV, bus);
+    }
+
+    /**
+     * @return a composer whose system temporary directory does not contain the project root, which a {@link TempDir}
+     *         below {@code /tmp} would otherwise lie in
+     */
+    private JobConfinementComposer workerComposer() {
+        return new JobConfinementComposer(base, workerTemp, DEV, bus);
     }
 
     private ProjectEnrolment enrolment(ContainerEngine engine, Map<String, String> variables) {
@@ -237,7 +248,7 @@ class JobConfinementComposerTest {
             var job = new JobId(jobIds(JobId.Kind.LLM).next());
             var harnessPath = absolute();
 
-            var confinement = composer().forJob(enrolment(null, Map.of()), job, List.of(harnessPath),
+            var confinement = workerComposer().forJob(enrolment(null, Map.of()), job, List.of(harnessPath),
                     RoleClass.WRITER, planWorktree(), false);
 
             var jobPrivate = base.resolve("run/jobs").resolve(job.value());
@@ -246,7 +257,8 @@ class JobConfinementComposerTest {
                             "the worker's data directory is writable"),
                     () -> assertTrue(confinement.writePaths().contains(harnessPath),
                             "the harness path is writable"),
-                    () -> assertTrue(confinement.writePaths().contains(TMP), "the temporary directory is writable"),
+                    () -> assertTrue(confinement.writePaths().contains(workerTemp),
+                            "the temporary directory is writable"),
                     () -> assertTrue(confinement.writePaths().contains(DEV), "the device nodes are writable"),
                     () -> assertTrue(confinement.readPaths().contains(jobPrivate),
                             "the job-private directory is readable"),
@@ -332,7 +344,7 @@ class JobConfinementComposerTest {
             var job = new JobId(jobIds(JobId.Kind.LLM).next());
             var inside = project.resolve(words().next());
 
-            var confinement = composer().forJob(enrolmentWith(inside), job, List.of(), roleClass, null, false);
+            var confinement = workerComposer().forJob(enrolmentWith(inside), job, List.of(), roleClass, null, false);
 
             assertAll(
                     () -> assertEquals(List.of(), projectWrites(confinement),
@@ -341,8 +353,55 @@ class JobConfinementComposerTest {
                             "the inside-root write path is dropped"),
                     () -> assertTrue(confinement.writePaths().contains(cache),
                             "the outside-root write path is kept"),
-                    () -> assertTrue(confinement.writePaths().contains(TMP),
+                    () -> assertTrue(confinement.writePaths().contains(workerTemp),
                             "the temporary directory stays writable"));
+        }
+
+        @ParameterizedTest(name = "a {0} worker")
+        @EnumSource(RoleClass.class)
+        @DisplayName("a worker leaves out a system temporary directory that contains the project root")
+        void workerOmitsTempContainingRoot(RoleClass roleClass) {
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
+            var containing = project.getParent();
+            var confinementComposer = new JobConfinementComposer(base, containing, DEV, bus);
+
+            var confinement = confinementComposer.forJob(enrolment(null, Map.of()), job, List.of(), roleClass, null,
+                    false);
+
+            assertAll(
+                    () -> assertFalse(confinement.writePaths().contains(containing),
+                            "the temp directory holding the root is left out"),
+                    () -> assertTrue(confinement.writePaths().stream().noneMatch(project::startsWith),
+                            "no write-set entry contains the project root"),
+                    () -> assertTrue(confinement.writePaths().contains(DEV), "the device nodes stay writable"));
+        }
+
+        @ParameterizedTest(name = "a {0} worker")
+        @EnumSource(RoleClass.class)
+        @DisplayName("a worker leaves out a system temporary directory that is the project root")
+        void workerOmitsTempEqualToRoot(RoleClass roleClass) {
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
+            var confinementComposer = new JobConfinementComposer(base, project, DEV, bus);
+
+            var confinement = confinementComposer.forJob(enrolment(null, Map.of()), job, List.of(), roleClass, null,
+                    false);
+
+            assertFalse(confinement.writePaths().contains(project),
+                    "a temp directory equal to the root is left out");
+        }
+
+        @Test
+        @DisplayName("a build job keeps a system temporary directory that contains the project root")
+        void buildJobKeepsTempContainingRoot() {
+            var job = new JobId(jobIds(JobId.Kind.BUILD).next());
+            var containing = project.getParent();
+            var confinementComposer = new JobConfinementComposer(base, containing, DEV, bus);
+
+            var confinement = confinementComposer.forJob(enrolment(null, Map.of()), job, List.of(), null, null,
+                    false);
+
+            assertTrue(confinement.writePaths().contains(containing),
+                    "a build job keeps the temp directory holding the root");
         }
 
         @ParameterizedTest(name = "a {0} worker")

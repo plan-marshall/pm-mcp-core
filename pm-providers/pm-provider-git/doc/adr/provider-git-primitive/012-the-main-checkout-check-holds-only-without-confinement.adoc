@@ -19,8 +19,10 @@ project's `.marshall/local/temp/`, and a `read_only` or chat worker no path of t
 (link:../../../../../doc/specification/job-runtime/02-confinement-and-environment.adoc[Job Runtime § Linux Filesystem
 Confinement]). The runtime composes that role-scoped write set since
 link:../../../../../pm-runtime/doc/adr/runtime-job/020-the-worker-write-set-follows-the-role-class.adoc[ADR runtime-job/020].
-A change of the main checkout on a confined platform is therefore the operator's, and failing a plan's commit for it
-would hold the plan for an edit it cannot have made
+Confinement removes the project root and every entry that contains it from a worker's write set; a `writer` still
+keeps its `write_paths` entries inside the project root, and a plan worktree below the root is taken as given. Apart
+from what such an entry reaches, a change of the main checkout on a confined platform is the operator's, and failing a
+plan's commit for it would hold the plan for an edit the plan did not make
 (link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow
 DSL § Six-Stage Execution Contract], Stage 4). Without confinement (`confinement: unavailable`) a worker can write the
 main checkout, and part 3 is the net.
@@ -50,6 +52,9 @@ The Javadoc of `FootprintBoundary`, `CommitSite.mainCheckoutBreaches`, the reaso
 
 * The assembly's `CommitSite` decides the condition; nothing in this repository observes the platform's confinement
   for the check, and a site that reports breaches under confinement is not caught here.
+* Under confinement the dropped check no longer sees what a `writer` changes in the main checkout through its
+  `write_paths` entries inside the project root (or through a plan worktree below the root that is taken as given);
+  that residual is accepted, because those entries are the operator's enrolment.
 * The tests pin both readings: no reported breach keeps a plan's commit `Within`, a reported breach makes it
   `Violated`.
 

@@ -23,9 +23,11 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
  * that confines no job, no path of the main checkout was changed. The first half is judged here from the staging set;
  * the other two are the breaches the commit site observed.
  * <p>
- * Whether check (3) applies is the commit site's decision, not this type's: under enforced confinement a plan's worker
- * cannot write the main checkout, so the site reports no main-checkout breach, and this type stays a pure judge of the
- * breaches it receives.
+ * Whether check (3) applies is the commit site's decision, not this type's: under enforced confinement the site reports
+ * no main-checkout breach, and this type stays a pure judge of the breaches it receives. Confinement removes the project
+ * root and every entry that contains it from a worker's write set; a {@code writer} still keeps its {@code write_paths}
+ * entries inside the project root, and a plan worktree below the root is taken as given, so a change such an entry
+ * makes in the main checkout is the part the dropped check no longer sees.
  * <p>
  * A violation names the offending files, bounded to {@value #OFFENDING_FILES_LIMIT} names with the total count.
  *

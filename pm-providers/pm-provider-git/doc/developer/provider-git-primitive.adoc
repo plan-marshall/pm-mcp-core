@@ -170,8 +170,10 @@ plan changed. Check 1 is decided here; checks 2 and 3 are the site's answers, tr
 sorted offending files, at most `OFFENDING_FILES_LIMIT` (50), and the count of all of them.
 
 Check 3 is conditional: it holds only for a plan on a platform that confines no job (`confinement: unavailable`).
-Under enforced confinement a plan's worker cannot write the main checkout, and `CommitSite.mainCheckoutBreaches`
-answers empty. The site decides the condition; `FootprintBoundary` stays a pure judge of the breaches it receives and
+Under enforced confinement `CommitSite.mainCheckoutBreaches` answers empty. Confinement removes the project root and
+every entry that contains it from a worker's write set; a `writer` still keeps its `write_paths` entries inside the
+project root, and a plan worktree below the root is taken as given, so what such an entry changes in the main checkout
+is the part the dropped check no longer sees. The site decides the condition; `FootprintBoundary` stays a pure judge of the breaches it receives and
 knows nothing of confinement (link:{adr}/012-the-main-checkout-check-holds-only-without-confinement.adoc[ADR 012]).
 
 [#_the_message_primitives]
