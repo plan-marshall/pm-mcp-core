@@ -359,7 +359,7 @@ directory. `WorkerSupervisor` fills both, and `SubprocessJobRunner.startWorker` 
 
 [horizontal]
 `writer`:: Writes its plan worktree and the project's `.marshall/local/temp/`, and every `write_paths` entry. Without a plan worktree it writes `.marshall/local/temp/` as its only path of the project. A plan worktree that is the project root or lies outside it is refused with `IllegalArgumentException`, so the main checkout never enters a worker's write set through a wrong start.
-`read_only`, chat and `zero_tool`:: Write no path of the project. A `write_paths` entry inside the project root is dropped; one outside it is kept.
+`read_only`, chat and `zero_tool`:: Write no path of the project. A `write_paths` entry inside the project root, or one that contains it, is dropped; one outside it that does not contain it is kept.
 
 A worker job without a role class is refused with `IllegalArgumentException`; there is no default to the wide set. The
 read paths, the denied paths and the git-metadata read-only paths of a worker are the same for every role class.

@@ -324,6 +324,26 @@ class JobConfinementComposerTest {
                             "the temporary directory stays writable"));
         }
 
+        @ParameterizedTest(name = "a {0} worker")
+        @EnumSource(value = RoleClass.class, names = {"READ_ONLY", "ZERO_TOOL"})
+        @DisplayName("a non-writer drops a write_paths entry that contains the project root")
+        void nonWriterDropsEntryContainingRoot(RoleClass roleClass) throws IOException {
+            var job = new JobId(jobIds(JobId.Kind.LLM).next());
+            var nestedRoot = Files.createDirectories(project.resolve(words().next()));
+            var enrolment = ConfinementFixture.enrolment(nestedRoot, null,
+                    List.of(cache.toString(), project.toString()), Map.of(), List.of());
+
+            var confinement = composer().forJob(enrolment, job, List.of(), roleClass, null, false);
+
+            assertAll(
+                    () -> assertFalse(confinement.writePaths().contains(project),
+                            "the entry containing the root is dropped"),
+                    () -> assertTrue(confinement.writePaths().stream().noneMatch(path -> under(nestedRoot, path)),
+                            "no write-set entry lies inside the root"),
+                    () -> assertTrue(confinement.writePaths().contains(cache),
+                            "the unrelated outside-root entry is kept"));
+        }
+
         @Test
         @DisplayName("a worker job without a role class is refused")
         void withoutRoleClassRefused() {

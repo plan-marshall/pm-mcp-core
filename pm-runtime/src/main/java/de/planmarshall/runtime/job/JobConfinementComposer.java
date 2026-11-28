@@ -38,7 +38,7 @@ import de.planmarshall.runtime.log.RuntimeLogMessages;
  * adds what its kind may write. A worker's write set follows its role class: a {@code writer} writes its plan worktree
  * and the project's {@value #PROJECT_TEMP} (only the latter without a plan worktree) and every {@code write_paths}
  * entry, a {@code read_only}, chat or {@code zero_tool} worker writes no path of the project and keeps only the
- * {@code write_paths} entries outside the project root; every worker adds the system temporary directory, the device
+ * {@code write_paths} entries that lie outside the project root and do not contain it; every worker adds the system temporary directory, the device
  * nodes, the sub-paths its harness profile declares writable and its own data directory. The write set never
  * contains the runtime base directory, apart from the project's daemon store and a worker's own data directory, and
  * never {@code ~/.plan-marshall/}.
@@ -231,7 +231,8 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
      * The project paths a worker writes, which follow its role class: a {@code writer} writes its plan worktree and the
      * project's {@value #PROJECT_TEMP}, or only the latter without a plan worktree, and every {@code write_paths} entry;
      * a {@code read_only} or {@code zero_tool} worker writes no path of the project and keeps only the
-     * {@code write_paths} entries outside the project root.
+     * {@code write_paths} entries that neither lie inside the project root nor contain it: an entry that contains the
+     * root would make the whole project writable.
      *
      * @param projectRoot  the normalized project root
      * @param writePaths   the validated, normalized {@code write_paths} entries
@@ -259,7 +260,9 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
             write.add(projectRoot.resolve(PROJECT_TEMP));
             write.addAll(writePaths);
         } else {
-            writePaths.stream().filter(path -> !path.startsWith(projectRoot)).forEach(write::add);
+            writePaths.stream()
+                    .filter(path -> !path.startsWith(projectRoot) && !projectRoot.startsWith(path))
+                    .forEach(write::add);
         }
         return write;
     }
