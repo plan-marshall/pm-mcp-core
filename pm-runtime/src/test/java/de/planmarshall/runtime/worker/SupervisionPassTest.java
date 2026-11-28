@@ -57,6 +57,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import de.planmarshall.core.profile.JsonDocument;
@@ -186,12 +187,21 @@ class SupervisionPassTest {
 
     /** @return the {@code WorkerTaskActivity} double: the facts of the open tasks, by the attempt the test records */
     private WorkerTaskActivity tasks() {
+        return tasks(-1);
+    }
+
+    /**
+     * @param unplannedChanges the unplanned changed files every open task reports; {@code -1} outside an envelope task
+     * @return the {@code WorkerTaskActivity} double: the facts of the open tasks, by the attempt the test records
+     */
+    private WorkerTaskActivity tasks(int unplannedChanges) {
         WorkerTaskActivity mock = createMock(WorkerTaskActivity.class);
         expect(mock.facts(anyString())).andAnswer(() -> {
             var asked = (String) getCurrentArguments()[0];
             var attempt = openTasks.get(asked);
             return attempt == null ? Optional.<WorkerTaskActivity.TaskActivity>empty()
-                    : Optional.of(new WorkerTaskActivity.TaskActivity(attempt, role.artifact(), Set.of(), null, -1));
+                    : Optional.of(new WorkerTaskActivity.TaskActivity(attempt, role.artifact(), Set.of(), null,
+                            unplannedChanges));
         }).anyTimes();
         replay(mock);
         return mock;
@@ -203,11 +213,21 @@ class SupervisionPassTest {
     }
 
     private Function<WorkerGeneration, WorkerActivityPump> pumps(ActivityJournal journal) {
+        return pumps(journal, tasks, fixture.protocol);
+    }
+
+    /**
+     * @param journal  the journal the recorder writes
+     * @param facts    the facts the recorder evaluates the off-track signals against
+     * @param protocol where the recorder reports an off-track signal
+     * @return the pumps of the pass, over one recorder
+     */
+    private Function<WorkerGeneration, WorkerActivityPump> pumps(ActivityJournal journal, WorkerTaskActivity facts,
+            WorkerProtocol protocol) {
         var mapping = ActivityEventMapping.of(JsonDocument.parse(EVENTS.getBytes(StandardCharsets.UTF_8), "events"))
                 .orElseThrow();
         var mapper = new ActivityEventMapper(mapping, Map.of());
-        var recorder = new ActivityRecorder(journal, tasks, fixture.protocol, new OffTrackDetector(),
-                InstantSource.fixed(AT));
+        var recorder = new ActivityRecorder(journal, facts, protocol, new OffTrackDetector(), InstantSource.fixed(AT));
         return _ -> new WorkerActivityPump(mapper, recorder);
     }
 
@@ -291,6 +311,22 @@ class SupervisionPassTest {
     private SettlementStep.Outcome settleThroughTheFateStep(WorkerGeneration gen, JobRecord.Fate fate) {
         return SettlementStep.fate(jobs, locks).run(new SettlementStep.Settled(
                 settledRecord(gen, fate, SupervisorTestFixture.NOW.plusSeconds(30)), null));
+    }
+
+    /**
+     * Settles the job of a generation whose worker exited before its first call, the way the runner does: the running
+     * record carries a worker block without a connection, and the runner's fate step derives the terminal block — a
+     * start failure — from it.
+     * <p>
+     * A scenario settles the generation that already holds the harness's start turn. A second start on the same
+     * harness would wait the whole {@link HarnessStartSpacing#SPACING_BOUND} for a worker that neither called nor ended,
+     * so the helper settles the turn's own generation and starts nothing.
+     */
+    private SettlementStep.Outcome settleAsExitBeforeTheFirstCall(WorkerGeneration gen) {
+        try (var transaction = locks.openTransaction()) {
+            jobs.writeAhead(transaction, running(gen, workerState(gen).toBuilder().connectedAt(null).build()));
+        }
+        return settleThroughTheFateStep(gen, JobRecord.Fate.FAILED);
     }
 
     /** Settles the job with a worker block the codec rejects: the settlement leaves such a block as it is. */
@@ -1101,6 +1137,163 @@ class SupervisionPassTest {
                         "the pass ends the worker the record names"),
                 () -> assertEquals("closed", entries.getLast().end(), "the served task closes its attempt"),
                 () -> assertTrue(fixture.writes.isEmpty(), "the pass writes no worker state of the record"));
+    }
+
+    @Test
+    @DisplayName("an exit before the first call is settled as a start failure, and no wait runs for the start spacing")
+    void anExitBeforeTheFirstCallIsSettledWithoutASpacingWait() {
+        // A tenth of the compiled bound: a run that waited for the spacing could not finish inside it.
+        var margin = HarnessStartSpacing.SPACING_BOUND.dividedBy(10);
+        var outcome = assertTimeoutPreemptively(margin, () -> settleAsExitBeforeTheFirstCall(generation),
+                "the settlement runs far below the spacing bound");
+        var settled = jobs.read(generation.jobId()).orElseThrow();
+        var terminal = recorded(generation);
+        assertTimeoutPreemptively(margin, () -> pass(journal("exit-before-first-call")).run(),
+                "the pass ends the generation far below the bound");
+        var owner = Generators.letterStrings(8, 24).next();
+
+        assertTimeoutPreemptively(margin, () -> fixture.spacing.awaitTurn(generation.harness(), owner),
+                "the harness's turn is free once the end ran");
+        assertAll(
+                () -> assertInstanceOf(SettlementStep.Outcome.Done.class, outcome,
+                        "the runner's fate step records the fate"),
+                () -> assertEquals(JobRecord.Status.ENDED, settled.status(), "the job record is settled as ended"),
+                () -> assertTrue(terminal.state().isTerminal(), "the worker block of the record is terminal"),
+                () -> assertTrue(terminal.startFailure(), "the worker block carries the start-failure flag"),
+                () -> assertEquals(WorkerState.EndReason.START_FAILURE, terminal.endReason(),
+                        "the worker block's end reason is the start failure"),
+                () -> assertEquals(WorkerLifecycle.START_FAILED,
+                        supervisor.generation(generation.generationId()).orElseThrow().lifecycle(),
+                        "the pass ends the generation as a start failure"));
+    }
+
+    @Test
+    @DisplayName("the lines a log gained before the exit are appended before the attempt end, which is appended once")
+    void theTailIsAppendedBeforeTheAttemptEnd() throws Exception {
+        var first = Generators.letterStrings(4, 16).next();
+        var tail = List.of(Generators.letterStrings(4, 16).next(), Generators.letterStrings(4, 16).next());
+        writeRunning(generation, ProcessHandle.current().pid());
+        lease();
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        var journal = journal("tail-before-end");
+        var pass = pass(journal);
+        append(text(first));
+        pass.run();
+        tail.forEach(line -> append(text(line)));
+        settle(generation);
+
+        pass.run();
+        pass.run();
+
+        var entries = journal.entries(task);
+        assertAll(
+                () -> assertEquals(List.of(ActivityEntry.Kind.TEXT, ActivityEntry.Kind.TEXT, ActivityEntry.Kind.TEXT,
+                        ActivityEntry.Kind.ATTEMPT_END), entries.stream().map(ActivityEntry::kind).toList(),
+                        "the tail precedes the one attempt end"),
+                () -> assertEquals(List.of(first, tail.get(0), tail.get(1)),
+                        entries.stream().filter(entry -> entry.kind() == ActivityEntry.Kind.TEXT)
+                                .map(ActivityEntry::text).toList(),
+                        "the journal holds the lines in log order"),
+                // The wire name of the attempt end is the contract the journal records.
+                () -> assertEquals("exited_without_submit", entries.getLast().end(),
+                        "the exit ends the attempt without a submit"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false, START_FAILED, start_failure", "true, LOST, exited"})
+    @DisplayName("a settled worker is a start failure only without its first call (end names are wire contract)")
+    void aSettledWorkerIsAStartFailureOnlyWithoutItsFirstCall(boolean called, WorkerLifecycle lifecycle,
+            String endName) throws Exception {
+        if (called) {
+            writeRunning(generation);
+            calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+            settleThroughTheFateStep(generation, JobRecord.Fate.FAILED);
+        } else {
+            settleAsExitBeforeTheFirstCall(generation);
+        }
+
+        pass(journal("start-failure-" + called)).run();
+
+        assertEquals(lifecycle, supervisor.generation(generation.generationId()).orElseThrow().lifecycle(),
+                "the first call decides the generation's end");
+        LogAsserts.assertLogMessagePresent(TestLogLevel.INFO, RuntimeLogMessages.INFO.WORKER_GENERATION_ENDED
+                .format(generation.generationId(), generation.role(), endName));
+    }
+
+    @Test
+    @DisplayName("a requested end names the attempt end, not the loss of the exit nor the reason the record carries")
+    void aRequestedEndWinsOverTheLossAndTheRecordedReason() throws Exception {
+        writeRunning(generation, ProcessHandle.current().pid());
+        lease();
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        var journal = journal("requested-wins");
+        var pass = pass(journal);
+        pass.run();
+        ending.end(generation, EndCause.DRAIN);
+        settle(generation);
+
+        pass.run();
+
+        var entries = journal.entries(task);
+        assertAll(
+                () -> assertEquals(WorkerState.EndReason.TASK_DONE, recorded(generation).endReason(),
+                        "the settled record carries its own end reason"),
+                () -> assertEquals(1, entries.stream().filter(entry -> entry.kind() == ActivityEntry.Kind.ATTEMPT_END)
+                        .count(), "the attempt's end is appended once"),
+                // The wire name of the drain's attempt end is the contract the journal records.
+                () -> assertEquals("drain", entries.getLast().end(),
+                        "the requested drain names the attempt end"));
+    }
+
+    @Test
+    @DisplayName("a completion that throws after its attempt end was appended appends no second end on the retry")
+    void aCompletionThatThrowsAfterTheAppendAppendsTheEndOnce() throws Exception {
+        var failure = Generators.letterStrings(8, 24).next();
+        // At the threshold of outside_footprint, so the attempt end's own append raises the signal and its report
+        // throws once — after the journal committed the entry.
+        var unplanned = (int) Math.ceil(RoleArtifact.OffTrackSignal.OUTSIDE_FOOTPRINT.compiledThreshold());
+        writeRunning(generation, ProcessHandle.current().pid());
+        lease();
+        calls.callHeartbeat(generation.generationId(), fixture.clock.instant());
+        var journal = journal("throw-after-append");
+        var pass = new SupervisionPass(supervisor, calls, ending, recycling, tasks, silentDetector(),
+                pumps(journal, tasks(unplanned), offTrackFailingOnce(failure)));
+        pass.run();
+        ending.end(generation, EndCause.DRAIN);
+        settle(generation);
+
+        pass.run();
+        var endsAfterTheFailure = attemptEnds(journal.entries(task));
+        var terminalAfterTheFailure = supervisor.generation(generation.generationId()).orElseThrow().terminal();
+        pass.run();
+
+        var ends = attemptEnds(journal.entries(task));
+        assertAll(
+                () -> assertEquals(1, endsAfterTheFailure.size(), "the failed completion appended the end"),
+                () -> assertFalse(terminalAfterTheFailure, "the failed completion leaves the generation"),
+                () -> assertTrue(supervisor.generation(generation.generationId()).orElseThrow().terminal(),
+                        "the retry ends the generation"),
+                () -> assertEquals(1, ends.size(), "the retry appends no second attempt end"),
+                // The wire name of the drain's attempt end is the contract the journal records.
+                () -> assertEquals("drain", ends.getFirst().end(), "the one attempt end keeps the requested drain"));
+        LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                RuntimeLogMessages.WARN.WORKER_ADVANCE_FAILED.resolveIdentifierString());
+        LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN, failure);
+    }
+
+    private static List<ActivityEntry> attemptEnds(List<ActivityEntry> entries) {
+        return entries.stream().filter(entry -> entry.kind() == ActivityEntry.Kind.ATTEMPT_END).toList();
+    }
+
+    /** @return the protocol double whose first off-track report fails, and which takes every later one */
+    private static WorkerProtocol offTrackFailingOnce(String message) {
+        WorkerProtocol mock = createMock(WorkerProtocol.class);
+        mock.offTrack(anyObject(WorkerProtocol.OffTrackReport.class));
+        expectLastCall().andThrow(new IllegalStateException(message)).once();
+        mock.offTrack(anyObject(WorkerProtocol.OffTrackReport.class));
+        expectLastCall().anyTimes();
+        replay(mock);
+        return mock;
     }
 
     @Test

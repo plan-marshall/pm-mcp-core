@@ -81,7 +81,8 @@ class ProbeBudgetTest {
 
         assertAll(
                 () -> assertEquals(1L, lowered.seconds(), "the seam lowers the overridden kind"),
-                () -> assertEquals(30L, otherKind.seconds(), "the seam leaves the other kinds alone"),
+                () -> assertEquals(ProbeBudget.MODELS_SECONDS, otherKind.seconds(),
+                        "the seam leaves the other kinds alone"),
                 () -> assertEquals(ProbeBudget.LOGIN_SECONDS, restored.seconds(),
                         "the clear restores the compiled budget"));
     }

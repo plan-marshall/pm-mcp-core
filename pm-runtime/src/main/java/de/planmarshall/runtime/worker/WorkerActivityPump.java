@@ -26,7 +26,9 @@ import de.planmarshall.runtime.job.JobLog;
  * The pump keeps the byte offset of the log it has read and the task the offset belongs to, so a line the warm worker
  * wrote for one task is never appended to the next one: a pump that is asked for another task first closes the attempt
  * it read — its tail and its {@code attempt_end} — and only then reads the new task. That close is also what a task
- * whose lease ended without an end path gets, so every attempt carries its own lines and one end entry.
+ * whose lease ended without an end path gets, so every attempt carries its own lines and one end entry. A finish keeps
+ * the end the journal committed until the finish completes, so neither a retry after a later step threw nor a close of
+ * the task before that retry appends a second one.
  *
  * @since 0.1
  */
@@ -39,6 +41,7 @@ public final class WorkerActivityPump {
     private int attempt;
     private long offset;
     private int unmapped;
+    private @Nullable Ended ended;
 
     /**
      * @param mapper   the harness's line mapper
@@ -94,7 +97,8 @@ public final class WorkerActivityPump {
      *
      * @param generationId the worker's generation
      * @param log          the worker's job log
-     * @return the written end entry; empty when the pump read no task or the tail cannot be read yet
+     * @return the attempt's end entry, the one a failed finish committed if there is one; empty when the pump read no
+     *         task or the tail cannot be read yet
      */
     public Optional<ActivityEntry> close(String generationId, JobLog log) {
         Objects.requireNonNull(log, "log");
@@ -105,6 +109,9 @@ public final class WorkerActivityPump {
      * Closes the tracked attempt: its tail, its end and the recorder's state for the task. A read of the tail that can
      * heal ({@code UNREADABLE}) answers no switch, because the lines it would leave behind are the next task's if the
      * pump moved on; a log that does not exist and one that shrank close the attempt with the lines they offered.
+     * <p>
+     * An end a finish of the same task committed before it threw is the attempt's end: the close reads the tail as
+     * always, so the offset leaves no line for the next task, but it answers that end and appends no second one.
      *
      * @param generationId the worker's generation
      * @param log          the worker's job log
@@ -122,20 +129,28 @@ public final class WorkerActivityPump {
         if (read instanceof JobLog.Lines lines) {
             appendLines(closed, generationId, attempt, lines, true);
         }
-        var written = recorder.appendClosed(closed, attempt, ActivityEntry.builder()
-                .source(ActivityEntry.Source.SERVER)
-                .kind(ActivityEntry.Kind.ATTEMPT_END)
-                .end(QueueTaskRecord.AttemptEnd.CLOSED.wireName())
-                .unmappedLines(unmapped));
+        var kept = ended;
+        var written = kept != null && kept.queueTaskId().equals(closed) ? kept.entry()
+                : recorder.appendClosed(closed, attempt, ActivityEntry.builder()
+                        .source(ActivityEntry.Source.SERVER)
+                        .kind(ActivityEntry.Kind.ATTEMPT_END)
+                        .end(QueueTaskRecord.AttemptEnd.CLOSED.wireName())
+                        .unmappedLines(unmapped));
         unmapped = 0;
         task = null;
         recorder.forget(closed);
         watch.restart();
+        ended = null;
         return new Closed(true, written);
     }
 
     /**
-     * Appends the attempt's end with the count of the lines that matched no mapping.
+     * Appends the attempt's end with the count of the lines that matched no mapping, once per attempt.
+     * <p>
+     * The pump keeps the end the journal committed before anything later in the call can throw — the report of an
+     * off-track signal the end raised is such a step. A retry of a finish that threw after the commit therefore
+     * appends no second end: it completes the rest of the finish and answers the end that is in the journal. A finish
+     * that threw before the commit kept nothing, so its retry appends the end.
      *
      * @param queueTaskId  the task the worker held
      * @param generationId the worker's generation
@@ -143,16 +158,20 @@ public final class WorkerActivityPump {
      * @return the written entry
      */
     public ActivityEntry finish(String queueTaskId, String generationId, QueueTaskRecord.AttemptEnd end) {
+        Objects.requireNonNull(queueTaskId, "queueTaskId");
         Objects.requireNonNull(end, "end");
-        var written = recorder.append(queueTaskId, generationId, ActivityEntry.builder()
-                .source(ActivityEntry.Source.SERVER)
-                .kind(ActivityEntry.Kind.ATTEMPT_END)
-                .end(end.wireName())
-                .unmappedLines(unmapped));
+        var kept = ended;
+        var written = kept != null && kept.queueTaskId().equals(queueTaskId) ? kept.entry()
+                : recorder.append(queueTaskId, generationId, ActivityEntry.builder()
+                        .source(ActivityEntry.Source.SERVER)
+                        .kind(ActivityEntry.Kind.ATTEMPT_END)
+                        .end(end.wireName())
+                        .unmappedLines(unmapped), entry -> ended = new Ended(queueTaskId, entry));
         unmapped = 0;
         task = null;
         recorder.forget(queueTaskId);
         watch.restart();
+        ended = null;
         return written;
     }
 
@@ -232,5 +251,14 @@ public final class WorkerActivityPump {
      * @param entry    the written end entry; {@code null} when nothing was closed
      */
     private record Closed(boolean switched, @Nullable ActivityEntry entry) {
+    }
+
+    /**
+     * The end a finish wrote to the journal before a later step of that finish threw.
+     *
+     * @param queueTaskId the task whose attempt the end closes
+     * @param entry       the end as the journal wrote it
+     */
+    private record Ended(String queueTaskId, ActivityEntry entry) {
     }
 }
