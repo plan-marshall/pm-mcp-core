@@ -3,9 +3,8 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-02
 origin: doc-review-2026-11-24-001.md section 1 ("Re-planning triggers", "Review caps") and doc-review-2026-11-25-001.md section 1 (V8); operator's cut, plan 4.
-lane: plan-marshall
-
-> Staged plan spec — ready for `/plan-marshall` hand-off. Lives at `plans/PLAN-V2-191-declaration-bounds-and-review-cap-removals.md`; one queue row, lane `plan-marshall`. The orchestrator EMITS the command; it never launches the plan inline.
+lane: runbook
+> Staged plan spec — ready for `/plan-marshall-runbook-lane` hand-off. Lives at `plans/PLAN-V2-191-declaration-bounds-and-review-cap-removals.md`; one queue row, lane `runbook`. The orchestrator EMITS the command; it never launches the plan inline.
 
 ## First Instruction: Read The Standing Rules
 
@@ -78,13 +77,13 @@ Not surface (R19): `doc/plans/README.adoc`, `doc/adr/README.adoc`
 
 - Depends on: the schema-and-store-removals plan (it names no file of this plan; start after it is on main so the specification renders consistently).
 - Overlaps with: the lane-entries plan P3 on `workflow-verify.adoc` (P3 :306,371,416-417, this plan :177): run after P3 or rebase; `status.schema.json` (HYPOTHESIS entry above). PLAN-V2-126 (tests of runtime and providers) and PLAN-V2-162 touch none of these files.
-- Third round: PLAN-V2-161 items 34 and 38 touch `AdditionalRulesTest`, `WorkflowParserTest` and `ScenarioReplayRunner`, which deliverable 4 edits: sequence the two (161 is held back and lane `plan-marshall`; run this plan first or rebase 161 on it). The removal of `consultation_ids` (PLAN-V2-202) edits `ScenarioReplayRunner` too.
+- Third round: PLAN-V2-161 items 34 and 38 touch `AdditionalRulesTest`, `WorkflowParserTest` and `ScenarioReplayRunner`, which deliverable 4 edits: sequence the two (161 is held back and lane `runbook`; run this plan first or rebase 161 on it). The removal of `consultation_ids` (PLAN-V2-202) edits `ScenarioReplayRunner` too.
 - Adjacent to: `register-item.schema.json` (`base_advanced` stays), the package `re-planning` (its text edit is in the package-text plan).
 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-191-declaration-bounds-and-review-cap-removals.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-191-declaration-bounds-and-review-cap-removals.md
 ```
 
 ## Write-Boundary

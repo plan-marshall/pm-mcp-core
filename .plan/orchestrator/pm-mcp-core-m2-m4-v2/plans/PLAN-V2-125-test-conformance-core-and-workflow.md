@@ -3,9 +3,8 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-11
 origin: the three-layer analyses of PLAN-V2-88 (`landings/PLAN-V2-88.md`, Wa66), PLAN-V2-85 (`landings/PLAN-V2-85.md`, Wa68), PLAN-V2-87 (`landings/PLAN-V2-87.md`, Wa70), PLAN-V2-86 (`landings/PLAN-V2-86.md`, Wa72), PLAN-V2-118 (Wa80), PLAN-V2-117 (Wa81) and PLAN-V2-120 (Wa82, the pm-core and pm-workflow half), and the operator's decisions of 2026-11-09 ("test-conformance residues Wa66, 68, 70, 72, 73, 75, 77, 79 -> two plans per module family (pm-core+pm-workflow; pm-runtime+providers)"; "the Wa80-83 test-strength plan is folded into these two (Wa80-82 into the first, Wa83 into the second)")
-lane: plan-marshall
-
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off, a large plan (operator decision 2026-11-27: medium to large plans use the plan-marshall form).
+lane: runbook
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off, a large plan (operator decision 2026-11-27: medium to large plans use the plan-marshall form).
 > Lives at `plans/PLAN-V2-125-test-conformance-core-and-workflow.md` and is queued as one row file, `queue/PLAN-V2-125.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -219,7 +218,7 @@ Carried 2026-11-20 from PLAN-V2-156 (`landings/PLAN-V2-156.md`: #516 adopted non
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-125-test-conformance-core-and-workflow.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-125-test-conformance-core-and-workflow.md
 ```
 
 ## Write-Boundary

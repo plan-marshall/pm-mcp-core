@@ -3,9 +3,8 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-11
 origin: PLAN-V2-126, deliverable 3 (the operator narrowed 126 to D1 on 2026-11-25). Operator decisions kept (landing of 126): D3(a) a shared routing helper in `pm-provider-http:tests`, overriding the "no helper" default; `CLAUDE.md` and `.opencode/rules/plan-marshall-standing-rules.md` edits allowed; four PRs per spec.
-lane: plan-marshall
-
-> Staged plan spec, one shippable unit of work (one PR), ready for `/plan-marshall` hand-off. SELF-SUFFICIENT together with the standing rules.
+lane: runbook
+> Staged plan spec, one shippable unit of work (one PR), ready for `/plan-marshall-runbook-lane` hand-off. SELF-SUFFICIENT together with the standing rules.
 
 ## First Instruction: Read The Standing Rules
 
@@ -101,7 +100,7 @@ About 30 existing files plus about 3 new (the helper, its test, an ADR).
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-204-http-tests-one-routing-shape-and-the-sonar-boundaries.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-204-http-tests-one-routing-shape-and-the-sonar-boundaries.md
 ```
 
 ## Write-Boundary

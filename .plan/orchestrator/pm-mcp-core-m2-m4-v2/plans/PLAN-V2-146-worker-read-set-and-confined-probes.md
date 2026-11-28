@@ -3,9 +3,8 @@
 epic: pm-mcp-core-m2-m4-v2
 workstream: WS-06
 origin: the operator's decision of 2026-11-14 (issues pass Q14, answer 1) to stage the open work package `job-confinement-and-environment` (`doc/plans/job-confinement-and-environment.adoc`, 13 tasks, no staged plan) and, on top of it, the verification stage runner; the grounding of 2026-11-14 at `origin/main` `77f2a83d` (a read-only leaf) found which tasks the runner stands on (Tasks 2, 6 and 7) and which can wait (Tasks 1 `abi=2`, 3 gaps, 9 to 12: PLAN-V2-149)
-lane: plan-marshall
-
-> Staged plan spec — one shippable unit of work, ready for `/plan-marshall` hand-off.
+lane: runbook
+> Staged plan spec — one shippable unit of work, ready for `/plan-marshall-runbook-lane` hand-off.
 > Lives at `plans/PLAN-V2-146-worker-read-set-and-confined-probes.md` and is queued as one row file, `queue/PLAN-V2-146.json`,
 > in the epic ledger. The orchestrator EMITS the command below; it never launches the plan inline.
 > This spec is SELF-SUFFICIENT together with the standing rules its First Instruction names:
@@ -107,7 +106,7 @@ Written by `pm-mcp-core-m2-m4-v2/cleanup` from the verdicts of a read-only leaf 
 ## Hand-Off Command
 
 ```text
-/plan-marshall task="implement .plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-146-worker-read-set-and-confined-probes.md"
+/plan-marshall-runbook-lane plan=.plan/orchestrator/pm-mcp-core-m2-m4-v2/plans/PLAN-V2-146-worker-read-set-and-confined-probes.md
 ```
 
 ## Write-Boundary
