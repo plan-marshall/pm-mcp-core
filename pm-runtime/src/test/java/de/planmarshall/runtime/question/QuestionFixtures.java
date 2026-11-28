@@ -28,7 +28,6 @@ import de.planmarshall.core.store.QuestionLog;
 import de.planmarshall.core.store.QuestionRecord;
 import de.planmarshall.core.store.QuestionRecord.Answer;
 import de.planmarshall.core.store.QuestionRecord.AnswerKind;
-import de.planmarshall.core.store.QuestionRecord.Blocks;
 import de.planmarshall.core.store.QuestionRecord.Decision;
 import de.planmarshall.core.store.QuestionRecord.Origin;
 import de.planmarshall.core.store.QuestionRecord.QuestionClass;
@@ -79,8 +78,7 @@ final class QuestionFixtures {
                 .sourceEntity("question-log-record-reader-test")
                 .questionSet(questionId)
                 .revision(1)
-                .decision(new Decision("A decision", "A header", "A description", List.of(), Blocks.NOTHING,
-                        Reversibility.REVERSIBLE))
+                .decision(new Decision("A decision", "A header", "A description", List.of(), Reversibility.REVERSIBLE))
                 .envelope("{}")
                 .at(AT)
                 .build();

@@ -471,10 +471,6 @@ Instant createdAt,
          * The closed class of evidence.
          */
         public enum EvidenceClass {
-            /** The refutation sub-state of the verifier. */
-            VERIFIER("verifier"),
-            /** Substitute evidence with a concrete reference. */
-            SUBSTITUTE("substitute"),
             /** No evidence. */
             NONE("none");
 

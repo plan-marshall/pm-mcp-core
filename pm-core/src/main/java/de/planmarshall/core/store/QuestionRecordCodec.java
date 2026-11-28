@@ -43,7 +43,6 @@ import org.jspecify.annotations.Nullable;
 import de.planmarshall.core.store.QuestionRecord.Answer;
 import de.planmarshall.core.store.QuestionRecord.AnswerKind;
 import de.planmarshall.core.store.QuestionRecord.AnswerValue;
-import de.planmarshall.core.store.QuestionRecord.Blocks;
 import de.planmarshall.core.store.QuestionRecord.Decision;
 import de.planmarshall.core.store.QuestionRecord.Evidence;
 import de.planmarshall.core.store.QuestionRecord.EvidenceKind;
@@ -102,7 +101,6 @@ public class QuestionRecordCodec {
     private static final String FIELD_HEADER = "header";
     private static final String FIELD_DESCRIPTION = "description";
     private static final String FIELD_EVIDENCE = "evidence";
-    private static final String FIELD_BLOCKS = "blocks";
     private static final String FIELD_REVERSIBILITY = "reversibility";
     private static final String FIELD_KIND = "kind";
     private static final String FIELD_REF = "ref";
@@ -219,7 +217,6 @@ public class QuestionRecordCodec {
             generator.writeEndObject();
         }
         generator.writeEndArray();
-        generator.writeStringField(FIELD_BLOCKS, decision.blocks().wireName());
         generator.writeStringField(FIELD_REVERSIBILITY, decision.reversibility().wireName());
         generator.writeEndObject();
     }
@@ -337,7 +334,6 @@ public class QuestionRecordCodec {
         @Nullable String header = null;
         @Nullable String description = null;
         @Nullable List<Evidence> evidence = null;
-        @Nullable Blocks blocks = null;
         @Nullable Reversibility reversibility = null;
         var seen = new HashSet<String>();
         while (parser.nextToken() == JsonToken.FIELD_NAME) {
@@ -347,15 +343,14 @@ public class QuestionRecordCodec {
                 case FIELD_HEADER -> header = string(parser, field);
                 case FIELD_DESCRIPTION -> description = string(parser, field);
                 case FIELD_EVIDENCE -> evidence = StrictJson.array(parser, field, QuestionRecordCodec::readEvidence);
-                case FIELD_BLOCKS -> blocks = closed(parser, field, Blocks.class);
                 case FIELD_REVERSIBILITY -> reversibility = closed(parser, field, Reversibility.class);
                 default -> throw undeclared(field);
             }
         }
         requireFields(seen, FIELD_DECISION, FIELD_TITLE, FIELD_HEADER, FIELD_DESCRIPTION, FIELD_EVIDENCE,
-                FIELD_BLOCKS, FIELD_REVERSIBILITY);
+                FIELD_REVERSIBILITY);
         try {
-            return new Decision(title, header, description, evidence, blocks, reversibility);
+            return new Decision(title, header, description, evidence, reversibility);
         } catch (IllegalArgumentException e) {
             throw unreadable(REFUSED_VALUE.formatted(FIELD_DECISION, e.getMessage()), e);
         }
