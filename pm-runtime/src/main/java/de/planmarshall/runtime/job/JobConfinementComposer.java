@@ -356,9 +356,11 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
     }
 
     /**
-     * The git metadata paths of a project that lie inside the write set, which is the part the launcher must make
-     * read-only. A linked worktree outside the root is read-only too when one of the write-set entries contains it (the
-     * system temporary directory, for example); the rest is covered by the digest.
+     * The git metadata paths of a project that lie inside the project root, which is the part the launcher must make
+     * read-only. The root is not necessarily in the write set: a {@code writer} or {@code read_only} worker's write set
+     * no longer holds it, so these paths can lie outside the write set. A linked worktree outside the root is read-only
+     * too when one of the write-set entries contains it (the system temporary directory, for example); the rest is
+     * covered by the digest.
      */
     private static List<Path> gitMetadataInside(Path projectRoot, List<Path> writeSet) {
         var root = projectRoot.toAbsolutePath().normalize();

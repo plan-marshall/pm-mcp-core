@@ -52,7 +52,7 @@ List<Path> deniedPaths) {
     /** The option adding a path to the read set, as {@code pm-exec} parses it. */
     public static final String READ = "--read";
 
-    /** The option making a path inside the write set unwritable for the job, as {@code pm-exec} parses it. */
+    /** The option making a path unwritable for the job, as {@code pm-exec} parses it. */
     public static final String READ_ONLY = "--read-only";
 
     /** The option excluding a path from the read set, as {@code pm-exec} parses it. */
