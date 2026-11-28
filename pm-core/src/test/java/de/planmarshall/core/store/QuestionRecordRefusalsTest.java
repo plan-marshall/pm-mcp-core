@@ -122,8 +122,8 @@ class QuestionRecordRefusalsTest {
             revision as string             | revision       | "1"
             envelope as array              | envelope       | [1]
             envelope as string             | envelope       | "{}"
-            decision without its blocks    | decision       | {"title":"t","header":"h","description":"","evidence":[],"reversibility":"costly"}
-            evidence of unknown kind       | decision       | {"title":"t","header":"h","description":"","evidence":[{"kind":"commit","ref":"x"}],"blocks":"task","reversibility":"costly"}
+            decision without reversibility | decision       | {"title":"t","header":"h","description":"","evidence":[]}
+            evidence of unknown kind       | decision       | {"title":"t","header":"h","description":"","evidence":[{"kind":"commit","ref":"x"}],"reversibility":"costly"}
             instant with an offset         | at             | "2026-10-17T11:00:00+02:00"
             version as string              | format_version | "1"
             """)
@@ -209,6 +209,22 @@ class QuestionRecordRefusalsTest {
                         "the refusal should name the expiry member"),
                 () -> assertTrue(assertRefused(inAnswer).getMessage().contains("timeout"),
                         "the refusal should name the timeout member"));
+    }
+
+    @Test
+    @DisplayName("a decision that carries the removed blocks member is refused and the member is named")
+    void removedBlocksMemberIsRefused() {
+        var members = askedMembers();
+        members.put("decision", QuestionRecordCodecTest.DECISION_JSON
+                .replace("\"reversibility\"", "\"blocks\":\"plan\",\"reversibility\""));
+
+        var refusal = assertRefused(members);
+
+        assertAll(
+                () -> assertEquals(Outcome.UNREADABLE, refusal.outcome(),
+                        "the removed member should make the line unreadable"),
+                () -> assertTrue(refusal.getMessage().contains("blocks"),
+                        "the refusal should name the removed member"));
     }
 
     @ParameterizedTest(name = "{index}")

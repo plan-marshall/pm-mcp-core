@@ -176,20 +176,6 @@ public record QuestionRecord(QuestionEvent event, String questionId, @Nullable Q
     }
 
     /**
-     * What a decision blocks while it is open.
-     *
-     * @since 0.1
-     */
-    public enum Blocks implements WireName {
-        /** The plan. */
-        PLAN,
-        /** The asking task. */
-        TASK,
-        /** Nothing. */
-        NOTHING
-    }
-
-    /**
      * How reversible a decision is.
      *
      * @since 0.1
@@ -281,12 +267,11 @@ public record QuestionRecord(QuestionEvent event, String questionId, @Nullable Q
      * @param header        the header, 1 to 300 characters
      * @param description   the description, at most 8000 characters
      * @param evidence      the evidence, at most 50 pieces
-     * @param blocks        what the decision blocks while open
      * @param reversibility how reversible it is
      * @since 0.1
      */
     @Builder
-    public record Decision(String title, String header, String description, List<Evidence> evidence, Blocks blocks,
+    public record Decision(String title, String header, String description, List<Evidence> evidence,
     Reversibility reversibility) {
 
         /**
@@ -302,7 +287,6 @@ public record QuestionRecord(QuestionEvent event, String questionId, @Nullable Q
                 throw new IllegalArgumentException("A decision has at most 50 pieces of evidence, not "
                         + evidence.size());
             }
-            Objects.requireNonNull(blocks, "blocks");
             Objects.requireNonNull(reversibility, "reversibility");
         }
     }

@@ -29,15 +29,17 @@ import de.planmarshall.core.SchemaResource;
  * object that held each of them is still closed, so a stored document carrying the dropped member fails the schema
  * instead of being tolerated (PLAN-V2-188; the scope estimate of the status metadata and of the outline record and
  * the added dependencies of an outline deliverable and the three pre-merge finding sources, PLAN-V2-189; the escalation
- * triggers {@code baseline_conflict} and {@code scope_lane_mismatch} of the old lane entries, PLAN-V2-190). Each
+ * triggers {@code baseline_conflict} and {@code scope_lane_mismatch} of the old lane entries, PLAN-V2-190; the
+ * {@code claim_refuted} description of the finding record, PLAN-V2-211). Each
  * negative control on a member or an enumeration value is matched with a
  * positive one beside it: a sibling member or value of the same enumeration stays, so the assertion cannot pass because
  * the reader lost the file. The deleted schema file has no such sibling; it is checked against the resource tree with a
  * surviving sibling resource as witness.
  * <p>
- * Six cases assert the corrected descriptions instead of a member: the {@code change_type} description of the status,
+ * Seven cases assert the corrected descriptions instead of a member: the {@code change_type} description of the status,
  * the {@code decision_point} example, the outline's {@code change_type} description, the {@code scope_class} text, the
- * quality report's {@code footprint} description, and the two descriptions of the message event. Each carries the
+ * quality report's {@code footprint} description, the {@code claim_refuted} text, and the two descriptions of the
+ * message event. Each carries the
  * statement it must keep beside the one it must lose.
  * <p>
  * Every schema file here is test input (R10): the members it declares are the contract this test pins.
@@ -389,6 +391,24 @@ class RemovedSchemaMembersTest {
                             "the removed refusal should be absent"),
                     () -> assertTrue(description.contains("reconciled with the plan"),
                             "the reconciliation should stay described"));
+        }
+
+        @Test
+        @DisplayName("the claim_refuted description names the job-id rule and no verifier sub-state")
+        void claimRefutedNamesTheJobIdRule() {
+            var finding = schema(FINDINGS + "finding-record.schema.json");
+            var evidence = object(properties(finding).get("evidence"));
+            var description = String.valueOf(object(properties(evidence).get("claim_refuted")).get("description"));
+
+            assertAll("The claim refuted rule reads the executed job",
+                    () -> assertTrue(description.contains("job id"),
+                            "the description should name the job id rule"),
+                    () -> assertTrue(description.contains("raised_at_head"),
+                            "the description should name the raised head"),
+                    () -> assertFalse(description.contains("refutation sub-state"),
+                            "the verifier sub-state should be gone"),
+                    () -> assertFalse(description.contains("substitute evidence"),
+                            "the substitute evidence should be gone"));
         }
 
         @Test

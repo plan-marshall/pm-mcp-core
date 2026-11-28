@@ -175,7 +175,7 @@ class QuestionRecordMembersOnTheirEventsTest {
     private static QuestionRecord asked() {
         var questionId = id("Q-%03d", Generators.integers(1, 999).next());
         var decision = QuestionRecord.Decision.builder().title(lower(3, 20)).header(lower(3, 40))
-                .description(lower(1, 80)).evidence(List.of()).blocks(QuestionRecord.Blocks.NOTHING)
+                .description(lower(1, 80)).evidence(List.of())
                 .reversibility(QuestionRecord.Reversibility.REVERSIBLE).build();
         return QuestionRecord.builder().event(QuestionEvent.ASKED).questionId(questionId)
                 .questionClass(QuestionRecord.QuestionClass.CLARIFICATION).origin(QuestionRecord.Origin.SERVER)

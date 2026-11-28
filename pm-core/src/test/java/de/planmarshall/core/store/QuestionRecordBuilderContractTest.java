@@ -20,7 +20,6 @@ import org.junit.jupiter.api.Test;
 
 import de.planmarshall.core.store.QuestionRecord.Answer;
 import de.planmarshall.core.store.QuestionRecord.AnswerKind;
-import de.planmarshall.core.store.QuestionRecord.Blocks;
 import de.planmarshall.core.store.QuestionRecord.Decision;
 import de.planmarshall.core.store.QuestionRecord.Evidence;
 import de.planmarshall.core.store.QuestionRecord.EvidenceKind;
@@ -37,8 +36,7 @@ class QuestionRecordBuilderContractTest {
 
     private static Decision decision() {
         return new Decision("Review the outline", "Outline review", "",
-                List.of(new Evidence(EvidenceKind.FILE, "docs/outline.adoc", null)), Blocks.PLAN,
-                Reversibility.REVERSIBLE);
+                List.of(new Evidence(EvidenceKind.FILE, "docs/outline.adoc", null)), Reversibility.REVERSIBLE);
     }
 
     @Test
@@ -92,15 +90,15 @@ class QuestionRecordBuilderContractTest {
 
         var built = Decision.builder().title(canonical.title()).header(canonical.header())
                 .description(canonical.description()).evidence(canonical.evidence())
-                .blocks(canonical.blocks()).reversibility(canonical.reversibility()).build();
+                .reversibility(canonical.reversibility()).build();
 
         var fromConstructor = assertThrows(NullPointerException.class,
                 () -> new Decision(null, canonical.header(), canonical.description(), canonical.evidence(),
-                        canonical.blocks(), canonical.reversibility()),
+                        canonical.reversibility()),
                 "the constructor refuses an absent title");
         var incomplete = Decision.builder().header(canonical.header())
                 .description(canonical.description()).evidence(canonical.evidence())
-                .blocks(canonical.blocks()).reversibility(canonical.reversibility());
+                .reversibility(canonical.reversibility());
         var fromBuilder = assertThrows(NullPointerException.class, incomplete::build,
                 "the builder refuses an absent title");
 

@@ -38,7 +38,6 @@ import org.junit.jupiter.params.provider.EnumSource;
 import de.planmarshall.core.store.QuestionRecord.Answer;
 import de.planmarshall.core.store.QuestionRecord.AnswerKind;
 import de.planmarshall.core.store.QuestionRecord.AnswerValue;
-import de.planmarshall.core.store.QuestionRecord.Blocks;
 import de.planmarshall.core.store.QuestionRecord.Decision;
 import de.planmarshall.core.store.QuestionRecord.Evidence;
 import de.planmarshall.core.store.QuestionRecord.EvidenceKind;
@@ -117,12 +116,12 @@ class QuestionRecordCodecTest {
     /** @return the decision as it is written, with the given JSON value as its title */
     static String decisionJson(String title) {
         return "{\"title\":" + title + ",\"header\":" + json(HEADER) + ",\"description\":\"\",\"evidence\":[{\"kind\":"
-                + "\"file\",\"ref\":" + json(EVIDENCE_REF) + "}],\"blocks\":\"plan\",\"reversibility\":\"reversible\"}";
+                + "\"file\",\"ref\":" + json(EVIDENCE_REF) + "}],\"reversibility\":\"reversible\"}";
     }
 
     static Decision decision() {
         return new Decision(TITLE, HEADER, "", List.of(new Evidence(EvidenceKind.FILE, EVIDENCE_REF, null)),
-                Blocks.PLAN, Reversibility.REVERSIBLE);
+                Reversibility.REVERSIBLE);
     }
 
     /** @return the asked line of a question of the set, asked by a plan task; the decision on the first question */
@@ -272,13 +271,13 @@ class QuestionRecordCodecTest {
         var header = lower(1, 300);
 
         var thrown = assertThrows(IllegalArgumentException.class,
-                () -> new Decision(title, header, "", fiftyOne, Blocks.PLAN, Reversibility.REVERSIBLE),
+                () -> new Decision(title, header, "", fiftyOne, Reversibility.REVERSIBLE),
                 "a decision with 51 pieces should be refused");
 
         assertAll(
                 () -> assertEquals("A decision has at most 50 pieces of evidence, not 51", thrown.getMessage(),
                         "the refusal should name the limit and count"),
-                () -> assertEquals(50, new Decision(title, header, "", fifty, Blocks.PLAN, Reversibility.REVERSIBLE)
+                () -> assertEquals(50, new Decision(title, header, "", fifty, Reversibility.REVERSIBLE)
                         .evidence().size(), "a decision should keep its 50 pieces"));
     }
 

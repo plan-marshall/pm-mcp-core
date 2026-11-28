@@ -56,6 +56,20 @@ class QuestionRecordRoundTripTest {
     }
 
     @Test
+    @DisplayName("a decision without the removed blocks member is read and written back unchanged")
+    void decisionWithoutBlocksRoundTrips() {
+        var members = askedMembers();
+
+        var question = QuestionRecordCodec.read(QuestionRecordCodecTest.FILE, document(members));
+
+        assertAll(
+                () -> assertEquals(QuestionRecordCodecTest.TITLE, question.decision().title(),
+                        "the decision should be read without the member"),
+                () -> assertArrayEquals(document(members), QuestionRecordCodec.write(question),
+                        "the line should be written back unchanged"));
+    }
+
+    @Test
     @DisplayName("an asked line is written in the order of the schema, its envelope verbatim")
     void askedShape() {
         assertArrayEquals(document(askedMembers()),

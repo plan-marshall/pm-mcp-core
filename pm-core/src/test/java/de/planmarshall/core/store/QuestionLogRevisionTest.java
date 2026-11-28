@@ -28,7 +28,6 @@ import java.util.OptionalInt;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import de.planmarshall.core.store.QuestionRecord.Blocks;
 import de.planmarshall.core.store.QuestionRecord.Decision;
 import de.planmarshall.core.store.QuestionRecord.Reversibility;
 import de.planmarshall.core.store.QuestionRefusal.AlreadyAnswered;
@@ -46,7 +45,7 @@ class QuestionLogRevisionTest extends QuestionLogFixture {
     /** @return a decision of the revision, its title and header generated */
     private static Decision revisedDecision() {
         return new Decision(QuestionRecordCodecTest.text(Generators.integers(1, 4).next()),
-                QuestionRecordCodecTest.text(Generators.integers(1, 8).next()), "", List.of(), Blocks.TASK,
+                QuestionRecordCodecTest.text(Generators.integers(1, 8).next()), "", List.of(),
                 Reversibility.COSTLY);
     }
 

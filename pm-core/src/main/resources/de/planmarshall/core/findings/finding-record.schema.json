@@ -127,9 +127,9 @@
       "additionalProperties": false,
       "required": ["class"],
       "properties": {
-        "class": { "type": "string", "enum": ["verifier", "substitute", "none"] },
+        "class": { "type": "string", "enum": ["none"] },
         "ref": { "type": ["string", "null"], "description": "file:line, job id, or URL the resolution rests on." },
-        "claim_refuted": { "type": "boolean", "default": false, "description": "True when the evidence refutes the finding's claim (refutation sub-state verdict, or substitute evidence with a concrete ref)." }
+        "claim_refuted": { "type": "boolean", "default": false, "description": "True when the evidence refutes the finding's claim: evidence.ref is a job id of this plan executed at or after the finding's raised_at_head; a file:line or URL ref resolves suppressed." }
       }
     },
     "provider_ref": {
