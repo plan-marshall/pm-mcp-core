@@ -2,10 +2,10 @@
   "id": "PLAN-V2-211",
   "slug": "question-blocks-and-finding-evidence-classes-removed",
   "workstream": "WS-12",
-  "status": "running",
+  "status": "shipped",
   "lane": "runbook",
-  "plan_marshall_plan_id": "",
-  "pr": "",
-  "landing": "",
+  "plan_marshall_plan_id": "rb-v2-211-question-blocks-and-finding-evidence-classes-removed",
+  "pr": "#654",
+  "landing": "landings/PLAN-V2-211.md",
   "seq": 199
 }
