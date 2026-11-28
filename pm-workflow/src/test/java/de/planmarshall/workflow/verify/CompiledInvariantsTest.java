@@ -326,6 +326,42 @@ class CompiledInvariantsTest {
             return Stream.of(InitInvariants.LANE_LIGHT, UNKNOWN_LANE);
         }
 
+        static Stream<@Nullable String> everyLane() {
+            return Stream.concat(lanesWithRatchet(), lanesWithoutRatchet());
+        }
+
+        @ParameterizedTest(name = "lane {0}")
+        @MethodSource("everyLane")
+        @DisplayName("a unit whose light path enters outline.gate past outline.light-gate fails at outline.gate")
+        void skippedLightGateRefused(@Nullable String lane) {
+            var mutation = InvariantFixtures.SKIPS_LIGHT_GATE;
+
+            var found = lightLane(InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT, List.of(mutation)), lane);
+
+            assertTrue(found.contains(new InvariantLocation(InvariantId.INV_INIT_2, OUTLINE_FILE,
+                            InvariantFixtures.lineOf(mutation.applied(), "state outline.gate"))),
+                    "the skipped light gate is refused at the gate");
+        }
+
+        @Test
+        @DisplayName("a unit that still routes the light exit through the removed init.light-gate is refused as an"
+                + " unknown state")
+        void removedLightEntryRefused() {
+            var unit = InvariantFixtures.mutatedUnit(InvariantFixtures.KEEPS_REMOVED_ENTRY);
+            var rules = InvariantFixtures.validator().verify(unit);
+
+            var found = InvariantFixtures.invariants().check(unit, rules, List.of(), UNKNOWN_LANE);
+
+            assertAll(
+                    () -> assertTrue(rules.violations().stream().anyMatch(violation -> violation.rule()
+                                    == VerificationRule.STATE_EXISTS && violation.message().contains("init.light-gate")),
+                            "the removed entry is an unknown state"),
+                    () -> assertTrue(found.stream().anyMatch(violation -> violation.id() == InvariantId.INV_GEN_1
+                                    && INIT_FILE.equals(violation.location().resourceName())
+                                    && violation.message().contains("init.light-gate")),
+                            "the unknown state is reported as INV-GEN-1"));
+        }
+
         @ParameterizedTest(name = "lane {0}")
         @MethodSource("lanesWithoutRatchet")
         @DisplayName("a unit without the light route passes for a lane that owes no ratchet")
@@ -342,13 +378,13 @@ class CompiledInvariantsTest {
 
         @ParameterizedTest(name = "lane {0}")
         @MethodSource("lanesWithRatchet")
-        @DisplayName("a unit without the light route fails for the lane light or an unknown lane, the ratchet of"
-                + " both gates missing")
+        @DisplayName("a unit without the light route fails for the lane light or an unknown lane, every transition"
+                + " out of outline.light and outline.light-gate missing")
         void withoutLightRouteRefusedWhereRatchetOwed(@Nullable String lane) {
             var found = lightLane(withoutLightRoute(), lane);
 
             assertEquals(List.of(AT_HEADER, AT_HEADER, AT_HEADER, AT_HEADER), found,
-                    "each light gate owes two ratchet transitions");
+                    "the envelope and the light gate owe two each");
         }
 
         @ParameterizedTest(name = "lane {0}")
@@ -358,11 +394,10 @@ class CompiledInvariantsTest {
         void withoutRatchetRefused(@Nullable String lane) {
             var mutation = InvariantFixtures.WITHOUT_RATCHET;
 
-            var found = lightLane(InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT,
-                    List.of(InvariantFixtures.WITHOUT_RATCHET)), lane);
+            var found = lightLane(InvariantFixtures.mutatedUnits(UnitOrigin.PROJECT, List.of(mutation)), lane);
 
-            assertEquals(List.of(new InvariantLocation(InvariantId.INV_INIT_2, INIT_FILE,
-                            InvariantFixtures.lineOf(mutation.applied(), "state init.light-gate"))), found,
+            assertEquals(List.of(new InvariantLocation(InvariantId.INV_INIT_2, OUTLINE_FILE,
+                            InvariantFixtures.lineOf(mutation.applied(), "state outline.light-gate"))), found,
                     "the light gate without the ratchet is refused");
         }
 
@@ -808,10 +843,10 @@ class CompiledInvariantsTest {
                         "lost -> adjudicate.decided"),
                 change(InvariantId.INV_INIT_1, "an init question returns elsewhere than init.classify", INIT_FILE,
                         "answered -> init.classify", "answered -> init.stamp", "answered -> init.stamp"),
-                change(InvariantId.INV_INIT_2, "the light lane skips outline.light-regate", OUTLINE_FILE,
-                        "done -> outline.light-regate", "done -> outline.gate", "state outline.gate"),
-                change(InvariantId.INV_REFINE_1, "the deep path leaves refine without refine.analyze", REFINE_FILE,
-                        "done -> refine.analyze", "done -> refine.return-exit", "done -> refine.return-exit"),
+                change(InvariantId.INV_INIT_2, "the light lane skips outline.light-gate", OUTLINE_FILE,
+                        "approved -> outline.light-gate", "approved -> outline.gate", "state outline.gate"),
+                change(InvariantId.INV_REFINE_1, "the deep path enters refine past refine.analyze", REFINE_FILE,
+                        "entry start -> refine.analyze", "entry start -> refine.qgate", "pass -> refine.done-exit"),
                 change(InvariantId.INV_OUTLINE_1, "a phase before outline enters Phase 4 past outline.gate",
                         PLAN_FILE, "        deep -> phases.refine", "        deep -> phases.plan",
                         "deep -> phases.plan"),

@@ -37,11 +37,13 @@ import org.jspecify.annotations.Nullable;
  * {@code plan_facts_digest} (strings), {@code templates} and {@code sub_units} (arrays of unit references, each an
  * object with the strings {@code unit}, {@code digest} and {@code origin} and an optional {@code file}, a string or
  * {@code null}) and {@code composition_rules} (an object with the strings {@code revision} and {@code digest}); its
- * members {@code realized_footprint_digest}, {@code change_type} and {@code providers_digest} may be absent, a string
- * or {@code null}. No object may name a member twice, at any depth: the objects inside the value of a member the
- * reader does not interpret are held to the same rule. Further members are kept in the header's JSON and not
- * interpreted: the checks of the schema beyond this structure (constants, enumerations, patterns, members it does not
- * allow) belong to the composition of the plan instance, not to the parser.
+ * members {@code realized_footprint_digest} and {@code providers_digest} may be absent, a string or {@code null}. No
+ * object may name a member twice, at any depth: the objects inside the value of a member the reader does not interpret
+ * are held to the same rule. Further members are kept in the header's JSON and not interpreted: the checks of the
+ * schema beyond this structure (constants, enumerations, patterns, members it does not allow) belong to the
+ * composition of the plan instance, not to the parser. A header that still carries {@code inputs.change_type}, which
+ * the closed {@code inputs} object no longer allows, is therefore read like any other member the reader does not
+ * interpret and refused by that schema check.
  * <p>
  * Anything else is refused with a {@link HeaderRefusal} whose message names the defect and the member it lies in, and
  * which carries the column of the JSON text the defect lies at, when the defect has one; a jackson-core
@@ -61,7 +63,6 @@ final class InstanceHeaderReader {
     private static final String FIELD_COMPOSITION_RULES = "composition_rules";
     private static final String FIELD_PLAN_FACTS_DIGEST = "plan_facts_digest";
     private static final String FIELD_REALIZED_FOOTPRINT_DIGEST = "realized_footprint_digest";
-    private static final String FIELD_CHANGE_TYPE = "change_type";
     private static final String FIELD_PROVIDERS_DIGEST = "providers_digest";
 
     private static final String FIELD_UNIT = "unit";
@@ -126,7 +127,6 @@ final class InstanceHeaderReader {
         InstanceInputs.@Nullable CompositionRules compositionRules = null;
         @Nullable String planFactsDigest = null;
         @Nullable String realizedFootprintDigest = null;
-        @Nullable String changeType = null;
         @Nullable String providersDigest = null;
         var seen = new HashSet<String>();
         for (var field = nextMember(parser, path, seen); field.isPresent();
@@ -140,7 +140,6 @@ final class InstanceHeaderReader {
                 case FIELD_PLAN_FACTS_DIGEST -> planFactsDigest = string(parser, member);
                 case FIELD_REALIZED_FOOTPRINT_DIGEST ->
                     realizedFootprintDigest = isNullValue(parser, member) ? null : parser.getText();
-                case FIELD_CHANGE_TYPE -> changeType = isNullValue(parser, member) ? null : parser.getText();
                 case FIELD_PROVIDERS_DIGEST -> providersDigest = isNullValue(parser, member) ? null : parser.getText();
                 default -> skipValue(parser, member);
             }
@@ -148,7 +147,7 @@ final class InstanceHeaderReader {
         requireMembers(path, seen, FIELD_CONFIG_HASH, FIELD_TEMPLATES, FIELD_SUB_UNITS, FIELD_COMPOSITION_RULES,
                 FIELD_PLAN_FACTS_DIGEST);
         return new InstanceInputs(configHash, templates, subUnits, compositionRules, planFactsDigest,
-                realizedFootprintDigest, changeType, providersDigest);
+                realizedFootprintDigest, providersDigest);
     }
 
     private static List<InstanceInputs.UnitRef> unitRefs(JsonParser parser, String path) throws IOException {

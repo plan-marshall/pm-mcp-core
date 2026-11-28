@@ -134,9 +134,9 @@ class PlanInstanceStoreTest {
         var template = PlanFixtures.request(CompositionEvent.WAIVER, facts().build(), previous, List.of(),
                 InstancePosition.at("finalize.push-barrier"));
         var request = new CompositionRequest(template.planId(), template.event(), template.template(),
-                template.templates(), subUnits, template.facts(), template.configHash(),
-                template.realizedFootprintDigest(), template.providersDigest(), template.waivers(),
-                template.position(), template.previous(), template.verificationSteps(), template.finalizeSteps());
+                template.templates(), subUnits, template.facts(), template.configHash(), template.providersDigest(),
+                template.waivers(), template.position(), template.previous(), template.verificationSteps(),
+                template.finalizeSteps());
         var result = composer().compose(request);
         return assertInstanceOf(CompositionResult.Composed.class, result, "the composition yields an instance")
                 .instance();

@@ -167,9 +167,8 @@ final class PlanFixtures {
         var subUnits = new ArrayList<>(request.subUnits());
         subUnits.add(subUnit(InvariantFixtures.ADJUDICATION_FILE, subUnitText(InvariantFixtures.ADJUDICATION_FILE)));
         return new CompositionRequest(request.planId(), request.event(), request.template(), request.templates(),
-                subUnits, request.facts(), request.configHash(), request.realizedFootprintDigest(),
-                request.providersDigest(), request.waivers(), request.position(), request.previous(),
-                request.verificationSteps(), request.finalizeSteps());
+                subUnits, request.facts(), request.configHash(), request.providersDigest(), request.waivers(),
+                request.position(), request.previous(), request.verificationSteps(), request.finalizeSteps());
     }
 
     private static CompositionRequest.SubUnit subUnit(String file, String text) {
@@ -264,7 +263,7 @@ final class PlanFixtures {
      *         provider, whose asking axis no level sets, so the shipped {@link #QUESTIONS_ONLY} merges by itself
      */
     static PlanFacts.Builder facts() {
-        return PlanFacts.builder().lane(Lane.DEEP).posture(Posture.FULL).changeType("feature")
+        return PlanFacts.builder().lane(Lane.DEEP).posture(Posture.FULL)
                 .configuration("integrations.sonar", "sonarcloud").configuration("derived.push_remote", "origin");
     }
 
@@ -334,7 +333,7 @@ final class PlanFixtures {
         var text = read(TEMPLATE_FILE);
         return new CompositionRequest(planId, event, template(), List.of(new UnitReference("plan", TEMPLATE_FILE,
                         PlanFacts.sha256(text), UnitOrigin.PROJECT)), subUnits(), facts,
-                PlanFacts.sha256("effective configuration"), null, null, waivers, position, previous,
+                PlanFacts.sha256("effective configuration"), null, waivers, position, previous,
                 VERIFICATION_STEPS, FINALIZE_STEPS);
     }
 
@@ -398,7 +397,7 @@ final class PlanFixtures {
                         UnitOrigin.DEFAULT).id())))
                 .toList();
         return new CompositionRequest(PLAN_ID, event, plan, templates, subUnits, facts,
-                PlanFacts.sha256("effective configuration"), null, null, List.of(), position, previous,
+                PlanFacts.sha256("effective configuration"), null, List.of(), position, previous,
                 VERIFICATION_STEPS, FINALIZE_STEPS);
     }
 
@@ -444,7 +443,7 @@ final class PlanFixtures {
         var text = read(PER_LANE_FILE);
         return new CompositionRequest(PLAN_ID, event, parse(PER_LANE_FILE, text, UnitOrigin.PROJECT),
                 List.of(new UnitReference("plan", PER_LANE_FILE, PlanFacts.sha256(text), UnitOrigin.PROJECT)),
-                phaseUnits(), facts, PlanFacts.sha256("effective configuration"), null, null, List.of(), position,
+                phaseUnits(), facts, PlanFacts.sha256("effective configuration"), null, List.of(), position,
                 previous, VERIFICATION_STEPS, FINALIZE_STEPS);
     }
 
@@ -570,9 +569,9 @@ final class PlanFixtures {
         var withTemplate = new CompositionRequest(request.planId(), request.event(), template,
                 List.of(new UnitReference("plan", TEMPLATE_FILE, PlanFacts.sha256(templateText),
                         UnitOrigin.PROJECT)),
-                request.subUnits(), request.facts(), request.configHash(), request.realizedFootprintDigest(),
-                request.providersDigest(), request.waivers(), request.position(), request.previous(),
-                request.verificationSteps(), request.finalizeSteps());
+                request.subUnits(), request.facts(), request.configHash(), request.providersDigest(),
+                request.waivers(), request.position(), request.previous(), request.verificationSteps(),
+                request.finalizeSteps());
         return withSubUnit(withTemplate, QUESTIONS_ONLY, fileOf(QUESTIONS_ONLY), VARIANT_WITH_POLICY_CALL);
     }
 
@@ -592,8 +591,7 @@ final class PlanFixtures {
                         ? new CompositionRequest.SubUnit(reference, definition) : subUnit)
                 .toList();
         return new CompositionRequest(request.planId(), request.event(), request.template(), request.templates(),
-                replaced, request.facts(), request.configHash(), request.realizedFootprintDigest(),
-                request.providersDigest(), request.waivers(), request.position(), request.previous(),
-                request.verificationSteps(), request.finalizeSteps());
+                replaced, request.facts(), request.configHash(), request.providersDigest(), request.waivers(),
+                request.position(), request.previous(), request.verificationSteps(), request.finalizeSteps());
     }
 }

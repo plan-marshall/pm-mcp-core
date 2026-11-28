@@ -11,16 +11,12 @@ version: 0.1.0
 author: plan-marshall
 ---
 # The refine phase as its own unit, written for the invariant and unit-loader tests, never copied from the product.
-# Every deep path passes refine.baseline-reconcile and refine.analyze; a lesson-derived plan passes refine.qgate,
-# whose blocking verdict calls the Q-Gate remediation. A remediation that cannot resolve leaves the phase on its
-# `returned` exit, which the plan unit routes to the plan's fallback.
+# Every deep path enters at refine.analyze; a lesson-derived plan passes refine.qgate, whose blocking verdict calls
+# the Q-Gate remediation. A remediation that cannot resolve leaves the phase on its `returned` exit, which the plan
+# unit routes to the plan's fallback.
 workflow phase-2-refine version 1 format 1
 scope subworkflow
-entry start -> refine.baseline-reconcile
-
-state refine.baseline-reconcile
-    auto test.proceed
-        done -> refine.analyze
+entry start -> refine.analyze
 
 state refine.analyze
     auto test.analyze

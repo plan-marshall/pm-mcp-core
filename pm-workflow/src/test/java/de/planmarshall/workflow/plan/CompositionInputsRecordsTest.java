@@ -39,11 +39,10 @@ class CompositionInputsRecordsTest {
         var rulesDigest = Generators.letterStrings(1, 64).next();
         var planFactsDigest = Generators.letterStrings(1, 64).next();
         var realizedFootprintDigest = Generators.letterStrings(1, 64).next();
-        var changeType = Generators.letterStrings(1, 20).next();
         var providersDigest = Generators.letterStrings(1, 64).next();
 
         var constructed = new CompositionInputs(configHash, templates, subUnits, rulesRevision, rulesDigest,
-                planFactsDigest, realizedFootprintDigest, changeType, providersDigest);
+                planFactsDigest, realizedFootprintDigest, providersDigest);
         var built = CompositionInputs.builder()
                 .configHash(configHash)
                 .templates(templates)
@@ -52,7 +51,6 @@ class CompositionInputsRecordsTest {
                 .compositionRulesDigest(rulesDigest)
                 .planFactsDigest(planFactsDigest)
                 .realizedFootprintDigest(realizedFootprintDigest)
-                .changeType(changeType)
                 .providersDigest(providersDigest)
                 .build();
 

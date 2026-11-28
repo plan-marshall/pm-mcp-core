@@ -141,11 +141,10 @@ public final class InvariantFixtures {
     public static final String OUTLINE_FILE = "outline.pmwf";
 
     /**
-     * The states of the light route of the merged plan unit: those reachable from {@code init.light-gate} and not from
-     * {@code refine.baseline-reconcile}, in declaration order.
+     * The states of the light route of the outline phase unit: the light envelope {@code outline.light} and the light
+     * gate {@code outline.light-gate}, in declaration order.
      */
-    public static final List<String> LIGHT_ROUTE = List.of("init.light-gate", "outline.light",
-            "outline.light-regate", "outline.light-review");
+    public static final List<String> LIGHT_ROUTE = List.of("outline.light", "outline.light-gate");
 
     /**
      * The shared states before the split of the lanes: every state reachable from {@code init.begin} without taking a
@@ -155,43 +154,46 @@ public final class InvariantFixtures {
             "init.stamp", "init.ready");
 
     /**
-     * {@code init.light-gate} without its {@code light -> deep} ratchet: its {@code deep} outcome stays routed, into
-     * the light exit, so every outcome of the unit is routed and only the ratchet transition of the default unit is
-     * missing.
+     * The light envelope's accepted outline enters {@code outline.gate} directly, skipping the light gate
+     * {@code outline.light-gate}.
      */
-    public static final Mutation WITHOUT_RATCHET = new Mutation("init.light-gate without the light -> deep ratchet",
-            INIT_FILE, "        pass -> init.light-exit\n        deep -> init.deep-exit\n",
-            "        pass -> init.light-exit\n        deep -> init.light-exit\n");
+    public static final Mutation SKIPS_LIGHT_GATE = new Mutation("the light lane skips outline.light-gate",
+            OUTLINE_FILE, "approved -> outline.light-gate", "approved -> outline.gate");
+
+    /**
+     * {@code outline.light-gate} without its {@code light -> deep} ratchet: its {@code deep} outcome stays routed, into
+     * {@code outline.gate}, so every outcome of the unit is routed and only the ratchet transition of the default unit
+     * is missing.
+     */
+    public static final Mutation WITHOUT_RATCHET = new Mutation(
+            "outline.light-gate without the light -> deep ratchet", OUTLINE_FILE,
+            "        pass -> outline.gate\n        deep -> outline.escalate-exit\n",
+            "        pass -> outline.gate\n        deep -> outline.gate\n");
+
+    /**
+     * The light exit of {@code init.ready} still routed through the deleted light entry {@code init.light-gate}, a
+     * state no unit declares any more.
+     */
+    public static final Mutation KEEPS_REMOVED_ENTRY = new Mutation("the light exit through the removed init.light-gate",
+            INIT_FILE, "light -> init.light-exit", "light -> init.light-gate");
 
     /**
      * The changes that remove the light route from the plan unit, as a {@code deep} version holds it: the light exit
-     * of {@code init.ready}, {@code init.light-gate} and the authoring states of the light lane. The outcome
-     * {@code light} of {@code init.ready} is left unrouted, as in a composed {@code deep} version.
+     * of {@code init.ready} and the states of the light route of the outline phase. The outcome {@code light} of
+     * {@code init.ready} is left unrouted, as in a composed {@code deep} version.
      */
     public static final List<Mutation> WITHOUT_LIGHT_ROUTE = List.of(
-            new Mutation("init.ready without its light exit", INIT_FILE, "        light -> init.light-gate\n", ""),
-            new Mutation("without init.light-gate", INIT_FILE, """
-
-                    state init.light-gate
-                        auto test.gate
-                            pass -> init.light-exit
-                            deep -> init.deep-exit
-                    """, ""),
-            new Mutation("without the authoring states of the light lane", OUTLINE_FILE, """
+            new Mutation("init.ready without its light exit", INIT_FILE, "        light -> init.light-exit\n", ""),
+            new Mutation("without the states of the light route", OUTLINE_FILE, """
                     state outline.light
-                        auto test.proceed
-                            done -> outline.light-regate
+                        job llm change role outline
+                            approved -> outline.light-gate
+                            lost -> outline.return-exit
 
-                    state outline.light-regate
+                    state outline.light-gate
                         auto test.gate
-                            pass -> outline.light-review
-                            deep -> outline.deep
-
-                    state outline.light-review
-                        job test.build
-                            succeeded -> outline.gate
-                            failed -> outline.light-regate
-                            cancelled -> outline.return-exit
+                            pass -> outline.gate
+                            deep -> outline.escalate-exit
 
                     """, ""));
 

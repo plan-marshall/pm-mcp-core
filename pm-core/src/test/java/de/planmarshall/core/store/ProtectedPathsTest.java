@@ -14,16 +14,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.text.Normalizer;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 /**
  * The protected paths of the hook definitions (PM-WF-11, PM-SEC-5): the family of
  * {@code phase-workflows/03-q-gate-and-execute.adoc} § Protected Paths, matched at the repository root, ignoring case
- * and after Unicode NFC normalization, and lifted only for the paths a plan declares.
+ * and after Unicode NFC normalization. A path the plan declares lifts no protection: the matcher takes no declaration.
  * <p>
  * Every datum in this class is the specification's contract: the six patterns, the case and normalization rules, and
  * the near misses. The test is the display of the names the specification states once.
@@ -32,12 +35,53 @@ import org.junit.jupiter.api.Test;
 class ProtectedPathsTest {
 
     @Test
+    @DisplayName("a protected path the plan declared is still reported")
+    void declaredProtectedPathIsReported() {
+        // the plan's declared_files would name exactly this path; the matcher reports it all the same
+        var declared = ".husky/pre-commit";
+
+        assertAll("A declared protected path",
+                () -> assertEquals(List.of(declared), ProtectedPaths.of(List.of(declared)),
+                        "the declared hook definition is reported"),
+                () -> assertTrue(ProtectedPaths.isProtected(declared),
+                        "the declared hook definition is protected"));
+    }
+
+    @Test
+    @DisplayName("a differently cased declared protected path is reported, so a declaration lifts nothing")
+    void differentlyCasedDeclaredPathIsReported() {
+        var paths = List.of(".HUSKY/pre-commit", ".GitHooks/x");
+
+        assertAll("A differently cased declared path",
+                () -> assertEquals(paths, ProtectedPaths.of(paths), "both cased variants are reported"),
+                () -> assertTrue(ProtectedPaths.isProtected(".GitHooks/x"),
+                        "the single-path decision reports it too"));
+    }
+
+    @Test
+    @DisplayName("the matcher's public surface takes no declared files")
+    void noDeclaredFilesParameter() {
+        var publicMethods = Arrays.stream(ProtectedPaths.class.getDeclaredMethods())
+                .filter(method -> Modifier.isPublic(method.getModifiers())).toList();
+
+        assertAll("The public surface of the matcher",
+                () -> assertEquals(List.of("isProtected", "of"),
+                        publicMethods.stream().map(Method::getName).sorted().toList(),
+                        "the matcher exposes of and isProtected only"),
+                () -> assertTrue(publicMethods.stream().allMatch(method -> method.getParameterCount() == 1),
+                        "each public method takes one parameter"),
+                () -> assertFalse(publicMethods.stream().flatMap(method -> Arrays.stream(
+                                method.getParameterTypes())).anyMatch(type -> type == Collection.class),
+                        "no public method takes a declared-files collection"));
+    }
+
+    @Test
     @DisplayName("every hook definition of the specification is protected at the root")
     void everyHookDefinitionIsProtected() {
         var paths = List.of(".husky/pre-commit", ".githooks/pre-push", "lefthook.yml", ".lefthook.yml",
                 "lefthook-local.yml", ".pre-commit-config.yaml");
 
-        var protectedPaths = ProtectedPaths.of(paths, Set.of());
+        var protectedPaths = ProtectedPaths.of(paths);
 
         assertEquals(paths, protectedPaths, "the six hook definitions are protected");
     }
@@ -47,7 +91,7 @@ class ProtectedPathsTest {
     void nestedFileIsProtected() {
         var paths = List.of(".husky/nested/hook", ".githooks/sub/dir/hook");
 
-        assertEquals(paths, ProtectedPaths.of(paths, Set.of()), "a nested file below .husky/ is protected");
+        assertEquals(paths, ProtectedPaths.of(paths), "a nested file below .husky/ is protected");
     }
 
     @Test
@@ -55,7 +99,7 @@ class ProtectedPathsTest {
     void caseVariantsAreProtected() {
         var paths = List.of(".HUSKY/pre-commit", ".GitHooks/x");
 
-        assertEquals(paths, ProtectedPaths.of(paths, Set.of()), "case variants are protected");
+        assertEquals(paths, ProtectedPaths.of(paths), "case variants are protected");
     }
 
     @Test
@@ -64,54 +108,16 @@ class ProtectedPathsTest {
         var decomposed = ".husky/" + Normalizer.normalize("é", Normalizer.Form.NFD) + "-hook";
         var paths = List.of(decomposed);
 
-        assertEquals(paths, ProtectedPaths.of(paths, Set.of()), "NFC normalization matches the decomposed name");
-    }
-
-    @Test
-    @DisplayName("a decomposed declared path lifts the composed path")
-    void decomposedDeclaredPathLiftsComposedPath() {
-        var composed = ".husky/" + Normalizer.normalize("é", Normalizer.Form.NFC) + "-hook";
-        var decomposed = Normalizer.normalize(composed, Normalizer.Form.NFD);
-
-        var protectedPaths = ProtectedPaths.of(List.of(composed), Set.of(decomposed));
-
-        assertTrue(protectedPaths.isEmpty(), "normalization lifts the declared path on both sides");
+        assertEquals(paths, ProtectedPaths.of(paths), "NFC normalization matches the decomposed name");
     }
 
     @Test
     @DisplayName("the single-path decision agrees with the list decision")
     void singlePathDecisionAgrees() {
         assertAll("The single path decision",
-                () -> assertTrue(ProtectedPaths.isProtected(".husky/pre-commit", Set.of()),
-                        "a hook definition is protected"),
-                () -> assertFalse(ProtectedPaths.isProtected(".pre-commit-config.yaml.bak", Set.of()),
-                        "a near miss is not protected"),
-                () -> assertFalse(ProtectedPaths.isProtected(".husky/pre-commit", Set.of(".husky/pre-commit")),
-                        "a declared path is lifted"));
-    }
-
-    @Test
-    @DisplayName("a differently cased declaration lifts the path")
-    void differentlyCasedDeclarationLifts() {
-        assertAll("A declaration is compared as the matcher compares paths",
-                () -> assertTrue(ProtectedPaths.of(List.of(".HUSKY/pre-commit"), Set.of(".husky/pre-commit")).isEmpty(),
-                        "an upper-cased path is lifted by a lower-cased declaration"),
-                () -> assertFalse(ProtectedPaths.isProtected(".GitHooks/x", Set.of(".githooks/x")),
-                        "the single-path decision agrees"),
-                () -> assertEquals(List.of(".GitHooks/y"),
-                        ProtectedPaths.of(List.of(".GitHooks/x", ".GitHooks/y"), Set.of(".githooks/x")),
-                        "the declaration lifts its path only"));
-    }
-
-    @Test
-    @DisplayName("a declared path lifts that path only")
-    void declaredPathLiftsThatPathOnly() {
-        var declared = ".husky/pre-commit";
-        var other = ".husky/pre-push";
-
-        var protectedPaths = ProtectedPaths.of(List.of(declared, other), Set.of(declared));
-
-        assertEquals(List.of(other), protectedPaths, "the declaration lifts one path and not its family");
+                () -> assertTrue(ProtectedPaths.isProtected(".husky/pre-commit"), "a hook definition is protected"),
+                () -> assertFalse(ProtectedPaths.isProtected(".pre-commit-config.yaml.bak"),
+                        "a near miss is not protected"));
     }
 
     @Test
@@ -119,14 +125,14 @@ class ProtectedPathsTest {
     void nearMissesAreNotProtected() {
         var paths = List.of("husky/x", "docs/lefthook.yml", ".pre-commit-config.yaml.bak", "README.md", "CLAUDE.md");
 
-        assertTrue(ProtectedPaths.of(paths, Set.of()).isEmpty(), "a near miss or an unrelated file is not protected");
+        assertTrue(ProtectedPaths.of(paths).isEmpty(), "a near miss or an unrelated file is not protected");
     }
 
     @Test
     @DisplayName("the matched control stays untracked by the matcher")
     void matchedControlIsNotProtected() {
-        var protectedPath = ProtectedPaths.of(List.of(".husky/pre-commit"), Set.of());
-        var control = ProtectedPaths.of(List.of("README.md", "CLAUDE.md"), Set.of());
+        var protectedPath = ProtectedPaths.of(List.of(".husky/pre-commit"));
+        var control = ProtectedPaths.of(List.of("README.md", "CLAUDE.md"));
 
         assertAll("The matched control",
                 () -> assertEquals(List.of(".husky/pre-commit"), protectedPath, "the hook definition is protected"),

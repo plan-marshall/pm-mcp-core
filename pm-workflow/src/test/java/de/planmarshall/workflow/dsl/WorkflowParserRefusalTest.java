@@ -38,10 +38,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import de.planmarshall.workflow.ast.InstanceInputs;
 import de.planmarshall.workflow.ast.UnitOrigin;
 import de.planmarshall.workflow.ast.UnitType;
+import de.planmarshall.workflow.plan.HeaderSchemaCheck;
+import de.planmarshall.workflow.plan.HeaderViolation;
 
 // Every datum in this class is a contract: inline DSL source, JSON wire format, refusal rules and messages.
 /**
@@ -286,8 +289,9 @@ class WorkflowParserRefusalTest {
                     refusal("instance config hash not a string", RefusalRule.INSTANCE_HEADER, 2,
                             withInputs("\"config_hash\": \"c\"", "\"config_hash\": 1")),
                     refusal("instance optional input neither string nor null", RefusalRule.INSTANCE_HEADER, 2,
-                            withInputs(TEMPLATES, TEMPLATES + ", \"change_type\": 1")), refusal("instance templates not an array", RefusalRule.INSTANCE_HEADER, 2,
-                    withInputs(TEMPLATES, "\"templates\": {}")),
+                            withInputs(TEMPLATES, TEMPLATES + ", \"providers_digest\": 1")),
+                    refusal("instance templates not an array", RefusalRule.INSTANCE_HEADER, 2,
+                            withInputs(TEMPLATES, "\"templates\": {}")),
                     refusal("instance unit reference not an object", RefusalRule.INSTANCE_HEADER, 2,
                             withInputs(TEMPLATES, "\"templates\": [\"plan\"]")),
                     refusal("instance unit reference without origin", RefusalRule.INSTANCE_HEADER, 2,
@@ -844,7 +848,6 @@ class WorkflowParserRefusalTest {
                             "the composition rules are read"),
                     () -> assertEquals("f", inputs.planFactsDigest(), "the plan facts digest is read"),
                     () -> assertEquals("g", inputs.realizedFootprintDigest(), "a named footprint digest is read"),
-                    () -> assertNull(inputs.changeType(), "an absent change type is read as null"),
                     () -> assertNull(inputs.providersDigest(), "an absent providers digest is read as null"),
                     () -> assertEquals(json, header.json(), "the read stops at the closing brace"));
         }
@@ -868,8 +871,24 @@ class WorkflowParserRefusalTest {
         static Stream<Arguments> optionalMembers() {
             return Stream.of(
                     Arguments.of("realized_footprint_digest", "inputs.realized_footprint_digest"),
-                    Arguments.of("change_type", "inputs.change_type"),
                     Arguments.of("providers_digest", "inputs.providers_digest"));
+        }
+
+        // "change_type" is the member the closed inputs object no longer declares, the contract of this refusal
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"\"feature\"", "null", "1"})
+        @DisplayName("reads a header that carries inputs.change_type like an uninterpreted member, and the schema "
+                + "check refuses it")
+        void changeTypeRefusedBySchemaCheck(String value) {
+            var json = "{" + INSTANCE_MEMBERS.replace(TEMPLATES, TEMPLATES + ", \"change_type\": " + value) + "}";
+
+            var header = InstanceHeaderReader.read(json);
+
+            assertAll(
+                    () -> assertEquals(json, header.json(), "the reader keeps the member in the JSON as read"),
+                    () -> assertTrue(HeaderSchemaCheck.check(json).contains(new HeaderViolation(
+                                    "/inputs/change_type", "member is not declared by the schema")),
+                            "the schema check refuses the change type member"));
         }
 
         @Test

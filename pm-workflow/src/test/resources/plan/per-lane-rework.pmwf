@@ -8,34 +8,30 @@ version: 0.1.0
 author: plan-marshall
 ---
 # A plan unit written for the composer tests, never copied from a unit of the product. The two lanes split at
-# init.ready: the deep lane enters refine.baseline-reconcile, the light lane init.light-gate. Each lane calls the
-# phases through its own call states — phases.plan and phases.execute for the deep lane, phases.plan-light and
-# phases.execute-light for the light lane — and each routes the rework exits of its calls to its own authoring
-# entry: fix_requested and loop_back re-enter outline.deep in the deep lane and outline.light-regate in the light
-# lane. No state of the deep route transitions into the light route. Every rework cycle passes an awaited job
-# (Rule 11b): outline.deep and refine.baseline-reconcile are model jobs, outline.light-review a build job. The deep
-# lane enters its plan call at outline.gate; the light lane enters its own through the approval of the light review.
-# The land lane enters the deep execute call and the adopt lane the pull request of finalize straight from init.ready;
-# neither passes a refine, outline or plan state on its way in, and both belong to no lane the composer prunes. The land
-# lane shares the deep execute call, so a rework exit of that call re-enters outline.deep, as the shared deep call
-# states of the product do.
+# init.ready: the deep lane enters refine.analyze, the light lane the light envelope outline.light, whose accepted
+# outline passes the light gate outline.light-gate; the gate's deep outcome, the light -> deep ratchet, enters
+# refine.analyze. Each lane calls the phases through its own call states — phases.plan and
+# phases.execute for the deep lane, phases.plan-light and phases.execute-light for the light lane — and each routes
+# the rework exits of its calls to its own authoring entry: fix_requested and loop_back re-enter outline.deep in the
+# deep lane and outline.light in the light lane. No state of the deep route transitions into the light route. Every
+# rework cycle passes an awaited job (Rule 11b): refine.analyze, outline.deep and outline.light are model jobs. The
+# deep lane enters its plan call at outline.gate; the light lane enters its own through the approval of the light
+# outline, whose revise answer re-enters outline.light. The land lane enters the deep execute call and the adopt lane
+# the pull request of finalize straight from init.ready; neither passes a refine, outline or plan state on its way in,
+# and both belong to no lane the composer prunes. The land lane shares the deep execute call, so a rework exit of that
+# call re-enters outline.deep, as the shared deep call states of the product do.
 workflow plan version 1 format 1
 scope plan
 start init.ready
 
 state init.ready
     auto test.lane
-        deep -> refine.baseline-reconcile
-        light -> init.light-gate
+        deep -> refine.analyze
+        light -> outline.light
         land -> phases.execute
         adopt -> finalize.create-pr
 
-state init.light-gate
-    auto test.gate
-        pass -> outline.light
-        deep -> refine.baseline-reconcile
-
-state refine.baseline-reconcile
+state refine.analyze
     job llm change role refine
         approved -> outline.deep
         lost -> plan.return
@@ -46,24 +42,19 @@ state outline.deep
         lost -> plan.return
 
 state outline.light
-    auto test.proceed
-        done -> outline.light-regate
+    job llm change role outline
+        approved -> outline.light-gate
+        lost -> plan.return
 
-state outline.light-regate
+state outline.light-gate
     auto test.gate
-        pass -> outline.light-review
-        deep -> outline.deep
-
-state outline.light-review
-    job test.build
-        succeeded -> outline.light-approve
-        failed -> outline.light-regate
-        cancelled -> plan.return
+        pass -> outline.light-approve
+        deep -> refine.analyze
 
 state outline.light-approve
     question review
         approve -> phases.plan-light
-        revise -> outline.light-regate
+        revise -> outline.light
 
 state outline.gate
     auto test.proceed
@@ -80,8 +71,8 @@ state phases.plan
 state phases.plan-light
     call phase-plan-light
         ready -> phases.execute-light
-        fix_requested -> outline.light-regate
-        loop_back -> outline.light-regate
+        fix_requested -> outline.light
+        loop_back -> outline.light
         returned -> plan.return
         stepped_out -> finalize.hand-back
 
@@ -96,8 +87,8 @@ state phases.execute
 state phases.execute-light
     call phase-execute-light
         ready -> finalize.create-pr
-        fix_requested -> outline.light-regate
-        loop_back -> outline.light-regate
+        fix_requested -> outline.light
+        loop_back -> outline.light
         returned -> plan.return
         stepped_out -> finalize.hand-back
 

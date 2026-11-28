@@ -2814,6 +2814,8 @@ read and the aggregate carries its coverage.
   and the paths it carried, at the format version `1` in place.
 * link:../adr/core-store/089-the-freshness-reconcile-stamp-is-typed-through-the-status-codec.adoc[ADR 089]: the
   `freshness_reconcile` stamp is a typed status member with its schema members.
+* link:../adr/core-store/091-a-declared-path-lifts-no-protection.adoc[ADR 091]: the protected-path matcher takes no
+  declared files; a declared path stays protected. It supersedes ADR 071's lift of a declared path.
 
 == The Intent Record
 
@@ -2909,15 +2911,19 @@ A store record carries its absent state as `@Nullable`: `ScopeIntegrity.Mismatch
 == Protected Paths
 _Requirements: link:{docs}/Requirements.adoc#PM-WF-11[PM-WF-11], link:{docs}/Requirements.adoc#PM-SEC-5[PM-SEC-5]_
 
-`ProtectedPaths` decides which of a list of repository-relative paths a plan may not change without declaring them
-(link:../adr/core-store/071-the-protected-path-matcher-is-a-pure-core-class.adoc[ADR 071]). It is pure: it reads no file
-and performs no repository operation, so the boundary check that calls it decides when to ask.
+`ProtectedPaths` decides which of a list of repository-relative paths are protected: a change of one waits for the
+operator's decision on its diff (link:../adr/core-store/071-the-protected-path-matcher-is-a-pure-core-class.adoc[ADR
+071]). It is pure: it reads no file and performs no repository operation, so the boundary check that calls it decides
+when to ask. Its `of(paths)` returns the protected paths in the order given and `isProtected(path)` answers for one path;
+neither takes the plan's declared files.
 
 The first family is the tracked hook definitions git runs (`{spec}/phase-workflows/03-q-gate-and-execute.adoc#protected-paths`,
 § Protected Paths): `.husky/**`, `.githooks/**`, `lefthook.yml`, `.lefthook.yml`, `lefthook-local.yml` and
 `.pre-commit-config.yaml`, matched at the repository root, ignoring case and after Unicode NFC normalization on every
-platform. A path the plan's `declared_files` names is not reported; the declaration lifts exactly that path, never its
-family. A near miss such as `husky/x`, `docs/lefthook.yml` or `.pre-commit-config.yaml.bak` is not protected.
+platform. A declaration lifts no protection: a path the plan's `declared_files` names is protected all the same, since
+what a commit changes is decided when it is made
+(link:../adr/core-store/091-a-declared-path-lifts-no-protection.adoc[ADR 091]). A near miss such as `husky/x`,
+`docs/lefthook.yml` or `.pre-commit-config.yaml.bak` is not protected.
 
 The other families of that paragraph (`.marshall/**`, harness configuration, forge CI, editor files) are not rows of the
 matcher (link:../../../doc/implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-130[PM-WATCH-PHASE-130],
@@ -2925,8 +2931,9 @@ link:../../../doc/implementation-watch/phase-workflows.adoc#PM-WATCH-PHASE-131[P
 the next commit job is the boundary check of `git.stage-and-commit` (`FootprintBoundary`, reason `footprint_violation`),
 which is not part of this package.
 
-Tested by `ProtectedPathsTest`: each of the six patterns, a nested file, the case variants, a decomposed name, a declared
-path that lifts only itself, the near misses and the matched control (`README.md`, `CLAUDE.md`).
+Tested by `ProtectedPathsTest`: each of the six patterns, a nested file, the case variants, a decomposed name, the near
+misses and the matched control (`README.md`, `CLAUDE.md`); the matcher's public surface takes no declared files, so a
+path the plan declared stays protected.
 
 == The Operator's Projects
 

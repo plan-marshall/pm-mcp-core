@@ -1,0 +1,96 @@
+= ADR 044: The Lane Entries and the Light Gate Follow the Specification
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-27
+
+== Context
+
+The specification states the planning lanes this way
+(link:../../../../doc/specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#planning-lanes[Phase Workflows
+§ Planning Lanes]): a `deep` plan runs the Phase 2 refine loop, which it enters at `refine.analyze`; a `light` plan skips
+the Phase 2 states and runs one collapsed light envelope, the task `outline.light`, whose accepted outline passes the
+server light gate `outline.light-gate` before `outline.gate`. The escalation of a light plan, the budget trigger of the
+light gate or the judgment escalation of the envelope, ends the phase `outline` with its exit `escalate_to_deep`, and the
+plan unit calls `refine` at its entry `start`, `refine.analyze`. The compiled invariants word it the same way
+(link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Compiled
+Invariants]): `INV-INIT-2`, for the units `init` and `outline`, requires every path of a `light` plan from an accepted
+`outline.light` submission into `outline.gate` to pass `outline.light-gate`, and the ratchet transitions of the default
+unit in a version whose lane is `light` or not yet known; `INV-REFINE-1` requires every deep path to pass
+`refine.analyze`.
+
+The code still held an earlier shape of the lanes: `LaneEntryIds` named the deep entry `refine.baseline-reconcile` and
+the light entry `init.light-gate`, `INV-INIT-2` required `init.light-gate` on every path into `outline.light` and
+`outline.light-regate` on every path from it into `outline.gate`, `INV-REFINE-1` required `refine.baseline-reconcile`
+beside `refine.analyze`, and the fixture units of the tests carried those states. None of the three states is a state of
+the specification any more.
+
+== Decision
+
+* `LaneEntryIds` declares the ids of the specification: `DEEP_ENTRY` is `refine.analyze`, `LIGHT_ENTRY` is
+  `outline.light`, and the new `LIGHT_GATE` is `outline.light-gate`, the server light gate every light path passes before
+  `outline.gate`. The holder of ADR link:030-lane-entry-ids-in-one-holder.adoc[030] stays the one definition; only its
+  values change and it gains the gate.
+* `INV-INIT-2` (`InitInvariants`): wherever `outline.light` is a state of the unit, every path from it into
+  `outline.gate` passes `outline.light-gate`; a path that escalates passes `refine.analyze` and is a path of the deep
+  lane, and a path through a fallback (`plan.return`, `finalize.hand-back`) leaves the lane, so neither owes the light
+  gate. For the lane `light` or an unknown lane, every transition of the default unit that
+  leaves `outline.light` or `outline.light-gate`, the `light -> deep` ratchet among them, is a transition of the unit; a
+  `deep` version owes none (the lane input of ADR link:029-inv-init-2-per-lane-with-a-lane-input.adoc[029] stands). The
+  dominance of `init.light-gate` over `outline.light`, the constant of `outline.light-regate` and its re-gate check are
+  deleted. The invariant applies to the plan unit and to the phase units `phase-1-init` and `phase-3-outline`, as the
+  specification's row names `init` and `outline`.
+* `INV-REFINE-1` (`RefineInvariants`) requires every deep path to pass the one state `refine.analyze`, read from
+  `LaneEntryIds.DEEP_ENTRY`; the separate constant of `refine.analyze` is removed, so the state has one reference.
+* `InstancePruner` keeps its mechanism: the lanes split at the two exits of `init.ready`, the deep one entering
+  `refine.analyze`, the light one `outline.light`. A light version reaches the deep route through its escalation from
+  `outline.light` or `outline.light-gate` into `refine.analyze`, and so prunes nothing by lane.
+* The fixture units of the tests follow: the light exit of `init.ready` leaves the init phase directly, refine enters at
+  `refine.analyze`, the outline phase's entry `light` enters `outline.light`, whose submission enters
+  `outline.light-gate`, and the gate's `deep` outcome leaves the phase on the exit `escalate_to_deep`, which the plan
+  unit routes to refine's entry `start`; the light rework re-enters `outline.light`. The envelope's own judgment
+  escalation is not modelled in the fixtures: a new outcome type for it would be a new hand-written double, which ADR
+  link:../../../../doc/adr/026-the-kept-hand-written-test-doubles-are-a-closed-list.adoc[026] closes.
+* The deleted entries `refine.baseline-reconcile`, `init.light-gate` and `outline.light-regate` are not kept anywhere: a
+  unit that still routes through one of them names a state the unit does not declare and is refused as an unknown state
+  (Rule 3 `STATE_EXISTS`, reported as `INV-GEN-1`).
+
+== Alternatives Considered
+
+1. *Keep the old ids as aliases* beside the new ones, so a unit that still names `init.light-gate` or
+   `refine.baseline-reconcile` keeps verifying. _Not taken_: the plan's compatibility is `breaking`, pre-1.0 keeps no
+   compatibility form, and an alias would let a unit pass that holds states the specification no longer has.
+2. *Keep the re-gate `outline.light-regate` as a second light gate.* _Not taken_: the specification has one light gate,
+   which every light outline passes again on rework, because the rework re-enters `outline.light`.
+
+== Consequences
+
+* `INV-INIT-2` and `INV-REFINE-1` check the lanes the specification states; a unit whose light path skips
+  `outline.light-gate`, or which lacks the ratchet out of `outline.light-gate` for the lane `light` or an unknown lane, is
+  refused at its file and line.
+* `LaneEntryIdsTest` asserts that the default units declare `refine.analyze`, `outline.light` and `outline.light-gate`
+  and none of the deleted entries.
+* `status.schema.json` drops the values `baseline_conflict` and `scope_lane_mismatch` of `metadata.escalation_trigger`,
+  which the specification's triggers no longer name.
+* *For the assembly in `plan-marshall-mcp`*: the values of the public constants of `LaneEntryIds` change and
+  `LIGHT_GATE` is added; a unit of the product that still holds a deleted entry is refused after the `SNAPSHOT` deploy.
+* ADRs link:029-inv-init-2-per-lane-with-a-lane-input.adoc[029] and link:030-lane-entry-ids-in-one-holder.adoc[030], and
+  ADRs workflow-plan link:../workflow-plan/011-lane-route-pruning-deferred.adoc[011],
+  link:../workflow-plan/012-per-lane-routes-and-other-lane-pruning.adoc[012],
+  link:../workflow-plan/013-default-plan-unit-in-the-specification-and-test-fixtures.adoc[013],
+  link:../workflow-plan/016-pruned-merge-gate-settles-in-the-engine.adoc[016] and
+  link:../workflow-plan/017-per-lane-rework-fixture.adoc[017] are amended: their decisions stand, the entries they name
+  changed.
+
+== Source
+
+* link:../../../../doc/specification/phase-workflows/02-planning-lanes-phases-3-4.adoc#planning-lanes[Phase Workflows § Planning Lanes] (the light gate, the light envelope, the lane ratchet rules)
+* link:../../../../doc/specification/workflow-dsl/04-ast-node-model.adoc#project-owned-units[Workflow DSL § Compiled Invariants] (`INV-INIT-2`, `INV-REFINE-1`)
+* Work package PLAN-V2-190 (link:../../../../doc/plans/README.adoc[Work Packages])
+* link:../../developer/workflow-verify.adoc#_inv_init_2_per_lane[Workflow Verification Developer Guide § INV-INIT-2 per Lane]
+* link:../../developer/workflow-plan.adoc#_lane_pruning[Plan Instance Developer Guide § Lane Pruning]

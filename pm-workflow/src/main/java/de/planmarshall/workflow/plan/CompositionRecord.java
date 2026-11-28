@@ -109,7 +109,9 @@ CompositionEvent.Trigger trigger, @Nullable CompositionCause cause, SortedMap<St
     /**
      * @param inputs the inputs of a version
      * @return their digests by name: {@code config_hash}, {@code composition_rules}, {@code plan_facts}, the optional
-     *         digests that are present, and {@code template:<unit>} and {@code sub_unit:<unit>} per unit
+     *         digests that are present ({@code realized_footprint}, the digest the composer computed from the realized
+     *         footprint it read, and {@code providers}), and {@code template:<unit>} and {@code sub_unit:<unit>} per
+     *         unit
      */
     public static SortedMap<String, String> inputDigests(CompositionInputs inputs) {
         var digests = new TreeMap<String, String>();

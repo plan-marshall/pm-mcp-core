@@ -202,8 +202,10 @@ class CompositionRuleEvaluatorTest {
     }
 
     @Nested
-    @DisplayName("Provider, footprint and change type")
+    @DisplayName("Provider and realized footprint")
     class Families {
+
+        private static final String REALIZED = PlanFacts.REALIZED_FOOTPRINT_FACT;
 
         @Test
         @DisplayName("a project without an analysis provider prunes the analysis roundtrip")
@@ -222,13 +224,24 @@ class CompositionRuleEvaluatorTest {
         }
 
         @Test
-        @DisplayName("a footprint without code prunes simplify and the ADR proposal")
-        void footprintDisjoint() {
+        @DisplayName("a realized footprint of documentation only prunes simplify and the ADR proposal, no_code_delta")
+        void realizedFootprintWithoutCode() {
+            var docs = List.of(Generators.letterStrings(1, 12).next() + ".adoc",
+                    "doc/" + Generators.letterStrings(1, 12).next() + ".adoc");
+
             assertEquals(new RuleEffects(List.of(
-                            step("default:finalize-step-simplify", PruneReason.FOOTPRINT_DISJOINT, "footprint"),
-                            step("default:adr-propose", PruneReason.FOOTPRINT_DISJOINT, "footprint")), List.of()),
-                    evaluate(facts().footprint(List.of("doc/guide.adoc", "README.md", ".github/project.yml"))
-                            .build()), "a footprint without code prunes simplify and the ADR");
+                            step("default:finalize-step-simplify", PruneReason.NO_CODE_DELTA, REALIZED),
+                            step("default:adr-propose", PruneReason.NO_CODE_DELTA, REALIZED)), List.of()),
+                    evaluate(facts().realizedFootprint(docs).build()),
+                    "a documentation-only change prunes simplify and the ADR");
+        }
+
+        @Test
+        @DisplayName("a realized footprint of other non-code files prunes the same two steps")
+        void realizedFootprintOfOtherNonCode() {
+            assertEquals(2, evaluate(facts().realizedFootprint(List.of("doc/guide.adoc", "README.md",
+                            ".github/project.yml")).build()).prunes().size(),
+                    "a change without code prunes the two steps");
         }
 
         @ParameterizedTest(name = "{0}")
@@ -236,40 +249,35 @@ class CompositionRuleEvaluatorTest {
                 "web/src/app.ts", "web/src/app.mjs", "tools/run.py", "scripts/build.sh", "pom.xml",
                 "pm-core/pom.xml", "package.json", "web/package.json", "pyproject.toml", "Dockerfile",
                 "image/Containerfile"})
-        @DisplayName("a footprint with one code or build path keeps simplify and the ADR proposal")
-        void footprintWithCodeControl(String codePath) {
-            assertEquals(NOTHING, evaluate(facts().footprint(List.of("doc/guide.adoc", codePath)).build()),
-                    "a footprint with one code path keeps simplify and ADRs");
+        @DisplayName("a realized footprint with one code or build path keeps simplify and the ADR proposal")
+        void realizedFootprintWithCodeControl(String codePath) {
+            assertEquals(NOTHING, evaluate(facts().realizedFootprint(List.of("doc/guide.adoc", codePath)).build()),
+                    "a change with one code path keeps simplify and ADRs");
         }
 
         @Test
-        @DisplayName("an empty or unknown footprint is indeterminate and keeps every step")
-        void footprintIndeterminateControl() {
+        @DisplayName("an empty or absent (unreadable) realized footprint is indeterminate and keeps every step")
+        void realizedFootprintIndeterminateControl() {
             assertAll(
-                    () -> assertEquals(NOTHING, evaluate(facts().footprint(List.of()).build()),
+                    () -> assertEquals(NOTHING, evaluate(facts().realizedFootprint(List.of()).build()),
                             "an empty footprint is indeterminate and prunes nothing"),
                     () -> assertEquals(NOTHING, evaluate(facts().build()),
-                            "an unknown footprint prunes nothing either"));
+                            "an absent footprint prunes nothing either"));
         }
 
-        @ParameterizedTest(name = "{0}")
-        @ValueSource(strings = {"analysis", "verification"})
-        @DisplayName("a report change type exempts the plan from simplify")
-        void changeTypeExempt(String changeType) {
-            assertEquals(new RuleEffects(List.of(step("default:finalize-step-simplify",
-                            PruneReason.CHANGE_TYPE_EXEMPT, "change_type")), List.of()),
-                    evaluate(facts().changeType(changeType).build()),
-                    "a report change type exempts the plan from simplify");
-        }
+        @Test
+        @DisplayName("a configuration key named footprint that lists only documentation prunes nothing")
+        void declaredFootprintIsNoFact() {
+            // "footprint" and "change_type" are the names of the removed facts, the contract of this control
+            var facts = facts().configuration("footprint", "doc/guide.adoc")
+                    .configuration("change_type", "analysis").build();
 
-        @ParameterizedTest(name = "{0}")
-        @ValueSource(strings = {"feature", "enhancement", "bug_fix", "tech_debt"})
-        @DisplayName("a code change type keeps simplify")
-        void codeChangeTypeControl(String changeType) {
-            assertEquals(NOTHING, evaluate(facts().changeType(changeType).build()),
-                    "a code change type keeps the simplify step");
+            assertAll(
+                    () -> assertEquals(NOTHING, evaluate(facts),
+                            "the declared footprint and the change type prune nothing"),
+                    () -> assertEquals(Optional.empty(), facts.list("footprint"),
+                            "the declared footprint is no list fact"));
         }
-
     }
 
     @Nested
@@ -328,9 +336,10 @@ class CompositionRuleEvaluatorTest {
         @DisplayName("the effects of several rules come in rule order")
         void ruleOrder() {
             var effects = evaluate(PlanFacts.builder().lane(Lane.LAND).posture(Posture.FULL)
-                    .changeType("analysis").build());
+                    .realizedFootprint(List.of("README.md")).build());
 
-            assertEquals(List.of("lane", "lane", "lane", "lane", "posture", "posture", SONAR, "change_type"),
+            assertEquals(List.of("lane", "lane", "lane", "lane", "posture", "posture", SONAR,
+                            PlanFacts.REALIZED_FOOTPRINT_FACT, PlanFacts.REALIZED_FOOTPRINT_FACT),
                     effects.prunes().stream().map(PrunedElement::sourceFact).toList(),
                     "the prunes of several rules come in rule order");
         }
@@ -355,22 +364,22 @@ class CompositionRuleEvaluatorTest {
         @Test
         @DisplayName("a footprint is disjoint only when it is known, non-empty and matches no glob")
         void disjoint() {
-            var rules = rules("{\"id\": \"f\", \"when\": {\"fact\": \"footprint\", \"disjoint\": [\"**/*.java\", "
-                    + "\"pom.xml\"]}, \"then\": {\"prune\": [{\"element\": \"step\", \"id\": \"default:x\", "
-                    + "\"reason\": \"footprint_disjoint\"}]}}");
+            var rules = rules("{\"id\": \"f\", \"when\": {\"fact\": \"realized_footprint\", \"disjoint\": "
+                    + "[\"**/*.java\", \"pom.xml\"]}, \"then\": {\"prune\": [{\"element\": \"step\", "
+                    + "\"id\": \"default:x\", \"reason\": \"no_code_delta\"}]}}");
 
             assertAll(
                     () -> assertEquals(1, CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder()
-                                    .footprint(List.of("doc/a.adoc", "README.md")).build()).prunes().size(),
+                                    .realizedFootprint(List.of("doc/a.adoc", "README.md")).build()).prunes().size(),
                             "a disjoint footprint prunes exactly one step"),
                     () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder()
-                                    .footprint(List.of("doc/a.adoc", "src/main/java/A.java")).build()),
+                                    .realizedFootprint(List.of("doc/a.adoc", "src/main/java/A.java")).build()),
                             "a footprint matching a glob is not disjoint"),
                     () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder()
-                                    .footprint(List.of("pom.xml")).build()),
+                                    .realizedFootprint(List.of("pom.xml")).build()),
                             "a footprint matching pom.xml is not disjoint"),
                     () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder()
-                                    .footprint(List.of()).build()),
+                                    .realizedFootprint(List.of()).build()),
                             "an empty footprint is never disjoint"),
                     () -> assertEquals(NOTHING, CompositionRuleEvaluator.evaluate(rules, PlanFacts.builder()
                             .build()), "an unknown footprint is never disjoint"));
@@ -395,18 +404,18 @@ class CompositionRuleEvaluatorTest {
         @Test
         @DisplayName("the in condition holds for a listed value only, the empty condition for an empty list")
         void inAndEmpty() {
-            var facts = PlanFacts.builder().posture(Posture.STANDARD).footprint(List.of()).build();
+            var facts = PlanFacts.builder().posture(Posture.STANDARD).realizedFootprint(List.of()).build();
 
             assertAll(
                     () -> assertTrue(new CompositionRule.In("posture", List.of("standard")).holds(facts),
                             "the in condition holds for a listed value"),
                     () -> assertFalse(new CompositionRule.In("posture", List.of("full")).holds(facts),
                             "the in condition fails for an unlisted value"),
-                    () -> assertTrue(new CompositionRule.Empty("footprint").holds(facts),
+                    () -> assertTrue(new CompositionRule.Empty("realized_footprint").holds(facts),
                             "the empty condition holds for an empty list"),
                     () -> assertFalse(new CompositionRule.Empty("lane").holds(facts),
                             "the empty condition fails for an unknown fact"),
-                    () -> assertFalse(new CompositionRule.Equals("footprint", "").holds(facts),
+                    () -> assertFalse(new CompositionRule.Equals("realized_footprint", "").holds(facts),
                             "equals fails for a list, even an empty one"));
         }
 
@@ -579,25 +588,27 @@ class CompositionRuleEvaluatorTest {
         void accessors() {
             var path = Generators.letterStrings(1, 8).next();
             var remote = Generators.letterStrings(1, 12).next();
-            var facts = PlanFacts.builder().lane(Lane.DEEP).posture(Posture.FULL).changeType("feature")
-                    .postRun("returned").footprint(List.of(path)).configuration("derived.push_remote", remote)
-                    .build();
+            var facts = PlanFacts.builder().lane(Lane.DEEP).posture(Posture.FULL)
+                    .postRun("returned").realizedFootprint(List.of(path))
+                    .configuration("derived.push_remote", remote).build();
 
             assertAll(
                     () -> assertEquals(Optional.of("deep"), facts.text("lane"),
                             "the lane is read back as its text value"),
                     () -> assertEquals(Optional.of("full"), facts.text("posture"),
                             "the posture is read back as its text value"),
-                    () -> assertEquals(Optional.of("feature"), facts.text("change_type"),
-                            "the change type is read back as its text value"),
+                    () -> assertEquals(Optional.empty(), facts.text("change_type"),
+                            "the change type is no fact and has no text"),
                     () -> assertEquals(Optional.empty(), facts.text("recipe_id"),
                             "an unset recipe id has no text value"),
                     () -> assertEquals(Optional.of("returned"), facts.text("post_run"),
                             "the post-run form is read back as text"),
-                    () -> assertEquals(Optional.empty(), facts.text("footprint"),
+                    () -> assertEquals(Optional.empty(), facts.text("realized_footprint"),
                             "a list fact has no single text value"),
-                    () -> assertEquals(Optional.of(List.of(path)), facts.list("footprint"),
-                            "the footprint is read back as its path list"),
+                    () -> assertEquals(Optional.of(List.of(path)), facts.list("realized_footprint"),
+                            "the realized footprint reads back as its paths"),
+                    () -> assertEquals(Optional.empty(), facts.list("footprint"),
+                            "the declared footprint is no list fact"),
                     () -> assertEquals(Optional.empty(), facts.list("lane"),
                             "a text fact has no list value"),
                     () -> assertEquals(Optional.of(remote), facts.text("derived.push_remote"),
@@ -638,23 +649,40 @@ class CompositionRuleEvaluatorTest {
             var facts = PlanFacts.builder().build();
 
             // the expected text is the canonical JSON the digest is specified over
-            assertEquals(PlanFacts.sha256("{\"axes\":{},\"change_type\":null,\"configuration\":{},"
-                            + "\"footprint\":null,\"lane\":null,\"overrides\":null,\"post_run\":null,"
-                            + "\"posture\":null,\"steps\":[],\"tasks\":[]}"), facts.digest(),
+            assertEquals(PlanFacts.sha256("{\"axes\":{},\"configuration\":{},\"lane\":null,\"overrides\":null,"
+                            + "\"post_run\":null,\"posture\":null,\"realized_footprint\":null,\"steps\":[],"
+                            + "\"tasks\":[]}"), facts.digest(),
                     "absent members are digested as JSON null");
+        }
+
+        @Test
+        @DisplayName("the realized footprint digest is taken over its canonical JSON list, absent when it is")
+        void realizedFootprintDigest() {
+            var facts = PlanFacts.builder().realizedFootprint(List.of("README.md", "doc/a.adoc")).build();
+
+            // the expected text is the canonical JSON list the digest is specified over
+            assertAll(
+                    () -> assertEquals(Optional.of(PlanFacts.sha256("[\"README.md\",\"doc/a.adoc\"]")),
+                            facts.realizedFootprintDigest(), "the digest is over the canonical list"),
+                    () -> assertEquals(Optional.empty(), PlanFacts.builder().build().realizedFootprintDigest(),
+                            "an absent footprint has no digest"),
+                    () -> assertEquals(Optional.empty(), facts.withoutRealizedFootprint().realizedFootprintDigest(),
+                            "the masked facts carry no footprint digest"),
+                    () -> assertEquals(PlanFacts.builder().build().digest(),
+                            facts.withoutRealizedFootprint().digest(),
+                            "the masked facts digest like facts without one"));
         }
 
         @Test
         @DisplayName("the digest of facts with every optional member present is taken over their values")
         void digestOfPresentMembers() {
-            var facts = PlanFacts.builder().lane(Lane.DEEP).posture(Posture.FULL).changeType("feature")
-                    .postRun("returned").footprint(List.of("README.md")).overrides("{}").build();
+            var facts = PlanFacts.builder().lane(Lane.DEEP).posture(Posture.FULL)
+                    .postRun("returned").realizedFootprint(List.of("README.md")).overrides("{}").build();
 
             // the expected text is the canonical JSON the digest is specified over
-            assertEquals(PlanFacts.sha256("{\"axes\":{},\"change_type\":\"feature\",\"configuration\":{},"
-                            + "\"footprint\":[\"README.md\"],\"lane\":\"deep\",\"overrides\":\""
+            assertEquals(PlanFacts.sha256("{\"axes\":{},\"configuration\":{},\"lane\":\"deep\",\"overrides\":\""
                             + PlanFacts.sha256("{}") + "\",\"post_run\":\"returned\",\"posture\":\"full\","
-                            + "\"steps\":[],\"tasks\":[]}"), facts.digest(),
+                            + "\"realized_footprint\":[\"README.md\"],\"steps\":[],\"tasks\":[]}"), facts.digest(),
                     "present members are digested by their values");
         }
 
@@ -665,10 +693,11 @@ class CompositionRuleEvaluatorTest {
 
             assertAll(
                     () -> assertNull(facts.lane(), "an absent lane is null"),
-                    () -> assertNull(facts.footprint(), "an absent footprint is null"),
+                    () -> assertNull(facts.realizedFootprint(), "an absent realized footprint is null"),
                     () -> assertNull(facts.overrides(), "absent overrides are null"),
                     () -> assertEquals(Optional.empty(), facts.text("lane"), "an absent lane has no text"),
-                    () -> assertEquals(Optional.empty(), facts.list("footprint"), "an absent footprint has no list"));
+                    () -> assertEquals(Optional.empty(), facts.list("realized_footprint"),
+                            "an absent realized footprint has no list"));
         }
     }
 }

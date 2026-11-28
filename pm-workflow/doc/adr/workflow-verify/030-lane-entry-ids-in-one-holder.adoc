@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Accepted, Amended by link:044-the-lane-entries-follow-the-specification.adoc[ADR 044]
 
 == Date
 

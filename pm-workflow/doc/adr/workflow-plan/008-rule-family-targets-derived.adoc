@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted
+Superseded by ADR link:029-the-composition-reads-the-realized-change.adoc[029]
 
 == Date
 

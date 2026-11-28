@@ -15,7 +15,9 @@ author: plan-marshall
 # `phases.reentry-gate`. A gate that exhausts its budget leaves through the fallback call `finalize.hand-back`.
 # The lanes leave `phases.init` on its four exits: `deep` into refine, `light` into the light entry of outline, `land`
 # straight into the land entry of execute (no refine, outline or plan phase) and `adopt` into the adopt entry of
-# finalize.
+# finalize. The light outline's `escalate_to_deep` exit, the light -> deep ratchet, calls refine at its entry `start`
+# (refine.analyze), so the deep pipeline runs fresh; the outline calls of the deep route never reach that exit and
+# route it to the fallback.
 workflow plan version 1 format 1
 scope plan
 start phases.init
@@ -38,18 +40,21 @@ state phases.outline
     call phase-3-outline entry start
         done -> phases.plan
         returned -> plan.return
+        escalate_to_deep -> plan.return
         stepped_out -> plan.return
 
 state phases.outline.light
     call phase-3-outline entry light
         done -> phases.plan
         returned -> plan.return
+        escalate_to_deep -> phases.refine
         stepped_out -> plan.return
 
 state phases.outline.rework
     call phase-3-outline entry rework
         done -> phases.plan
         returned -> plan.return
+        escalate_to_deep -> plan.return
         stepped_out -> plan.return
 
 state phases.plan

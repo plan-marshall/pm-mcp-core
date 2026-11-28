@@ -25,14 +25,13 @@ import org.jspecify.annotations.Nullable;
  * @param compositionRules        the revision and digest of the composition rule file
  * @param planFactsDigest         the digest over the plan facts read
  * @param realizedFootprintDigest the digest over the realized footprint, {@code null} when the header names none
- * @param changeType              the change type of the plan, {@code null} when the header names none
  * @param providersDigest         the digest over the provider configuration, {@code null} when the header names none
  * @since 0.1
  */
 @Builder
 public record InstanceInputs(String configHash, List<UnitRef> templates, List<UnitRef> subUnits,
 CompositionRules compositionRules, String planFactsDigest, @Nullable String realizedFootprintDigest,
-@Nullable String changeType, @Nullable String providersDigest) {
+@Nullable String providersDigest) {
 
     /**
      * Copies the unit lists into unmodifiable lists that keep their order.
@@ -43,7 +42,6 @@ CompositionRules compositionRules, String planFactsDigest, @Nullable String real
      * @param compositionRules        the revision and digest of the composition rule file
      * @param planFactsDigest         the digest over the plan facts read
      * @param realizedFootprintDigest the digest over the realized footprint, {@code null} when the header names none
-     * @param changeType              the change type of the plan, {@code null} when the header names none
      * @param providersDigest         the digest over the provider configuration, {@code null} when the header names none
      */
     public InstanceInputs {
