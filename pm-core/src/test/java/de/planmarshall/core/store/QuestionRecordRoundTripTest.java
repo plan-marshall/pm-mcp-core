@@ -59,7 +59,6 @@ class QuestionRecordRoundTripTest {
     @DisplayName("a decision without the removed blocks member is read and written back unchanged")
     void decisionWithoutBlocksRoundTrips() {
         var members = askedMembers();
-        members.put("decision", QuestionRecordCodecTest.DECISION_JSON.replace(",\"blocks\":\"plan\"", ""));
 
         var question = QuestionRecordCodec.read(QuestionRecordCodecTest.FILE, document(members));
 

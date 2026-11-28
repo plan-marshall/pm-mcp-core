@@ -27,8 +27,9 @@ import de.planmarshall.core.SchemaResource;
 /**
  * The decision envelope's schema carries no {@code blocks} member (Model Work Specification, The Decision Structure;
  * Store Schemas Specification, Question Record, which derives what a decision blocks on read). The object stays closed,
- * so a worker payload that carries the removed member fails the schema and is refused {@code invalid_link_args} naming
- * the member; the kept members beside it still declare their shape.
+ * so a worker payload that carries the removed member lies outside the envelope's contract; this module validates no
+ * payload, so the contract is pinned here as a member and a closure, not as a refusal. The kept members beside it still
+ * declare their shape.
  * <p>
  * The schema file is test input (R10): its members and its closure are the contract this test pins.
  */
