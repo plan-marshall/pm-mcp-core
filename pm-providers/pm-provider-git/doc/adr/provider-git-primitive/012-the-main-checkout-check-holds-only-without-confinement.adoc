@@ -1,0 +1,61 @@
+= ADR provider-git-primitive 012: The Main-Checkout Check Holds Only Without Confinement
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-27
+
+== Context
+
+Part 3 of the footprint check of Stage 4 says that, for a plan, no main-checkout path outside `.marshall/local/` is
+absent from `entry_baseline` or changed since it
+(link:006-the-primitive-checks-the-boundary-half.adoc[ADR 006]). The job runtime specification makes a change of the
+main checkout no concern of a plan under confinement: a `writer` worker writes only its plan worktree and the
+project's `.marshall/local/temp/`, and a `read_only` or chat worker no path of the project
+(link:../../../../../doc/specification/job-runtime/02-confinement-and-environment.adoc[Job Runtime § Linux Filesystem
+Confinement]). The runtime composes that role-scoped write set since
+link:../../../../../pm-runtime/doc/adr/runtime-job/020-the-worker-write-set-follows-the-role-class.adoc[ADR runtime-job/020].
+A change of the main checkout on a confined platform is therefore the operator's, and failing a plan's commit for it
+would hold the plan for an edit it cannot have made
+(link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow
+DSL § Six-Stage Execution Contract], Stage 4). Without confinement (`confinement: unavailable`) a worker can write the
+main checkout, and part 3 is the net.
+
+The Javadoc of `FootprintBoundary`, `CommitSite.mainCheckoutBreaches`, the reason `footprint_violation` and the
+`entry_baseline` description of `status.schema.json` stated part 3 unconditionally.
+
+== Decision
+
+* Part 3 holds only for a plan on a platform that confines no job. Deciding the condition is the commit site's: the
+  assembly's `CommitSite.mainCheckoutBreaches` reports the paths there and answers empty under enforced confinement
+  and for every other scope.
+* `FootprintBoundary.check` keeps its signature and body and stays a pure judge of the breaches it receives; it knows
+  nothing of confinement.
+* The Javadoc of `FootprintBoundary`, `CommitSite.mainCheckoutBreaches` and `Reason.FOOTPRINT_VIOLATION`, and the
+  `entry_baseline` description of `status.schema.json`, state the condition. No member, type or required list of the
+  schema changes.
+
+== Alternatives Considered
+
+* *A confinement flag on `FootprintBoundary.check`.* Not taken: the judge would learn a fact of the job runtime that
+  this module must not see (ADR 006), and the site already owns the observation the flag would gate.
+* *Dropping part 3.* Not taken: on a platform without confinement a worker can write the main checkout, and part 3 is
+  the only check that catches it.
+
+== Consequences
+
+* The assembly's `CommitSite` decides the condition; nothing in this repository observes the platform's confinement
+  for the check, and a site that reports breaches under confinement is not caught here.
+* The tests pin both readings: no reported breach keeps a plan's commit `Within`, a reported breach makes it
+  `Violated`.
+
+== Source
+
+* link:../../../../../doc/specification/job-runtime/02-confinement-and-environment.adoc[Job Runtime § Linux Filesystem Confinement]
+* link:../../../../../doc/specification/workflow-dsl/06-reusable-sub-workflows.adoc#_six_stage_execution_contract_of_git_commit_and_push[Workflow DSL § Six-Stage Execution Contract] (Stage 4)
+* link:../../developer/provider-git-primitive.adoc#_the_staging_set_and_the_footprint_check[Commit Primitives Developer Guide § The Staging Set and the Footprint Check]
+* Work package: PLAN-V2-193 `worker-write-set-main-checkout-guard`

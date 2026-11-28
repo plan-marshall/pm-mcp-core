@@ -1,0 +1,71 @@
+= ADR 020: The Write Set of a Worker Follows Its Role Class
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-27
+
+== Context
+
+The job runtime specification gives a worker a write set by its role class
+(link:../../../../doc/specification/job-runtime/02-confinement-and-environment.adoc[Job Runtime § Linux Filesystem
+Confinement], the write-access items on the project root and on `write_paths`): a `writer` writes only the worktree of
+the plan its task serves and the project's `.marshall/local/temp/`, and a `read_only` worker and the worker of a chat
+write no path of the project; a `write_paths` entry inside the project root stays writable for the build jobs and
+`writer` workers only. A writer therefore never writes the main checkout or another plan's worktree.
+
+`JobConfinementComposer.forJob` composed the same write set for every kind: the project root, every `write_paths`
+entry, the system temporary directory and the device nodes, plus the kind's extras
+(link:014-confinement-and-environment-composed-outside-the-launcher.adoc[ADR 014]). A worker of any role class could
+write the whole project root, the main checkout and every plan worktree included. The composer knew neither the role
+class of the worker nor the plan worktree it runs in; `WorkerStart` carried neither.
+
+== Decision
+
+* `forJob` takes two more parameters, `@Nullable RoleClass roleClass` and `@Nullable Path planWorktree`. Both are
+  `null` for every kind but a worker (`llm`); the generic launch of `SubprocessJobRunner` passes `null`, `null`.
+* For every kind but a worker the write set is unchanged. The `project_root` and every `write_paths` entry are still
+  checked against the runtime base directory and `~/.plan-marshall/` for every kind.
+* A `writer` writes its plan worktree and `<root>/.marshall/local/temp/`, and every `write_paths` entry. A `writer`
+  without a plan worktree (a start in the project checkout) writes `<root>/.marshall/local/temp/` as its only project
+  path: the conservative rule, which never widens to the root.
+* A `read_only` or `zero_tool` worker, and so the worker of a chat, writes no path of the project and keeps only the
+  `write_paths` entries outside the project root.
+* A worker job without a role class is refused with `IllegalArgumentException`, and so is a plan worktree that is the
+  project root or lies outside it; the main checkout cannot enter a worker's write set through a wrong start.
+* `WorkerStart` carries `roleClass` (required) and `planWorktree` (absolute when present). `WorkerSupervisor` fills them
+  from the launch's role class and, for a start in a plan worktree, the launch's working directory.
+* The harness writable paths, the worker's `data/` directory, the read paths, the denied paths and the git-metadata
+  read-only set (`gitMetadataInside`, with its filter unchanged) are the same for every role class. The composer does
+  not create `.marshall/local/temp/`; the workspace layout owns it.
+* The old four-parameter `forJob` is removed without a shim (pre-1.0, compatibility `breaking`).
+
+== Alternatives Considered
+
+1. *A parameter record for the worker values.* _Rejected_: two production call sites pass them; a record adds a type
+   for two nullable values without removing a decision.
+2. *A separate `forWorker` method.* _Rejected_: the validation of the root and the `write_paths` and the kind's extras
+   are shared; a second method would duplicate them or split them over two entry points that can drift.
+3. *Filtering in the launcher.* _Rejected_: the launcher receives the sets as an argument vector and knows neither the
+   role class nor the plan (ADR 014, alternative 3); the composition stays where the enrolment and the start are known.
+
+== Consequences
+
+* A confined worker can no longer write the main checkout, so the assembly's main-checkout check of the footprint
+  boundary holds only where the platform confines no job
+  (link:../../../../pm-providers/pm-provider-git/doc/adr/provider-git-primitive/012-the-main-checkout-check-holds-only-without-confinement.adoc[ADR provider-git-primitive/012]).
+* The assembly `plan-marshall-mcp` follows the changed `forJob` and `WorkerStart` signatures in its own pull request.
+* A launcher that cannot open a missing `.marshall/local/temp/` refuses a writer's start; the workspace layout creates
+  the directory at enrolment.
+* The credential-location filter of the write set (Job Runtime § Worker Read Set) is not part of this decision.
+
+== Source
+
+* Work package: PLAN-V2-193 `worker-write-set-main-checkout-guard`
+* link:../../../../doc/specification/job-runtime/02-confinement-and-environment.adoc[Job Runtime § Linux Filesystem Confinement]
+* link:../../developer/runtime-job.adoc#worker-write-set[Job Runtime Developer Guide § The Write Set of a Worker]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/job/JobConfinementComposer.java`, `WorkerStart.java`, `SubprocessJobRunner.java`, `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerSupervisor.java`

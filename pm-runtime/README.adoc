@@ -122,6 +122,8 @@ a `SNAPSHOT` that carries this suffix. The signatures `create(String)` and `dele
    a replaceable primitive;
 ** link:doc/adr/runtime-job/009-launch-report-wait-bounded-apart-from-the-budget.adoc[ADR 009] the wait for the launch
    report bounded apart from the budget.
+** link:doc/adr/runtime-job/020-the-worker-write-set-follows-the-role-class.adoc[ADR 020] the write set of a worker
+   follows its role class.
 * link:doc/adr/runtime-launch/[`doc/adr/runtime-launch/`]: the worker launch from the profile's headless block, the
   harness verification before every spawn, the start through the job runner, the model-slot admission, the events stage
   and the usage report kept with an enrolment.

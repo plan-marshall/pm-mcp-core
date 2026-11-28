@@ -169,6 +169,11 @@ plan changed. Check 1 is decided here; checks 2 and 3 are the site's answers, tr
 (link:{adr}/006-the-primitive-checks-the-boundary-half.adoc[ADR 006]). The verdict is `Within`, or `Violated` with the
 sorted offending files, at most `OFFENDING_FILES_LIMIT` (50), and the count of all of them.
 
+Check 3 is conditional: it holds only for a plan on a platform that confines no job (`confinement: unavailable`).
+Under enforced confinement a plan's worker cannot write the main checkout, and `CommitSite.mainCheckoutBreaches`
+answers empty. The site decides the condition; `FootprintBoundary` stays a pure judge of the breaches it receives and
+knows nothing of confinement (link:{adr}/012-the-main-checkout-check-holds-only-without-confinement.adoc[ADR 012]).
+
 [#_the_message_primitives]
 == The Message Primitives
 
@@ -328,7 +333,7 @@ shares them, in `JGitOperationsPathTest`.
 link:../../src/test/java/de/planmarshall/provider/git/CommitPathsTest.java[`CommitPathsTest`]:: The textual rule the commit and the staging set share: a
 pathspec magic, a backslash, a control character, a non-normal segment and a directory entry are refused, while a glob
 character, an option-shaped name and a plain relative name are literal commit paths.
-link:{test}/FootprintBoundaryTest.java[`FootprintBoundaryTest`]:: The three checks and the bound of the offending files.
+link:{test}/FootprintBoundaryTest.java[`FootprintBoundaryTest`]:: The three checks, the conditional main-checkout check (no reported breach is `Within`, a reported one `Violated`) and the bound of the offending files.
 link:{test}/GitResolveMessagePrimitiveTest.java[`GitResolveMessagePrimitiveTest`]:: A case per mode and per presence of
 `message` and the clean-tree route; every `ready` message passes `CommitMessages.validate`.
 link:{test}/GitResolveMessagePrimitiveCallSiteTest.java[`GitResolveMessagePrimitiveCallSiteTest`]:: The fixed message of
@@ -375,4 +380,5 @@ link:{adr}/008-the-staging-set-and-the-commit-share-the-path-rule.adoc[ADR 008],
 link:{adr}/009-an-absent-message-is-the-primitives-clean-tree-route.adoc[ADR 009],
 link:{adr}/010-the-specification-follows-the-closed-reason-of-the-missing-identity.adoc[ADR 010],
 link:{adr}/011-the-host-path-introducer-is-the-complement-of-the-path-name-characters.adoc[ADR 011],
+link:{adr}/012-the-main-checkout-check-holds-only-without-confinement.adoc[ADR 012],
 link:../../../../pm-workflow/doc/adr/workflow-verify/043-the-commit-message-kind-is-a-single-submit-default.adoc[ADR workflow-verify 043]
