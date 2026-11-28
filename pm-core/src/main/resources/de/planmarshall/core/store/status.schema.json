@@ -166,7 +166,7 @@
     },
     "entry_baseline": {
       "type": ["object", "null"],
-      "description": "Plan scopes only: main-checkout porcelain state recorded once in the plan's creation transaction (the start.create-scope transaction of the plan bootstrap). A path of the main checkout outside .marshall/local/ that is absent from it or whose digest changed is a hard error in every phase (the transition raises the footprint_violation condition, attributed to the plan); baseline paths are rendered as facts.baseline_dirty, never block, and are never offered for revert. A reader that finds it null counts every dirty path as new (fail-closed).",
+      "description": "Plan scopes only: main-checkout porcelain state recorded once in the plan's creation transaction (the start.create-scope transaction of the plan bootstrap). A path of the main checkout outside .marshall/local/ that is absent from it or whose digest changed breaks the plan's footprint check only where the platform confines no job (confinement: unavailable; the transition then raises the footprint_violation condition, attributed to the plan); under enforced confinement a plan's worker cannot write the main checkout and the commit site reports no such path; baseline paths are rendered as facts.baseline_dirty, never block, and are never offered for revert. A reader that finds it null counts every dirty path as new (fail-closed).",
       "required": ["recorded_at", "head_sha", "paths"],
       "additionalProperties": false,
       "properties": {

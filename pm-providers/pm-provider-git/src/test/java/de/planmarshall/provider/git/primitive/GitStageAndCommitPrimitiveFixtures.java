@@ -53,7 +53,8 @@ import de.planmarshall.provider.git.testing.generators.GitGenerators;
 
 /**
  * The fixture the {@code git.stage-and-commit} tests share: an EasyMock {@link CommitSite} over the real
- * {@link JGitOperations} on a temporary repository, with the commit read-back helpers.
+ * {@link JGitOperations} on a temporary repository, with the commit read-back helpers. The site reports no
+ * main-checkout breach by default, as a confined platform answers; a test of the unconfined case passes the breaches.
  */
 abstract class GitStageAndCommitPrimitiveFixtures {
 
@@ -109,13 +110,26 @@ abstract class GitStageAndCommitPrimitiveFixtures {
         expectScope(repo, scope, archiving, dirty);
     }
 
+    /**
+     * Stubs the scope of a site that reports no main-checkout breach, as the site answers under enforced confinement
+     * and for every scope but a plan.
+     */
     void expectScope(Path root, ScopeType scope, boolean archiving, List<String> dirty) {
+        expectScope(root, scope, archiving, dirty, List.of());
+    }
+
+    /**
+     * Stubs the scope of a site with the main-checkout breaches it reports; a non-empty list is the answer of a site
+     * for a plan on a platform that confines no job.
+     */
+    void expectScope(Path root, ScopeType scope, boolean archiving, List<String> dirty,
+            List<String> mainCheckoutBreaches) {
         expect(site.worktreeRoot(context)).andReturn(root).anyTimes();
         expect(site.scopeType(context)).andReturn(scope).anyTimes();
         expect(site.archiving(context)).andReturn(archiving).anyTimes();
         expect(site.dirtyPaths(context)).andReturn(dirty).anyTimes();
         expect(site.pinnedFilesChanged(context)).andReturn(List.of()).anyTimes();
-        expect(site.mainCheckoutBreaches(context)).andReturn(List.of()).anyTimes();
+        expect(site.mainCheckoutBreaches(context)).andReturn(mainCheckoutBreaches).anyTimes();
     }
 
     void expectTrailers() {

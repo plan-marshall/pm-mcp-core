@@ -19,9 +19,13 @@ import de.planmarshall.provider.git.primitive.StagingSets.StagingSet;
 
 /**
  * The footprint check a commit runs before anything is staged (PM-WF-16, Stage 4): (1) no dirty path of the target
- * checkout lies outside the staging set of its scope, (2) no pinned build file changed, and (3) for a plan, no path of
- * the main checkout was changed. The first half is judged here from the staging set; the other two are the breaches the
- * commit site observed.
+ * checkout lies outside the staging set of its scope, (2) no pinned build file changed, and (3) for a plan on a platform
+ * that confines no job, no path of the main checkout was changed. The first half is judged here from the staging set;
+ * the other two are the breaches the commit site observed.
+ * <p>
+ * Whether check (3) applies is the commit site's decision, not this type's: under enforced confinement a plan's worker
+ * cannot write the main checkout, so the site reports no main-checkout breach, and this type stays a pure judge of the
+ * breaches it receives.
  * <p>
  * A violation names the offending files, bounded to {@value #OFFENDING_FILES_LIMIT} names with the total count.
  *
@@ -38,7 +42,8 @@ public final class FootprintBoundary {
      *
      * @param stagingSet           the staging set of the scope; its {@code outside} paths break the worktree boundary
      * @param pinnedFilesChanged   the pinned build files that changed in the target checkout
-     * @param mainCheckoutBreaches the paths of the main checkout a plan changed; empty for any other scope
+     * @param mainCheckoutBreaches the paths of the main checkout a plan changed, as the site reports them where the
+     *                             platform confines no job; empty under enforced confinement and for any other scope
      * @return {@link Within} when nothing breaks the boundary, else {@link Violated} naming the offending files
      */
     public static Verdict check(StagingSet stagingSet, Collection<String> pinnedFilesChanged,

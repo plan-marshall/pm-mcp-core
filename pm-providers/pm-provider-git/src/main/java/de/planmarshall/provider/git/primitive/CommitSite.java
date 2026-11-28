@@ -115,11 +115,16 @@ public interface CommitSite {
     List<String> pinnedFilesChanged(WorkflowExecutionContext context);
 
     /**
-     * Check 3 of the footprint check.
+     * Check 3 of the footprint check, which holds only where the platform confines no job.
+     * <p>
+     * The paths are reported for a plan only where the platform confines no job ({@code confinement: unavailable});
+     * under enforced confinement a plan's worker cannot write the main checkout, and the answer is empty. Deciding the
+     * condition is the assembly's; {@link FootprintBoundary} judges what this method reports.
      *
      * @param context the call
-     * @return for a plan, the paths of the main checkout outside {@code .marshall/local/} that are absent from its entry
-     *         baseline or changed since it; empty for every other scope
+     * @return for a plan on a platform that confines no job, the paths of the main checkout outside
+     *         {@code .marshall/local/} that are absent from its entry baseline or changed since it; empty under
+     *         enforced confinement and for every other scope
      */
     List<String> mainCheckoutBreaches(WorkflowExecutionContext context);
 
