@@ -37,7 +37,7 @@ import de.planmarshall.runtime.log.RuntimeLogMessages;
  * repository hooks add the project's daemon store; a {@code ci} job adds the configuration directory of its CLI; a probe
  * adds what its kind may write. A worker's write set follows its role class: a {@code writer} writes its plan worktree
  * and the project's {@value #PROJECT_TEMP} (only the latter without a plan worktree) and every {@code write_paths}
- * entry, a {@code read_only}, chat or {@code zero_tool} worker writes no path of the project and keeps only the
+ * entry that does not contain the project root, a {@code read_only}, chat or {@code zero_tool} worker writes no path of the project and keeps only the
  * {@code write_paths} entries that lie outside the project root and do not contain it; every worker adds the system temporary directory, the device
  * nodes, the sub-paths its harness profile declares writable and its own data directory. The write set never
  * contains the runtime base directory, apart from the project's daemon store and a worker's own data directory, and
@@ -229,17 +229,19 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
 
     /**
      * The project paths a worker writes, which follow its role class: a {@code writer} writes its plan worktree and the
-     * project's {@value #PROJECT_TEMP}, or only the latter without a plan worktree, and every {@code write_paths} entry;
-     * a {@code read_only} or {@code zero_tool} worker writes no path of the project and keeps only the
+     * project's {@value #PROJECT_TEMP}, or only the latter without a plan worktree, and every {@code write_paths} entry
+     * that does not contain the project root; a {@code read_only} or {@code zero_tool} worker writes no path of the project and keeps only the
      * {@code write_paths} entries that neither lie inside the project root nor contain it: an entry that contains the
      * root would make the whole project writable.
      *
      * @param projectRoot  the normalized project root
      * @param writePaths   the validated, normalized {@code write_paths} entries
      * @param roleClass    the role class of the worker
-     * @param planWorktree the plan worktree the worker runs in; {@code null} when it runs elsewhere
-     * @throws IllegalArgumentException if the role class is absent, or the plan worktree is the project root or lies
-     *                                  outside it
+     * @param planWorktree the plan worktree the worker runs in; {@code null} when it runs elsewhere. A writer's plan
+     *                     worktree below the project root is taken as given: the composer cannot tell it from another
+     *                     directory of the checkout, so the start is trusted for the path
+     * @throws IllegalArgumentException if the role class is absent, or a writer's plan worktree is the project root or
+     *                                  lies outside it
      */
     private static List<Path> workerProjectWrites(Path projectRoot, List<Path> writePaths,
             @Nullable RoleClass roleClass, @Nullable Path planWorktree) {
@@ -258,7 +260,7 @@ public record JobConfinementComposer(Path base, Path systemTemp, Path deviceRoot
                 write.add(worktree);
             }
             write.add(projectRoot.resolve(PROJECT_TEMP));
-            write.addAll(writePaths);
+            writePaths.stream().filter(path -> !projectRoot.startsWith(path)).forEach(write::add);
         } else {
             writePaths.stream()
                     .filter(path -> !path.startsWith(projectRoot) && !projectRoot.startsWith(path))

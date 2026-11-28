@@ -579,7 +579,9 @@ public final class SubprocessJobRunner implements JobRunner<JobRequest, ProbeCan
      *
      * @param request the composed launch and its budget
      * @return the started job, or the queued id while the runtime drains
-     * @throws IllegalArgumentException if the generation id is not a free worker id
+     * @throws IllegalArgumentException if the generation id is not a free worker id, or, when the confinement is
+     *                                  composed after admission, a writer's plan worktree is the project root or lies
+     *                                  outside it
      * @throws UncheckedIOException     if a record or the job-private directory cannot be written
      * @throws StoreRefusal             if a record of the job's store cannot be read
      */

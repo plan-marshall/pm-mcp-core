@@ -35,7 +35,8 @@ import de.planmarshall.runtime.launch.WorkerLaunch;
  * @param budgetDerivation how the budget was derived
  * @param writablePaths the sub-paths the harness's profile declares writable
  * @param egressProxy   the loopback URL of the worker's egress proxy; {@code null} when none
- * @param roleClass     the role class of the launched role, taken from the launch; the worker's write set follows it
+ * @param roleClass     the role class of the launched role; it must equal the role class of the launch, and the worker's
+ *                      write set follows it
  * @param planWorktree  the plan worktree the worker runs in, the launch's working directory for a start in a plan
  *                      worktree; {@code null} for a start in any other working directory
  * @since 0.1
@@ -49,8 +50,8 @@ long budgetSeconds, JobRecord.BudgetDerivation budgetDerivation, List<Path> writ
      * Copies the writable paths and validates the scope of a worker.
      *
      * @throws NullPointerException     if a required component is {@code null}
-     * @throws IllegalArgumentException if the scope is neither a project nor the machine, or the plan worktree is not
-     *                                  absolute
+     * @throws IllegalArgumentException if the scope is neither a project nor the machine, the role class differs from
+     *                                  the role class of the launch, or the plan worktree is not absolute
      */
     public WorkerStart {
         Objects.requireNonNull(launch, "launch");
@@ -60,6 +61,10 @@ long budgetSeconds, JobRecord.BudgetDerivation budgetDerivation, List<Path> writ
         if (scope.type() != JobRecord.Scope.Type.PROJECT && scope.type() != JobRecord.Scope.Type.MACHINE) {
             throw new IllegalArgumentException("A worker belongs to a project or the machine, not a "
                     + scope.type().wireName());
+        }
+        if (roleClass != launch.roleClass()) {
+            throw new IllegalArgumentException("roleClass must be the role class of the launch: " + roleClass
+                    + " differs from " + launch.roleClass());
         }
         if (planWorktree != null && !planWorktree.isAbsolute()) {
             throw new IllegalArgumentException("planWorktree must be absolute: " + planWorktree);

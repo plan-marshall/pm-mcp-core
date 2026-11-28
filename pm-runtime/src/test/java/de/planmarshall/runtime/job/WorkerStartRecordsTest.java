@@ -11,6 +11,7 @@ package de.planmarshall.runtime.job;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import de.cuioss.test.generator.Generators;
 import de.cuioss.test.generator.junit.EnableGeneratorController;
@@ -57,7 +58,7 @@ class WorkerStartRecordsTest {
         var budgetDerivation = new JobRecord.BudgetDerivation(JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT, null);
         var writablePaths = List.of(Path.of("/tmp", Generators.letterStrings(1, 20).next()));
         var egressProxy = "http://127.0.0.1:" + Generators.integers(1024, 65_535).next();
-        var roleClass = Generators.enumValues(RoleClass.class).next();
+        var roleClass = launch.roleClass();
         var planWorktree = launch.workingDirectory();
 
         var constructed = new WorkerStart(launch, enrolment, scope, budgetKey, budgetSeconds, budgetDerivation,
@@ -103,6 +104,31 @@ class WorkerStartRecordsTest {
                 "the start names the missing role class");
 
         assertEquals("roleClass", refusal.getMessage(), "the refusal names the missing role class");
+    }
+
+    @Test
+    @DisplayName("the worker start refuses a role class that differs from the role class of its launch")
+    void workerStartRefusesMismatchedRoleClass() {
+        var launch = workerLaunch();
+        var other = launch.roleClass() == RoleClass.READ_ONLY ? RoleClass.WRITER : RoleClass.READ_ONLY;
+
+        var refusal = assertThrows(IllegalArgumentException.class,
+                () -> startOf(launch, other, launch.workingDirectory()),
+                "a role class differing from the launch is refused");
+
+        assertTrue(refusal.getMessage().contains("roleClass"), "the refusal names the role class");
+    }
+
+    @Test
+    @DisplayName("the worker start refuses a relative plan worktree")
+    void workerStartRefusesRelativePlanWorktree() {
+        var launch = workerLaunch();
+        var relative = Path.of(Generators.letterStrings(1, 20).next());
+
+        var refusal = assertThrows(IllegalArgumentException.class,
+                () -> startOf(launch, launch.roleClass(), relative), "a relative plan worktree is refused");
+
+        assertTrue(refusal.getMessage().contains("planWorktree"), "the refusal names the plan worktree");
     }
 
     @Test
@@ -157,6 +183,14 @@ class WorkerStartRecordsTest {
                 "the builder names the missing generation");
 
         assertEquals("generationId", refusal.getMessage(), "the refusal names the generation id");
+    }
+
+    private static WorkerStart startOf(WorkerLaunch launch, RoleClass roleClass, Path planWorktree) {
+        return new WorkerStart(launch, CoreGenerators.projectEnrolments().next(),
+                new JobRecord.Scope(JobRecord.Scope.Type.PROJECT, null),
+                "worker:" + Generators.letterStrings(1, 16).next(), Generators.longs(1, 86_400).next(),
+                new JobRecord.BudgetDerivation(JobRecord.BudgetDerivation.Kind.FLOOR_DEFAULT, null), List.of(), null,
+                roleClass, planWorktree);
     }
 
     private static WorkerLaunch workerLaunch() {

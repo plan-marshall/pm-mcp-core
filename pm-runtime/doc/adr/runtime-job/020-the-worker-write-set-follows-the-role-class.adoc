@@ -30,17 +30,20 @@ class of the worker nor the plan worktree it runs in; `WorkerStart` carried neit
   `null` for every kind but a worker (`llm`); the generic launch of `SubprocessJobRunner` passes `null`, `null`.
 * For every kind but a worker the write set is unchanged. The `project_root` and every `write_paths` entry are still
   checked against the runtime base directory and `~/.plan-marshall/` for every kind.
-* A `writer` writes its plan worktree and `<root>/.marshall/local/temp/`, and every `write_paths` entry. A `writer`
+* A `writer` writes its plan worktree and `<root>/.marshall/local/temp/`, and every `write_paths` entry that does not
+  contain the project root: an entry that contains the root would make the main checkout writable. A `writer`
   without a plan worktree (a start in the project checkout) writes `<root>/.marshall/local/temp/` as its only project
   path: the conservative rule, which never widens to the root.
 * A `read_only` or `zero_tool` worker, and so the worker of a chat, writes no path of the project and keeps only the
   `write_paths` entries that lie outside the project root and do not contain it: an entry that contains the root would
   make the whole project writable.
 * A worker job without a role class is refused with `IllegalArgumentException`. A `writer` whose plan worktree is the
-  project root or lies outside it is refused the same way; the main checkout cannot enter a writer's write set through
-  a wrong start. A `read_only` or `zero_tool` worker has no project path in its write set, so its plan worktree is not
-  checked.
-* `WorkerStart` carries `roleClass` (required) and `planWorktree` (absolute when present). `WorkerSupervisor` fills them
+  project root or lies outside it is refused the same way, so the root itself cannot enter a writer's write set as its
+  plan worktree. A plan worktree below the root is taken as given: the composer cannot tell it from another directory of
+  the checkout, so the start is trusted for the path. A `read_only` or `zero_tool` worker has no project path in its
+  write set, so its plan worktree is not checked.
+* `WorkerStart` carries `roleClass` (required, and equal to the role class of its launch) and `planWorktree` (absolute
+  when present). `WorkerSupervisor` fills them
   from the launch's role class and, for a start in a plan worktree, the launch's working directory.
 * The harness writable paths, the worker's `data/` directory, the read paths, the denied paths and the git-metadata
   read-only set (`gitMetadataInside`, with its filter unchanged) are the same for every role class. The composer does

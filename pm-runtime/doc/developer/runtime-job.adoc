@@ -358,10 +358,10 @@ A worker's project writes follow its role class (link:../adr/runtime-job/020-the
 directory. `WorkerSupervisor` fills both, and `SubprocessJobRunner.startWorker` passes them to `forJob`.
 
 [horizontal]
-`writer`:: Writes its plan worktree and the project's `.marshall/local/temp/`, and every `write_paths` entry. Without a plan worktree it writes `.marshall/local/temp/` as its only path of the project. A plan worktree that is the project root or lies outside it is refused with `IllegalArgumentException`, so the main checkout never enters a worker's write set through a wrong start.
+`writer`:: Writes its plan worktree and the project's `.marshall/local/temp/`, and every `write_paths` entry that does not contain the project root. Without a plan worktree it writes `.marshall/local/temp/` as its only path of the project. A plan worktree that is the project root or lies outside it is refused with `IllegalArgumentException`, so the root itself never enters a writer's write set as its plan worktree. A plan worktree below the root is taken as given, because the composer cannot tell it from another directory of the checkout.
 `read_only`, chat and `zero_tool`:: Write no path of the project. A `write_paths` entry inside the project root, or one that contains it, is dropped; one outside it that does not contain it is kept.
 
-A worker job without a role class is refused with `IllegalArgumentException`; there is no default to the wide set. The
+A worker job without a role class is refused with `IllegalArgumentException`; there is no default to the wide set. A `WorkerStart` whose `roleClass` differs from the role class of its launch is refused as well, so the write set cannot follow a different class than the launch. The
 read paths, the denied paths and the git-metadata read-only paths of a worker are the same for every role class.
 
 [[git-metadata]]
