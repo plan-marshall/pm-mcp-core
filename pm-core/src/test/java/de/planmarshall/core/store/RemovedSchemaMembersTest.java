@@ -410,7 +410,8 @@ class RemovedSchemaMembersTest {
         }
 
         @Test
-        @DisplayName("the finding record reads the realized footprint, unplanned changes included")        void scopeClassReadsTheRealizedFootprint() {
+        @DisplayName("the finding record reads the realized footprint, unplanned changes included")
+        void scopeClassReadsTheRealizedFootprint() {
             var finding = schema(FINDINGS + "finding-record.schema.json");
             var description = String.valueOf(object(properties(finding).get("scope_class"))
                     .get("description"));
