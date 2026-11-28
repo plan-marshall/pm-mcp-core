@@ -231,6 +231,57 @@ class StoreSnapshotTest {
         }
 
         @Test
+        @DisplayName("a link whose target is missing is a failure of the read, not an absent store")
+        void danglingLink() throws Exception {
+            Files.delete(store);
+            Files.createSymbolicLink(store, base.resolve("target-" + lowerName()));
+
+            var failure = assertThrows(UncheckedIOException.class, () -> StoreSnapshot.read(store),
+                    "a dangling link should fail the read");
+
+            // The text of the failure is the contract of the read: it names the missing target.
+            assertTrue(failure.getMessage().contains("its target is missing"),
+                    "the failure should name the missing target");
+        }
+
+        /**
+         * The first write of a store is one rename that creates the file. A reader that missed the file and then looked
+         * at the path again took the store the rename had just created for a link with a missing target and failed.
+         */
+        @Test
+        @Timeout(value = 60, unit = TimeUnit.SECONDS)
+        @DisplayName("a read racing the first write of a store returns nothing or the content and never fails")
+        void readBesideTheFirstWrite() throws Exception {
+            var siblingKey = LockKey.buildSlots(base);
+            var siblingLock = new ReentrantLock();
+            int failures = 0;
+            try (var executor = Executors.newSingleThreadExecutor()) {
+                for (int round = 0; round < 2000; round++) {
+                    var fresh = Files.createDirectories(base.resolve("round-" + round)).resolve(BUILD_SLOTS);
+                    var storeFile = new AtomicStoreFile(fresh, siblingKey);
+                    var go = new CountDownLatch(1);
+                    var writer = executor.submit(() -> {
+                        go.await();
+                        try (var transaction = new OneLock(siblingLock)) {
+                            transaction.acquire(siblingKey);
+                            storeFile.write(transaction, content);
+                        }
+                        return null;
+                    });
+                    go.countDown();
+                    try {
+                        StoreSnapshot.read(fresh);
+                    } catch (UncheckedIOException _) {
+                        failures++;
+                    }
+                    writer.get();
+                }
+            }
+
+            assertEquals(0, failures, "no read should fail beside the first write");
+        }
+
+        @Test
         @DisplayName("the content of a snapshot cannot be changed through what it returned")
         void contentIsCopied() {
             var snapshot = StoreSnapshot.read(store);

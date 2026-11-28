@@ -12,7 +12,6 @@ package de.planmarshall.core.store;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -138,9 +137,27 @@ public final class StoreSnapshot {
     private static Optional<byte[]> readIfPresent(Path store) {
         try {
             return Optional.of(Files.readAllBytes(store));
-        } catch (NoSuchFileException e) {
-            if (Files.exists(store, LinkOption.NOFOLLOW_LINKS)) {
-                throw new UncheckedIOException("Store cannot be read, its target is missing: " + store, e);
+        } catch (NoSuchFileException miss) {
+            return readAfterMiss(store, miss);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Store cannot be read: " + store, e);
+        }
+    }
+
+    /**
+     * The read after the first open found nothing. The first write of a store is one rename that creates the file, so
+     * a writer may have created it after the miss: the file is read once more and a rename that landed meanwhile is
+     * the content of the snapshot. Only when that read misses too is the miss judged, and a store that is a link whose
+     * target is missing is a failure, whereas an absent store is a snapshot without content. The judgement comes
+     * after the second read because deciding it from the state of the path after the first miss mistook a store
+     * created in between for a link with a missing target.
+     */
+    private static Optional<byte[]> readAfterMiss(Path store, NoSuchFileException miss) {
+        try {
+            return Optional.of(Files.readAllBytes(store));
+        } catch (NoSuchFileException _) {
+            if (Files.isSymbolicLink(store)) {
+                throw new UncheckedIOException("Store cannot be read, its target is missing: " + store, miss);
             }
             return Optional.empty();
         } catch (IOException e) {
