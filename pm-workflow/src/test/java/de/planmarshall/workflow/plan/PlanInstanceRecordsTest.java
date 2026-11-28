@@ -36,7 +36,7 @@ class PlanInstanceRecordsTest {
         var version = unit.version();
         var inputs = new CompositionInputs(Generators.letterStrings(1, 40).next(), List.of(), List.of(),
                 Generators.letterStrings(1, 20).next(), Generators.letterStrings(1, 64).next(),
-                Generators.letterStrings(1, 64).next(), null, null, null);
+                Generators.letterStrings(1, 64).next(), null, null);
         var header = new PlanInstanceHeader(Generators.letterStrings(1, 20).next(), version, CompositionEvent.START,
                 Instant.ofEpochMilli(Generators.longs(0, 2_000_000_000L).next()), inputs, null, null,
                 new PlanInstanceHeader.Steps(List.of(), List.of()), List.of(), List.of(), List.of());

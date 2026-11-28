@@ -69,6 +69,12 @@ import org.jspecify.annotations.Nullable;
  * revision, the header as its {@code instance} line, the template's frontmatter with the type {@code instance}, and the
  * template's start state.
  * <p>
+ * The event decides whether the composition reads the realized footprint of the facts (ADR
+ * {@code workflow-plan/029}): {@code realized} reads it as supplied, the operator and post-run events carry it where
+ * the previous version read one, and {@code start}, {@code outline}, {@code plan} and {@code replan} mask it, so the
+ * prunes that read the plan's change hold from {@code realized} on only. The header's {@code plan_facts_digest} and
+ * {@code realized_footprint_digest} are computed from the facts the composition read.
+ * <p>
  * A caller that names what the project provides has the bound landing variant of the {@code start} composition
  * validated before anything is composed ({@link LandingVariantValidation}), and a variant that does not fit the project
  * is refused with the reason; a caller with no project known composes without that check. The check belongs to the
@@ -184,7 +190,8 @@ public final class PlanInstanceComposer {
     public CompositionResult compose(CompositionRequest request,
             LandingVariantValidation.@Nullable Project project) {
         Objects.requireNonNull(request, "request");
-        var facts = withVariantDeclarations(request.facts(), request.subUnits());
+        var read = factsRead(request);
+        var facts = withVariantDeclarations(read, request.subUnits());
         var effects = CompositionRuleEvaluator.evaluate(rules, facts);
         var bound = Arrays.stream(PlanFacts.Axis.values()).map(facts::bound).toList();
         var landingViolation = landingViolation(facts, project, request.event());
@@ -217,7 +224,7 @@ public final class PlanInstanceComposer {
                 .version(version)
                 .event(request.event())
                 .composedAt(clock.instant())
-                .inputs(inputs(request, composed, version))
+                .inputs(inputs(request, read, composed, version))
                 .lane(facts.lane())
                 .posture(facts.posture())
                 .steps(pruned.steps())
@@ -409,6 +416,27 @@ public final class PlanInstanceComposer {
     }
 
     /**
+     * The facts the composition reads, decided by the event (ADR {@code workflow-plan/029}): the realized footprint is
+     * read as supplied at {@link CompositionEvent#REALIZED}, where an unreadable footprint is supplied as absent and
+     * keeps the steps; it is carried by the events of {@link CompositionRequest#CARRYING_EVENTS} where the previous
+     * version read one, whose request supplies the same footprint ({@link CompositionRequest} refuses one that does
+     * not), and masked where the previous version read none; and it is masked at {@link CompositionEvent#START},
+     * {@link CompositionEvent#OUTLINE}, {@link CompositionEvent#PLAN} and {@link CompositionEvent#REPLAN}, whatever
+     * the request supplies, so those versions evaluate no prune that reads the plan's change.
+     *
+     * @param request what the composition reads
+     * @return the request's facts, with the realized footprint masked where the event reads none
+     */
+    private static PlanFacts factsRead(CompositionRequest request) {
+        var facts = request.facts();
+        var previous = request.previous();
+        var reads = request.event() == CompositionEvent.REALIZED
+                || CompositionRequest.CARRYING_EVENTS.contains(request.event()) && previous != null
+                && previous.header().inputs().realizedFootprintDigest() != null;
+        return reads ? facts : facts.withoutRealizedFootprint();
+    }
+
+    /**
      * @return the facts with the declarations of every axis variant among the sub-units, as its tree declares them
      */
     private static PlanFacts withVariantDeclarations(PlanFacts facts, List<CompositionRequest.SubUnit> subUnits) {
@@ -427,9 +455,10 @@ public final class PlanInstanceComposer {
     /**
      * @return the inputs of the header: the composed files of the version as its templates, the digest-bound sub-units
      *         the kept calls reach, and the adjudication unit {@value DeclarationBounds#ADJUDICATION_UNIT} whenever the
-     *         request supplies it, which no call site calls because the engine runs it for the decisions of the version
+     *         request supplies it, which no call site calls because the engine runs it for the decisions of the version;
+     *         the plan facts digest and the realized footprint digest are those of the facts the composition read
      */
-    private CompositionInputs inputs(CompositionRequest request, Composed composed, int version) {
+    private CompositionInputs inputs(CompositionRequest request, PlanFacts read, Composed composed, int version) {
         var composedIds = new LinkedHashSet<String>();
         composed.units().forEach(unit -> composedIds.add(unit.unit()));
         var templates = new ArrayList<UnitReference>();
@@ -462,9 +491,8 @@ public final class PlanInstanceComposer {
                 .subUnits(subUnits)
                 .compositionRulesRevision(rules.revision())
                 .compositionRulesDigest(rules.digest())
-                .planFactsDigest(request.facts().digest())
-                .realizedFootprintDigest(request.realizedFootprintDigest())
-                .changeType(request.facts().changeType())
+                .planFactsDigest(read.digest())
+                .realizedFootprintDigest(read.realizedFootprintDigest().orElse(null))
                 .providersDigest(request.providersDigest())
                 .build();
     }
@@ -489,7 +517,6 @@ public final class PlanInstanceComposer {
                                 inputs.compositionRulesDigest()))
                         .planFactsDigest(inputs.planFactsDigest())
                         .realizedFootprintDigest(inputs.realizedFootprintDigest())
-                        .changeType(inputs.changeType())
                         .providersDigest(inputs.providersDigest())
                         .build())
                 .json(HeaderJson.write(header))

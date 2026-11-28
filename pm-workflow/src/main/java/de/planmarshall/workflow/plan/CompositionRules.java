@@ -43,7 +43,10 @@ import org.jspecify.annotations.Nullable;
  * ({@code true}), {@code unset} ({@code true}) or {@code disjoint} (a list of globs), and a {@code then} with the lists
  * {@code prune} (entries of {@code element}, {@code id} and {@code reason} from the closed enumerations) and
  * {@code bind} (entries of {@code call_site}, {@code argument} and a literal {@code value}). A registered fact is one of
- * the plan facts of {@link PlanFacts}, an axis fact of {@link PlanFacts} (the variant bound on a plan behaviour axis,
+ * the plan facts of {@link PlanFacts} ({@value PlanFacts#LANE_FACT}, {@value PlanFacts#POSTURE_FACT},
+ * {@value PlanFacts#POST_RUN_FACT} and {@value PlanFacts#REALIZED_FOOTPRINT_FACT}; the declared {@code footprint} and
+ * the {@code change_type} are no facts, so a rule over either is refused as one over an unregistered fact), an axis
+ * fact of {@link PlanFacts} (the variant bound on a plan behaviour axis,
  * {@code axes.<axis>}, and a declaration of it, {@code axes.<axis>.<declaration>}, the names of the compiled
  * declaration schemas of the axis's variants), or a configuration key ({@code derived.push_remote},
  * {@code integrations.<provider>}).

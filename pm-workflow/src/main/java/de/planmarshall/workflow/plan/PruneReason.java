@@ -24,10 +24,6 @@ public enum PruneReason {
     POSTURE("posture"),
     /** The provider the step needs is not configured. */
     PROVIDER_UNCONFIGURED("provider_unconfigured"),
-    /** The step's footprint and the plan's footprint are disjoint. */
-    FOOTPRINT_DISJOINT("footprint_disjoint"),
-    /** The change type of the plan exempts the step. */
-    CHANGE_TYPE_EXEMPT("change_type_exempt"),
     /** No push remote exists, so the steps that need one are left out. */
     LOCAL_ONLY("local_only"),
     /** The {@code land} lane allocates no tasks. */
@@ -49,7 +45,10 @@ public enum PruneReason {
     HANDED_BACK("handed_back"),
     /** Post-run only: a harvest yielded no targets. */
     EMPTY_HARVEST("empty_harvest"),
-    /** In the file, set by {@code finalize-prune-and-land-files}: the change touches no code. */
+    /**
+     * The change touches no code: set by the rule {@code no-code-delta} at the event {@code realized}, where the
+     * realized footprint is disjoint from the code and build globs.
+     */
     NO_CODE_DELTA("no_code_delta"),
     /** In the file, set by {@code finalize-prune-and-land-files}: the change has no production delta. */
     NO_PRODUCTION_DELTA("no_production_delta");

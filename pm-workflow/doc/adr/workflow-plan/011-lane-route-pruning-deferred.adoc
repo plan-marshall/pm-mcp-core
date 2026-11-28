@@ -3,7 +3,7 @@
 
 == Status
 
-Superseded by ADR link:012-per-lane-routes-and-other-lane-pruning.adoc[012]
+Superseded by ADR link:012-per-lane-routes-and-other-lane-pruning.adoc[012], Amended by link:../workflow-verify/044-the-lane-entries-follow-the-specification.adoc[ADR workflow-verify/044]
 
 == Date
 

@@ -65,12 +65,13 @@ public enum InvariantId {
     INV_INIT_1("INV-INIT-1", List.of(InvariantId.PLAN_UNIT, Phase.INIT.unitId()), null),
 
     /**
-     * Per lane: the light lane passes {@code init.light-gate} and {@code outline.light-regate} wherever
-     * {@code outline.light} is present; the ratchet is present for the lane {@code light} or an unknown lane.
+     * Per lane: every path from an accepted {@code outline.light} submission into {@code outline.gate} passes
+     * {@code outline.light-gate}; in a version whose lane is {@code light} or not yet known, the {@code light -> deep}
+     * ratchet transitions of the default unit are present; a {@code deep} version requires none of them.
      */
-    INV_INIT_2("INV-INIT-2", List.of(InvariantId.PLAN_UNIT, Phase.INIT.unitId()), null),
+    INV_INIT_2("INV-INIT-2", List.of(InvariantId.PLAN_UNIT, Phase.INIT.unitId(), Phase.OUTLINE.unitId()), null),
 
-    /** Every deep path passes {@code refine.baseline-reconcile} and {@code refine.analyze}; the lesson Q-Gate. */
+    /** Every deep path passes {@code refine.analyze}; a lesson-derived deep plan passes {@code refine.qgate}. */
     INV_REFINE_1("INV-REFINE-1", List.of(InvariantId.PLAN_UNIT, Phase.REFINE.unitId()), null),
 
     /** {@code outline.gate} on every path into Phase 4; the review question's {@code approve} the only other way. */

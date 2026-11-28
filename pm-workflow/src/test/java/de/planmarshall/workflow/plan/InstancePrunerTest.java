@@ -29,6 +29,7 @@ import de.planmarshall.workflow.ast.WorkflowDefinition;
 import de.planmarshall.workflow.dsl.ParseResult;
 import de.planmarshall.workflow.dsl.WorkflowParser;
 import de.planmarshall.workflow.verify.InvariantFixtures;
+import de.planmarshall.workflow.verify.LaneEntryIds;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -158,6 +159,44 @@ class InstancePrunerTest {
                 () -> assertEquals(List.of(link), pruned.pruned(), "the link is listed once"),
                 () -> assertEquals(List.of("keep_going"),
                         kept.links().stream().map(LinkSpec::idPattern).toList(), "only the unpruned link is kept"));
+    }
+
+    private static WorkflowDefinition perLaneTemplate() {
+        return PlanFixtures.parse(PlanFixtures.PER_LANE_FILE, PlanFixtures.read(PlanFixtures.PER_LANE_FILE),
+                UnitOrigin.DEFAULT);
+    }
+
+    @Test
+    @DisplayName("a deep version prunes the light route from outline.light on, outline.light-gate among it, with"
+            + " other_lane")
+    void deepPrunesTheLightRoute() {
+        var template = perLaneTemplate();
+
+        var pruned = prune(template, NOTHING, PlanInstanceHeader.Lane.DEEP);
+
+        assertAll(
+                () -> assertEquals(List.of(LaneEntryIds.LIGHT_ENTRY, LaneEntryIds.LIGHT_GATE, "outline.light-approve",
+                                "phases.plan-light", "phases.execute-light"),
+                        pruned.pruned().stream().map(PrunedElement::id).toList(),
+                        "the light route is pruned in declaration order"),
+                () -> assertTrue(pruned.pruned().stream().allMatch(element -> element.reason()
+                                == PruneReason.OTHER_LANE && "lane".equals(element.sourceFact())),
+                        "every light state is pruned by the lane"),
+                () -> assertTrue(pruned.states().containsKey(LaneEntryIds.DEEP_ENTRY),
+                        "the deep entry refine.analyze is kept"));
+    }
+
+    @Test
+    @DisplayName("a light version reaches the deep route through its escalation and prunes nothing by lane")
+    void lightPrunesNothingByLane() {
+        var template = perLaneTemplate();
+
+        var pruned = prune(template, NOTHING, PlanInstanceHeader.Lane.LIGHT);
+
+        assertAll(
+                () -> assertEquals(List.of(), pruned.pruned(), "the light version lists no prune by lane"),
+                () -> assertEquals(template.states().keySet(), pruned.states().keySet(),
+                        "the light version keeps every state"));
     }
 
     @Test

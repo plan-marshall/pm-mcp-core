@@ -349,19 +349,31 @@ public record JobLog(Path path) {
         var headExpected = Math.min(FIRST_LINE_MAX_BYTES, size);
         var head = read(channel, 0, headExpected);
         var tail = tail(channel, size, cap);
+        var window = tail.window();
         var end = firstLineEnd(head);
         if (end < 0) {
-            return new Window(tail.text(), head.length + tail.read(), headExpected + tail.expected());
+            return new Window(window.text(), head.length + window.read(), headExpected + window.expected());
         }
         var lineEnd = end + 1;
         // A first line that runs into the tail window would be repeated. That needs a cap below the head bound and a
         // window that kept no line beginning: its only line end is the file's last byte, so the window is untrimmed.
-        var tailText = tail.text();
-        if (lineEnd > size - cap && tailText.length() == cap) {
+        // The window is measured in the bytes it kept, never in the characters they decode to: a multi-byte line
+        // decodes to fewer characters than its bytes, and an untrimmed window would then be taken for a trimmed one.
+        var tailText = window.text();
+        if (lineEnd > size - cap && tail.keptBytes() == cap) {
             tailText = afterTheFirstLine(tailText);
         }
         var text = new String(head, 0, lineEnd, StandardCharsets.UTF_8) + tailText;
-        return new Window(text, head.length + tail.read(), headExpected + tail.expected());
+        return new Window(text, head.length + window.read(), headExpected + window.expected());
+    }
+
+    /**
+     * The tail window of a capped read and the number of its bytes the window kept after the cut to a line beginning.
+     *
+     * @param window    the text of the kept bytes and the bytes the read returned and asked for
+     * @param keptBytes the bytes the text was decoded from; the cap when the window was not cut
+     */
+    private record Tail(Window window, int keptBytes) {
     }
 
     /** @return the tail's text after its first line end, so a first line that runs into the window is not repeated */
@@ -374,16 +386,16 @@ public record JobLog(Path path) {
      * The last {@code cap} bytes, starting at a line beginning: at the window's own start when the byte before it ends
      * a line, else after the first line end inside it. A window with no line end is one long line and is kept.
      */
-    private static Window tail(FileChannel channel, long size, int cap) throws IOException {
+    private static Tail tail(FileChannel channel, long size, int cap) throws IOException {
         var from = size - cap;
         var bytes = read(channel, from, size);
         if (bytes.length == 0) {
-            return new Window("", 0, size - from);
+            return new Tail(new Window("", 0, size - from), 0);
         }
         var previous = read(channel, from - 1, from);
         var kept = previous.length > 0 && previous[0] == '\n' ? bytes : fromLineStart(bytes);
-        return new Window(new String(kept, StandardCharsets.UTF_8), (long) bytes.length + previous.length,
-                size - from + 1);
+        return new Tail(new Window(new String(kept, StandardCharsets.UTF_8), (long) bytes.length + previous.length,
+                size - from + 1), kept.length);
     }
 
     /**

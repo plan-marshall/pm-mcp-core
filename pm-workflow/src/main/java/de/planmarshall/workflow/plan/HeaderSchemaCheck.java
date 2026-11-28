@@ -114,7 +114,7 @@ public final class HeaderSchemaCheck {
     private static final List<String> INPUTS_REQUIRED = List.of(HeaderJson.CONFIG_HASH, HeaderJson.TEMPLATES,
             HeaderJson.SUB_UNITS, HeaderJson.COMPOSITION_RULES, HeaderJson.PLAN_FACTS_DIGEST);
     private static final List<String> INPUTS_OPTIONAL = List.of(HeaderJson.REALIZED_FOOTPRINT_DIGEST,
-            HeaderJson.CHANGE_TYPE, HeaderJson.PROVIDERS_DIGEST);
+            HeaderJson.PROVIDERS_DIGEST);
     private static final List<String> RULES_REQUIRED = List.of(HeaderJson.REVISION, HeaderJson.DIGEST);
     private static final List<String> STEPS_REQUIRED = List.of(HeaderJson.PHASE_5_VERIFICATION, HeaderJson.PHASE_6);
     private static final List<String> PRUNED_REQUIRED = List.of(HeaderJson.ELEMENT, HeaderJson.ID,

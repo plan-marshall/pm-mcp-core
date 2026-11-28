@@ -40,7 +40,7 @@ class InstanceHeaderRecordsTest {
                 List.of(),
                 new InstanceInputs.CompositionRules(Generators.letterStrings(1, 20).next(),
                         Generators.letterStrings(1, 64).next()),
-                Generators.letterStrings(1, 64).next(), null, null, null);
+                Generators.letterStrings(1, 64).next(), null, null);
         var json = Generators.letterStrings(1, 40).next();
 
         var constructed = new InstanceHeader(planId, version, event, inputs, json);

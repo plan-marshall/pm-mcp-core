@@ -28,7 +28,9 @@ import de.planmarshall.core.SchemaResource;
  * The members and enumeration values the merged specification dropped are absent from their schema files, and the
  * object that held each of them is still closed, so a stored document carrying the dropped member fails the schema
  * instead of being tolerated (PLAN-V2-188; the scope estimate of the status metadata and of the outline record and
- * the added dependencies of an outline deliverable and the three pre-merge finding sources, PLAN-V2-189). Each negative control on a member or an enumeration value is matched with a
+ * the added dependencies of an outline deliverable and the three pre-merge finding sources, PLAN-V2-189; the escalation
+ * triggers {@code baseline_conflict} and {@code scope_lane_mismatch} of the old lane entries, PLAN-V2-190). Each
+ * negative control on a member or an enumeration value is matched with a
  * positive one beside it: a sibling member or value of the same enumeration stays, so the assertion cannot pass because
  * the reader lost the file. The deleted schema file has no such sibling; it is checked against the resource tree with a
  * surviving sibling resource as witness.
@@ -98,6 +100,23 @@ class RemovedSchemaMembersTest {
                             "the metadata object should stay closed"),
                     () -> assertTrue(properties(metadata).containsKey("change_type"),
                             "the change type should stay declared"));
+        }
+
+        @Test
+        @DisplayName("the two escalation triggers of the old lane entries are gone and metadata stays closed")
+        void oldLaneEscalationTriggersAreGone() {
+            var metadata = object(properties(status()).get("metadata"));
+            var triggers = strings(object(properties(metadata).get("escalation_trigger")), "enum");
+
+            assertAll("The old lane escalation triggers are gone",
+                    () -> assertFalse(triggers.contains("baseline_conflict"),
+                            "the baseline conflict trigger should be absent"),
+                    () -> assertFalse(triggers.contains("scope_lane_mismatch"),
+                            "the scope-lane mismatch trigger should be absent"),
+                    () -> assertTrue(triggers.contains("budget_cap"),
+                            "the budget cap trigger should stay declared"),
+                    () -> assertEquals(Boolean.FALSE, metadata.get("additionalProperties"),
+                            "the metadata object should stay closed"));
         }
 
         @Test

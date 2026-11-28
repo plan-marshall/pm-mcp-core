@@ -3,7 +3,7 @@
 
 == Status
 
-Accepted.
+Superseded by link:091-a-declared-path-lifts-no-protection.adoc[ADR 091]
 
 == Date
 

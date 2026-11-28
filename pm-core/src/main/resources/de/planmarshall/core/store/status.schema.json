@@ -347,7 +347,7 @@
         "planning_lane": { "type": "string", "enum": ["light", "deep", "land", "adopt"], "description": "land for source local_changes and adopt for source pr are fixed at plan creation and outside the ratchet (phase-workflows.adoc, Planning Lanes)." },
         "track": { "type": ["string", "null"], "enum": ["simple", "complex", null], "description": "Driven by planning_lane (light: simple, deep: complex); null for land and adopt." },
         "lane_escalated": { "type": "boolean", "description": "The one-way light -> deep ratchet fired." },
-        "escalation_trigger": { "type": ["string", "null"], "enum": ["budget_cap", "budget_band", "neighbours_indeterminate", "baseline_conflict", "scope_lane_mismatch", "premise", "cross_module_ripple", "public_symbol_deletion", null] },
+        "escalation_trigger": { "type": ["string", "null"], "enum": ["budget_cap", "budget_band", "neighbours_indeterminate", "premise", "cross_module_ripple", "public_symbol_deletion", null] },
         "phase_2_mode": { "type": "string", "enum": ["full", "collapsed_light"], "description": "collapsed_light while a light plan's Phase 2 is folded into the light envelope." },
         "domains": { "type": "array", "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]{1,31}$" }, "description": "The plan's active domains: written by init.classify (its domain detection), widened only by refine (set union, phase-workflows.adoc, Widen-Only Domain Re-Merge), and narrowed exactly once by outline (phase-workflows.adoc, Single Domain Narrowing Pass)." },
         "confidence": { "type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": "The aggregated refine score, compared against the compiled threshold 95 (phase-workflows.adoc, Phase 2)." },

@@ -41,11 +41,10 @@ class InstanceInputsRecordsTest {
                 Generators.letterStrings(1, 64).next());
         var planFactsDigest = Generators.letterStrings(1, 64).next();
         var realizedFootprintDigest = Generators.letterStrings(1, 64).next();
-        var changeType = Generators.letterStrings(1, 20).next();
         var providersDigest = Generators.letterStrings(1, 64).next();
 
         var constructed = new InstanceInputs(configHash, templates, subUnits, compositionRules, planFactsDigest,
-                realizedFootprintDigest, changeType, providersDigest);
+                realizedFootprintDigest, providersDigest);
         var built = InstanceInputs.builder()
                 .configHash(configHash)
                 .templates(templates)
@@ -53,7 +52,6 @@ class InstanceInputsRecordsTest {
                 .compositionRules(compositionRules)
                 .planFactsDigest(planFactsDigest)
                 .realizedFootprintDigest(realizedFootprintDigest)
-                .changeType(changeType)
                 .providersDigest(providersDigest)
                 .build();
 

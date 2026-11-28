@@ -43,6 +43,7 @@ import de.planmarshall.core.role.RoleClass;
 import de.planmarshall.core.role.RoleForm;
 import de.planmarshall.core.store.WorkerState.ContextTokens;
 import de.planmarshall.runtime.log.RuntimeLogMessages.INFO;
+import de.planmarshall.runtime.log.RuntimeLogMessages.WARN;
 import de.planmarshall.runtime.testing.generators.RuntimeGenerators;
 import de.planmarshall.runtime.worker.WorkerSupervisor.StartOutcome;
 
@@ -295,8 +296,8 @@ class WorkerRecyclingTest {
                 () -> assertEquals(Optional.of(RecycleCause.TOKEN_BUDGET), cause,
                         "the hold's generation is recycled without a notification"),
                 () -> assertTrue(fixture.holdEnds.isEmpty(), "a task without facts ends no hold"),
-                () -> LogAsserts.assertLogMessagePresentContaining(TestLogLevel.WARN,
-                        "cannot be read: the hold ends without the notification"));
+                () -> LogAsserts.assertSingleLogMessagePresentContaining(TestLogLevel.WARN,
+                        WARN.HOLD_ENDED_TASK_UNREADABLE.resolveIdentifierString()));
     }
 
     @Test

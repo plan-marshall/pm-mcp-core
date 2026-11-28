@@ -80,7 +80,7 @@ class HeaderSchemaCheckTest {
                 "composition_rules": {"revision": "r7", "digest": "%4$s"},
                 "plan_facts_digest": "%1$s",
                 "realized_footprint_digest": null,
-                "change_type": "feature"
+                "providers_digest": "%3$s"
               },
               "lane": "deep",
               "posture": "standard",
@@ -155,7 +155,7 @@ class HeaderSchemaCheckTest {
         }
 
         @ParameterizedTest(name = "{0} absent")
-        @ValueSource(strings = {"/posture", "/inputs/realized_footprint_digest", "/inputs/change_type",
+        @ValueSource(strings = {"/posture", "/inputs/realized_footprint_digest",
                 "/inputs/providers_digest", "/inputs/templates/0/file", "/policy_calls/0/args/fix_budget/waiver_id",
                 "/policy_calls/0/args/actions/file"})
         @DisplayName("an optional member may be absent")
@@ -165,7 +165,7 @@ class HeaderSchemaCheckTest {
         }
 
         @ParameterizedTest(name = "{0} null")
-        @ValueSource(strings = {"/lane", "/posture", "/inputs/change_type", "/inputs/providers_digest",
+        @ValueSource(strings = {"/lane", "/posture", "/inputs/realized_footprint_digest", "/inputs/providers_digest",
                 "/inputs/templates/0/file", "/policy_calls/0/args/fix_budget/waiver_id"})
         @DisplayName("a member whose type admits null may be null")
         void nullable(String pointer) {
@@ -254,6 +254,15 @@ class HeaderSchemaCheckTest {
         }
 
         @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {"null", "\"feature\""})
+        @DisplayName("the removed member inputs.change_type is reported as undeclared, whatever its value")
+        void changeTypeUndeclared(String value) {
+            assertEquals(List.of(new HeaderViolation("/inputs/change_type", HeaderSchemaCheck.NOT_ALLOWED)),
+                    HeaderSchemaCheck.check(edited("/inputs/change_type", Optional.of(json(value)))),
+                    "the change type member is no longer declared");
+        }
+
+        @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.workflow.plan.HeaderSchemaCheckTest#wrongValues")
         @DisplayName("a wrong constant, minimum, enumeration value, pattern, type or date-time is reported")
         void wrongValue(String name, String pointer, String value, String reason) {
@@ -302,7 +311,7 @@ class HeaderSchemaCheckTest {
         void headerRecord() {
             var header = new PlanInstanceHeader("Plan_24", 0, CompositionEvent.START,
                     Instant.parse("2026-10-14T08:05:00Z"),
-                    new CompositionInputs("c", List.of(), List.of(), "r1", DIGEST_A, DIGEST_B, null, null, null),
+                    new CompositionInputs("c", List.of(), List.of(), "r1", DIGEST_A, DIGEST_B, null, null),
                     null, null, new PlanInstanceHeader.Steps(List.of(), List.of()), List.of(), List.of(), List.of());
 
             assertEquals(List.of(
@@ -415,8 +424,8 @@ class HeaderSchemaCheckTest {
                         "must match ^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$"),
                 Arguments.of("plan_id type", "/plan_id", "24", HeaderSchemaCheck.NOT_STRING),
                 Arguments.of("event enumeration", "/event", "\"begin\"",
-                        "must be one of [start, outline, plan, config_adopted, waiver, override, fallback,"
-                                + " empty_harvest, replan]"),
+                        "must be one of [start, outline, plan, realized, config_adopted, waiver, override,"
+                                + " fallback, empty_harvest, replan]"),
                 Arguments.of("composed_at date-time", "/composed_at", "\"yesterday\"",
                         HeaderSchemaCheck.NOT_DATE_TIME),
                 Arguments.of("composed_at without seconds", "/composed_at", "\"2026-10-14T08:05Z\"",
@@ -458,7 +467,7 @@ class HeaderSchemaCheckTest {
                 Arguments.of("rules digest pattern", "/inputs/composition_rules/digest", "\"" + "A".repeat(64) + "\"",
                         digestPattern),
                 Arguments.of("plan facts digest pattern", "/inputs/plan_facts_digest", "\"abc\"", digestPattern),
-                Arguments.of("change_type type", "/inputs/change_type", "false",
+                Arguments.of("realized_footprint_digest type", "/inputs/realized_footprint_digest", "false",
                         HeaderSchemaCheck.NOT_STRING_OR_NULL),
                 Arguments.of("phase 5 step type", "/steps/phase_5_verification/0", "7", HeaderSchemaCheck.NOT_STRING),
                 Arguments.of("phase 6 step pattern", "/steps/phase_6/0", "\"finalize:push\"",
@@ -469,6 +478,10 @@ class HeaderSchemaCheckTest {
                 Arguments.of("prune reason recipe_override", "/pruned/0/reason", "\"recipe_override\"",
                         REASONS_REASON),
                 Arguments.of("prune reason auto_merge_off", "/pruned/0/reason", "\"auto_merge_off\"",
+                        REASONS_REASON),
+                Arguments.of("prune reason footprint_disjoint", "/pruned/0/reason", "\"footprint_disjoint\"",
+                        REASONS_REASON),
+                Arguments.of("prune reason change_type_exempt", "/pruned/0/reason", "\"change_type_exempt\"",
                         REASONS_REASON),
                 Arguments.of("policy unit enumeration", "/policy_calls/0/unit", "\"remediation.other\"",
                         POLICY_UNITS_REASON),

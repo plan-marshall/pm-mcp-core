@@ -9,8 +9,11 @@
  */
 package de.planmarshall.workflow.plan;
 
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import de.planmarshall.workflow.ast.WorkflowDefinition;
 import lombok.Builder;
@@ -28,32 +31,45 @@ import org.jspecify.annotations.Nullable;
  * composes the post-run-only form {@code returned} or {@code handed_back}, {@link CompositionEvent#EMPTY_HARVEST} the
  * form {@code empty_harvest}, and every other event no post-run-only form, so its facts leave the fact unset. A request
  * whose event and fact disagree is refused.
+ * <p>
+ * The {@value PlanFacts#REALIZED_FOOTPRINT_FACT} fact is carried by the events {@code config_adopted},
+ * {@code waiver}, {@code override}, {@code fallback} and {@code empty_harvest}: where the
+ * previous version read a realized footprint (its {@code inputs.realized_footprint_digest} is set), a request of such
+ * an event must supply the same footprint, so the prunes that read the plan's change never silently return. A request
+ * whose footprint is missing or has another digest is refused. Which events read the fact at all is the composer's
+ * decision ({@link PlanInstanceComposer}).
  *
- * @param planId                  the id of the plan
- * @param event                   the composition event
- * @param template                the plan template, the unit {@code plan} the instance is composed from
- * @param templates               the plan unit's template reference; the composer adds one reference per composed file
- *                                of the version to the header (a phase sub-workflow or a bound axis variant), each with
- *                                the digest of its composed text
- * @param subUnits                every sub-unit a call of the template may reach, with its reference
- * @param facts                   the facts of the plan, the effective configuration values included
- * @param configHash              the SHA-256 over the effective configuration
- * @param realizedFootprintDigest the SHA-256 over the realized footprint; {@code null} if the composition reads none
- * @param providersDigest         the SHA-256 over the provider configuration; {@code null} if the composition reads
- *                                none
- * @param waivers                 the waivers in force
- * @param position                the unit and state the plan is in and the call stack of its frames
- * @param previous                the version in force; {@code null} only for {@link CompositionEvent#START}
- * @param verificationSteps       the Phase 5 verification step ids of the plan, before pruning
- * @param finalizeSteps           the Phase 6 steps of the plan with their order, before pruning
+ * @param planId            the id of the plan
+ * @param event             the composition event
+ * @param template          the plan template, the unit {@code plan} the instance is composed from
+ * @param templates         the plan unit's template reference; the composer adds one reference per composed file of
+ *                          the version to the header (a phase sub-workflow or a bound axis variant), each with the
+ *                          digest of its composed text
+ * @param subUnits          every sub-unit a call of the template may reach, with its reference
+ * @param facts             the facts of the plan, the effective configuration values and the realized footprint
+ *                          included
+ * @param configHash        the SHA-256 over the effective configuration
+ * @param providersDigest   the SHA-256 over the provider configuration; {@code null} if the composition reads none
+ * @param waivers           the waivers in force
+ * @param position          the unit and state the plan is in and the call stack of its frames
+ * @param previous          the version in force; {@code null} only for {@link CompositionEvent#START}
+ * @param verificationSteps the Phase 5 verification step ids of the plan, before pruning
+ * @param finalizeSteps     the Phase 6 steps of the plan with their order, before pruning
  * @since 0.1
  */
 @Builder
 public record CompositionRequest(String planId, CompositionEvent event, WorkflowDefinition template,
 List<UnitReference> templates, List<SubUnit> subUnits, PlanFacts facts, String configHash,
-@Nullable String realizedFootprintDigest, @Nullable String providersDigest, List<Waiver> waivers,
-InstancePosition position, @Nullable PlanInstance previous, List<String> verificationSteps,
-List<Step> finalizeSteps) {
+@Nullable String providersDigest, List<Waiver> waivers, InstancePosition position, @Nullable PlanInstance previous,
+List<String> verificationSteps, List<Step> finalizeSteps) {
+
+    /**
+     * The events that carry the realized footprint the previous version read: the operator and configuration events
+     * and the post-run-only forms.
+     */
+    static final Set<CompositionEvent> CARRYING_EVENTS = Collections.unmodifiableSet(EnumSet.of(
+            CompositionEvent.CONFIG_ADOPTED, CompositionEvent.WAIVER, CompositionEvent.OVERRIDE,
+            CompositionEvent.FALLBACK, CompositionEvent.EMPTY_HARVEST));
 
     /** The post-run-only form of a fallback that returns the plan. */
     static final String POST_RUN_RETURNED = "returned";
@@ -66,24 +82,24 @@ List<Step> finalizeSteps) {
      * Refuses a missing component and an event that does not fit the previous version, and copies the lists into
      * unmodifiable lists that keep their order.
      *
-     * @param planId                  the id of the plan
-     * @param event                   the composition event
-     * @param template                the plan template
-     * @param templates               the plan unit's template reference; the header additionally names the composed files
-     *                                of the version
-     * @param subUnits                the sub-units
-     * @param facts                   the facts of the plan
-     * @param configHash              the SHA-256 over the effective configuration
-     * @param realizedFootprintDigest the SHA-256 over the realized footprint, {@code null} if none
-     * @param providersDigest         the SHA-256 over the provider configuration, {@code null} if none
-     * @param waivers                 the waivers in force
-     * @param position                the position of the plan
-     * @param previous                the version in force, {@code null} for {@link CompositionEvent#START}
-     * @param verificationSteps       the Phase 5 verification step ids
-     * @param finalizeSteps           the Phase 6 steps
+     * @param planId            the id of the plan
+     * @param event             the composition event
+     * @param template          the plan template
+     * @param templates         the plan unit's template reference; the header additionally names the composed files
+     *                          of the version
+     * @param subUnits          the sub-units
+     * @param facts             the facts of the plan
+     * @param configHash        the SHA-256 over the effective configuration
+     * @param providersDigest   the SHA-256 over the provider configuration, {@code null} if none
+     * @param waivers           the waivers in force
+     * @param position          the position of the plan
+     * @param previous          the version in force, {@code null} for {@link CompositionEvent#START}
+     * @param verificationSteps the Phase 5 verification step ids
+     * @param finalizeSteps     the Phase 6 steps
      * @throws IllegalArgumentException if {@link CompositionEvent#START} has a previous version, another event has
      *                                  none, the previous version belongs to another plan, two sub-units name the same
-     *                                  unit, or the event and the {@code post_run} fact disagree
+     *                                  unit, the event and the {@code post_run} fact disagree, or a carrying event
+     *                                  does not supply the realized footprint the previous version read
      */
     public CompositionRequest {
         Objects.requireNonNull(planId, "planId");
@@ -111,6 +127,33 @@ List<Step> finalizeSteps) {
                     .formatted(previous.header().planId()));
         }
         checkPostRun(event, facts.postRun());
+        checkRealizedFootprint(event, previous, facts);
+    }
+
+    /**
+     * A carrying event after a version that read a realized footprint supplies the same footprint: present, and of the
+     * digest the previous version recorded.
+     */
+    private static void checkRealizedFootprint(CompositionEvent event, @Nullable PlanInstance previous,
+            PlanFacts facts) {
+        if (previous == null || !CARRYING_EVENTS.contains(event)) {
+            return;
+        }
+        var read = previous.header().inputs().realizedFootprintDigest();
+        if (read == null) {
+            return;
+        }
+        var supplied = facts.realizedFootprintDigest();
+        if (supplied.isEmpty()) {
+            throw new IllegalArgumentException("the event '%s' carries the %s the version %d read, but it is unset"
+                    .formatted(event.wireName(), PlanFacts.REALIZED_FOOTPRINT_FACT, previous.version()));
+        }
+        if (!supplied.get().equals(read)) {
+            throw new IllegalArgumentException(
+                    "the event '%s' carries the %s the version %d read (digest %s), but the request supplies digest %s"
+                            .formatted(event.wireName(), PlanFacts.REALIZED_FOOTPRINT_FACT, previous.version(), read,
+                                    supplied.get()));
+        }
     }
 
     /**

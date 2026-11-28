@@ -1,0 +1,86 @@
+= ADR workflow-plan 029: The Composition Reads the Realized Change
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-27
+
+== Context
+
+The rule `no-code-delta` of the shipped rule file read the fact `footprint`, the footprint the plan declared, and
+pruned `default:finalize-step-simplify` and `default:adr-propose` with the reason `footprint_disjoint` from the `plan`
+event on. The rule `report-change-type` pruned `default:finalize-step-simplify` with the reason `change_type_exempt`
+where the plan's `change_type` was `analysis` or `verification`, and the header recorded that change type as the
+input `inputs.change_type` (ADR link:008-rule-family-targets-derived.adoc[008]).
+
+The specification states the target otherwise (Store Schemas § Plan Instance, Composition Events; Workflow DSL §
+Composition Rules): the prunes that read the plan's change, `no_code_delta`, are evaluated against the *realized*
+footprint, the diff against the plan's base, at a server event of their own, `realized`, composed when the last task of
+`execute` has committed, before the end-of-phase verification sweep, and again when a loop-back added tasks; a
+footprint that cannot be read keeps the steps, and a `replan` evaluates no prune that reads the plan's change. The
+prune reasons `footprint_disjoint` and `change_type_exempt` are no longer in the `prune_reason` enumeration, and no rule
+reads `change_type`.
+
+Two points were open: how the rule language learns that the realized footprint is known only from `realized` on, and
+what becomes of `change_type` once no rule reads it.
+
+== Decision
+
+1. *The realized footprint is a fact that is absent before `realized`; the rule grammar does not change.* `PlanFacts`
+carries the fact `realized_footprint`, a list of repository-relative paths, in place of the declared `footprint`; an
+unknown footprint is absent. `CompositionRule.Disjoint` already treats an absent list as indeterminate, never
+disjoint, so the rule `no-code-delta`, which now reads `realized_footprint` and prunes with the reason
+`no_code_delta`, holds only where the fact is present. The composer, never the caller, decides presence by the event:
+* at `realized` the fact is read as supplied; an unreadable footprint is supplied as absent and keeps the steps;
+* `config_adopted`, `waiver`, `override`, `fallback` and `empty_harvest` _carry_ the fact: where the previous version
+read a realized footprint (its `inputs.realized_footprint_digest` is not `null`), the request must supply the same
+footprint, and `CompositionRequest` refuses a request whose footprint is missing or has another digest (an
+`IllegalArgumentException`, beside the existing `post_run` check), so the prunes never silently return; where the
+previous version read none, the fact is masked;
+* `start`, `outline`, `plan` and `replan` mask the fact, whatever the request supplies, so a `replan` evaluates no
+prune that reads the plan's change, and a loop-back to the outline, which re-runs `outline` and `plan`, restores the
+steps until the next `realized`.
++
+The header's `inputs.realized_footprint_digest` is computed by the composer from the fact it read, the SHA-256 over the
+canonical JSON list, `null` where it read none; the request no longer carries a digest of its own, so the digest has
+one source. `plan_facts_digest` covers the realized footprint read, never a declared one.
+2. *`change_type` leaves the facts, the inputs and the header.* `PlanFacts.changeType`, `CompositionInputs.changeType`,
+`InstanceInputs.changeType` and the header member `inputs.change_type` are removed with the rule `report-change-type`
+and the prune reasons `footprint_disjoint` and `change_type_exempt`; the rule file's revision becomes `3`. The fact
+name `change_type` then resolves like any other unknown name, a configuration key that is absent. An instance header
+that still carries `inputs.change_type` is refused like any other member the closed `inputs` object does not allow.
+
+== Alternatives Considered
+
+1. *An event filter on the rule* (a rule that names the events at which it is evaluated).
+_Rejected_: it changes the grammar of the rule file and of `CompositionRule` for a condition the existing semantics of
+an absent fact already express.
+2. *Keep `change_type` as an input that no rule reads.*
+_Rejected_: the header names what the composition read; an input that decides nothing is noise in every digest and
+every version. The compatibility is `breaking` and the design `lean`, so no read shim for headers that carry it.
+3. *Let the caller decide whether the footprint is present.*
+_Rejected_: a caller that supplies a footprint at `plan` or `replan` would re-introduce the prunes the specification
+reserves to `realized`, and a caller that omits it at a `waiver` would silently restore pruned steps.
+
+== Consequences
+
+* The assembly in `plan-marshall-mcp`, which builds `PlanFacts` and implements the port `InstanceComposition`, follows
+  after the `SNAPSHOT` deploy: it maps `execute.verify-sweep` to the event `realized`, supplies the realized footprint
+  at `realized` and at the carrying events, and builds `PlanFacts` without a change type.
+* A carrying event after a `realized` version needs the realized footprint again; a request without it is refused, never
+  composed with the steps restored.
+* The prune reason `no_code_delta` is now set by the composition at `realized`; `no_production_delta` stays with
+  `finalize-prune-and-land-files`.
+* ADR link:008-rule-family-targets-derived.adoc[008] is superseded: its families `no-code-delta` (over the declared
+  footprint) and `report-change-type` no longer hold.
+
+== Source
+
+* link:../../../../doc/specification/store-schemas/14-plan-instance-waivers-questions.adoc#plan-instance[Store Schemas § Plan Instance], Composition Events
+* link:../../../../doc/specification/workflow-dsl/09-plan-instance.adoc#composition-rules[Workflow DSL § Composition Rules]
+* The plan `PLAN-V2-190` (`plan-v2-190-lane-entries-realized-composition`), deliverable 2, the two design points its
+  outline settled

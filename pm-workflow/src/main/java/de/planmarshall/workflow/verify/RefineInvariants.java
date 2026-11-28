@@ -28,10 +28,10 @@ import org.jspecify.annotations.Nullable;
  * The invariant of the refine phase of the plan unit, {@code INV-REFINE-1} (PM-IMPL-5).
  * <p>
  * A deep path is a path through the states of phase {@code refine}. Every such path, from a transition that enters
- * the phase to a transition that leaves it for a state that is not a fallback, passes {@code refine.baseline-reconcile}
- * and {@code refine.analyze}, except where the default unit itself leaves the phase without passing them (a re-entry
- * at {@code refine.analyze} after a remediation); a transition that leaves the phase without passing one of them and
- * that the default unit does not have is a violation. {@code refine.qgate}, the Q-Gate of a lesson-derived deep plan,
+ * the phase to a transition that leaves it for a state that is not a fallback, passes the deep entry
+ * {@link LaneEntryIds#DEEP_ENTRY} ({@code refine.analyze}), except where the default unit itself leaves the phase
+ * without passing it; a transition that leaves the phase without passing it and that the default unit does not have is
+ * a violation. {@code refine.qgate}, the Q-Gate of a lesson-derived deep plan,
  * is a state of the unit with every transition of the default unit into it, and its {@code blocking} verdict calls
  * {@code remediation.qgate-findings}. The confidence aggregation and the single re-run ceiling are compiled into the
  * primitive of {@code refine.analyze}, which Rule 1 binds.
@@ -40,9 +40,6 @@ import org.jspecify.annotations.Nullable;
  */
 @UtilityClass
 final class RefineInvariants {
-
-    /** The analysis of the refine phase. */
-    static final String ANALYZE = "refine.analyze";
 
     /** The Q-Gate of a lesson-derived deep plan. */
     static final String QGATE = "refine.qgate";
@@ -60,17 +57,16 @@ final class RefineInvariants {
 
     private static void deepPath(Context context) {
         var id = InvariantId.INV_REFINE_1;
-        for (var required : List.of(LaneEntryIds.DEEP_ENTRY, ANALYZE)) {
-            context.requirePresent(id, required);
-            var known = new LinkedHashSet<String>();
-            exitsAvoiding(context, true, required).forEach(edge -> known.add(edge.key()));
-            for (var edge : exitsAvoiding(context, false, required)) {
-                if (!known.contains(edge.key())) {
-                    context.reportTransition(id, edge.source(), edge.transition(),
-                            "the transition '%s' -> '%s' leaves the refine phase on a path that does not pass '%s'"
-                                    .formatted(edge.transition().outcomeName(), edge.transition().targetStateId(),
-                                            required));
-                }
+        var required = LaneEntryIds.DEEP_ENTRY;
+        context.requirePresent(id, required);
+        var known = new LinkedHashSet<String>();
+        exitsAvoiding(context, true, required).forEach(edge -> known.add(edge.key()));
+        for (var edge : exitsAvoiding(context, false, required)) {
+            if (!known.contains(edge.key())) {
+                context.reportTransition(id, edge.source(), edge.transition(),
+                        "the transition '%s' -> '%s' leaves the refine phase on a path that does not pass '%s'"
+                                .formatted(edge.transition().outcomeName(), edge.transition().targetStateId(),
+                                        required));
             }
         }
         if (context.requirePresent(id, QGATE)) {

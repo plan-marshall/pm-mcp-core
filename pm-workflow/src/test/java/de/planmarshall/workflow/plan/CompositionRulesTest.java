@@ -47,7 +47,7 @@ class CompositionRulesTest {
 
     private static final List<String> SHIPPED_RULE_IDS = List.of("land-lane", "adopt-lane", "local-only",
             "merge-by-operator", "posture-minimal", "posture-standard", "posture-default-off", "analysis-provider-unconfigured",
-            "no-code-delta", "report-change-type", "post-run-returned", "post-run-handed-back",
+            "no-code-delta", "post-run-returned", "post-run-handed-back",
             "post-run-empty-harvest");
 
     /**
@@ -88,7 +88,7 @@ class CompositionRulesTest {
             }
 
             assertAll(
-                    () -> assertEquals("2", rules.revision(), "the shipped file declares revision two"),
+                    () -> assertEquals("3", rules.revision(), "the shipped file declares revision three"),
                     () -> assertTrue(rules.digest().matches("[0-9a-f]{64}"),
                             "the digest is 64 lower-case hex digits"),
                     () -> assertEquals(PlanFacts.sha256(bytes), rules.digest(),
@@ -131,8 +131,9 @@ class CompositionRulesTest {
         }
 
         /**
-         * The three families the specification names without content each have exactly one shipped rule, over the
-         * fact and with the condition and targets the specification states for it.
+         * The two families the specification names without content, the unconfigured provider and the change that
+         * touches no code, each have exactly one shipped rule, over the fact and with the condition and targets the
+         * specification states for it.
          */
         @ParameterizedTest(name = "{0}")
         @MethodSource("de.planmarshall.workflow.plan.CompositionRulesTest#families")
@@ -173,11 +174,26 @@ class CompositionRulesTest {
         }
 
         @Test
-        @DisplayName("has no rule on merge.auto_merge or recipe_id")
+        @DisplayName("has no rule on merge.auto_merge, recipe_id, the declared footprint or the change type")
         void noRemovedFacts() {
+            var removed = Set.of("merge.auto_merge", "recipe_id", "footprint", "change_type");
+
             assertTrue(loaded(CompositionRules.shipped()).rules().stream().map(rule -> rule.when().fact())
-                            .noneMatch(fact -> "merge.auto_merge".equals(fact) || "recipe_id".equals(fact)),
-                    "no rule names a removed fact");
+                    .noneMatch(removed::contains), "no rule names a removed fact");
+        }
+
+        @Test
+        @DisplayName("has no rule report-change-type, and no-code-delta reads the realized footprint")
+        void noCodeDeltaReadsRealizedFootprint() {
+            var rules = loaded(CompositionRules.shipped()).rules();
+            var noCodeDelta = rules.stream().filter(rule -> "no-code-delta".equals(rule.id())).toList();
+
+            assertAll(
+                    () -> assertTrue(rules.stream().noneMatch(rule -> "report-change-type".equals(rule.id())),
+                            "the rule report-change-type is gone"),
+                    () -> assertEquals(1, noCodeDelta.size(), "exactly one rule is no-code-delta"),
+                    () -> assertEquals(PlanFacts.REALIZED_FOOTPRINT_FACT, noCodeDelta.getFirst().when().fact(),
+                            "no-code-delta reads the realized footprint"));
         }
 
         @Test
@@ -199,16 +215,13 @@ class CompositionRulesTest {
         return Stream.of(
                 Arguments.of(PruneReason.PROVIDER_UNCONFIGURED, new CompositionRule.Unset("integrations.sonar"),
                         List.of("default:analysis-roundtrip")),
-                Arguments.of(PruneReason.FOOTPRINT_DISJOINT, new CompositionRule.Disjoint("footprint", List.of(
+                Arguments.of(PruneReason.NO_CODE_DELTA, new CompositionRule.Disjoint("realized_footprint", List.of(
                                 "**.java", "**.kt", "**.kts", "**.groovy", "**.gradle", "**.scala",
                                 "**.js", "**.mjs", "**.cjs", "**.jsx", "**.ts", "**.tsx", "**.py", "**.sh",
                                 "pom.xml", "**/pom.xml", "package.json", "**/package.json", "pyproject.toml",
                                 "**/pyproject.toml", "Dockerfile", "**/Dockerfile", "Containerfile",
                                 "**/Containerfile")),
-                        List.of("default:finalize-step-simplify", "default:adr-propose")),
-                Arguments.of(PruneReason.CHANGE_TYPE_EXEMPT,
-                        new CompositionRule.In("change_type", List.of("analysis", "verification")),
-                        List.of("default:finalize-step-simplify")));
+                        List.of("default:finalize-step-simplify", "default:adr-propose")));
     }
 
     @Nested
@@ -227,7 +240,7 @@ class CompositionRulesTest {
                     {"id": "b", "when": {"fact": "posture", "in": ["minimal", "full"]}, "then": {}},
                     {"id": "c", "when": {"fact": "derived.push_remote", "empty": true}, "then": {"prune": []}},
                     {"id": "d", "when": {"fact": "integrations.sonar", "unset": true}, "then": {"bind": []}},
-                    {"id": "e", "when": {"fact": "footprint", "disjoint": ["**/*.java"]}, "then": {}}
+                    {"id": "e", "when": {"fact": "realized_footprint", "disjoint": ["**/*.java"]}, "then": {}}
                     """)).rules();
 
             assertEquals(List.of(
@@ -242,7 +255,7 @@ class CompositionRulesTest {
                             List.of(), List.of()),
                     new CompositionRule("c", new CompositionRule.Empty("derived.push_remote"), List.of(), List.of()),
                     new CompositionRule("d", new CompositionRule.Unset("integrations.sonar"), List.of(), List.of()),
-                    new CompositionRule("e", new CompositionRule.Disjoint("footprint", List.of("**/*.java")),
+                    new CompositionRule("e", new CompositionRule.Disjoint("realized_footprint", List.of("**/*.java")),
                             List.of(), List.of())), rules, "every condition and literal kind reads back");
         }
 
@@ -394,6 +407,18 @@ class CompositionRulesTest {
                 refusal("the removed plan fact recipe_id", file2("""
                         {"id": "r", "when": {"fact": "recipe_id", "equals": "simplify-codebase"}, "then": {}}"""),
                         Refusal.MALFORMED, "recipe_id"),
+                refusal("the removed plan fact footprint, the declared footprint", file2("""
+                        {"id": "r", "when": {"fact": "footprint", "disjoint": ["**.java"]}, "then": {}}"""),
+                        Refusal.MALFORMED, "footprint"),
+                refusal("the removed plan fact change_type", file2("""
+                        {"id": "r", "when": {"fact": "change_type", "in": ["analysis"]}, "then": {}}"""),
+                        Refusal.MALFORMED, "change_type"),
+                refusal("the removed prune reason footprint_disjoint", rule("""
+                        "then": {"prune": [{"element": "step", "id": "x", "reason": "footprint_disjoint"}]}"""),
+                        Refusal.MALFORMED, "prune entry"),
+                refusal("the removed prune reason change_type_exempt", rule("""
+                        "then": {"prune": [{"element": "step", "id": "x", "reason": "change_type_exempt"}]}"""),
+                        Refusal.MALFORMED, "prune entry"),
                 refusal("an unregistered declaration of an axis", file2("""
                         {"id": "r", "when": {"fact": "axes.asking.colour", "equals": "red"}, "then": {}}"""),
                         Refusal.MALFORMED, "axes.asking.colour"),

@@ -1,0 +1,77 @@
+= ADR 026: The Attempt End Is Appended Once Across a Retried Completion
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-27
+
+== Context
+
+`SupervisionPass.completeEnd` claims a generation's end, appends the attempt's end through `finishAttempt` and the
+generation's `WorkerActivityPump.finish`, and records the claim as finished only after that call returned. A completion
+that throws keeps the claim and the pump, and the next pass retries it (ADR 018, ADR 022).
+
+`WorkerActivityPump.finish` appended the end through `ActivityRecorder.append`, which commits the entry to the journal
+and then reports every off-track signal the entry raised through `WorkerProtocol.offTrack`. When that report threw, the
+end was in the journal while the call failed: the pass reported the generation's failure, the claim stayed unfinished,
+the pump stayed in the pass's map, and the retry called `finish` again, which appended a second `attempt_end`.
+`SupervisionPassTest.aCompletionThatThrowsAfterTheAppendAppendsTheEndOnce` reproduced this before the fix (two ends where
+the journal must hold one). `ActivityRecorder.forget` and `ServedModelWatch` are in-memory steps that do not throw, so the
+signal report is the one step after the commit that can.
+
+== Decision
+
+The append is made idempotent per attempt, and the order is not changed:
+
+* `ActivityRecorder.append` takes a consumer that receives the entry as the journal wrote it, after the commit and
+  before any signal is reported. The two-argument form keeps its behaviour and hands the entry to no one.
+* `WorkerActivityPump.finish` keeps the end it receives that way until the finish completes. A finish of the same task
+  that finds a kept end appends nothing, completes the rest of the finish and answers the kept entry. A finish that
+  threw before the commit kept nothing, so its retry appends the end.
+* `WorkerActivityPump.close` answers the same kept end when the task closed before the finish was retried
+  (`SupervisionCalls.taskClosed` cleared the lease, so the retry reaches `closeAttempt` instead of `finishAttempt`). It
+  still reads the tail, so the log offset leaves no line for the next task, but it appends no `attempt_end` (`closed`)
+  of its own, and it clears the kept end with the rest of the close.
+
+`SupervisionPass.finishAttempt` is unchanged: it reaches the same pump on the retry, because the pump leaves the pass's
+map only after the finish completed. No generic exception is caught anywhere on the path.
+
+== Alternatives Considered
+
+1. *Order fix: write the end through `appendClosed`, which evaluates no signal, so nothing can throw after the commit.*
+   Not taken: the end is an entry of an open attempt, and the off-track evaluation at every entry is the recorder's
+   contract (ADR 010); `outside_footprint` reads the task's facts at the entry and can hold first at the end. The order
+   fix would remove that evaluation instead of making the completion safe to retry.
+2. *Mark the end as written before the append.* Not taken: a journal failure before the commit would then leave the
+   attempt without an end, because the retry would skip the append.
+3. *Catch the report's failure in the pump or the pass.* Not taken: the failure classes of the report and of the
+   journal are the same, so a catch could not tell an end in the journal from one that is not, and a generic catch is
+   excluded.
+4. *Read the journal for an existing end before the append.* Not taken: the pump holds no journal, and the recorder's
+   append would need a conditional write the journal does not offer.
+
+== Consequences
+
+* An attempt carries one `attempt_end` however often its completion is retried, whether the completion failed before or
+  after the end was committed, and whether the retry finishes the attempt or closes it because its task closed first.
+  `WorkerActivityPumpTest.aCloseAfterAFailedFinishAppendsTheEndOnce` reproduced the close path's second end before the
+  fix.
+* A tail line the close reads after a kept end follows that end in the journal: the line is the attempt's, and leaving
+  it unread would attribute it to the next task.
+* The off-track report that failed after the commit is not repeated by the retry: the retry appends no entry, so no
+  signal is evaluated again. The signal is lost to the protocol for that attempt, which ends anyway.
+* A retry answers the end as the first finish wrote it, with the unmatched-line count of that moment.
+
+== Source
+
+* Pull request of PLAN-V2-199
+* link:010-the-activity-recorder-evaluates-signals-at-the-entry.adoc[ADR 010],
+  link:018-the-end-effects-run-once-and-one-generation-does-not-abort-the-pass.adoc[ADR 018],
+  link:022-the-end-is-recorded-onto-the-registered-generation.adoc[ADR 022]
+* `pm-runtime/src/main/java/de/planmarshall/runtime/worker/WorkerActivityPump.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/ActivityRecorder.java`,
+  `pm-runtime/src/main/java/de/planmarshall/runtime/worker/SupervisionPass.java`

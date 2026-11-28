@@ -1,0 +1,50 @@
+= ADR 091: A Declared Path Lifts No Protection
+:nofooter:
+
+== Status
+
+Accepted
+
+== Date
+
+2026-11-27
+
+== Context
+
+ADR 071 made `ProtectedPaths` a pure class of `core.store` and let a path the plan's `declared_files` names lift its
+own protection: `of(paths, declaredFiles)` and `isProtected(path, declaredFiles)` left a declared path unreported. The
+specification states the opposite. A commit whose realized change touches a protected path waits for one operator
+decision on the diff of exactly those paths, and a path the outline declares lifts no protection: what the commit
+changes is decided when it is made
+(link:../../../../doc/specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths[Phase Workflows
+Specification, Protected Paths]). `declared_files` never admits a protected path
+(link:../../../../doc/specification/store-schemas/13-leases-integrity-testing.adoc[Store Schemas Specification, Leases,
+Integrity and Testing]). The matcher has no production caller yet; `ProtectedPathsTest` is its only user.
+
+== Decision
+
+The matcher takes no declaration. `ProtectedPaths.of(List<String>)` returns the protected paths in the order given and
+`ProtectedPaths.isProtected(String)` answers for one path; the declared-files parameter, the declaration key and the
+declared set are removed. The family (`.husky/**`, `.githooks/**`, `lefthook.yml`, `.lefthook.yml`,
+`lefthook-local.yml`, `.pre-commit-config.yaml`), its matching at the repository root, and the matching ignoring case and
+after Unicode NFC normalization are unchanged. The description of `unplanned_changes` in `references.schema.json` no
+longer lists protected paths among the boundary breaches that are refused and never recorded: a change of a protected
+path waits for the operator's decision whether or not the plan declared it. The change is clean-slate, without a shim.
+
+== Alternatives Considered
+
+Keeping the lift of a declared path was rejected: it contradicts the specification's protected paths, under which an
+outline's declaration lifts no protection, and it would let a plan that names a hook definition among its affected files
+change it without the operator seeing the diff.
+
+== Consequences
+
+The boundary check that will call the matcher (`FootprintBoundary` of `git.stage-and-commit`, `PLAN-V2-20`) passes the
+changed paths alone and asks the operator for every protected one, declared or not. ADR 071 is superseded in its lift
+of a declared path; its placement of the matcher in `pm-core` and its matching rules stand.
+
+== Source
+
+The plan `PLAN-V2-190` (`plan-v2-190-lane-entries-realized-composition`), deliverable 3;
+`doc/specification/phase-workflows/03-q-gate-and-execute.adoc#protected-paths`;
+`doc/specification/store-schemas/13-leases-integrity-testing.adoc`.

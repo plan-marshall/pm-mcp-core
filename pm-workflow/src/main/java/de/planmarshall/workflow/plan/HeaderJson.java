@@ -73,7 +73,6 @@ final class HeaderJson {
     static final String COMPOSITION_RULES = "composition_rules";
     static final String PLAN_FACTS_DIGEST = "plan_facts_digest";
     static final String REALIZED_FOOTPRINT_DIGEST = "realized_footprint_digest";
-    static final String CHANGE_TYPE = "change_type";
     static final String PROVIDERS_DIGEST = "providers_digest";
     static final String REVISION = "revision";
 
@@ -406,7 +405,6 @@ final class HeaderJson {
                 inputs.compositionRulesRevision()), DIGEST, new StringNode(inputs.compositionRulesDigest()))));
         members.put(PLAN_FACTS_DIGEST, new StringNode(inputs.planFactsDigest()));
         members.put(REALIZED_FOOTPRINT_DIGEST, optional(inputs.realizedFootprintDigest()));
-        members.put(CHANGE_TYPE, optional(inputs.changeType()));
         members.put(PROVIDERS_DIGEST, optional(inputs.providersDigest()));
         return new ObjectNode(members);
     }
@@ -524,7 +522,6 @@ final class HeaderJson {
                 unitRefs(members.get(SUB_UNITS)), text(rules.get(REVISION)), text(rules.get(DIGEST)),
                 text(members.get(PLAN_FACTS_DIGEST)),
                 members.get(REALIZED_FOOTPRINT_DIGEST) instanceof StringNode(var footprint) ? footprint : null,
-                members.get(CHANGE_TYPE) instanceof StringNode(var changeType) ? changeType : null,
                 members.get(PROVIDERS_DIGEST) instanceof StringNode(var providers) ? providers : null);
     }
 

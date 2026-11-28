@@ -27,8 +27,9 @@ import org.jspecify.annotations.Nullable;
  * @param compositionRulesRevision the revision of the composition rule file
  * @param compositionRulesDigest   the SHA-256 of the composition rule file
  * @param planFactsDigest          the SHA-256 over the plan facts read
- * @param realizedFootprintDigest  the SHA-256 over the realized footprint; {@code null} if the composition read none
- * @param changeType               the change type of the plan; {@code null} if unknown
+ * @param realizedFootprintDigest  the SHA-256 over the canonical JSON list of the realized footprint the composition
+ *                                 read, computed by the composer from that fact
+ *                                 ({@link PlanFacts#realizedFootprintDigest()}); {@code null} if it read none
  * @param providersDigest          the SHA-256 over the provider configuration; {@code null} if the composition read
  *                                 none
  * @since 0.1
@@ -36,7 +37,7 @@ import org.jspecify.annotations.Nullable;
 @Builder
 public record CompositionInputs(String configHash, List<UnitReference> templates, List<UnitReference> subUnits,
 String compositionRulesRevision, String compositionRulesDigest, String planFactsDigest,
-@Nullable String realizedFootprintDigest, @Nullable String changeType, @Nullable String providersDigest) {
+@Nullable String realizedFootprintDigest, @Nullable String providersDigest) {
 
     /**
      * Refuses a missing required component and copies the unit lists into unmodifiable lists that keep their order.
@@ -47,8 +48,7 @@ String compositionRulesRevision, String compositionRulesDigest, String planFacts
      * @param compositionRulesRevision the revision of the composition rule file
      * @param compositionRulesDigest   the SHA-256 of the composition rule file
      * @param planFactsDigest          the SHA-256 over the plan facts read
-     * @param realizedFootprintDigest  the SHA-256 over the realized footprint, {@code null} if none
-     * @param changeType               the change type of the plan, {@code null} if unknown
+     * @param realizedFootprintDigest  the SHA-256 over the realized footprint read, {@code null} if none
      * @param providersDigest          the SHA-256 over the provider configuration, {@code null} if none
      */
     public CompositionInputs {
