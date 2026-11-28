@@ -204,7 +204,7 @@ The status of a package is `open`, `blocked`, `done` or `dropped`; a `dropped` r
 |link:stall-clocks-and-overdue-waits.adoc[`stall-clocks-and-overdue-waits`]
 |The run-time side of the liveness guarantee: the hold record's `awaited`, position and correlation ids, the stall clocks on awake time with the clock gap, the hold `overdue` with its `plan_overdue` record, and the runtime's self-watch with its heartbeats and thread dump
 |`open`
-|nothing
+|nothing for tasks 1, 2 and 4; task 3 (the hold `overdue`) starts after the open decision which store records a CI wait's expected duration and last observed change, and the `Retry-After` deferral, since no store member defines them
 |Milestone 2; Milestone 6 (the CI wait the hold watches)
 
 |link:awaiting-bounds.adoc[`awaiting-bounds`]
